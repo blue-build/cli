@@ -1,0 +1,49 @@
+FROM {{ base_image }}:{{ fedora_version }}
+
+ARG RECIPE={{ recipe }}
+
+COPY usr/ /usr
+
+{% for usr_dir in usr_dir_overlays %}
+COPY {{ usr_dir }}/ /usr
+{% endfor %}
+
+COPY ${RECIPE} /usr/share/ublue-os/recipe.yml
+
+COPY --from=ghcr.io/ublue-os/bling:latest /rpms/ublue-os-wallpapers-0.1-1.fc38.noarch.rpm /tmp/ublue-os-wallpapers-0.1-1.fc38.noarch.rpm
+
+COPY --from=ghcr.io/ublue-os/bling:latest /files/usr/share/ublue-os/just /usr/share/ublue-os/just
+
+COPY --from=ghcr.io/ublue-os/bling:latest /files/usr/bin/ublue-nix* /usr/bin
+
+COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
+
+COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
+
+COPY scripts /tmp/scripts
+
+{% for containerfile in containerfiles.pre %}
+{{ print_containerfile(containerfile) }}
+{% endfor %}
+
+{% for script in scripts.pre %}
+RUN chmod +x /tmp/scripts/{{ script }} && /tmp/scripts/{{ script }}
+{% endfor %}
+
+{% for repo in rpm.repo %}
+RUN wget "${{{ repo }}//%FEDORA_VERSION%/{{ fedora_verison }}}" -P "/etc/yum.repos.d/"
+{% endfor %}
+
+RUN rpm-ostree uninstall {% for app in rpm.remove %}{{ app }}{% endfor %}
+
+RUN rpm-ostree install {% for app in rpm.install %}{{ app }}{% endfor %}
+
+{% for script in scripts.post %}
+RUN chmod +x /tmp/scripts/{{ script }} && /tmp/scripts/{{ script }}
+{% endfor %}
+
+{% for containerfile in containerfiles.post %}
+{{ print_containerfile(containerfile) }}
+{% endfor %}
+
+RUN rm -rf /tmp/* /var/* && ostree container commit
