@@ -18,9 +18,9 @@ pub struct Recipe {
     pub rpm: Rpm,
 
     #[serde(rename = "usr-dir-overlays")]
-    pub usr_dir_overlays: Vec<String>,
+    pub usr_dir_overlays: Option<Vec<String>>,
 
-    pub containerfiles: Containerfiles,
+    pub containerfiles: Option<Containerfiles>,
 
     pub firstboot: FirstBoot,
 }

@@ -2,7 +2,8 @@ use std::{fs, io, path::PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use ublue_rs::Recipe;
+use tera::{Context, Tera};
+use ublue_rs::{Recipe, DEFAULT_CONTAINERFILE};
 
 #[derive(Parser, Debug)]
 #[command(name = "Ublue Builder", author, version, about, long_about = None)]
@@ -40,7 +41,11 @@ fn main() -> Result<()> {
             containerfile,
         } => {
             let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(recipe)?.as_str())?;
-            println!("{:#?}", recipe);
+            println!("{:#?}", &recipe);
+            let context = Context::from_serialize(recipe)?;
+            dbg!(&context);
+            let output = Tera::one_off(DEFAULT_CONTAINERFILE, &context, true)?;
+            println!("{output}");
         }
         CommandArgs::Build { containerfile } => {
             println!("Not yet implemented!");
