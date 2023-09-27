@@ -31,19 +31,19 @@ COPY scripts /tmp/scripts
 {% endif %}
 
 {% for script in scripts.pre %}
-RUN chmod +x /tmp/scripts/{{ script }} && /tmp/scripts/{{ script }}
+RUN chmod +x /tmp/scripts/{{ script }} && /tmp/scripts/{{ script }} pre
 {% endfor %}
 
-{% for repo in rpm.repo %}
-RUN wget {% raw %}"${{% endraw %}{{ repo }}//%FEDORA_VERSION%/{{ fedora_verison }}{% raw %}}"{% endraw %} -P "/etc/yum.repos.d/"
+{% for repo in rpm.repos %}
+RUN wget "{{ repo }}" -P "/etc/yum.repos.d/"
 {% endfor %}
 
-RUN rpm-ostree uninstall {% for app in rpm.remove %}{{ app }}{% endfor %}
+RUN rpm-ostree uninstall {% for app in rpm.remove %}{{ app }} {% endfor %}
 
-RUN rpm-ostree install {% for app in rpm.install %}{{ app }}{% endfor %}
+RUN rpm-ostree install {% for app in rpm.install %}{{ app }} {% endfor %}
 
 {% for script in scripts.post %}
-RUN chmod +x /tmp/scripts/{{ script }} && /tmp/scripts/{{ script }}
+RUN chmod +x /tmp/scripts/{{ script }} && /tmp/scripts/{{ script }} post
 {% endfor %}
 
 {% if continerfiles %}

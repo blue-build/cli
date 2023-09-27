@@ -7,17 +7,17 @@ pub const DEFAULT_CONTAINERFILE: &'static str =
 pub struct Recipe {
     pub name: String,
 
-    #[serde(rename = "base-image")]
+    #[serde(alias = "base-image")]
     pub base_image: String,
 
-    #[serde(rename = "fedora-version")]
+    #[serde(alias = "fedora-version")]
     pub fedora_version: u16,
 
     pub scripts: Scripts,
 
     pub rpm: Rpm,
 
-    #[serde(rename = "usr-dir-overlays")]
+    #[serde(alias = "usr-dir-overlays")]
     pub usr_dir_overlays: Option<Vec<String>>,
 
     pub containerfiles: Option<Containerfiles>,
