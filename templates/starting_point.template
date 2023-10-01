@@ -25,12 +25,12 @@ COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
 COPY scripts /tmp/scripts
 RUN find /tmp/scripts -type f -exec chmod +x {} \;
 
-{# TODO: Create helper function
-{% if continerfiles %}
+{% if containerfiles and containerfiles.pre %}
+# Pre: Containerfiles
 	{% for containerfile in containerfiles.pre %}
 {{ print_containerfile(containerfile = containerfile) }}
 	{% endfor %}
-{% endif %} #}
+{% endif %}
 
 {% for script in scripts.pre %}
 RUN /bin/bash -c '/tmp/scripts/{{ script }} pre'
@@ -70,11 +70,10 @@ RUN rpm-ostree install {% for app in rpm.install %}{{ app }} {% endfor %}
 RUN /bin/bash -c '/tmp/scripts/{{ script }} post'
 {% endfor -%}
 
-{# TODO: Create helper function
-{% if continerfiles %}
+{% if containerfiles and containerfiles.post %}
 	{% for containerfile in containerfiles.post %}
 {{ print_containerfile(containerfile = containerfile) }}
 	{% endfor %}
-{% endif %} #}
+{% endif %}
 
 RUN rm -rf /tmp/* /var/* && ostree container commit

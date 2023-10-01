@@ -55,6 +55,6 @@ pub struct FirstBoot {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Containerfiles {
-    pub pre: Vec<String>,
-    pub post: Vec<String>,
+    pub pre: Option<Vec<String>>,
+    pub post: Option<Vec<String>>,
 }
