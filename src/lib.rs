@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    fs::{self, read_to_string},
+    fs::{self, read_dir, read_to_string},
     path::PathBuf,
 };
 
@@ -57,6 +57,38 @@ fn print_containerfile() -> impl Function {
     )
 }
 
+fn print_autorun_scripts() -> impl Function {
+    Box::new(
+        |args: &HashMap<String, tera::Value>| -> tera::Result<tera::Value> {
+            match args.get("mode") {
+                Some(v) => match from_value::<String>(v.clone()) {
+                    Ok(mode) if mode == "pre" || mode == "post" => {
+                        Ok(read_dir(format!("scripts/{mode}"))?
+                            .fold(String::from(""), |mut acc: String, script| match script {
+                                Ok(entry) => {
+                                    let file_name = entry.file_name();
+                                    if let Some(file_name) = file_name.to_str() {
+                                        if file_name.ends_with(".sh") {
+                                            acc += format!(
+                                                "RUN /tmp/scripts/{mode}/{file_name} {mode}\n"
+                                            )
+                                            .as_str();
+                                        }
+                                    }
+                                    acc
+                                }
+                                Err(_) => acc,
+                            })
+                            .into())
+                    }
+                    _ => Err("Mode must be pre/post".into()),
+                },
+                None => Err("Need arg 'mode' set with 'pre' or 'post'".into()),
+            }
+        },
+    )
+}
+
 pub fn setup_tera(recipe: String) -> Result<(Tera, Context)> {
     let recipe_de =
         serde_yaml::from_str::<Recipe>(fs::read_to_string(PathBuf::from(&recipe))?.as_str())?
@@ -68,6 +100,7 @@ pub fn setup_tera(recipe: String) -> Result<(Tera, Context)> {
     let mut tera = Tera::default();
     tera.add_raw_template("Containerfile", DEFAULT_CONTAINERFILE)?;
     tera.register_function("print_containerfile", print_containerfile());
+    tera.register_function("print_autorun_scripts", print_autorun_scripts());
 
     Ok((tera, context))
 }

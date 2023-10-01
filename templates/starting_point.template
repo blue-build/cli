@@ -32,6 +32,8 @@ RUN find /tmp/scripts -type f -exec chmod +x {} \;
 	{% endfor %}
 {% endif %}
 
+{{ print_autorun_scripts(mode = "pre") }}
+
 {% for script in scripts.pre %}
 RUN /bin/bash -c '/tmp/scripts/{{ script }} pre'
 {% endfor %}
@@ -65,6 +67,8 @@ RUN echo "-- firstboot: Removing all \"firstboot\" components --"; \
 {% endif %}
 
 RUN rpm-ostree install {% for app in rpm.install %}{{ app }} {% endfor %}
+
+{{ print_autorun_scripts(mode = "post") }}
 
 {% for script in scripts.post -%}
 RUN /bin/bash -c '/tmp/scripts/{{ script }} post'
