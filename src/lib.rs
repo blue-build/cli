@@ -1,51 +1,52 @@
-use serde::{Deserialize, Serialize};
+use std::{fs, path::PathBuf};
+
+use anyhow::Result;
+use clap::{Parser, Subcommand};
+use recipe::Recipe;
+use tera::{Context, Tera};
 
 pub const DEFAULT_CONTAINERFILE: &'static str =
     include_str!("../templates/starting_point.template");
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Recipe {
-    pub name: String,
+pub mod recipe;
 
-    #[serde(alias = "base-image")]
-    pub base_image: String,
-
-    #[serde(alias = "fedora-version")]
-    pub fedora_version: u16,
-
-    pub scripts: Scripts,
-
-    pub rpm: Rpm,
-
-    #[serde(alias = "usr-dir-overlays")]
-    pub usr_dir_overlays: Option<Vec<String>>,
-
-    pub containerfiles: Option<Containerfiles>,
-
-    pub firstboot: FirstBoot,
+#[derive(Parser, Debug)]
+#[command(name = "Ublue Builder", author, version, about, long_about = None)]
+pub struct UblueArgs {
+    #[command(subcommand)]
+    pub command: CommandArgs,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Scripts {
-    pub pre: Vec<String>,
-    pub post: Vec<String>,
+#[derive(Debug, Subcommand)]
+pub enum CommandArgs {
+    /// Generate a Containerfile from a recipe
+    Template {
+        /// The recipe file to create a template from
+        #[arg()]
+        recipe: String,
+
+        /// Optional Containerfile to use as a template
+        #[arg(short, long)]
+        containerfile: Option<String>,
+    },
+
+    /// Build an image from a Containerfile
+    Build {
+        #[arg()]
+        containerfile: String,
+    },
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Rpm {
-    pub repos: Vec<String>,
-    pub install: Vec<String>,
-    pub remove: Vec<String>,
-}
+pub fn setup_tera(recipe: String) -> Result<(Tera, Context)> {
+    let recipe_de =
+        serde_yaml::from_str::<Recipe>(fs::read_to_string(PathBuf::from(&recipe))?.as_str())?
+            .process_repos();
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FirstBoot {
-    pub yafti: bool,
-    pub flatpaks: Vec<String>,
-}
+    let mut context = Context::from_serialize(recipe_de)?;
+    context.insert("recipe", &recipe);
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Containerfiles {
-    pub pre: Vec<String>,
-    pub post: Vec<String>,
+    let mut tera = Tera::default();
+    tera.add_raw_template("Containerfile", DEFAULT_CONTAINERFILE)?;
+
+    Ok((tera, context))
 }

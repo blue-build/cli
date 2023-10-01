@@ -23,33 +23,58 @@ COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
 COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
 
 COPY scripts /tmp/scripts
+RUN find /tmp/scripts -type f -exec chmod +x {} \;
 
+{# TODO: Create helper function
 {% if continerfiles %}
 	{% for containerfile in containerfiles.pre %}
 {{ print_containerfile(containerfile = containerfile) }}
 	{% endfor %}
-{% endif %}
+{% endif %} #}
 
 {% for script in scripts.pre %}
-RUN chmod +x /tmp/scripts/{{ script }} && /tmp/scripts/{{ script }} pre
+RUN /bin/bash -c '/tmp/scripts/{{ script }} pre'
 {% endfor %}
 
 {% for repo in rpm.repos %}
 RUN wget "{{ repo }}" -P "/etc/yum.repos.d/"
 {% endfor %}
 
-RUN rpm-ostree uninstall {% for app in rpm.remove %}{{ app }} {% endfor %}
+RUN rpm-ostree override remove {% for app in rpm.remove %}{{ app }} {% endfor %}
+
+ARG FIRSTBOOT_DATA="/usr/share/ublue-os/firstboot"
+ARG FIRSTBOOT_LINK="/usr/etc/profile.d/ublue-firstboot.sh"
+{% if firstboot.yafti -%}
+RUN echo "-- firstboot: Installing and enabling \"yafti\" --"; \
+    pip install --prefix=/usr yafti; \
+    mkdir -p "$(dirname "${FIRSTBOOT_LINK}")"; \
+    ln -s "${FIRSTBOOT_DATA}/launcher/login-profile.sh" "${FIRSTBOOT_LINK}"
+ARG YAFTI_FILE="${FIRSTBOOT_DATA}/yafti.yml"
+RUN echo "-- yafti: Adding Flatpaks defined in recipe.yml --"; \
+    yq -i '.screens.applications.values.groups.Custom.description = "Flatpaks suggested by the image maintainer."' "${YAFTI_FILE}"; \
+    yq -i '.screens.applications.values.groups.Custom.default = true' "${YAFTI_FILE}"; \
+{%- for pkg in firstboot.flatpaks %}
+    echo "Adding to yafti: {{ pkg }}"; \
+    yq -i ".screens.applications.values.groups.Custom.packages += [{\"{{ pkg }}\": \"{{ pkg }}\"}]" "${YAFTI_FILE}"; \
+{%- endfor %}
+	echo "Done setting up Yafti"
+{% else %}
+RUN echo "-- firstboot: Removing all \"firstboot\" components --"; \
+    rm -f "${FIRSTBOOT_LINK}"; \
+    rm -rf "${FIRSTBOOT_DATA}"
+{% endif %}
 
 RUN rpm-ostree install {% for app in rpm.install %}{{ app }} {% endfor %}
 
-{% for script in scripts.post %}
-RUN chmod +x /tmp/scripts/{{ script }} && /tmp/scripts/{{ script }} post
-{% endfor %}
+{% for script in scripts.post -%}
+RUN /bin/bash -c '/tmp/scripts/{{ script }} post'
+{% endfor -%}
 
+{# TODO: Create helper function
 {% if continerfiles %}
 	{% for containerfile in containerfiles.post %}
 {{ print_containerfile(containerfile = containerfile) }}
 	{% endfor %}
-{% endif %}
+{% endif %} #}
 
 RUN rm -rf /tmp/* /var/* && ostree container commit
