@@ -8,11 +8,16 @@ fn main() -> Result<()> {
     match args.command {
         CommandArgs::Template {
             recipe,
-            containerfile: _,
+            containerfile,
+            output,
         } => {
-            let (tera, context) = setup_tera(recipe)?;
-            let output = tera.render("Containerfile", &context)?;
-            println!("{output}");
+            let (tera, context) = setup_tera(recipe, containerfile)?;
+            let output_str = tera.render("Containerfile", &context)?;
+            if let Some(output) = output {
+                std::fs::write(output, output_str)?;
+            } else {
+                println!("{output_str}");
+            }
         }
         CommandArgs::Build { containerfile: _ } => {
             println!("Not yet implemented!");
