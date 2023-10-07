@@ -42,7 +42,9 @@ RUN /bin/bash -c '/tmp/scripts/{{ script }} pre'
 RUN wget "{{ repo }}" -P "/etc/yum.repos.d/"
 {% endfor %}
 
+{% if rpm.remove %}
 RUN rpm-ostree override remove {% for app in rpm.remove %}{{ app }} {% endfor %}
+{% endif %}
 
 ARG FIRSTBOOT_DATA="/usr/share/ublue-os/firstboot"
 ARG FIRSTBOOT_LINK="/usr/etc/profile.d/ublue-firstboot.sh"
@@ -66,7 +68,9 @@ RUN echo "-- firstboot: Removing all \"firstboot\" components --"; \
     rm -rf "${FIRSTBOOT_DATA}"
 {% endif %}
 
+{% if rpm.install %}
 RUN rpm-ostree install {% for app in rpm.install %}{{ app }} {% endfor %}
+{% endif %}
 
 {{ print_autorun_scripts(mode = "post") }}
 
