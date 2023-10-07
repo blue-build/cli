@@ -34,15 +34,19 @@ RUN find /tmp/scripts -type f -exec chmod +x {} \;
 
 {{ print_autorun_scripts(mode = "pre") }}
 
+{% if scripts and scripts.pre %}
 {% for script in scripts.pre %}
 RUN /bin/bash -c '/tmp/scripts/{{ script }} pre'
 {% endfor %}
+{% endif %}
 
+{% if rpm and rpm.repos %}
 {% for repo in rpm.repos %}
 RUN wget "{{ repo }}" -P "/etc/yum.repos.d/"
 {% endfor %}
+{% endif %}
 
-{% if rpm.remove %}
+{% if rpm and rpm.remove %}
 RUN rpm-ostree override remove {% for app in rpm.remove %}{{ app }} {% endfor %}
 {% endif %}
 
@@ -68,15 +72,17 @@ RUN echo "-- firstboot: Removing all \"firstboot\" components --"; \
     rm -rf "${FIRSTBOOT_DATA}"
 {% endif %}
 
-{% if rpm.install %}
+{% if rpm and rpm.install %}
 RUN rpm-ostree install {% for app in rpm.install %}{{ app }} {% endfor %}
 {% endif %}
 
 {{ print_autorun_scripts(mode = "post") }}
 
+{% if scripts and scripts.pre %}
 {% for script in scripts.post -%}
 RUN /bin/bash -c '/tmp/scripts/{{ script }} post'
 {% endfor -%}
+{% endif %}
 
 {% if containerfiles and containerfiles.post %}
 	{% for containerfile in containerfiles.post %}
