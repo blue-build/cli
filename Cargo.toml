@@ -8,6 +8,9 @@ license-file = "LICENSE"
 categories = ["command-line-utilities"]
 include = ["templates/"]
 
+[[bin]]
+name = "ublue"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
