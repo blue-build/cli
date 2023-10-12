@@ -7,7 +7,6 @@ repository = "https://gitlab.com/wunker-bunker/ublue-cli"
 license-file = "LICENSE"
 categories = ["command-line-utilities"]
 include = ["templates/"]
-default-run = "ublue"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
