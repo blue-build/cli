@@ -6,10 +6,6 @@ description = "A CLI tool built for creating Containerfile templates based on th
 repository = "https://gitlab.com/wunker-bunker/ublue-cli"
 license-file = "LICENSE"
 categories = ["command-line-utilities"]
-include = ["templates/"]
-
-[[bin]]
-name = "ublue"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
