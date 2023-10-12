@@ -1,6 +1,8 @@
+use std::path::PathBuf;
+
 use anyhow::Result;
 use clap::Parser;
-use ublue_rs::{setup_tera, CommandArgs, UblueArgs};
+use ublue_rs::{initialize_directory, setup_tera, CommandArgs, UblueArgs};
 
 fn main() -> Result<()> {
     let args = UblueArgs::parse();
@@ -18,6 +20,14 @@ fn main() -> Result<()> {
             } else {
                 println!("{output_str}");
             }
+        }
+        CommandArgs::Init { dir } => {
+            let base_dir = match dir {
+                Some(dir) => dir,
+                None => PathBuf::from("./"),
+            };
+
+            initialize_directory(base_dir);
         }
         CommandArgs::Build { containerfile: _ } => {
             println!("Not yet implemented!");
