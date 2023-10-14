@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use anyhow::Result;
 use clap::Parser;
 use ublue_rs::{self, CommandArgs, UblueArgs};
@@ -25,10 +23,10 @@ fn main() -> Result<()> {
         CommandArgs::Init { dir } => {
             let base_dir = match dir {
                 Some(dir) => dir,
-                None => PathBuf::from("./"),
+                None => std::path::PathBuf::from("./"),
             };
 
-            ublue_rs::initialize_directory(base_dir);
+            ublue_rs::init::initialize_directory(base_dir);
         }
         #[cfg(build)]
         CommandArgs::Build { containerfile: _ } => {

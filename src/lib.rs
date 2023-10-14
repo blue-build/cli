@@ -118,20 +118,3 @@ pub fn setup_tera(recipe: String, containerfile: Option<PathBuf>) -> Result<(Ter
 
     Ok((tera, context))
 }
-
-#[cfg(init)]
-pub fn initialize_directory(base_dir: PathBuf) {
-    let recipe_path = base_dir.join("recipe.yml");
-
-    let gitlab_ci_path = base_dir.join(".gitlab-ci.yml");
-
-    let readme_path = base_dir.join("README.md");
-
-    let license_path = base_dir.join("LICENSE");
-
-    let scripts_dir = base_dir.join("scripts/");
-
-    let pre_scripts_dir = scripts_dir.join("pre/");
-
-    let post_scripts_dir = scripts_dir.join("post/");
-}

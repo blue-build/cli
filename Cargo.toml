@@ -17,3 +17,9 @@ clap = { version = "4.4.4", features = ["derive"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_yaml = "0.9.25"
 tera = "1.19.1"
+
+[features]
+default = []
+nightly = ["init", "build"]
+init = []
+build = []
