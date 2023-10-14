@@ -12,6 +12,8 @@ use tera::{from_value, Context, Tera};
 pub const DEFAULT_CONTAINERFILE: &'static str =
     include_str!("../templates/starting_point.template");
 
+#[cfg(init)]
+pub mod init;
 pub mod recipe;
 
 #[derive(Parser, Debug)]
@@ -39,6 +41,7 @@ pub enum CommandArgs {
     },
 
     /// Initialize a new Ublue Starting Point repo
+    #[cfg(init)]
     Init {
         /// The directory to extract the files into. Defaults to the current directory
         #[arg()]
@@ -46,6 +49,7 @@ pub enum CommandArgs {
     },
 
     /// Build an image from a Containerfile
+    #[cfg(build)]
     Build {
         #[arg()]
         containerfile: String,
@@ -115,6 +119,7 @@ pub fn setup_tera(recipe: String, containerfile: Option<PathBuf>) -> Result<(Ter
     Ok((tera, context))
 }
 
+#[cfg(init)]
 pub fn initialize_directory(base_dir: PathBuf) {
     let recipe_path = base_dir.join("recipe.yml");
 
