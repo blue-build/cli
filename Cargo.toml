@@ -5,7 +5,9 @@ edition = "2021"
 description = "A CLI tool built for creating Containerfile templates based on the Ublue Community Project"
 repository = "https://gitlab.com/wunker-bunker/ublue-cli"
 license-file = "LICENSE"
+license = "Apache-2.0"
 categories = ["command-line-utilities"]
+exclude = [".gitlab-ci.yml"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
