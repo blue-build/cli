@@ -1,1 +1,3 @@
-
+include:
+  - project: wunker-bunker/ci-pipelines
+    file: cargo-build.yml  
