@@ -4,7 +4,6 @@ version = "0.2.0"
 edition = "2021"
 description = "A CLI tool built for creating Containerfile templates based on the Ublue Community Project"
 repository = "https://gitlab.com/wunker-bunker/ublue-cli"
-license-file = "LICENSE"
 license = "Apache-2.0"
 categories = ["command-line-utilities"]
 exclude = [".gitlab-ci.yml"]
