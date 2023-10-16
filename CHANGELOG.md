@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 25 commits contributed to the release over the course of 20 calendar days.
+ - 26 commits contributed to the release over the course of 20 calendar days.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release ublue-rs v0.1.1 (5d3756b)
     - Add changelog (b39fb4c)
     - Revert back to published version number (acc29d6)
     - Ignore the .sccache dir just in case (c6a339c)
