@@ -5,14 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 0.1.1 (2023-10-16)
+
+### Bug Fixes
+
+ - <csr-id-b39fb4cf1f19fee8ddd183a2401fe88143cf4dd7/> add changelog
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 24 commits contributed to the release over the course of 19 calendar days.
- - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 25 commits contributed to the release over the course of 20 calendar days.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
@@ -22,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Add changelog (b39fb4c)
     - Revert back to published version number (acc29d6)
     - Ignore the .sccache dir just in case (c6a339c)
     - Remove license-file prop (89acdbc)
