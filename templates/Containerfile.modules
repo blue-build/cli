@@ -27,17 +27,16 @@ ARG CONFIG_DIRECTORY="/tmp/config"
 ARG IMAGE_NAME="{{ name }}"
 ARG BASE_IMAGE="{{ base_image }}"
 
-{% if containerfiles and containerfiles.pre %}
-# Pre: Containerfiles
-	{% for containerfile in containerfiles.pre %}
-{{ print_containerfile(containerfile = containerfile) }}
-	{% endfor %}
-{% endif %}
-
 {% macro run_modules(module) %}
 {% if module.type %}
+	{% if module.type == "containerfile" %}
+	{% for c in module.containerfiles %}
+{{ print_containerfile(containerfile = c ) }}
+	{% endfor %}
+	{% else %}
 RUN chmod +x /tmp/modules/{{ module.type }}/{{ module.type }}.sh
 RUN source /tmp/exports.sh && OS_VERSION="$(grep -Po '(?<=VERSION_ID=)\d+' /usr/lib/os-release)" /tmp/modules/{{ module.type }}/{{ module.type }}.sh "$(echo -e "{{ print_module_context(module = module) }}")"
+	{% endif %}
 {% elif module["from-file"] %}
 {% set extra_module = get_module_from_file(file = module["from-file"]) %}
 {% for m in extra_module.modules %}
@@ -49,11 +48,5 @@ RUN source /tmp/exports.sh && OS_VERSION="$(grep -Po '(?<=VERSION_ID=)\d+' /usr/
 {% for module in modules %}
 {{ self::run_modules(module = module) }}
 {% endfor %}
-
-{% if containerfiles and containerfiles.post %}
-	{% for containerfile in containerfiles.post %}
-{{ print_containerfile(containerfile = containerfile) }}
-	{% endfor %}
-{% endif %}
 
 RUN rm -rf /tmp/* /var/* && ostree container commit
