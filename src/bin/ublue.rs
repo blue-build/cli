@@ -13,13 +13,14 @@ fn main() -> Result<()> {
         } => {
             let (tera, context) = ublue_rs::setup_tera(recipe, containerfile)?;
             let output_str = tera.render("Containerfile", &context)?;
+
             if let Some(output) = output {
                 std::fs::write(output, output_str)?;
             } else {
                 println!("{output_str}");
             }
         }
-        #[cfg(init)]
+        #[cfg(feature = "init")]
         CommandArgs::Init { dir } => {
             let base_dir = match dir {
                 Some(dir) => dir,
@@ -28,7 +29,7 @@ fn main() -> Result<()> {
 
             ublue_rs::init::initialize_directory(base_dir);
         }
-        #[cfg(build)]
+        #[cfg(feature = "build")]
         CommandArgs::Build { containerfile: _ } => {
             println!("Not yet implemented!");
             todo!();

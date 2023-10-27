@@ -787,6 +787,7 @@ name = "ublue-rs"
 version = "0.1.1"
 dependencies = [
  "anyhow",
+ "cfg-if",
  "clap",
  "serde",
  "serde_yaml",

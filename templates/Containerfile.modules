@@ -1,0 +1,59 @@
+FROM {{ base_image }}:{{ image_version }}
+
+ARG RECIPE={{ recipe }}
+
+# Copy the bling from ublue-os/bling into tmp, to be installed later by the bling module
+# Feel free to remove these lines if you want to speed up image builds and don't want any bling
+COPY --from=ghcr.io/ublue-os/bling:latest /rpms /tmp/bling/rpms
+COPY --from=ghcr.io/ublue-os/bling:latest /files /tmp/bling/files
+
+COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
+
+COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
+
+COPY config /tmp/config/
+
+# Copy modules
+# The default modules are inside ublue-os/bling
+COPY --from=ghcr.io/ublue-os/bling:latest /modules /tmp/modules/
+# Custom modules overwrite defaults
+COPY modules /tmp/modules/
+
+RUN echo "#!/usr/bin/env bash" >> /tmp/exports.sh
+RUN echo 'get_yaml_array() { readarray "$1" < <(echo "$3" | yq -I=0 "$2"); }; export -f get_yaml_array' >> /tmp/exports.sh
+RUN chmod +x /tmp/exports.sh
+
+ARG CONFIG_DIRECTORY="/tmp/config"
+ARG IMAGE_NAME="{{ name }}"
+ARG BASE_IMAGE="{{ base_image }}"
+
+{% if containerfiles and containerfiles.pre %}
+# Pre: Containerfiles
+	{% for containerfile in containerfiles.pre %}
+{{ print_containerfile(containerfile = containerfile) }}
+	{% endfor %}
+{% endif %}
+
+{% macro run_modules(module) %}
+{% if module.type %}
+RUN chmod +x /tmp/modules/{{ module.type }}/{{ module.type }}.sh
+RUN source /tmp/exports.sh && OS_VERSION="$(grep -Po '(?<=VERSION_ID=)\d+' /usr/lib/os-release)" /tmp/modules/{{ module.type }}/{{ module.type }}.sh $(echo -e "{{ print_module_context(module = module) }}")
+{% elif module["from-file"] %}
+{% set extra_module = get_module_from_file(file = module["from-file"]) %}
+{% for m in extra_module.modules %}
+{{ self::run_modules(module = m) }}
+{% endfor %}
+{% endif %}
+{% endmacro run_modules %}
+
+{% for module in modules %}
+{{ self::run_modules(module = module) }}
+{% endfor %}
+
+{% if containerfiles and containerfiles.post %}
+	{% for containerfile in containerfiles.post %}
+{{ print_containerfile(containerfile = containerfile) }}
+	{% endfor %}
+{% endif %}
+
+RUN rm -rf /tmp/* /var/* && ostree container commit

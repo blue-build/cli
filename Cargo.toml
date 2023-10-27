@@ -12,13 +12,16 @@ exclude = [".gitlab-ci.yml"]
 
 [dependencies]
 anyhow = "1.0.75"
+cfg-if = "1.0.0"
 clap = { version = "4.4.4", features = ["derive"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_yaml = "0.9.25"
 tera = "1.19.1"
 
 [features]
-default = []
+default = ["modules"]
 nightly = ["init", "build"]
 init = []
 build = []
+modules = []
+legacy = []
