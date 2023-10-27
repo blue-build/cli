@@ -106,8 +106,14 @@ pub fn setup_tera(recipe: String, containerfile: Option<PathBuf>) -> Result<(Ter
         |args: &HashMap<String, tera::Value>| -> tera::Result<tera::Value> {
             match args.get("containerfile") {
                 Some(v) => match v.as_str() {
+                    #[cfg(feature = "legacy")]
                     Some(containerfile) => Ok(read_to_string(format!(
                         "containerfiles/{containerfile}/Containerfile"
+                    ))?
+                    .into()),
+                    #[cfg(feature = "modules")]
+                    Some(containerfile) => Ok(read_to_string(format!(
+                        "config/containerfiles/{containerfile}/Containerfile"
                     ))?
                     .into()),
                     None => Err("Arg containerfile wasn't a string".into()),
