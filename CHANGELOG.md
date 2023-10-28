@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.2.0 (2023-10-28)
+
+### Bug Fixes
+
+ - <csr-id-c6f2e5b18de8a85e482583fed075fb25818d7f34/> print module context as json
+ - <csr-id-52936fffb195b837c9e93be4a99f9964fadae1e4/> remove tracing
+ - <csr-id-f2ab9bfd4aeb98709a8fc8aaed7b535c3010a4ad/> Encapsulate module echo in quotes to be passed in as a single arg
+ - <csr-id-b1b2b0b2ac2be3655066317246486bc337f38ad4/> Add support for legacy containerfiles and modules containerfiles
+ - <csr-id-731e1d75671ebc764dbfa052c72b0df3fbd1141a/> Create README
+
+### New Features (BREAKING)
+
+ - <csr-id-9564ca0af36cb9ba26ba6c158dd1e24db90deee5/> Allow containerfile module to print out to main Containerfile
+ - <csr-id-85aadf73e520b5f0c14c2e98093745c45a52b0c1/> Support new modules based starting point template
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 7 commits contributed to the release over the course of 11 calendar days.
+ - 12 days passed between releases.
+ - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Print module context as json (c6f2e5b)
+    - Allow containerfile module to print out to main Containerfile (9564ca0)
+    - Remove tracing (52936ff)
+    - Encapsulate module echo in quotes to be passed in as a single arg (f2ab9bf)
+    - Add support for legacy containerfiles and modules containerfiles (b1b2b0b)
+    - Support new modules based starting point template (85aadf7)
+    - Create README (731e1d7)
+</details>
+
 ## 0.1.1 (2023-10-16)
 
 ### Bug Fixes
@@ -15,7 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 26 commits contributed to the release over the course of 20 calendar days.
+ - 27 commits contributed to the release over the course of 20 calendar days.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -26,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release ublue-rs v0.1.1 (0e4036b)
     - Release ublue-rs v0.1.1 (5d3756b)
     - Add changelog (b39fb4c)
     - Revert back to published version number (acc29d6)
