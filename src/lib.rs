@@ -128,8 +128,8 @@ pub fn setup_tera(recipe: String, containerfile: Option<PathBuf>) -> Result<(Ter
         "print_module_context",
         |args: &HashMap<String, tera::Value>| -> tera::Result<tera::Value> {
             match args.get("module") {
-                Some(v) => Ok(match serde_yaml::to_string(v) {
-                    Ok(s) => s.escape_default().collect::<String>(),
+                Some(v) => Ok(match serde_json::to_string(v) {
+                    Ok(s) => s,
                     Err(_) => "Unable to serialize".into(),
                 }
                 .into()),

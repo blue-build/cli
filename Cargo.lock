@@ -790,6 +790,7 @@ dependencies = [
  "cfg-if",
  "clap",
  "serde",
+ "serde_json",
  "serde_yaml",
  "tera",
 ]
