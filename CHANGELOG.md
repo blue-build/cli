@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Chore
+
+ - <csr-id-603a3335f9cd97a1905dae6c909f95bcff051686/> Fix version to match with published version
+
+### Documentation
+
+ - <csr-id-33bee78acfd25b89599b5e26646c9faeaf1576f8/> Update README, checking off a feature
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release over the course of 3 calendar days.
+ - 7 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Fix version to match with published version (603a333)
+    - Update README, checking off a feature (33bee78)
+    - Comment out config for now (5968065)
+</details>
+
 ## 0.2.0 (2023-10-28)
 
 ### Bug Fixes
@@ -24,7 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 7 commits contributed to the release over the course of 11 calendar days.
+ - 8 commits contributed to the release over the course of 12 calendar days.
  - 12 days passed between releases.
  - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -36,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release ublue-rs v0.2.0 (6b0f684)
     - Print module context as json (c6f2e5b)
     - Allow containerfile module to print out to main Containerfile (9564ca0)
     - Remove tracing (52936ff)
