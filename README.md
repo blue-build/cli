@@ -31,6 +31,7 @@ You can then use this with `podman` to build and publish your image. Further opt
 ## Future Features
 
 - [x] Update to the most recent stable style of the [starting point](https://github.com/ublue-os/startingpoint/tree/template) template
+- [x] Setup pipeline automation for publishing
 - [ ] Create an init command to create a repo for you to start out
 - [ ] Setup the project to allow installing with `binstall`
 - [ ] Create an install script for easy install for users without `cargo`
