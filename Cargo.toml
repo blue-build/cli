@@ -13,6 +13,7 @@ exclude = [".gitlab-ci.yml", ".helix/", ".git/", ".gitignore"]
 [dependencies]
 anyhow = "1.0.75"
 cfg-if = "1.0.0"
+chrono = "0.4.31"
 clap = { version = "4.4.4", features = ["derive"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"

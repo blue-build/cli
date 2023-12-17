@@ -11,12 +11,15 @@
 #[cfg(feature = "init")]
 pub mod init;
 
+#[cfg(feature = "build")]
+pub mod build;
+
 pub mod module_recipe;
 
 use std::{
     collections::HashMap,
     fs::{self, read_to_string},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use anyhow::Result;
@@ -25,9 +28,8 @@ use tera::{Context, Tera};
 
 pub const DEFAULT_CONTAINERFILE: &str = include_str!("../templates/Containerfile.tera");
 
-pub fn setup_tera(recipe: String, containerfile: Option<PathBuf>) -> Result<(Tera, Context)> {
-    let recipe_de =
-        serde_yaml::from_str::<Recipe>(fs::read_to_string(PathBuf::from(&recipe))?.as_str())?;
+fn setup_tera(recipe: &Path, containerfile: Option<&PathBuf>) -> Result<(Tera, Context)> {
+    let recipe_de = serde_yaml::from_str::<Recipe>(fs::read_to_string(&recipe)?.as_str())?;
 
     let mut context = Context::from_serialize(recipe_de)?;
     context.insert("recipe", &recipe);
@@ -93,4 +95,20 @@ pub fn setup_tera(recipe: String, containerfile: Option<PathBuf>) -> Result<(Ter
     );
 
     Ok((tera, context))
+}
+
+pub fn template_file(
+    recipe: &Path,
+    containerfile: Option<&PathBuf>,
+    output: Option<&PathBuf>,
+) -> Result<()> {
+    let (tera, context) = setup_tera(recipe, containerfile)?;
+    let output_str = tera.render("Containerfile", &context)?;
+
+    if let Some(output) = output {
+        std::fs::write(output, output_str)?;
+    } else {
+        println!("{output_str}");
+    }
+    Ok(())
 }

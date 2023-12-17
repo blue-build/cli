@@ -7,6 +7,8 @@ use serde_yaml::Value;
 pub struct Recipe {
     pub name: String,
 
+    pub description: String,
+
     #[serde(alias = "base-image")]
     pub base_image: String,
 

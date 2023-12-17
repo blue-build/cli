@@ -1,2 +1,2 @@
 [language-server.rust-analyzer.config]
-cargo.features = ["init"]
+cargo.features = ["build"]

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -17,7 +17,7 @@ enum CommandArgs {
     Template {
         /// The recipe file to create a template from
         #[arg()]
-        recipe: String,
+        recipe: PathBuf,
 
         /// Optional Containerfile to use as a template
         #[arg(short, long)]
@@ -39,8 +39,30 @@ enum CommandArgs {
     /// Build an image from a Containerfile
     #[cfg(feature = "build")]
     Build {
+        /// The recipe file to create a template from
         #[arg()]
-        containerfile: String,
+        recipe: PathBuf,
+
+        #[arg(short, long)]
+        containerfile: Option<PathBuf>,
+
+        #[arg(short, long, default_value = "Containerfile")]
+        output: PathBuf,
+
+        #[arg(short, long)]
+        push: bool,
+
+        #[arg(long)]
+        registry: Option<String>,
+
+        #[arg(long)]
+        registry_path: Option<String>,
+
+        #[arg(long)]
+        username: Option<String>,
+
+        #[arg(long)]
+        password: Option<String>,
     },
 }
 
@@ -53,14 +75,7 @@ fn main() -> Result<()> {
             containerfile,
             output,
         } => {
-            let (tera, context) = ublue_rs::setup_tera(recipe, containerfile)?;
-            let output_str = tera.render("Containerfile", &context)?;
-
-            if let Some(output) = output {
-                std::fs::write(output, output_str)?;
-            } else {
-                println!("{output_str}");
-            }
+            ublue_rs::template_file(&recipe, containerfile.as_ref(), output.as_ref())?;
         }
         #[cfg(feature = "init")]
         CommandArgs::Init { dir } => {
@@ -72,8 +87,25 @@ fn main() -> Result<()> {
             ublue_rs::init::initialize_directory(base_dir);
         }
         #[cfg(feature = "build")]
-        CommandArgs::Build { containerfile: _ } => {
-            println!("Not yet implemented!");
+        CommandArgs::Build {
+            recipe,
+            containerfile,
+            output,
+            push,
+            registry,
+            registry_path,
+            username,
+            password,
+        } => {
+            ublue_rs::template_file(&recipe, containerfile.as_ref(), Some(&output))?;
+            ublue_rs::build::build_image(
+                &recipe,
+                registry.as_ref(),
+                registry_path.as_ref(),
+                username.as_ref(),
+                password.as_ref(),
+                push,
+            )?;
             todo!();
         }
     }
