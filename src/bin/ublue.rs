@@ -1,6 +1,48 @@
+use std::path::PathBuf;
+
 use anyhow::Result;
-use clap::Parser;
-use ublue_rs::{self, CommandArgs, UblueArgs};
+use clap::{Parser, Subcommand};
+use ublue_rs::{self};
+
+#[derive(Parser, Debug)]
+#[command(name = "Ublue Builder", author, version, about, long_about = None)]
+struct UblueArgs {
+    #[command(subcommand)]
+    command: CommandArgs,
+}
+
+#[derive(Debug, Subcommand)]
+enum CommandArgs {
+    /// Generate a Containerfile from a recipe
+    Template {
+        /// The recipe file to create a template from
+        #[arg()]
+        recipe: String,
+
+        /// Optional Containerfile to use as a template
+        #[arg(short, long)]
+        containerfile: Option<PathBuf>,
+
+        /// File to output to instead of STDOUT
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
+    /// Initialize a new Ublue Starting Point repo
+    #[cfg(feature = "init")]
+    Init {
+        /// The directory to extract the files into. Defaults to the current directory
+        #[arg()]
+        dir: Option<PathBuf>,
+    },
+
+    /// Build an image from a Containerfile
+    #[cfg(feature = "build")]
+    Build {
+        #[arg()]
+        containerfile: String,
+    },
+}
 
 fn main() -> Result<()> {
     let args = UblueArgs::parse();

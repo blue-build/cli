@@ -1,3 +1,2 @@
-[[language]]
-name = "rust"
-# config = { cargo = { features = [ "modules" ], noDefaultFeatures = false } }
+[language-server.rust-analyzer.config]
+cargo.features = ["init"]

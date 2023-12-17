@@ -28,7 +28,6 @@ use std::{
 
 use anyhow::Result;
 use cfg_if;
-use clap::{Parser, Subcommand};
 use tera::{Context, Tera};
 
 cfg_if::cfg_if! {
@@ -40,46 +39,6 @@ cfg_if::cfg_if! {
         use module_recipe::Recipe;
         pub const DEFAULT_CONTAINERFILE: &str = include_str!("../templates/Containerfile.modules");
     }
-}
-
-#[derive(Parser, Debug)]
-#[command(name = "Ublue Builder", author, version, about, long_about = None)]
-pub struct UblueArgs {
-    #[command(subcommand)]
-    pub command: CommandArgs,
-}
-
-#[derive(Debug, Subcommand)]
-pub enum CommandArgs {
-    /// Generate a Containerfile from a recipe
-    Template {
-        /// The recipe file to create a template from
-        #[arg()]
-        recipe: String,
-
-        /// Optional Containerfile to use as a template
-        #[arg(short, long)]
-        containerfile: Option<PathBuf>,
-
-        /// File to output to instead of STDOUT
-        #[arg(short, long)]
-        output: Option<PathBuf>,
-    },
-
-    /// Initialize a new Ublue Starting Point repo
-    #[cfg(feature = "init")]
-    Init {
-        /// The directory to extract the files into. Defaults to the current directory
-        #[arg()]
-        dir: Option<PathBuf>,
-    },
-
-    /// Build an image from a Containerfile
-    #[cfg(feature = "build")]
-    Build {
-        #[arg()]
-        containerfile: String,
-    },
 }
 
 pub fn setup_tera(recipe: String, containerfile: Option<PathBuf>) -> Result<(Tera, Context)> {
