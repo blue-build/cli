@@ -10,14 +10,6 @@ Right now the only way to install this tool is to use `cargo`.
 cargo install --locked ublue-rs
 ```
 
-### Legacy Starting Point
-
-If you want to install the tool for use with the legacy setup of the starting point template, you can install it with:
-
-```bash
-cargo install --locked --features legacy --no-default-features ublue-rs
-```
-
 ## How to use
 
 Once you have the CLI tool installed, you can run the following to pull in your recipe file to generate a `Containerfile`.
