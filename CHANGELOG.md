@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+<csr-id-603a3335f9cd97a1905dae6c909f95bcff051686/>
+
+### Chore
+
+ - <csr-id-603a3335f9cd97a1905dae6c909f95bcff051686/> Fix version to match with published version
+
+### New Features (BREAKING)
+
+ - <csr-id-785fc2f7621782a1597b728c5b5e49c41364e85e/> Remove legacy code"
+
+### Bug Fixes
+
+ - <csr-id-006966bb351a34c435726dd7e202790001005a7c/> Move command structs into bin
+ - <csr-id-49d512b3f18db3370554c0e5b57b2dfc5d1d2abd/> Make containerfile formatting nicer
+
+### New Features
+
+ - <csr-id-4ea6f772e083419f74a5a304674b58c54a4c6a99/> Finish build feature
+
+### Chore
+
+ - <csr-id-ea6143c7f7e628ea2958ccf8193c4e0e68595d2c/> fix .git/ exclude
+ - <csr-id-13d10bedf951d70a1f42c6dbebd0098ec7a2a610/> Exclude some more files
+ - <csr-id-1f030d6b74ebfb2f47b6772da59529be0996a2de/> Add rust-toolchain.toml
+
+### Documentation
+
+ - <csr-id-33bee78acfd25b89599b5e26646c9faeaf1576f8/> Update README, checking off a feature
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 9 commits contributed to the release over the course of 42 calendar days.
+ - 43 days passed between releases.
+ - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Finish build feature (4ea6f77)
+    - Start work on build command (71d9397)
+    - Update README (bcd7e71)
+    - Remove legacy code" (785fc2f)
+    - Move command structs into bin (006966b)
+    - Make containerfile formatting nicer (49d512b)
+    - Fix .git/ exclude (ea6143c)
+    - Exclude some more files (13d10be)
+    - Add rust-toolchain.toml (1f030d6)
+</details>
+
+## 0.2.2 (2023-11-04)
+
 ### Chore
 
  - <csr-id-603a3335f9cd97a1905dae6c909f95bcff051686/> Fix version to match with published version
@@ -19,7 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 3 commits contributed to the release over the course of 3 calendar days.
+ - 5 commits contributed to the release over the course of 3 calendar days.
  - 7 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -31,6 +89,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release ublue-rs v0.2.2 (df7cc56)
+    - Update changelog for release (a811667)
     - Fix version to match with published version (603a333)
     - Update README, checking off a feature (33bee78)
     - Comment out config for now (5968065)
