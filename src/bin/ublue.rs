@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -36,32 +36,42 @@ enum CommandArgs {
         dir: Option<PathBuf>,
     },
 
-    /// Build an image from a Containerfile
+    /// Build an image from a recipe
     #[cfg(feature = "build")]
     Build {
-        /// The recipe file to create a template from
+        /// The recipe file to build an image
         #[arg()]
         recipe: PathBuf,
 
+        /// Optional Containerfile to use as a template
         #[arg(short, long)]
         containerfile: Option<PathBuf>,
 
-        #[arg(short, long, default_value = "Containerfile")]
-        output: PathBuf,
-
+        /// Push the image with all the tags.
+        ///
+        /// Requires `--registry`, `--registry-path`,
+        /// `--username`, and `--password` if not
+        /// building in CI.
         #[arg(short, long)]
         push: bool,
 
+        /// The registry's domain name.
         #[arg(long)]
         registry: Option<String>,
 
+        /// The url path to your base
+        /// project images.
         #[arg(long)]
         registry_path: Option<String>,
 
-        #[arg(long)]
+        /// The username to login to the
+        /// container registry.
+        #[arg(short, long)]
         username: Option<String>,
 
-        #[arg(long)]
+        /// The password to login to the
+        /// container registry.
+        #[arg(short, long)]
         password: Option<String>,
     },
 }
@@ -90,14 +100,17 @@ fn main() -> Result<()> {
         CommandArgs::Build {
             recipe,
             containerfile,
-            output,
             push,
             registry,
             registry_path,
             username,
             password,
         } => {
-            ublue_rs::template_file(&recipe, containerfile.as_ref(), Some(&output))?;
+            ublue_rs::template_file(
+                &recipe,
+                containerfile.as_ref(),
+                Some(&PathBuf::from("Containerfile")),
+            )?;
             ublue_rs::build::build_image(
                 &recipe,
                 registry.as_ref(),
@@ -106,7 +119,6 @@ fn main() -> Result<()> {
                 password.as_ref(),
                 push,
             )?;
-            todo!();
         }
     }
     Ok(())
