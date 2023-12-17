@@ -20,9 +20,7 @@ serde_yaml = "0.9.25"
 tera = "1.19.1"
 
 [features]
-default = ["modules"]
+default = []
 nightly = ["init", "build"]
 init = []
 build = []
-modules = []
-legacy = []
