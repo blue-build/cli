@@ -1,7 +1,10 @@
 use std::path::PathBuf;
+use std::process;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use clap_verbosity_flag::{InfoLevel, Verbosity};
+use log::{error, info, trace};
 use ublue_rs::{self};
 
 #[derive(Parser, Debug)]
@@ -9,6 +12,9 @@ use ublue_rs::{self};
 struct UblueArgs {
     #[command(subcommand)]
     command: CommandArgs,
+
+    #[clap(flatten)]
+    verbosity: Verbosity<InfoLevel>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -79,13 +85,26 @@ enum CommandArgs {
 fn main() -> Result<()> {
     let args = UblueArgs::parse();
 
+    env_logger::builder()
+        .filter_level(args.verbosity.log_level_filter())
+        .init();
+
+    trace!("{args:#?}");
+
     match args.command {
         CommandArgs::Template {
             recipe,
             containerfile,
             output,
         } => {
-            ublue_rs::template_file(&recipe, containerfile.as_ref(), output.as_ref())?;
+            info!("Templating for recipe at {}", recipe.display());
+
+            if let Err(e) =
+                ublue_rs::template_file(&recipe, containerfile.as_ref(), output.as_ref())
+            {
+                error!("Failed to template file: {e}");
+                process::exit(1);
+            }
         }
         #[cfg(feature = "init")]
         CommandArgs::Init { dir } => {
@@ -106,19 +125,29 @@ fn main() -> Result<()> {
             username,
             password,
         } => {
-            ublue_rs::template_file(
+            info!("Templating for recipe at {}", recipe.display());
+
+            if let Err(e) = ublue_rs::template_file(
                 &recipe,
                 containerfile.as_ref(),
                 Some(&PathBuf::from("Containerfile")),
-            )?;
-            ublue_rs::build::build_image(
+            ) {
+                error!("Failed to template file: {e}");
+                process::exit(1);
+            }
+
+            info!("Building image for recipe at {}", recipe.display());
+            if let Err(e) = ublue_rs::build::build_image(
                 &recipe,
                 registry.as_ref(),
                 registry_path.as_ref(),
                 username.as_ref(),
                 password.as_ref(),
                 push,
-            )?;
+            ) {
+                error!("Failed to build image: {e}");
+                process::exit(1);
+            }
         }
     }
     Ok(())

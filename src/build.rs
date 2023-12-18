@@ -2,11 +2,15 @@ use std::{env, fs, path::Path, process::Command};
 
 use anyhow::{anyhow, bail, Result};
 use chrono::Local;
+use log::{debug, info, trace, warn};
 
 use crate::module_recipe::Recipe;
 
 fn check_command_exists(command: &str) -> Result<()> {
-    eprintln!("Checking if {command} exists...");
+    debug!("Checking if {command} exists");
+    trace!("ublue_rs::build::check_command_exists({command})");
+
+    trace!("command -v {command}");
     match Command::new("command")
         .arg("-v")
         .arg(command)
@@ -14,7 +18,7 @@ fn check_command_exists(command: &str) -> Result<()> {
         .success()
     {
         true => {
-            eprintln!("Command {command} does exist");
+            debug!("Command {command} does exist");
             Ok(())
         }
         false => Err(anyhow!(
@@ -24,48 +28,53 @@ fn check_command_exists(command: &str) -> Result<()> {
 }
 
 fn generate_tags(recipe: &Recipe) -> Vec<String> {
-    eprintln!("Generating image tags for {}", &recipe.name);
+    debug!("Generating image tags for {}", &recipe.name);
+    trace!("ublue_rs::build::generate_tags({recipe:?})");
 
     let mut tags: Vec<String> = Vec::new();
     let image_version = recipe.image_version;
     let timestamp = Local::now().format("%Y%m%d").to_string();
 
     if env::var("CI").is_ok() {
-        eprintln!("Detected running in Gitlab, pulling information from CI variables...");
+        warn!("Detected running in Gitlab, pulling information from CI variables");
 
         if let (Ok(mr_iid), Ok(pipeline_source)) = (
             env::var("CI_MERGE_REQUEST_IID"),
             env::var("CI_PIPELINE_SOURCE"),
         ) {
+            trace!("CI_MERGE_REQUEST_IID={mr_iid}, CI_PIPELINE_SOURCE={pipeline_source}");
             if pipeline_source == "merge_request_event" {
-                eprintln!("Running in a MR...");
+                debug!("Running in a MR");
                 tags.push(format!("{mr_iid}-{image_version}"));
             }
         }
 
         if let Ok(commit_sha) = env::var("CI_COMMIT_SHORT_SHA") {
+            trace!("CI_COMMIT_SHORT_SHA={commit_sha}");
             tags.push(format!("{commit_sha}-{image_version}"));
         }
 
-        if let (Ok(commit_branch), Ok(default_branch)) =
-            (env::var("CI_COMMIT_BRANCH"), env::var("CI_DEFAULT_BRANCH"))
-        {
+        if let (Ok(commit_branch), Ok(default_branch)) = (
+            env::var("CI_COMMIT_REF_NAME"),
+            env::var("CI_DEFAULT_BRANCH"),
+        ) {
+            trace!("CI_COMMIT_REF_NAME={commit_branch}, CI_DEFAULT_BRANCH={default_branch}");
             if default_branch != commit_branch {
-                eprintln!("Running on branch {commit_branch}...");
+                debug!("Running on branch {commit_branch}");
                 tags.push(format!("br-{commit_branch}-{image_version}"));
             } else {
-                eprintln!("Running on the default branch...");
+                debug!("Running on the default branch");
                 tags.push(image_version.to_string());
                 tags.push(format!("{image_version}-{timestamp}"));
                 tags.push(timestamp.to_string());
             }
         }
     } else {
-        eprintln!("Running locally...");
+        warn!("Running locally");
         tags.push(format!("{image_version}-local"));
     }
-    eprintln!("Finished generating tags!");
-    eprintln!("Tags: {tags:?}");
+    info!("Finished generating tags!");
+    trace!("Tags: {tags:#?}");
     tags
 }
 
@@ -74,7 +83,9 @@ fn login(
     username: Option<&String>,
     password: Option<&String>,
 ) -> Result<()> {
-    eprintln!("Attempting to login to the registry");
+    info!("Attempting to login to the registry");
+    trace!("ublue_rs::build::login({registry:?}, {username:?}, [MASKED])");
+
     let registry = match registry {
         Some(registry) => registry.to_owned(),
         None => env::var("CI_REGISTRY")?,
@@ -90,6 +101,7 @@ fn login(
         None => env::var("CI_REGISTRY_PASSWORD")?,
     };
 
+    trace!("buildah login -u {username} -p [MASKED] {registry}");
     match Command::new("buildah")
         .arg("login")
         .arg("-u")
@@ -100,10 +112,11 @@ fn login(
         .status()?
         .success()
     {
-        true => eprintln!("Buildah login success at {registry} for user {username}!"),
+        true => info!("Buildah login success at {registry} for user {username}!"),
         false => return Err(anyhow!("Failed to login for buildah!")),
     }
 
+    trace!("cosign login -u {username} -p [MASKED] {registry}");
     match Command::new("cosign")
         .arg("login")
         .arg("-u")
@@ -114,7 +127,7 @@ fn login(
         .status()?
         .success()
     {
-        true => eprintln!("Cosign login success at {registry} for user {username}!"),
+        true => info!("Cosign login success at {registry} for user {username}!"),
         false => return Err(anyhow!("Failed to login for cosign!")),
     }
 
@@ -127,22 +140,27 @@ fn generate_full_image_name(
     registry_path: Option<&String>,
     push: bool,
 ) -> Result<String> {
-    eprintln!("Generating full image name");
+    info!("Generating full image name");
+    trace!(
+        "ublue_rs::build::generate_full_image_name({recipe:#?}, {registry:?}, {registry_path:?})"
+    );
+
     let image_name = recipe.name.as_str();
 
     let image_name = if env::var("CI").is_ok() {
-        eprintln!("Detected running in Gitlab CI...");
+        warn!("Detected running in Gitlab CI");
         if let (Ok(registry), Ok(project_namespace), Ok(project_name)) = (
             env::var("CI_REGISTRY"),
             env::var("CI_PROJECT_NAMESPACE"),
             env::var("CI_PROJECT_NAME"),
         ) {
+            trace!("CI_REGISTRY={registry}, CI_PROJECT_NAMESPACE={project_namespace}, CI_PROJECT_NAME={project_name}");
             format!("{registry}/{project_namespace}/{project_name}/{image_name}")
         } else {
             bail!("Unable to generate image name for Gitlab CI env!")
         }
     } else {
-        eprintln!("Detected running locally...");
+        warn!("Detected running locally");
         if let (Some(registry), Some(registry_path)) = (registry, registry_path) {
             format!(
                 "{}/{}/{image_name}",
@@ -157,44 +175,52 @@ fn generate_full_image_name(
         }
     };
 
-    eprintln!("Using image name {image_name}");
+    info!("Using image name {image_name}");
 
     Ok(image_name)
 }
 
 fn build(image_name: &str, tags: &[String], push: bool) -> Result<()> {
+    trace!("ublue_rs::build::build({image_name}, {tags:#?}, {push})");
+
     let mut tags_iter = tags.iter();
 
     let first_tag = tags_iter
         .next()
         .ok_or(anyhow!("We got here with no tags!?"))?;
 
-    let mut build = Command::new("buildah")
+    let full_image = format!("{image_name}:{first_tag}");
+
+    trace!("buildah build -t {full_image}");
+    let status = Command::new("buildah")
         .arg("build")
         .arg("-t")
-        .arg(format!("{image_name}:{first_tag}"))
-        .spawn()?;
-
-    let status = build.wait()?;
+        .arg(&full_image)
+        .status()?;
 
     if status.success() {
-        eprintln!("Successfully built {image_name}");
+        info!("Successfully built {image_name}");
     } else {
         bail!("Failed to build {image_name}");
     }
 
     if tags.len() > 1 {
-        eprintln!("Tagging all images...");
-        for tag in tags_iter {
-            eprintln!("Tagging {image_name} with {tag}");
-            let mut child = Command::new("buildah")
-                .arg("tag")
-                .arg(format!("{image_name}:{first_tag}"))
-                .arg(format!("{image_name}:{tag}"))
-                .spawn()?;
+        debug!("Tagging all images");
 
-            if child.wait()?.success() {
-                eprintln!("Successfully tagged {image_name}:{tag}!");
+        for tag in tags_iter {
+            debug!("Tagging {image_name} with {tag}");
+
+            let tag_image = format!("{image_name}:{tag}");
+
+            trace!("buildah tag {full_image} {tag_image}");
+            let status = Command::new("buildah")
+                .arg("tag")
+                .arg(&full_image)
+                .arg(&tag_image)
+                .status()?;
+
+            if status.success() {
+                info!("Successfully tagged {image_name}:{tag}!");
             } else {
                 bail!("Failed to tag image {image_name}:{tag}");
             }
@@ -202,16 +228,20 @@ fn build(image_name: &str, tags: &[String], push: bool) -> Result<()> {
     }
 
     if push {
-        eprintln!("Pushing all images...");
+        debug!("Pushing all images");
         for tag in tags.iter() {
-            eprintln!("Pushing image {image_name}:{tag}...");
-            let mut child = Command::new("buildah")
-                .arg("push")
-                .arg(format!("{image_name}:{tag}"))
-                .spawn()?;
+            debug!("Pushing image {image_name}:{tag}");
 
-            if child.wait()?.success() {
-                eprintln!("Successfully pushed {image_name}:{tag}!")
+            let tag_image = format!("{image_name}:{tag}");
+
+            trace!("buildah push {tag_image}");
+            let status = Command::new("buildah")
+                .arg("push")
+                .arg(&tag_image)
+                .status()?;
+
+            if status.success() {
+                info!("Successfully pushed {image_name}:{tag}!")
             } else {
                 bail!("Failed to push image {image_name}:{tag}");
             }
@@ -224,7 +254,11 @@ fn build(image_name: &str, tags: &[String], push: bool) -> Result<()> {
 }
 
 fn sign_images(image_name: &str, tag: &str) -> Result<()> {
+    trace!("ublue_rs::build::sign_images({image_name}, {tag})");
+
     if env::var("SIGSTORE_ID_TOKEN").is_ok() && env::var("CI").is_ok() {
+        debug!("SIGSTORE_ID_TOKEN detected, signing image");
+
         if let (
             Ok(project_url),
             Ok(default_branch),
@@ -238,48 +272,62 @@ fn sign_images(image_name: &str, tag: &str) -> Result<()> {
             env::var("CI_SERVER_PROTOCOL"),
             env::var("CI_SERVER_HOST"),
         ) {
+            trace!("CI_PROJECT_URL={project_url}, CI_DEFAULT_BRANCH={default_branch}, CI_COMMIT_REF_NAME={commit_branch}, CI_SERVER_PROTOCOL={server_protocol}, CI_SERVER_HOST={server_host}");
+
             if default_branch == commit_branch {
-                eprintln!("Retrieving image digest...");
+                debug!("On default branch, retrieving image digest");
+
+                let image_name_tag = format!("{image_name}:{tag}");
+                let image_url = format!("docker://{image_name_tag}");
+
+                trace!("skopeo inspect --format='{{.Digest}}' {image_url}");
                 let image_digest = String::from_utf8(
                     Command::new("skopeo")
                         .arg("inspect")
                         .arg("--format='{{.Digest}}'")
-                        .arg(format!("docker://{image_name}:{tag}"))
+                        .arg(&image_url)
                         .output()?
                         .stdout,
                 )?;
 
-                eprintln!("Signing image: {image_name}@{image_digest}");
+                let image_digest = format!("{image_name}@{image_digest}");
 
-                let mut child = Command::new("cosign")
+                info!("Signing image: {image_digest}");
+
+                trace!("cosign sign {image_digest}");
+                let status = Command::new("cosign")
                     .arg("sign")
-                    .arg(format!("{image_name}@{image_digest}"))
-                    .spawn()?;
+                    .arg(&image_digest)
+                    .status()?;
 
-                if child.wait()?.success() {
-                    eprintln!("Successfully signed image!");
+                if status.success() {
+                    info!("Successfully signed image!");
                 } else {
-                    bail!("Failed to sign image: {image_name}@{image_digest}");
+                    bail!("Failed to sign image: {image_digest}");
                 }
 
-                let mut child = Command::new("cosign")
+                let cert_ident =
+                    format!("{project_url}//.gitlab-ci.yml@refs/heads/{default_branch}");
+
+                let cert_oidc = format!("{server_protocol}://{server_host}");
+
+                trace!("cosign verify --certificate-identity {cert_ident}");
+                let status = Command::new("cosign")
                     .arg("verify")
                     .arg("--certificate-identity")
-                    .arg(format!(
-                        "{project_url}//.gitlab-ci.yml@refs/heads/{default_branch}"
-                    ))
+                    .arg(&cert_ident)
                     .arg("--certificate-oidc-issuer")
-                    .arg(format!("{server_protocol}://{server_host}"))
-                    .arg(format!("{image_name}:{tag}"))
-                    .spawn()?;
+                    .arg(&cert_oidc)
+                    .arg(&image_name_tag)
+                    .status()?;
 
-                if !child.wait()?.success() {
-                    eprintln!("Failed to verify image!");
+                if !status.success() {
+                    bail!("Failed to verify image!");
                 }
             }
         }
     } else {
-        eprintln!("No SIGSTORE_ID_TOKEN detected, not signing image");
+        debug!("No SIGSTORE_ID_TOKEN detected, not signing image");
     }
 
     Ok(())
@@ -293,6 +341,7 @@ pub fn build_image(
     password: Option<&String>,
     push: bool,
 ) -> Result<()> {
+    trace!("ublue_rs::build_image({recipe:?}, {registry:?}, {registry_path:?}, {username:?}, [MASKED], {push})");
     check_command_exists("buildah")?;
     if push {
         check_command_exists("cosign")?;
@@ -310,7 +359,7 @@ pub fn build_image(
     }
     build(&image_name, &tags, push)?;
 
-    eprintln!("Build complete!");
+    info!("Build complete!");
 
     Ok(())
 }
