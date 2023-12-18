@@ -53,6 +53,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-read-only-do-not-edit/>
 
  - 1 commit contributed to the release.
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Set some env vars for cosign; force color logs (d936000)
+</details>
+
+## 0.3.2 (2023-12-18)
+
+### Bug Fixes
+
+ - <csr-id-7f4f666b0aa82c6fe04c6c3a96630a59b7c1a675/> improper trim of image digest
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -63,10 +87,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release ublue-rs v0.3.2 (f8214fc)
+    - Update changelog for release (211a393)
     - Improper trim of image digest (7f4f666)
 </details>
 
 ## 0.3.1 (2023-12-18)
+
+<csr-id-5b1f99759c77377c8fbbe9c79b87d5c09c6479cd/>
 
 ### Chore
 
