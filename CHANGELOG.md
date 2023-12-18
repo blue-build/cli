@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <csr-id-ea6143c7f7e628ea2958ccf8193c4e0e68595d2c/>
 <csr-id-13d10bedf951d70a1f42c6dbebd0098ec7a2a610/>
 <csr-id-1f030d6b74ebfb2f47b6772da59529be0996a2de/>
+<csr-id-5b1f99759c77377c8fbbe9c79b87d5c09c6479cd/>
 
 ### Chore
 
@@ -30,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - <csr-id-49d512b3f18db3370554c0e5b57b2dfc5d1d2abd/> Make containerfile formatting nicer
  - <csr-id-b374d546833eee10ccf9f7c8203fd5fe6637e143/> Remove single quotes from image_digest
  - <csr-id-f437bdaffa48d45e510a34cbd09d0ff736f92ded/> clippy
+ - <csr-id-7f4f666b0aa82c6fe04c6c3a96630a59b7c1a675/> improper trim of image digest
 
 ### New Features
 
@@ -50,7 +52,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Improper trim of image digest (7f4f666)
+</details>
+
+## 0.3.1 (2023-12-18)
+
+### Chore
+
+ - <csr-id-5b1f99759c77377c8fbbe9c79b87d5c09c6479cd/> add rusty-hook
+
+### New Features
+
+ - <csr-id-b83cf574b8417a482c7f7fbfe9d3699aa9bd1d50/> Add logging
+
+### Bug Fixes
+
+ - <csr-id-b374d546833eee10ccf9f7c8203fd5fe6637e143/> Remove single quotes from image_digest
+ - <csr-id-f437bdaffa48d45e510a34cbd09d0ff736f92ded/> clippy
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 6 commits contributed to the release.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -61,48 +96,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release ublue-rs v0.3.1 (8878751)
+    - Update changelog for release (73b9a1d)
     - Remove single quotes from image_digest (b374d54)
     - Add logging (b83cf57)
     - Clippy (f437bda)
     - Add rusty-hook (5b1f997)
 </details>
 
-## 0.2.2 (2023-11-04)
-
-<csr-id-603a3335f9cd97a1905dae6c909f95bcff051686/>
-
-### Chore
-
- - <csr-id-603a3335f9cd97a1905dae6c909f95bcff051686/> Fix version to match with published version
-
-### Documentation
-
- - <csr-id-33bee78acfd25b89599b5e26646c9faeaf1576f8/> Update README, checking off a feature
-
-### Commit Statistics
-
-<csr-read-only-do-not-edit/>
-
- - 5 commits contributed to the release over the course of 3 calendar days.
- - 7 days passed between releases.
- - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
- - 0 issues like '(#ID)' were seen in commit messages
-
-### Commit Details
-
-<csr-read-only-do-not-edit/>
-
-<details><summary>view details</summary>
-
- * **Uncategorized**
-    - Release ublue-rs v0.2.2 (df7cc56)
-    - Update changelog for release (a811667)
-    - Fix version to match with published version (603a333)
-    - Update README, checking off a feature (33bee78)
-    - Comment out config for now (5968065)
-</details>
-
 ## 0.3.0 (2023-12-17)
+
+<csr-id-ea6143c7f7e628ea2958ccf8193c4e0e68595d2c/>
+<csr-id-13d10bedf951d70a1f42c6dbebd0098ec7a2a610/>
+<csr-id-1f030d6b74ebfb2f47b6772da59529be0996a2de/>
 
 ### Chore
 
@@ -150,6 +156,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Fix .git/ exclude (ea6143c)
     - Exclude some more files (13d10be)
     - Add rust-toolchain.toml (1f030d6)
+</details>
+
+## 0.2.2 (2023-11-04)
+
+<csr-id-603a3335f9cd97a1905dae6c909f95bcff051686/>
+
+### Chore
+
+ - <csr-id-603a3335f9cd97a1905dae6c909f95bcff051686/> Fix version to match with published version
+
+### Documentation
+
+ - <csr-id-33bee78acfd25b89599b5e26646c9faeaf1576f8/> Update README, checking off a feature
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 5 commits contributed to the release over the course of 3 calendar days.
+ - 7 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Release ublue-rs v0.2.2 (df7cc56)
+    - Update changelog for release (a811667)
+    - Fix version to match with published version (603a333)
+    - Update README, checking off a feature (33bee78)
+    - Comment out config for now (5968065)
 </details>
 
 ## 0.2.0 (2023-10-28)
