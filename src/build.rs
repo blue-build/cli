@@ -290,7 +290,7 @@ fn sign_images(image_name: &str, tag: &str) -> Result<()> {
                         .stdout,
                 )?;
 
-                let image_digest = format!("{image_name}@{image_digest}");
+                let image_digest = format!("{image_name}@{}", image_digest.trim_matches('\''));
 
                 info!("Signing image: {image_digest}");
 
