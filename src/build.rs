@@ -30,7 +30,7 @@ fn generate_tags(recipe: &Recipe) -> Vec<String> {
     let image_version = recipe.image_version;
     let timestamp = Local::now().format("%Y%m%d").to_string();
 
-    if let Ok(_) = env::var("CI") {
+    if env::var("CI").is_ok() {
         eprintln!("Detected running in Gitlab, pulling information from CI variables...");
 
         if let (Ok(mr_iid), Ok(pipeline_source)) = (
@@ -55,9 +55,9 @@ fn generate_tags(recipe: &Recipe) -> Vec<String> {
                 tags.push(format!("br-{commit_branch}-{image_version}"));
             } else {
                 eprintln!("Running on the default branch...");
-                tags.push(format!("{image_version}"));
+                tags.push(image_version.to_string());
                 tags.push(format!("{image_version}-{timestamp}"));
-                tags.push(format!("{timestamp}"));
+                tags.push(timestamp.to_string());
             }
         }
     } else {
@@ -130,7 +130,7 @@ fn generate_full_image_name(
     eprintln!("Generating full image name");
     let image_name = recipe.name.as_str();
 
-    let image_name = if let Ok(_) = env::var("CI") {
+    let image_name = if env::var("CI").is_ok() {
         eprintln!("Detected running in Gitlab CI...");
         if let (Ok(registry), Ok(project_namespace), Ok(project_name)) = (
             env::var("CI_REGISTRY"),
@@ -303,11 +303,10 @@ pub fn build_image(
 
     let tags = generate_tags(&recipe);
 
-    let image_name =
-        generate_full_image_name(&recipe, registry.clone(), registry_path.clone(), push)?;
+    let image_name = generate_full_image_name(&recipe, registry, registry_path, push)?;
 
     if push {
-        login(registry.clone(), username.clone(), password.clone())?;
+        login(registry, username, password)?;
     }
     build(&image_name, &tags, push)?;
 

@@ -29,7 +29,7 @@ use tera::{Context, Tera};
 pub const DEFAULT_CONTAINERFILE: &str = include_str!("../templates/Containerfile.tera");
 
 fn setup_tera(recipe: &Path, containerfile: Option<&PathBuf>) -> Result<(Tera, Context)> {
-    let recipe_de = serde_yaml::from_str::<Recipe>(fs::read_to_string(&recipe)?.as_str())?;
+    let recipe_de = serde_yaml::from_str::<Recipe>(fs::read_to_string(recipe)?.as_str())?;
 
     let mut context = Context::from_serialize(recipe_de)?;
     context.insert("recipe", &recipe);
