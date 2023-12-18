@@ -4,6 +4,7 @@ use std::process;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
+use env_logger::WriteStyle;
 use log::{error, info, trace};
 use ublue_rs::{self};
 
@@ -87,6 +88,7 @@ fn main() -> Result<()> {
 
     env_logger::builder()
         .filter_level(args.verbosity.log_level_filter())
+        .write_style(WriteStyle::Always)
         .init();
 
     trace!("{args:#?}");

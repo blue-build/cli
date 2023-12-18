@@ -293,6 +293,9 @@ fn sign_images(image_name: &str, tag: &str) -> Result<()> {
 
                 info!("Signing image: {image_digest}");
 
+                env::set_var("COSIGN_PASSWORD", "");
+                env::set_var("COSIGN_YES", "true");
+
                 trace!("cosign sign {image_digest}");
                 let status = Command::new("cosign")
                     .arg("sign")
