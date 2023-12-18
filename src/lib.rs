@@ -30,7 +30,7 @@ use tera::{Context, Tera};
 pub const DEFAULT_CONTAINERFILE: &str = include_str!("../templates/Containerfile.tera");
 
 fn setup_tera(recipe: &Path, containerfile: Option<&PathBuf>) -> Result<(Tera, Context)> {
-    trace!("ublue_rs::setup_tera({recipe:?}, {containerfile:?})");
+    trace!("setup_tera({recipe:?}, {containerfile:?})");
 
     debug!("Deserializing recipe");
     let recipe_de = serde_yaml::from_str::<Recipe>(fs::read_to_string(recipe)?.as_str())?;
@@ -128,7 +128,7 @@ pub fn template_file(
     containerfile: Option<&PathBuf>,
     output: Option<&PathBuf>,
 ) -> Result<()> {
-    trace!("ublue_rs::template_file({recipe:?}, {containerfile:?}, {output:?})");
+    trace!("template_file({recipe:?}, {containerfile:?}, {output:?})");
 
     debug!("Setting up tera");
     let (tera, context) = setup_tera(recipe, containerfile)?;

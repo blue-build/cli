@@ -8,7 +8,7 @@ use crate::module_recipe::Recipe;
 
 fn check_command_exists(command: &str) -> Result<()> {
     debug!("Checking if {command} exists");
-    trace!("ublue_rs::build::check_command_exists({command})");
+    trace!("check_command_exists({command})");
 
     trace!("command -v {command}");
     match Command::new("command")
@@ -29,7 +29,7 @@ fn check_command_exists(command: &str) -> Result<()> {
 
 fn generate_tags(recipe: &Recipe) -> Vec<String> {
     debug!("Generating image tags for {}", &recipe.name);
-    trace!("ublue_rs::build::generate_tags({recipe:?})");
+    trace!("generate_tags({recipe:?})");
 
     let mut tags: Vec<String> = Vec::new();
     let image_version = recipe.image_version;
@@ -84,7 +84,7 @@ fn login(
     password: Option<&String>,
 ) -> Result<()> {
     info!("Attempting to login to the registry");
-    trace!("ublue_rs::build::login({registry:?}, {username:?}, [MASKED])");
+    trace!("login({registry:?}, {username:?}, [MASKED])");
 
     let registry = match registry {
         Some(registry) => registry.to_owned(),
@@ -141,9 +141,7 @@ fn generate_full_image_name(
     push: bool,
 ) -> Result<String> {
     info!("Generating full image name");
-    trace!(
-        "ublue_rs::build::generate_full_image_name({recipe:#?}, {registry:?}, {registry_path:?})"
-    );
+    trace!("generate_full_image_name({recipe:#?}, {registry:?}, {registry_path:?})");
 
     let image_name = recipe.name.as_str();
 
@@ -180,8 +178,8 @@ fn generate_full_image_name(
     Ok(image_name)
 }
 
-fn build(image_name: &str, tags: &[String], push: bool) -> Result<()> {
-    trace!("ublue_rs::build::build({image_name}, {tags:#?}, {push})");
+fn run_build(image_name: &str, tags: &[String], push: bool) -> Result<()> {
+    trace!("run_build({image_name}, {tags:#?}, {push})");
 
     let mut tags_iter = tags.iter();
 
@@ -254,7 +252,7 @@ fn build(image_name: &str, tags: &[String], push: bool) -> Result<()> {
 }
 
 fn sign_images(image_name: &str, tag: &str) -> Result<()> {
-    trace!("ublue_rs::build::sign_images({image_name}, {tag})");
+    trace!("sign_images({image_name}, {tag})");
 
     if env::var("SIGSTORE_ID_TOKEN").is_ok() && env::var("CI").is_ok() {
         debug!("SIGSTORE_ID_TOKEN detected, signing image");
@@ -290,7 +288,8 @@ fn sign_images(image_name: &str, tag: &str) -> Result<()> {
                         .stdout,
                 )?;
 
-                let image_digest = format!("{image_name}@{}", image_digest.trim_matches('\''));
+                let image_digest =
+                    format!("{image_name}@{}", image_digest.trim().trim_matches('\''));
 
                 info!("Signing image: {image_digest}");
 
@@ -357,7 +356,7 @@ pub fn build_image(
     if push {
         login(registry, username, password)?;
     }
-    build(&image_name, &tags, push)?;
+    run_build(&image_name, &tags, push)?;
 
     info!("Build complete!");
 
