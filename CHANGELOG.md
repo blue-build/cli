@@ -63,6 +63,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Refactor Command Structs and create Earthly build (ebd861c)
+</details>
+
+## 0.3.3 (2023-12-18)
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 3 commits contributed to the release.
+ - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Release ublue-rs v0.3.3 (c20b917)
+    - Update changelog for release (a5663af)
     - Set some env vars for cosign; force color logs (d936000)
 </details>
 
