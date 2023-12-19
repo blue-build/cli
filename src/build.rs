@@ -7,12 +7,12 @@ use std::{
 use anyhow::{anyhow, bail, Result};
 use chrono::Local;
 use clap::Args;
-use derive_builder::Builder;
 use log::{debug, error, info, trace, warn};
+use typed_builder::TypedBuilder;
 
 use crate::{module_recipe::Recipe, ops, template::TemplateCommand};
 
-#[derive(Debug, Clone, Args, Builder)]
+#[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BuildCommand {
     /// The recipe file to build an image
     #[arg()]
@@ -63,8 +63,8 @@ impl BuildCommand {
         if let Err(e) = TemplateCommand::builder()
             .recipe(self.recipe.clone())
             .containerfile(self.containerfile.clone())
-            .output(Some(PathBuf::from("Containerfile")))
-            .build()?
+            .output(PathBuf::from("Containerfile"))
+            .build()
             .run()
         {
             error!("Failed to template file: {e}");
@@ -103,10 +103,6 @@ impl BuildCommand {
         info!("Build complete!");
 
         Ok(())
-    }
-
-    pub fn builder() -> BuildCommandBuilder {
-        BuildCommandBuilder::default()
     }
 
     fn generate_tags(&self, recipe: &Recipe) -> Vec<String> {

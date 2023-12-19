@@ -2,13 +2,13 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use clap::Args;
-use derive_builder::Builder;
+use typed_builder::TypedBuilder;
 
 const GITLAB_CI_FILE: &'static str = include_str!("../templates/init/gitlab-ci.yml.tera");
 const RECIPE_FILE: &'static str = include_str!("../templates/init/recipe.yml.tera");
 const LICENSE_FILE: &'static str = include_str!("../LICENSE");
 
-#[derive(Debug, Clone, Args, Builder)]
+#[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct InitCommand {
     /// The directory to extract the files into. Defaults to the current directory
     #[arg()]

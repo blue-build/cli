@@ -7,15 +7,15 @@ use std::{
 
 use anyhow::Result;
 use clap::Args;
-use derive_builder::Builder;
 use log::{debug, error, info, trace};
 use tera::{Context, Tera};
+use typed_builder::TypedBuilder;
 
 use crate::module_recipe::Recipe;
 
 pub const DEFAULT_CONTAINERFILE: &str = include_str!("../templates/Containerfile.tera");
 
-#[derive(Debug, Clone, Args, Builder)]
+#[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct TemplateCommand {
     /// The recipe file to create a template from
     #[arg()]
@@ -23,12 +23,12 @@ pub struct TemplateCommand {
 
     /// Optional Containerfile to use as a template
     #[arg(short, long)]
-    #[builder(default)]
+    #[builder(default, setter(into))]
     containerfile: Option<PathBuf>,
 
     /// File to output to instead of STDOUT
     #[arg(short, long)]
-    #[builder(default)]
+    #[builder(default, setter(into))]
     output: Option<PathBuf>,
 }
 
@@ -70,10 +70,6 @@ impl TemplateCommand {
 
         info!("Finished templating Containerfile");
         Ok(())
-    }
-
-    pub fn builder() -> TemplateCommandBuilder {
-        TemplateCommandBuilder::default()
     }
 
     fn setup_tera(&self) -> Result<(Tera, Context)> {
