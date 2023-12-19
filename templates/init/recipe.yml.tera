@@ -1,5 +1,5 @@
-# image will be published to ghcr.io/<user>/<name>
-name: startingpoint
+# image will be published to registry.gitlab.com/<user>/<name>
+name: {{ name }}
 # description will be included in the image's metadata
 description: A starting point for further customization of uBlue images. Make your own! https://ublue.it/making-your-own/
 
