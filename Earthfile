@@ -28,12 +28,12 @@ build:
 
 	ARG TAG
 	IF [ "$TAG" != "" ]
-	    SAVE IMAGE --push $CI_REGISTRY_IMAGE:$TAG
+	    SAVE IMAGE --push $IMAGE:$TAG
 
 		ARG LATEST=false
 
 		IF [ "$LATEST" = "true" ]
-		    SAVE IMAGE --push $CI_REGISTRY_IMAGE:latest
+		    SAVE IMAGE --push $IMAGE:latest
 		END
 	END
 
