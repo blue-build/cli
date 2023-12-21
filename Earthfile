@@ -1,13 +1,18 @@
 VERSION 0.7
 
-FROM registry.fedoraproject.org/fedora-toolbox
+ARG FEDORA_MAJOR_VERSION=38
 
-ARG --global IMAGE
+FROM registry.fedoraproject.org/fedora-toolbox:${FEDORA_MAJOR_VERSION}
 
-cosign:
-    FROM gcr.io/projectsigstore/cosign 
-    
-    SAVE ARTIFACT /ko-app/cosign cosign
+ARG --global IMAGE=registry.gitlab.com/wunker-bunker/ublue-cli
+
+iso-generator:
+    GIT CLONE https://github.com/ublue-os/isogenerator.git /isogenerator
+    WORKDIR /isogenerator
+    ARG PACKAGES=$(cat deps.txt)
+    RUN dnf install --disablerepo="*" --enablerepo="fedora,updates" --setopt install_weak_deps=0 --assumeyes $PACKAGES
+
+    SAVE IMAGE --push $IMAGE/iso-generator
 
 install:
 	FROM rust
@@ -18,12 +23,9 @@ install:
 
 	SAVE ARTIFACT target/release/ublue
 
-build:
+ublue-cli:
 	BUILD +install
 
-    RUN dnf install --refresh -y podman buildah skopeo
-
-    COPY +cosign/cosign /usr/bin/cosign
 	COPY +install/ublue /usr/bin/ublue
 
 	ARG TAG
@@ -38,4 +40,5 @@ build:
 	END
 
 all:
-	BUILD --platform=linux/amd64 +build
+	BUILD +ublue-cli
+	BUILD +iso-generator
