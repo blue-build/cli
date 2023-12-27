@@ -1,4 +1,5 @@
-VERSION 0.7
+VERSION --global-cache 0.7
+IMPORT github.com/earthly/lib/rust AS rust
 
 ARG FEDORA_MAJOR_VERSION=38
 
@@ -16,10 +17,12 @@ iso-generator:
 
 install:
 	FROM rust
-	COPY . /app
+	DO rust+INIT --keep_fingerprints=true
+
+	COPY --keep-ts . /app
 	WORKDIR /app
 
-	RUN cargo build --release
+	DO rust+CARGO --args="build --release" --output="release/[^\./]+"
 
 	SAVE ARTIFACT target/release/ublue
 
