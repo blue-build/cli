@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## v0.3.4 (2023-12-18)
 
 <csr-id-603a3335f9cd97a1905dae6c909f95bcff051686/>
 <csr-id-ea6143c7f7e628ea2958ccf8193c4e0e68595d2c/>
