@@ -5,7 +5,6 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Result};
-use chrono::Local;
 use clap::Args;
 use log::{debug, error, info, trace, warn};
 use typed_builder::TypedBuilder;
@@ -82,7 +81,11 @@ impl BuildCommand {
 
     fn build_image(&self) -> Result<()> {
         trace!("BuildCommand::build_image()");
-        ops::check_command_exists("buildah")?;
+        if let Err(e1) = ops::check_command_exists("buildah") {
+            ops::check_command_exists("podman").map_err(|e2| {
+                anyhow!("Need either 'buildah' or 'podman' commands to proceed: {e1}, {e2}")
+            })?;
+        }
 
         if self.push {
             ops::check_command_exists("cosign")?;
@@ -91,7 +94,7 @@ impl BuildCommand {
 
         let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(&self.recipe)?.as_str())?;
 
-        let tags = self.generate_tags(&recipe);
+        let tags = recipe.generate_tags();
 
         let image_name = self.generate_full_image_name(&recipe)?;
 
@@ -103,57 +106,6 @@ impl BuildCommand {
         info!("Build complete!");
 
         Ok(())
-    }
-
-    fn generate_tags(&self, recipe: &Recipe) -> Vec<String> {
-        debug!("Generating image tags for {}", &recipe.name);
-        trace!("BuildCommand::generate_tags({recipe:#?})");
-
-        let mut tags: Vec<String> = Vec::new();
-        let image_version = recipe.image_version;
-        let timestamp = Local::now().format("%Y%m%d").to_string();
-
-        if env::var("CI").is_ok() {
-            warn!("Detected running in Gitlab, pulling information from CI variables");
-
-            if let (Ok(mr_iid), Ok(pipeline_source)) = (
-                env::var("CI_MERGE_REQUEST_IID"),
-                env::var("CI_PIPELINE_SOURCE"),
-            ) {
-                trace!("CI_MERGE_REQUEST_IID={mr_iid}, CI_PIPELINE_SOURCE={pipeline_source}");
-                if pipeline_source == "merge_request_event" {
-                    debug!("Running in a MR");
-                    tags.push(format!("{mr_iid}-{image_version}"));
-                }
-            }
-
-            if let Ok(commit_sha) = env::var("CI_COMMIT_SHORT_SHA") {
-                trace!("CI_COMMIT_SHORT_SHA={commit_sha}");
-                tags.push(format!("{commit_sha}-{image_version}"));
-            }
-
-            if let (Ok(commit_branch), Ok(default_branch)) = (
-                env::var("CI_COMMIT_REF_NAME"),
-                env::var("CI_DEFAULT_BRANCH"),
-            ) {
-                trace!("CI_COMMIT_REF_NAME={commit_branch}, CI_DEFAULT_BRANCH={default_branch}");
-                if default_branch != commit_branch {
-                    debug!("Running on branch {commit_branch}");
-                    tags.push(format!("br-{commit_branch}-{image_version}"));
-                } else {
-                    debug!("Running on the default branch");
-                    tags.push(image_version.to_string());
-                    tags.push(format!("{image_version}-{timestamp}"));
-                    tags.push(timestamp.to_string());
-                }
-            }
-        } else {
-            warn!("Running locally");
-            tags.push(format!("{image_version}-local"));
-        }
-        info!("Finished generating tags!");
-        trace!("Tags: {tags:#?}");
-        tags
     }
 
     fn login(&self) -> Result<()> {
@@ -183,11 +135,12 @@ impl BuildCommand {
             .arg("-p")
             .arg(&password)
             .arg(&registry)
-            .status()?
+            .output()?
+            .status
             .success()
         {
             true => info!("Buildah login success at {registry} for user {username}!"),
-            false => return Err(anyhow!("Failed to login for buildah!")),
+            false => bail!("Failed to login for buildah!"),
         }
 
         trace!("cosign login -u {username} -p [MASKED] {registry}");
@@ -198,11 +151,12 @@ impl BuildCommand {
             .arg("-p")
             .arg(&password)
             .arg(&registry)
-            .status()?
+            .output()?
+            .status
             .success()
         {
             true => info!("Cosign login success at {registry} for user {username}!"),
-            false => return Err(anyhow!("Failed to login for cosign!")),
+            false => bail!("Failed to login for cosign!"),
         }
 
         Ok(())
@@ -260,12 +214,29 @@ impl BuildCommand {
 
         let full_image = format!("{image_name}:{first_tag}");
 
-        trace!("buildah build -t {full_image}");
-        let status = Command::new("buildah")
-            .arg("build")
-            .arg("-t")
-            .arg(&full_image)
-            .status()?;
+        let status = match (
+            ops::check_command_exists("buildah"),
+            ops::check_command_exists("podman"),
+        ) {
+            (Ok(_), _) => {
+                trace!("buildah build -t {full_image}");
+                Command::new("buildah")
+                    .arg("build")
+                    .arg("-t")
+                    .arg(&full_image)
+                    .status()?
+            }
+            (Err(_), Ok(_)) => {
+                trace!("podman build . -t {full_image}");
+                Command::new("podman")
+                    .arg("build")
+                    .arg(".")
+                    .arg("-t")
+                    .arg(&full_image)
+                    .status()?
+            }
+            (Err(e1), Err(e2)) => bail!("Need either 'buildah' or 'podman' to build: {e1}, {e2}"),
+        };
 
         if status.success() {
             info!("Successfully built {image_name}");
@@ -281,12 +252,26 @@ impl BuildCommand {
 
                 let tag_image = format!("{image_name}:{tag}");
 
-                trace!("buildah tag {full_image} {tag_image}");
-                let status = Command::new("buildah")
-                    .arg("tag")
-                    .arg(&full_image)
-                    .arg(&tag_image)
-                    .status()?;
+                let status = match (
+                    ops::check_command_exists("buildah"),
+                    ops::check_command_exists("podman"),
+                ) {
+                    (Ok(_), _) => {
+                        trace!("buildah tag {full_image} {tag_image}");
+                        Command::new("buildah")
+                    }
+                    (Err(_), Ok(_)) => {
+                        trace!("podman tag {full_image} {tag_image}");
+                        Command::new("podman")
+                    }
+                    (Err(e1), Err(e2)) => {
+                        bail!("Need either 'buildah' or 'podman' to build: {e1}, {e2}")
+                    }
+                }
+                .arg("tag")
+                .arg(&full_image)
+                .arg(&tag_image)
+                .status()?;
 
                 if status.success() {
                     info!("Successfully tagged {image_name}:{tag}!");
@@ -303,11 +288,25 @@ impl BuildCommand {
 
                 let tag_image = format!("{image_name}:{tag}");
 
-                trace!("buildah push {tag_image}");
-                let status = Command::new("buildah")
-                    .arg("push")
-                    .arg(&tag_image)
-                    .status()?;
+                let status = match (
+                    ops::check_command_exists("buildah"),
+                    ops::check_command_exists("podman"),
+                ) {
+                    (Ok(_), _) => {
+                        trace!("buildah push {tag_image}");
+                        Command::new("buildah")
+                    }
+                    (Err(_), Ok(_)) => {
+                        trace!("podman push {tag_image}");
+                        Command::new("podman")
+                    }
+                    (Err(e1), Err(e2)) => {
+                        bail!("Need either 'buildah' or 'podman' to build: {e1}, {e2}")
+                    }
+                }
+                .arg("push")
+                .arg(&tag_image)
+                .status()?;
 
                 if status.success() {
                     info!("Successfully pushed {image_name}:{tag}!")
@@ -397,6 +396,9 @@ impl BuildCommand {
                     if !status.success() {
                         bail!("Failed to verify image!");
                     }
+                } else {
+                    warn!("Unable to determine OIDC host, not signing image");
+                    warn!("Please ensure your build environment has the variables CI_PROJECT_URL, CI_DEFAULT_BRANCH, CI_COMMIT_REF_NAME, CI_SERVER_PROTOCOL, CI_SERVER_HOST")
                 }
             }
         } else {

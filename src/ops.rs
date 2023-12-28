@@ -7,11 +7,11 @@ pub fn check_command_exists(command: &str) -> Result<()> {
     debug!("Checking if {command} exists");
     trace!("check_command_exists({command})");
 
-    trace!("command -v {command}");
-    match Command::new("command")
-        .arg("-v")
+    trace!("which {command}");
+    match Command::new("which")
         .arg(command)
-        .status()?
+        .output()?
+        .status
         .success()
     {
         true => {
