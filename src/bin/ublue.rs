@@ -27,6 +27,9 @@ enum CommandArgs {
     #[cfg(feature = "init")]
     Init(init::InitCommand),
 
+    #[cfg(feature = "init")]
+    New(init::NewCommand),
+
     /// Build an image from a recipe
     #[cfg(feature = "build")]
     Build(build::BuildCommand),
@@ -47,6 +50,9 @@ fn main() -> Result<()> {
 
         #[cfg(feature = "init")]
         CommandArgs::Init(command) => command.run()?,
+
+        #[cfg(feature = "init")]
+        CommandArgs::New(command) => command.run()?,
 
         #[cfg(feature = "build")]
         CommandArgs::Build(command) => command.run()?,
