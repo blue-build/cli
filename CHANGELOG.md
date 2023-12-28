@@ -5,7 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.3.4 (2023-12-18)
+## Unreleased
+
+### Chore
+
+ - <csr-id-aa86f48a5d21c6d3358f1426486ca46d7ea98e72/> Switch to using typed builders
+
+### Documentation
+
+ - <csr-id-c559fb4d6b729b9e83ff9cfe94ded24b52949f94/> Update README and CHANGELOG
+
+### New Features
+
+ - <csr-id-7ce70480bfc7e3bb669db0224cfa91bedf2bed6a/> Add basic templating support for Github Actions
+ - <csr-id-6c61cab07e1fce2373053b2f04034f4b2761284f/> Add main README template
+ - <csr-id-249f852a3faf8fcbde03bbc2cf7d9240a72940e3/> Adding new subcommand
+ - <csr-id-556652f92a805209585aa8a76dbba98a12fdc5b6/> Adding more template files for init
+
+### Bug Fixes
+
+ - <csr-id-3b07758709e809f73749f652797ca382cfe526ac/> add support for alpine image and using either podman or buildah
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 10 commits contributed to the release over the course of 9 calendar days.
+ - 10 days passed between releases.
+ - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Add basic templating support for Github Actions (7ce7048)
+    - Add support for alpine image and using either podman or buildah (3b07758)
+    - Add main README template (6c61cab)
+    - Adding new subcommand (249f852)
+    - Adding more template files for init (556652f)
+    - Update README and CHANGELOG (c559fb4)
+    - Add ability to use incremental caching for rust builds in Earthfile (a25e041)
+    - Have ublue-cli manage iso-generator (a3da7e3)
+    - Switch to using typed builders (aa86f48)
+    - Fix SAVE IMAGE (e9cfc8a)
+</details>
+
+## v0.3.4 (2023-12-19)
 
 <csr-id-603a3335f9cd97a1905dae6c909f95bcff051686/>
 <csr-id-ea6143c7f7e628ea2958ccf8193c4e0e68595d2c/>
@@ -52,7 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 3 commits contributed to the release.
  - 0 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -63,6 +112,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release ublue-rs v0.3.4 (f47dd02)
+    - Update changelog for release (785a60f)
     - Refactor Command Structs and create Earthly build (ebd861c)
 </details>
 
