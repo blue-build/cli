@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    fs,
+    env, fs,
     path::{Path, PathBuf},
     process,
 };
@@ -161,6 +161,16 @@ impl TemplateCommand {
                     }
                     None => Err("Needs the argument 'file'".into()),
                 }
+            },
+        );
+
+        debug!("Registering function `running_gitlab_actions`");
+        tera.register_function(
+            "running_gitlab_actions",
+            |_: &HashMap<String, tera::Value>| -> tera::Result<tera::Value> {
+                trace!("tera fn running_gitlab_actions()");
+
+                Ok(env::var("GITHUB_ACTIONS").is_ok_and(|e| e == "true").into())
             },
         );
 

@@ -1,6 +1,10 @@
 FROM {{ base_image }}:{{ image_version }}
 
 ARG RECIPE={{ recipe }}
+{%- if running_gitlab_actions() %}
+ARG IMAGE_REGISTRY=ghcr.io/ublue-os
+COPY cosign.pub /usr/share/ublue-os/cosign.pub
+{%- endif %}
 
 # Copy the bling from ublue-os/bling into tmp, to be installed later by the bling module
 # Feel free to remove these lines if you want to speed up image builds and don't want any bling
