@@ -6,7 +6,6 @@ description = "A CLI tool built for creating Containerfile templates based on th
 repository = "https://gitlab.com/wunker-bunker/ublue-cli"
 license = "Apache-2.0"
 categories = ["command-line-utilities"]
-exclude = [".gitlab-ci.yml", ".helix/", ".git/", ".gitignore"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
