@@ -1,9 +1,9 @@
 [package]
 name = "ublue-rs"
-version = "0.3.6"
+version = "0.3.7"
 edition = "2021"
 description = "A CLI tool built for creating Containerfile templates based on the Ublue Community Project"
-repository = "https://gitlab.com/wunker-bunker/ublue-cli"
+repository = "https://gitlab.com/wunker-bunker/blue-build"
 license = "Apache-2.0"
 categories = ["command-line-utilities"]
 
