@@ -1,4 +1,3 @@
-use anyhow::Result;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use env_logger::WriteStyle;
@@ -35,7 +34,7 @@ enum CommandArgs {
     Build(build::BuildCommand),
 }
 
-fn main() -> Result<()> {
+fn main() {
     let args = UblueArgs::parse();
 
     env_logger::builder()
@@ -46,16 +45,15 @@ fn main() -> Result<()> {
     trace!("{args:#?}");
 
     match args.command {
-        CommandArgs::Template(command) => command.run()?,
+        CommandArgs::Template(command) => command.run(),
 
         #[cfg(feature = "init")]
-        CommandArgs::Init(command) => command.run()?,
+        CommandArgs::Init(command) => command.run(),
 
         #[cfg(feature = "init")]
-        CommandArgs::New(command) => command.run()?,
+        CommandArgs::New(command) => command.run(),
 
         #[cfg(feature = "build")]
-        CommandArgs::Build(command) => command.run()?,
+        CommandArgs::Build(command) => command.run(),
     }
-    Ok(())
 }

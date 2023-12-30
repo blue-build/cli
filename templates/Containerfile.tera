@@ -1,5 +1,11 @@
 FROM {{ base_image }}:{{ image_version }}
 
+LABEL org.opencontainers.image.title="{{ name }}"
+LABEL org.opencontainers.image.version="{{ image_version }}"
+LABEL org.opencontainers.image.description="{{ description }}"
+LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/ublue-os/startingpoint/main/README.md
+LABEL io.artifacthub.package.logo-url=https://avatars.githubusercontent.com/u/120078124?s=200&v=4
+
 ARG RECIPE={{ recipe }}
 {%- if running_gitlab_actions() %}
 ARG IMAGE_REGISTRY=ghcr.io/ublue-os

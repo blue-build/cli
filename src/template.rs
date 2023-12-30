@@ -33,14 +33,17 @@ pub struct TemplateCommand {
 }
 
 impl TemplateCommand {
-    pub fn run(&self) -> Result<()> {
+    pub fn try_run(&self) -> Result<()> {
         info!("Templating for recipe at {}", self.recipe.display());
 
-        if let Err(e) = self.template_file() {
+        self.template_file()
+    }
+
+    pub fn run(&self) {
+        if let Err(e) = self.try_run() {
             error!("Failed to template file: {e}");
             process::exit(1);
         }
-        Ok(())
     }
 
     fn template_file(&self) -> Result<()> {

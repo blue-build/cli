@@ -1,7 +1,11 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    process,
+};
 
 use anyhow::Result;
 use clap::Args;
+use log::error;
 use typed_builder::TypedBuilder;
 
 const GITLAB_CI_FILE: &'static str = include_str!("../templates/init/gitlab-ci.yml.tera");
@@ -27,7 +31,7 @@ pub struct InitCommand {
 }
 
 impl InitCommand {
-    pub fn run(&self) -> Result<()> {
+    pub fn try_run(&self) -> Result<()> {
         let base_dir = match self.dir.as_ref() {
             Some(dir) => dir,
             None => std::path::Path::new("./"),
@@ -35,6 +39,13 @@ impl InitCommand {
 
         self.initialize_directory(base_dir);
         Ok(())
+    }
+
+    pub fn run(&self) {
+        if let Err(e) = self.try_run() {
+            error!("Failed to init ublue project: {e}");
+            process::exit(1);
+        }
     }
 
     fn initialize_directory(&self, base_dir: &Path) {
@@ -64,13 +75,18 @@ pub struct NewCommand {
 }
 
 impl NewCommand {
-    pub fn run(&self) -> Result<()> {
+    pub fn try_run(&self) -> Result<()> {
         InitCommand::builder()
             .dir(self.dir.clone())
             .common(self.common.clone())
             .build()
-            .run()?;
+            .try_run()
+    }
 
-        Ok(())
+    pub fn run(&self) {
+        if let Err(e) = self.try_run() {
+            error!("Failed to create new project: {e}");
+            process::exit(1);
+        }
     }
 }
