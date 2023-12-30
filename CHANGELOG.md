@@ -5,7 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.3.5 (2023-12-30)
+## v0.3.6 (2023-12-30)
+
+### New Features
+
+ - <csr-id-6a15c56a906c51332aa5e5766c928692004ce97c/> Add Github support in Build command
+
+### Bug Fixes
+
+ - <csr-id-88cc37529a2c8b8d43e8610ea282c5c9951fa721/> bump version
+ - <csr-id-7bae446d2782de142a38d45c60798860da76cc7a/> Update cargo.toml
+ - <csr-id-75dc31182f4cf9aa9ee1d034fdf548163513a563/> logging
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 6 commits contributed to the release.
+ - 1 day passed between releases.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Bump version (88cc375)
+    - Release ublue-rs v0.3.5 (9387d20)
+    - Update cargo.toml (7bae446)
+    - Fix changelog (bfdd3ce)
+    - Logging (75dc311)
+    - Add Github support in Build command (6a15c56)
+</details>
+
+## v0.3.5 (2023-12-28)
 
 <csr-id-aa86f48a5d21c6d3358f1426486ca46d7ea98e72/>
 
@@ -35,9 +71,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
- - 1 day passed between releases.
- - 3 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 12 commits contributed to the release over the course of 9 calendar days.
+ - 9 days passed between releases.
+ - 7 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
@@ -47,10 +83,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
-    - Update cargo.toml (7bae446)
-    - Fix changelog (bfdd3ce)
-    - Logging (75dc311)
-    - Add Github support in Build command (6a15c56)
+    - Release ublue-rs v0.3.5 (386308f)
+    - Update changelog for release (7897f9d)
+    - Add basic templating support for Github Actions (7ce7048)
+    - Add support for alpine image and using either podman or buildah (3b07758)
+    - Add main README template (6c61cab)
+    - Adding new subcommand (249f852)
+    - Adding more template files for init (556652f)
+    - Update README and CHANGELOG (c559fb4)
+    - Add ability to use incremental caching for rust builds in Earthfile (a25e041)
+    - Have ublue-cli manage iso-generator (a3da7e3)
+    - Switch to using typed builders (aa86f48)
+    - Fix SAVE IMAGE (e9cfc8a)
 </details>
 
 ## v0.3.4 (2023-12-19)
