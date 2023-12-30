@@ -521,8 +521,10 @@ pub fn check_cosign_files() -> Result<()> {
                 .output()?;
 
             if !output.status.success() {
-                error!("{}", String::from_utf8_lossy(&output.stderr));
-                bail!("Failed to run cosign public-key");
+                bail!(
+                    "Failed to run cosign public-key: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
             }
 
             let calculated_pub_key = String::from_utf8(output.stdout)?;
