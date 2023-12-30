@@ -3,7 +3,7 @@ IMPORT github.com/earthly/lib/rust AS rust
 
 ARG --global FEDORA_MAJOR_VERSION=38
 
-ARG --global IMAGE=registry.gitlab.com/wunker-bunker/ublue-cli
+ARG --global IMAGE=registry.gitlab.com/wunker-bunker/blue-build
 
 iso-generator:
 	FROM registry.fedoraproject.org/fedora-toolbox:${FEDORA_MAJOR_VERSION}
@@ -29,16 +29,16 @@ install:
 	ARG --required TARGET
 	DO rust+CARGO --args="build --release --target $TARGET" --output="$TARGET/release/[^\./]+"
 
-	SAVE ARTIFACT target/$TARGET/release/ublue
+	SAVE ARTIFACT target/$TARGET/release/bb
 
-ublue-cli:
+blue-build-cli:
 	FROM registry.fedoraproject.org/fedora-toolbox:${FEDORA_MAJOR_VERSION}
 	BUILD +install --TARGET="x86_64-unknown-linux-gnu"
 
 	RUN dnf install --refresh -y buildah podman skopeo
 
 	COPY +cosign/cosign /usr/bin/cosign
-	COPY (+install/ublue --TARGET="x86_64-unknown-linux-gnu") /usr/bin/ublue
+	COPY (+install/bb --TARGET="x86_64-unknown-linux-gnu") /usr/bin/bb
 
 	ARG TAG
 	IF [ "$TAG" != "" ]
@@ -50,17 +50,17 @@ ublue-cli:
 		    SAVE IMAGE --push $IMAGE:latest
 		END
 	ELSE
-		SAVE IMAGE ublue-cli
+		SAVE IMAGE blue-build
 	END
 
-ublue-cli-alpine:
+blue-build-cli-alpine:
 	FROM alpine
 	BUILD +install --TARGET="x86_64-unknown-linux-musl"
 
 	RUN apk update && apk add buildah podman skopeo fuse-overlayfs
 
 	COPY +cosign/cosign /usr/bin/cosign
-	COPY (+install/ublue --TARGET="x86_64-unknown-linux-musl") /usr/bin/ublue
+	COPY (+install/bb --TARGET="x86_64-unknown-linux-musl") /usr/bin/bb
 
 	ARG TAG
 	IF [ "$TAG" != "" ]
@@ -72,10 +72,10 @@ ublue-cli-alpine:
 		    SAVE IMAGE --push $IMAGE:alpine
 		END
 	ELSE
-		SAVE IMAGE ublue-cli:alpine
+		SAVE IMAGE blue-build:alpine
 	END
 
 all:
-	BUILD +ublue-cli
-	BUILD +ublue-cli-alpine
+	BUILD +blue-build
+	BUILD +blue-build-alpine
 	BUILD +iso-generator

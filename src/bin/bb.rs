@@ -1,15 +1,15 @@
+use blue_build::{self, build, template};
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use env_logger::WriteStyle;
 use log::trace;
-use ublue_rs::{self, build, template};
 
 #[cfg(feature = "init")]
-use ublue_rs::init;
+use blue_build::init;
 
 #[derive(Parser, Debug)]
-#[command(name = "Ublue Builder", author, version, about, long_about = None)]
-struct UblueArgs {
+#[command(name = "BlueBuild", author, version, about, long_about = None)]
+struct BlueBuildArgs {
     #[command(subcommand)]
     command: CommandArgs,
 
@@ -35,7 +35,7 @@ enum CommandArgs {
 }
 
 fn main() {
-    let args = UblueArgs::parse();
+    let args = BlueBuildArgs::parse();
 
     env_logger::builder()
         .filter_level(args.verbosity.log_level_filter())
