@@ -76,6 +76,6 @@ blue-build-cli-alpine:
 	END
 
 all:
-	BUILD +blue-build
-	BUILD +blue-build-alpine
+	BUILD +blue-build-cli
+	BUILD +blue-build-cli-alpine
 	BUILD +iso-generator
