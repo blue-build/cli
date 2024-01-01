@@ -15,7 +15,7 @@ pub struct Recipe {
     pub base_image: String,
 
     #[serde(alias = "image-version")]
-    pub image_version: u16,
+    pub image_version: String,
 
     pub modules: Vec<Module>,
 
@@ -31,7 +31,7 @@ impl Recipe {
         trace!("Recipe::generate_tags()");
 
         let mut tags: Vec<String> = Vec::new();
-        let image_version = self.image_version;
+        let image_version = &self.image_version;
         let timestamp = Local::now().format("%Y%m%d").to_string();
 
         if let (Ok(commit_branch), Ok(default_branch), Ok(commit_sha), Ok(pipeline_source)) = (
