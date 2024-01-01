@@ -14,6 +14,7 @@ use typed_builder::TypedBuilder;
 use crate::module_recipe::Recipe;
 
 pub const DEFAULT_CONTAINERFILE: &str = include_str!("../templates/Containerfile.tera");
+pub const EXPORT_SCRIPT: &str = include_str!("../templates/export.sh");
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct TemplateCommand {
@@ -119,7 +120,9 @@ impl TemplateCommand {
                         }
                         None => Err("Arg containerfile wasn't a string".into()),
                     },
-                    None => Err("Needs the argument 'containerfile'".into()),
+                    None => {
+                        Err("Needs the argument 'containerfile' for print_containerfile()".into())
+                    }
                 }
             },
         );
@@ -134,7 +137,7 @@ impl TemplateCommand {
                         Ok(s) => Ok(s.into()),
                         Err(e) => Err(format!("Unable to serialize: {e}").into()),
                     },
-                    None => Err("Needs the argument 'module'".into()),
+                    None => Err("Needs the argument 'module' for print_module_context()".into()),
                 }
             },
         );
@@ -162,7 +165,7 @@ impl TemplateCommand {
                             Err(_) => Err(format!("Unable to deserialize file {file}").into()),
                         }
                     }
-                    None => Err("Needs the argument 'file'".into()),
+                    None => Err("Needs the argument 'file' for get_module_from_file()".into()),
                 }
             },
         );
@@ -174,6 +177,32 @@ impl TemplateCommand {
                 trace!("tera fn running_gitlab_actions()");
 
                 Ok(env::var("GITHUB_ACTIONS").is_ok_and(|e| e == "true").into())
+            },
+        );
+
+        debug!("Registering function `print_script`");
+        tera.register_function(
+            "print_script",
+            |args: &HashMap<String, tera::Value>| -> tera::Result<tera::Value> {
+                trace!("tera fn print_script({args:#?})");
+
+                let escape_script = |script_contents: &str| {
+                    format!(
+                        "\"{}\"",
+                        script_contents
+                            .replace('\n', "\\n")
+                            .replace('\"', "\\\"")
+                            .replace('$', "\\$")
+                    )
+                };
+
+                match args.get("script") {
+                    Some(x) => match x.as_str().unwrap_or_default() {
+                        "export" => Ok(escape_script(EXPORT_SCRIPT).into()),
+                        _ => Err(format!("Script {x} doesn't exist").into()),
+                    },
+                    None => Err("Needs the argument 'script' for 'print_script()'".into()),
+                }
             },
         );
 

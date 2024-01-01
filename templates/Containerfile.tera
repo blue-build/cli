@@ -29,9 +29,7 @@ COPY --from=ghcr.io/ublue-os/bling:latest /modules /tmp/modules/
 # Custom modules overwrite defaults
 COPY modules /tmp/modules/
 
-RUN echo "#!/usr/bin/env bash" >> /tmp/exports.sh
-RUN echo 'get_yaml_array() { readarray "$1" < <(echo "$3" | yq -I=0 "$2"); }; export -f get_yaml_array' >> /tmp/exports.sh
-RUN chmod +x /tmp/exports.sh
+RUN printf {{ print_script(script = "export") }} >> /tmp/exports.sh && chmod +x /tmp/exports.sh
 
 ARG CONFIG_DIRECTORY="/tmp/config"
 ARG IMAGE_NAME="{{ name }}"
@@ -44,8 +42,7 @@ ARG BASE_IMAGE="{{ base_image }}"
 {{ print_containerfile(containerfile = c ) }}
 			{%- endfor %}
 		{%- else %}
-RUN chmod +x /tmp/modules/{{ module.type }}/{{ module.type }}.sh
-RUN source /tmp/exports.sh && OS_VERSION="$(grep -Po '(?<=VERSION_ID=)\d+' /usr/lib/os-release)" /tmp/modules/{{ module.type }}/{{ module.type }}.sh '{{ print_module_context(module = module) }}'
+RUN chmod +x /tmp/modules/{{ module.type }}/{{ module.type }}.sh && source /tmp/exports.sh && /tmp/modules/{{ module.type }}/{{ module.type }}.sh '{{ print_module_context(module = module) }}'
 		{%- endif %}
 	{%- elif module["from-file"] %}
 		{%- set extra_module = get_module_from_file(file = module["from-file"]) %}
