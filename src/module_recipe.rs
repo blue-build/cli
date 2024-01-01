@@ -83,7 +83,7 @@ impl Recipe {
                 debug!("Running in a PR");
                 tags.push(format!("pr-{github_event_number}-{image_version}"));
             } else if github_ref_name == "live" {
-                tags.push(format!("{image_version}"));
+                tags.push(image_version.to_owned());
                 tags.push(format!("{image_version}-{timestamp}"));
                 tags.push("latest".to_string());
             } else {
