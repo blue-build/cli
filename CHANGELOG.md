@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.3.9 (2024-01-01)
+
+### Bug Fixes
+
+ - <csr-id-7dd3a8f0f9cbdc53d00d53e07f8548bc4ddcdddf/> clippy error for image_tag
+ - <csr-id-ca95e3296d4cb199ebfbf7a7f39a2bdcc2f926f8/> Allow image_version to be a String
+ - <csr-id-e0d93e81b51ce8baff9e2dc7da368695b71045ec/> Earthfile syntax error
+
+### Refactor
+
+ - <csr-id-938ddae891b75049485949fa3f46cbc69b27f1af/> inefficiency in generated Containerfile
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release over the course of 1 calendar day.
+ - 1 day passed between releases.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Inefficiency in generated Containerfile (938ddae)
+    - Clippy error for image_tag (7dd3a8f)
+    - Allow image_version to be a String (ca95e32)
+    - Earthfile syntax error (e0d93e8)
+</details>
+
 ## v0.3.8 (2023-12-30)
 
 ### Documentation
@@ -19,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -30,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release blue-build v0.3.8 (3309ca5)
     - Rename ublue-rs to blue-build (d3ff4ee)
     - Renaming tool in docs (a2e5479)
 </details>
