@@ -5,7 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.3.11 (2024-01-04)
+
+### Bug Fixes
+
+ - <csr-id-ebd399e960edc3707f457807ca7a99c92a7c0ae7/> removed unwrap from template to handle with proper error message
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Removed unwrap from template to handle with proper error message (ebd399e)
+</details>
+
 ## v0.3.10 (2024-01-04)
+
+<csr-id-d663b7574bb140848e1a80659440b3498444500b/>
 
 ### Bug Fixes
 
@@ -19,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 2 commits contributed to the release.
+ - 3 commits contributed to the release.
  - 2 days passed between releases.
  - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -31,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release blue-build v0.3.10 (7ae8dcd)
     - Stop possible from-file, type module collision in template (dfb3154)
     - Use askama crate for compile-time template type checking (d663b75)
 </details>
