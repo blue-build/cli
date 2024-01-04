@@ -5,7 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.3.10 (2024-01-04)
+
+### Bug Fixes
+
+ - <csr-id-dfb315447c0d1bd41abe99fea25738e870eb97b8/> stop possible from-file, type module collision in template
+
+### Refactor
+
+ - <csr-id-d663b7574bb140848e1a80659440b3498444500b/> Use askama crate for compile-time template type checking
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 2 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Stop possible from-file, type module collision in template (dfb3154)
+    - Use askama crate for compile-time template type checking (d663b75)
+</details>
+
 ## v0.3.9 (2024-01-01)
+
+<csr-id-938ddae891b75049485949fa3f46cbc69b27f1af/>
 
 ### Bug Fixes
 
@@ -21,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release over the course of 1 calendar day.
+ - 5 commits contributed to the release over the course of 1 calendar day.
  - 1 day passed between releases.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -33,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release blue-build v0.3.9 (039c5f9)
     - Inefficiency in generated Containerfile (938ddae)
     - Clippy error for image_tag (7dd3a8f)
     - Allow image_version to be a String (ca95e32)
