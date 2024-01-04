@@ -9,7 +9,10 @@ use clap::Args;
 use log::{debug, error, info, trace, warn};
 use typed_builder::TypedBuilder;
 
-use crate::{module_recipe::Recipe, ops, template::TemplateCommand};
+use crate::{
+    ops,
+    template::{Recipe, TemplateCommand},
+};
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BuildCommand {
