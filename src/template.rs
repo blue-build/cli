@@ -252,10 +252,10 @@ fn print_containerfile(containerfile: &str) -> String {
     file
 }
 
-fn get_module_from_file(file: &str) -> ModuleExt {
+fn get_module_from_file(file: &str) -> String {
     trace!("get_module_from_file({file})");
 
-    serde_yaml::from_str(
+    serde_yaml::from_str::<ModuleExt>(
         fs::read_to_string(format!("config/{file}").as_str())
             .unwrap_or_else(|e| {
                 error!("Failed to read module {file}: {e}");
@@ -264,7 +264,12 @@ fn get_module_from_file(file: &str) -> ModuleExt {
             .as_str(),
     )
     .unwrap_or_else(|e| {
-        error!("Failed to parse {file}: {e}");
+        error!("Failed to parse module {file}: {e}");
+        process::exit(1);
+    })
+    .render()
+    .unwrap_or_else(|e| {
+        error!("Failed to render module {file}: {e}");
         process::exit(1);
     })
 }
