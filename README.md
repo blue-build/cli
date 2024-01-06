@@ -1,3 +1,12 @@
+<div align="center">
+  <center>
+    <figure>
+      <img src="logos/BlueBuild-banner.png" alt="BlueBuild Banner" height="300" />
+      <figcaption>Graphic Designer: Ian Price</figcaption>
+    </figure>
+  </center>
+</div>
+
 # BlueBuild
 
 This is my personal project trying to create a more conise version of the [starting point](https://github.com/ublue-os/startingpoint/tree/template) repo all condensed into a single Rust based CLI tool.
