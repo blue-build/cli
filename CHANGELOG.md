@@ -5,17 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.3.11 (2024-01-04)
+## v0.3.12 (2024-01-06)
 
-### Bug Fixes
+### Documentation
 
- - <csr-id-ebd399e960edc3707f457807ca7a99c92a7c0ae7/> removed unwrap from template to handle with proper error message
+ - <csr-id-7d2a0780b0c86d89c8ae47b80f701b979c3d7dff/> Add logos
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
  - 1 commit contributed to the release.
+ - 2 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -26,6 +27,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Add logos (7d2a078)
+</details>
+
+## v0.3.11 (2024-01-04)
+
+### Bug Fixes
+
+ - <csr-id-ebd399e960edc3707f457807ca7a99c92a7c0ae7/> removed unwrap from template to handle with proper error message
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Release blue-build v0.3.11 (c13637c)
     - Removed unwrap from template to handle with proper error message (ebd399e)
 </details>
 
