@@ -49,7 +49,19 @@ If you don't care about the details of the template, you can run the `build` com
 bb build ./config/recipe.yaml
 ```
 
-This will template out the file and build with `buildah` or `podman`. If you're running in Gitlab CI, it will automatically sign your image using Gitlab's own OIDC service. Here's an example of a `.gitlab-ci.yaml`:
+This will template out the file and build with `buildah` or `podman`. 
+
+#### Local Builds
+
+If you want to test your changes, you can do so by using the `--rebase` argument. This will create an image as a `.tar.gz` file, store it in `/etc/blue-build`, an run `rpm-ostree rebase` on that newly built file.
+
+```bash
+sudo bb build --rebase config/recipe.yml
+```
+
+#### CI Builds
+
+If you're running in Gitlab CI, it will automatically sign your image using Gitlab's own OIDC service. Here's an example of a `.gitlab-ci.yaml`:
 
 ```yaml
 workflow:
