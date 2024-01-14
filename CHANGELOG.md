@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.4.1 (2024-01-14)
+
+### Documentation
+
+ - <csr-id-41bdd85903e3ce7bb7254eeef20e402541bedb63/> Update README to describe using local builds
+
+### Bug Fixes
+
+ - <csr-id-f8dfc6b241922f018b123115b4d40f19002ccb16/> Installer used wrong image tag
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Update README to describe using local builds (41bdd85)
+    - Installer used wrong image tag (f8dfc6b)
+</details>
+
 ## v0.4.0 (2024-01-14)
 
 ### New Features (BREAKING)
@@ -15,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -26,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release blue-build v0.4.0 (bf0479c)
     - Remove containerfile arg since we use compiled time templates (754b451)
 </details>
 
