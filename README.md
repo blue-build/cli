@@ -26,7 +26,7 @@ cargo install --locked blue-build
 This will install the binary on your system in `/usr/local/bin`. This is only a `linux-gnu` version.
 
 ```bash
-podman run --rm registry.gitlab.com/wunker-bunker/blue-build:installer | sudo bash
+podman run --rm registry.gitlab.com/wunker-bunker/blue-build:latest-installer | sudo bash
 ```
 
 ## How to use
