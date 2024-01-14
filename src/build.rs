@@ -23,11 +23,6 @@ pub struct BuildCommand {
     #[arg()]
     recipe: PathBuf,
 
-    /// Optional Containerfile to use as a template
-    #[arg(short, long)]
-    #[builder(default, setter(into))]
-    containerfile: Option<PathBuf>,
-
     /// Rebase your current OS onto the image
     /// being built.
     ///
@@ -109,7 +104,6 @@ impl BuildCommand {
 
         TemplateCommand::builder()
             .recipe(self.recipe.clone())
-            .containerfile(self.containerfile.clone())
             .output(PathBuf::from("Containerfile"))
             .build()
             .try_run()?;

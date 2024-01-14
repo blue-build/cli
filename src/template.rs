@@ -146,11 +146,6 @@ pub struct TemplateCommand {
     #[arg()]
     recipe: PathBuf,
 
-    /// Optional Containerfile to use as a template
-    #[arg(short, long)]
-    #[builder(default, setter(into))]
-    containerfile: Option<PathBuf>,
-
     /// File to output to instead of STDOUT
     #[arg(short, long)]
     #[builder(default, setter(into))]
