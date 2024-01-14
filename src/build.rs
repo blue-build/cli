@@ -63,13 +63,13 @@ pub struct BuildCommand {
 
     /// The username to login to the
     /// container registry.
-    #[arg(short, long)]
+    #[arg(short = 'U', long)]
     #[builder(default, setter(into))]
     username: Option<String>,
 
     /// The password to login to the
     /// container registry.
-    #[arg(short, long)]
+    #[arg(short = 'P', long)]
     #[builder(default, setter(into))]
     password: Option<String>,
 }
