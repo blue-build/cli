@@ -1,6 +1,6 @@
 [package]
 name = "blue-build"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 description = "A CLI tool built for creating Containerfile templates based on the Ublue Community Project"
 repository = "https://gitlab.com/wunker-bunker/blue-build"
