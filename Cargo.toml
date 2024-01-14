@@ -23,10 +23,11 @@ serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
 serde_yaml = "0.9.25"
 typed-builder = "0.18.0"
+users = "0.11.0"
 
 [features]
 default = ["build"]
-nightly = ["init", "build"]
+nightly = ["build"]
 init = []
 build = []
 

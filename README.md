@@ -13,10 +13,20 @@ This is my personal project trying to create a more conise version of the [start
 
 ## Installation
 
-Right now the only way to install this tool is to use `cargo`.
+### Cargo
+
+This is the best way to install as it gives you the opportunity to bulid for your specific environment.
 
 ```bash
 cargo install --locked blue-build
+```
+
+### Podman/Docker
+
+This will install the binary on your system in `/usr/local/bin`. This is only a `linux-gnu` version.
+
+```bash
+podman run --rm registry.gitlab.com/wunker-bunker/blue-build:installer | sudo bash
 ```
 
 ## How to use
@@ -138,4 +148,4 @@ jobs:
 - [x] Setup pipeline automation for publishing
 - [ ] Create an init command to create a repo for you to start out
 - [ ] Setup the project to allow installing with `binstall`
-- [ ] Create an install script for easy install for users without `cargo`
+- [x] Create an install script for easy install for users without `cargo`

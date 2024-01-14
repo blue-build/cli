@@ -1,6 +1,6 @@
 use std::{
     env, fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{self, Command},
 };
 
@@ -8,11 +8,14 @@ use anyhow::{anyhow, bail, Result};
 use clap::Args;
 use log::{debug, error, info, trace, warn};
 use typed_builder::TypedBuilder;
+use users::{Users, UsersCache};
 
 use crate::{
     ops,
     template::{Recipe, TemplateCommand},
 };
+
+const LOCAL_BUILD: &str = "/etc/blue-build";
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BuildCommand {
@@ -24,6 +27,19 @@ pub struct BuildCommand {
     #[arg(short, long)]
     #[builder(default, setter(into))]
     containerfile: Option<PathBuf>,
+
+    /// Rebase your current OS onto the image
+    /// being built.
+    ///
+    /// This will create a tarball of your image at
+    /// `/etc/blue-build/` and invoke `rpm-ostree` to
+    /// rebase onto the image using `oci-archive`.
+    ///
+    /// NOTE: This can only be used if you have `rpm-ostree`
+    /// installed and if the `--push` option isn't
+    /// used. This image will not be signed.
+    #[arg(short, long)]
+    rebase: bool,
 
     /// Push the image with all the tags.
     ///
@@ -59,13 +75,30 @@ pub struct BuildCommand {
 }
 
 impl BuildCommand {
+    /// Runs the command and returns a result.
     pub fn try_run(&self) -> Result<()> {
         trace!("BuildCommand::try_run()");
+
+        if self.push && self.rebase {
+            bail!("You cannot use '--rebase' and '--push' at the same time");
+        }
 
         if let Err(e1) = ops::check_command_exists("buildah") {
             ops::check_command_exists("podman").map_err(|e2| {
                 anyhow!("Need either 'buildah' or 'podman' commands to proceed: {e1}, {e2}")
             })?;
+        }
+
+        if self.rebase {
+            ops::check_command_exists("rpm-ostree")?;
+
+            let cache = UsersCache::new();
+
+            if cache.get_current_uid() != 0 {
+                bail!("You need to be root to rebase a local image! Try using 'sudo'.");
+            }
+
+            clean_local_build_dir()?;
         }
 
         if self.push {
@@ -85,6 +118,7 @@ impl BuildCommand {
         self.build_image()
     }
 
+    /// Runs the command and exits if there is an error.
     pub fn run(&self) {
         trace!("BuildCommand::run()");
 
@@ -108,6 +142,10 @@ impl BuildCommand {
         self.run_build(&image_name, &tags)?;
 
         info!("Build complete!");
+
+        if self.rebase {
+            info!("Be sure to restart your computer to use your new changes!");
+        }
 
         Ok(())
     }
@@ -201,49 +239,56 @@ impl BuildCommand {
         info!("Generating full image name");
         trace!("BuildCommand::generate_full_image_name({recipe:#?})");
 
-        let image_name = match (
-            env::var("CI_REGISTRY").ok(),
-            env::var("CI_PROJECT_NAMESPACE").ok(),
-            env::var("CI_PROJECT_NAME").ok(),
-            env::var("GITHUB_REPOSITORY_OWNER").ok(),
-            self.registry.as_ref(),
-            self.registry_path.as_ref(),
-        ) {
-            (_, _, _, _, Some(registry), Some(registry_path)) => {
-                trace!("registry={registry}, registry_path={registry_path}");
-                format!(
-                    "{}/{}/{}",
-                    registry.trim().trim_matches('/'),
-                    registry_path.trim().trim_matches('/'),
-                    &recipe.name
-                )
-            }
-            (
-                Some(ci_registry),
-                Some(ci_project_namespace),
-                Some(ci_project_name),
-                None,
-                None,
-                None,
-            ) => {
-                trace!("CI_REGISTRY={ci_registry}, CI_PROJECT_NAMESPACE={ci_project_namespace}, CI_PROJECT_NAME={ci_project_name}");
-                warn!("Generating Gitlab Registry image");
-                format!(
-                    "{ci_registry}/{ci_project_namespace}/{ci_project_name}/{}",
-                    &recipe.name
-                )
-            }
-            (None, None, None, Some(github_repository_owner), None, None) => {
-                trace!("GITHUB_REPOSITORY_OWNER={github_repository_owner}");
-                warn!("Generating Github Registry image");
-                format!("ghcr.io/{github_repository_owner}/{}", &recipe.name)
-            }
-            _ => {
-                trace!("Nothing to indicate an image name with a registry");
-                if self.push {
-                    bail!("Need '--registry' and '--registry-path' in order to push image");
+        let image_name = if self.rebase {
+            let local_build_path = PathBuf::from(LOCAL_BUILD);
+
+            let image_path = local_build_path.join(format!("{}.tar.gz", &recipe.name));
+            format!("oci-archive:{}", image_path.display())
+        } else {
+            match (
+                env::var("CI_REGISTRY").ok(),
+                env::var("CI_PROJECT_NAMESPACE").ok(),
+                env::var("CI_PROJECT_NAME").ok(),
+                env::var("GITHUB_REPOSITORY_OWNER").ok(),
+                self.registry.as_ref(),
+                self.registry_path.as_ref(),
+            ) {
+                (_, _, _, _, Some(registry), Some(registry_path)) => {
+                    trace!("registry={registry}, registry_path={registry_path}");
+                    format!(
+                        "{}/{}/{}",
+                        registry.trim().trim_matches('/'),
+                        registry_path.trim().trim_matches('/'),
+                        &recipe.name
+                    )
                 }
-                recipe.name.to_owned()
+                (
+                    Some(ci_registry),
+                    Some(ci_project_namespace),
+                    Some(ci_project_name),
+                    None,
+                    None,
+                    None,
+                ) => {
+                    trace!("CI_REGISTRY={ci_registry}, CI_PROJECT_NAMESPACE={ci_project_namespace}, CI_PROJECT_NAME={ci_project_name}");
+                    warn!("Generating Gitlab Registry image");
+                    format!(
+                        "{ci_registry}/{ci_project_namespace}/{ci_project_name}/{}",
+                        &recipe.name
+                    )
+                }
+                (None, None, None, Some(github_repository_owner), None, None) => {
+                    trace!("GITHUB_REPOSITORY_OWNER={github_repository_owner}");
+                    warn!("Generating Github Registry image");
+                    format!("ghcr.io/{github_repository_owner}/{}", &recipe.name)
+                }
+                _ => {
+                    trace!("Nothing to indicate an image name with a registry");
+                    if self.push {
+                        bail!("Need '--registry' and '--registry-path' in order to push image");
+                    }
+                    recipe.name.to_owned()
+                }
             }
         };
 
@@ -261,7 +306,11 @@ impl BuildCommand {
             .next()
             .ok_or(anyhow!("We got here with no tags!?"))?;
 
-        let full_image = format!("{image_name}:{first_tag}");
+        let full_image = if self.rebase {
+            image_name.to_owned()
+        } else {
+            format!("{image_name}:{first_tag}")
+        };
 
         let status = match (
             ops::check_command_exists("buildah"),
@@ -293,7 +342,7 @@ impl BuildCommand {
             bail!("Failed to build {image_name}");
         }
 
-        if tags.len() > 1 {
+        if tags.len() > 1 && !self.rebase {
             debug!("Tagging all images");
 
             for tag in tags_iter {
@@ -365,6 +414,19 @@ impl BuildCommand {
             }
 
             self.sign_images(image_name, first_tag)?;
+        } else if self.rebase {
+            debug!("Rebasing onto locally built image {image_name}");
+
+            if Command::new("rpm-ostree")
+                .arg("rebase")
+                .arg(format!("ostree-unverified-image:{full_image}"))
+                .status()?
+                .success()
+            {
+                info!("Successfully rebased to {full_image}");
+            } else {
+                bail!("Failed to rebase to {full_image}");
+            }
         }
 
         Ok(())
@@ -481,7 +543,7 @@ impl BuildCommand {
     }
 }
 
-pub fn get_image_digest(image_name: &str, tag: &str) -> Result<String> {
+fn get_image_digest(image_name: &str, tag: &str) -> Result<String> {
     trace!("get_image_digest({image_name}, {tag})");
 
     let image_url = format!("docker://{image_name}:{tag}");
@@ -502,7 +564,7 @@ pub fn get_image_digest(image_name: &str, tag: &str) -> Result<String> {
     ))
 }
 
-pub fn check_cosign_files() -> Result<()> {
+fn check_cosign_files() -> Result<()> {
     trace!("check_for_cosign_files()");
 
     match (
@@ -546,4 +608,34 @@ pub fn check_cosign_files() -> Result<()> {
             Ok(())
         }
     }
+}
+
+fn clean_local_build_dir() -> Result<()> {
+    trace!("clean_local_build_dir()");
+    let local_build_path = Path::new(LOCAL_BUILD);
+
+    if !local_build_path.exists() {
+        trace!(
+            "Creating build output dir at {}",
+            local_build_path.display()
+        );
+        fs::create_dir_all(local_build_path)?;
+    } else {
+        debug!("Cleaning out build dir {LOCAL_BUILD}");
+
+        let entries = fs::read_dir(LOCAL_BUILD)?;
+
+        for entry in entries {
+            let entry = entry?;
+            let path = entry.path();
+            trace!("Found {}", path.display());
+
+            if path.is_file() && path.ends_with(".tar.gz") {
+                trace!("Removing {}", path.display());
+                fs::remove_file(path)?;
+            }
+        }
+    }
+
+    Ok(())
 }
