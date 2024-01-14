@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.3.13 (2024-01-14)
+
+### New Features
+
+ - <csr-id-eaeb79f329282d9214ceda0b3d66b72f52dc2427/> Local image rebasing
+
+### Bug Fixes
+
+ - <csr-id-150aee028b611cf30415aa98ca5a2ee82c9ca550/> conflicting short args for build subcommand
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 7 days passed between releases.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Conflicting short args for build subcommand (150aee0)
+    - Local image rebasing (eaeb79f)
+</details>
+
 ## v0.3.12 (2024-01-06)
 
 ### Documentation
@@ -15,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 2 days passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -27,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release blue-build v0.3.12 (7829ea6)
     - Add logos (7d2a078)
 </details>
 
