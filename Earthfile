@@ -27,9 +27,8 @@ nightly:
 	BUILD +default --NIGHTLY=true
 
 integration-tests:
-	ARG NIGHTLY=false
-	BUILD +integration-test-template --NIGHTLY=$NIGHTLY
-	BUILD +integration-test-build --NIGHTLY=$NIGHTLY
+	BUILD +integration-test-template --NIGHTLY=true --NIGHTLY=false
+	BUILD +integration-test-build --NIGHTLY=true --NIGHTLY=false
 
 lint:
 	FROM +common
