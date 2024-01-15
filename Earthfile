@@ -126,9 +126,7 @@ integration-test-build:
 	ARG NIGHTLY=false
 	FROM +integration-test-base --NIGHTLY=$NIGHTLY
 
-	WITH DOCKER
-		RUN bb -vv build config/recipe-jp-desktop.yml
-	END
+	RUN --privileged bb -vv build config/recipe-jp-desktop.yml
 
 integration-test-base:
 	ARG NIGHTLY=false
