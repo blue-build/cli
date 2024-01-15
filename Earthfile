@@ -13,22 +13,23 @@ all:
 	BUILD +nightly
 
 default:
+	ARG NIGHTLY=false
 	WAIT
-		BUILD +lint
-		BUILD +test
+		BUILD +lint --NIGHTLY=$NIGHTLY
+		BUILD +test --NIGHTLY=$NIGHTLY
 	END
-	BUILD +blue-build-cli
-	BUILD +blue-build-cli-alpine
-	BUILD +installer
+	BUILD +blue-build-cli --NIGHTLY=$NIGHTLY
+	BUILD +blue-build-cli-alpine --NIGHTLY=$NIGHTLY
+	BUILD +installer --NIGHTLY=$NIGHTLY
+	BUILD +integration-test-template --NIGHTLY=$NIGHTLY
 
 nightly:
-	WAIT
-		BUILD +lint --NIGHTLY=true
-		BUILD +test --NIGHTLY=true
-	END
-	BUILD +blue-build-cli --NIGHTLY=true
-	BUILD +blue-build-cli-alpine --NIGHTLY=true
-	BUILD +installer --NIGHTLY=true
+	BUILD +default --NIGHTLY=true
+
+integration-tests:
+	ARG NIGHTLY=false
+	BUILD +integration-test-template --NIGHTLY=$NIGHTLY
+	BUILD +integration-test-build --NIGHTLY=$NIGHTLY
 
 lint:
 	FROM +common
@@ -111,6 +112,32 @@ installer:
 	ARG LATEST=false
 	ARG INSTALLER=true
 	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY --INSTALLER=$INSTALLER
+
+integration-test-template:
+	FROM DOCKERFILE -f +integration-test-template-containerfile/test/Containerfile +integration-test-template-containerfile/test/*
+
+integration-test-template-containerfile:
+	ARG NIGHTLY=false
+	FROM +integration-test-base --NIGHTLY=$NIGHTLY
+	RUN bb -vv template config/recipe-jp-desktop.yml | tee Containerfile
+
+	SAVE ARTIFACT /test
+
+integration-test-build:
+	ARG NIGHTLY=false
+	FROM +integration-test-base --NIGHTLY=$NIGHTLY
+
+	WITH DOCKER
+		RUN bb -vv build config/recipe-jp-desktop.yml
+	END
+
+integration-test-base:
+	ARG NIGHTLY=false
+
+	FROM +blue-build-cli-alpine --NIGHTLY=$NIGHTLY
+
+	GIT CLONE https://gitlab.com/wunker-bunker/wunker-os.git /test
+	WORKDIR /test
 
 iso-generator:
 	FROM registry.fedoraproject.org/fedora-toolbox
