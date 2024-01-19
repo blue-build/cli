@@ -1,11 +1,16 @@
-use std::process::Command;
+use std::{
+    env,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
+use clap::ValueEnum;
 use log::{debug, trace};
 
 pub fn check_command_exists(command: &str) -> Result<()> {
-    debug!("Checking if {command} exists");
     trace!("check_command_exists({command})");
+    debug!("Checking if {command} exists");
 
     trace!("which {command}");
     match Command::new("which")

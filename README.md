@@ -1,7 +1,7 @@
 <div align="center">
   <center>
     <figure>
-      <img src="logos/BlueBuild-banner.png" alt="BlueBuild Banner" height="300" />
+      <img src="https://gitlab.com/wunker-bunker/blue-build/-/raw/main/logos/BlueBuild-banner.png" alt="BlueBuild Banner" style="max-height: 300px;" />
       <figcaption>Graphic Designer: Ian Price</figcaption>
     </figure>
   </center>

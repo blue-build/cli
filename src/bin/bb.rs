@@ -19,6 +19,9 @@ struct BlueBuildArgs {
 
 #[derive(Debug, Subcommand)]
 enum CommandArgs {
+    /// Build an image from a recipe
+    Build(build::BuildCommand),
+
     /// Generate a Containerfile from a recipe
     Template(template::TemplateCommand),
 
@@ -28,10 +31,6 @@ enum CommandArgs {
 
     #[cfg(feature = "init")]
     New(init::NewCommand),
-
-    /// Build an image from a recipe
-    #[cfg(feature = "build")]
-    Build(build::BuildCommand),
 }
 
 fn main() {
@@ -39,12 +38,15 @@ fn main() {
 
     env_logger::builder()
         .filter_level(args.verbosity.log_level_filter())
+        .filter_module("hyper::proto", log::LevelFilter::Info)
         .write_style(WriteStyle::Always)
         .init();
 
     trace!("{args:#?}");
 
     match args.command {
+        CommandArgs::Build(mut command) => command.run(),
+
         CommandArgs::Template(command) => command.run(),
 
         #[cfg(feature = "init")]
@@ -52,8 +54,5 @@ fn main() {
 
         #[cfg(feature = "init")]
         CommandArgs::New(command) => command.run(),
-
-        #[cfg(feature = "build")]
-        CommandArgs::Build(command) => command.run(),
     }
 }

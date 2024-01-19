@@ -1,3 +1,6 @@
+#[cfg(feature = "podman-api")]
+mod build_strategy;
+
 use std::{
     env, fs,
     path::{Path, PathBuf},
@@ -9,6 +12,22 @@ use clap::Args;
 use log::{debug, error, info, trace, warn};
 use typed_builder::TypedBuilder;
 use users::{Users, UsersCache};
+
+#[cfg(feature = "podman-api")]
+use podman_api::{
+    api::Image,
+    opts::{ImageBuildOpts, ImageListOpts, ImagePushOpts, RegistryAuth},
+    Podman,
+};
+
+#[cfg(feature = "podman-api")]
+use build_strategy::BuildStrategy;
+
+#[cfg(feature = "futures-util")]
+use futures_util::StreamExt;
+
+#[cfg(feature = "tokio")]
+use tokio::runtime::Runtime;
 
 use crate::{
     ops,
@@ -47,37 +66,87 @@ pub struct BuildCommand {
 
     /// The registry's domain name.
     #[arg(long)]
-    #[builder(default, setter(into))]
+    #[builder(default, setter(into, strip_option))]
     registry: Option<String>,
 
     /// The url path to your base
     /// project images.
     #[arg(long)]
-    #[builder(default, setter(into))]
+    #[builder(default, setter(into, strip_option))]
     registry_path: Option<String>,
 
     /// The username to login to the
     /// container registry.
     #[arg(short = 'U', long)]
-    #[builder(default, setter(into))]
+    #[builder(default, setter(into, strip_option))]
     username: Option<String>,
 
     /// The password to login to the
     /// container registry.
     #[arg(short = 'P', long)]
-    #[builder(default, setter(into))]
+    #[builder(default, setter(into, strip_option))]
     password: Option<String>,
+
+    /// The connection string used to connect
+    /// to a remote podman socket.
+    #[cfg(feature = "podman-api")]
+    #[arg(short, long)]
+    #[builder(default, setter(into, strip_option))]
+    connection: Option<String>,
+
+    /// The path to the `cert.pem`, `key.pem`,
+    /// and `ca.pem` files needed to connect to
+    /// a remote podman build socket.
+    #[cfg(feature = "tls")]
+    #[arg(long)]
+    #[builder(default, setter(into, strip_option))]
+    tls_path: Option<PathBuf>,
+
+    /// Whether to sign the image.
+    #[cfg(feature = "sigstore")]
+    #[arg(short, long)]
+    #[builder(default)]
+    sign: bool,
+
+    /// Path to the public key used to sign the image.
+    ///
+    /// If the contents of the key are in an environment
+    /// variable, you can use `env://` to sepcify which
+    /// variable to read from.
+    ///
+    /// For example:
+    ///
+    /// bb build --public-key env://PUBLIC_KEY ...
+    #[cfg(feature = "sigstore")]
+    #[arg(long)]
+    #[builder(default, setter(into, strip_option))]
+    public_key: Option<String>,
+
+    /// Path to the private key used to sign the image.
+    ///
+    /// If the contents of the key are in an environment
+    /// variable, you can use `env://` to sepcify which
+    /// variable to read from.
+    ///
+    /// For example:
+    ///
+    /// bb build --private-key env://PRIVATE_KEY ...
+    #[cfg(feature = "sigstore")]
+    #[arg(long)]
+    #[builder(default, setter(into, strip_option))]
+    private_key: Option<String>,
 }
 
 impl BuildCommand {
     /// Runs the command and returns a result.
-    pub fn try_run(&self) -> Result<()> {
+    pub fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
         if self.push && self.rebase {
             bail!("You cannot use '--rebase' and '--push' at the same time");
         }
 
+        #[cfg(not(feature = "podman-api"))]
         if let Err(e1) = ops::check_command_exists("buildah") {
             ops::check_command_exists("podman").map_err(|e2| {
                 anyhow!("Need either 'buildah' or 'podman' commands to proceed: {e1}, {e2}")
@@ -109,17 +178,178 @@ impl BuildCommand {
             .try_run()?;
 
         info!("Building image for recipe at {}", self.recipe.display());
+
+        #[cfg(feature = "podman-api")]
+        match BuildStrategy::determine_strategy()? {
+            BuildStrategy::Socket(socket) => {
+                let rt = Runtime::new()?;
+                rt.block_on(self.build_image_podman_api(Podman::unix(socket)))
+            }
+            _ => self.build_image(),
+        }
+
+        #[cfg(not(feature = "podman-api"))]
         self.build_image()
     }
 
     /// Runs the command and exits if there is an error.
-    pub fn run(&self) {
+    pub fn run(&mut self) {
         trace!("BuildCommand::run()");
 
         if let Err(e) = self.try_run() {
             error!("Failed to build image: {e}");
             process::exit(1);
         }
+    }
+
+    #[cfg(feature = "podman-api")]
+    async fn build_image_podman_api(&self, client: Podman) -> Result<()> {
+        use podman_api::opts::ImageTagOpts;
+
+        trace!("BuildCommand::build_image({client:#?})");
+
+        let (registry, username, password) = if self.push {
+            let registry = match (
+                self.registry.as_ref(),
+                env::var("CI_REGISTRY").ok(),
+                env::var("GITHUB_ACTIONS").ok(),
+            ) {
+                (Some(registry), _, _) => registry.to_owned(),
+                (None, Some(ci_registry), None) => ci_registry,
+                (None, None, Some(_)) => "ghcr.io".to_string(),
+                _ => bail!("Need '--registry' set in order to login"),
+            };
+
+            let username = match (
+                self.username.as_ref(),
+                env::var("CI_REGISTRY_USER").ok(),
+                env::var("GITHUB_ACTOR").ok(),
+            ) {
+                (Some(username), _, _) => username.to_owned(),
+                (None, Some(ci_registry_user), None) => ci_registry_user,
+                (None, None, Some(github_actor)) => github_actor,
+                _ => bail!("Need '--username' set in order to login"),
+            };
+
+            let password = match (
+                self.password.as_ref(),
+                env::var("CI_REGISTRY_PASSWORD").ok(),
+                env::var("REGISTRY_TOKEN").ok(),
+            ) {
+                (Some(password), _, _) => password.to_owned(),
+                (None, Some(ci_registry_password), None) => ci_registry_password,
+                (None, None, Some(registry_token)) => registry_token,
+                _ => bail!("Need '--password' set in order to login"),
+            };
+
+            (registry, username, password)
+        } else {
+            Default::default()
+        };
+
+        let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(&self.recipe)?.as_str())?;
+        trace!("recipe: {recipe:#?}");
+
+        // Get values for image
+        let tags = recipe.generate_tags();
+        let image_name = self.generate_full_image_name(&recipe)?;
+        let first_image_name = if tags.is_empty() || self.rebase {
+            image_name.clone()
+        } else {
+            format!("{}:{}", &image_name, &tags[0])
+        };
+        debug!("Full tag is {first_image_name}");
+
+        // Get podman ready to build
+        let opts = ImageBuildOpts::builder(".")
+            .tag(&first_image_name)
+            .dockerfile("Containerfile")
+            .remove(true)
+            .layers(true)
+            .pull(true)
+            .build();
+        trace!("Build options: {opts:#?}");
+
+        match client.images().build(&opts) {
+            Ok(mut build_stream) => {
+                while let Some(chunk) = build_stream.next().await {
+                    match chunk {
+                        Ok(chunk) => debug!("{}", chunk.stream.trim()),
+                        Err(e) => error!("{}", e),
+                    }
+                }
+            }
+            Err(e) => error!("{}", e),
+        };
+
+        if self.push {
+            debug!("Pushing is enabled");
+
+            trace!("cosign login -u {username} -p [MASKED] {registry}");
+            if !Command::new("cosign")
+                .arg("login")
+                .arg("-u")
+                .arg(&username)
+                .arg("-p")
+                .arg(&password)
+                .arg(&registry)
+                .output()?
+                .status
+                .success()
+            {
+                bail!("Failed to login for cosign!");
+            }
+            info!("Cosign login success at {registry}");
+
+            let first_image = client.images().get(&first_image_name);
+
+            for tag in &tags {
+                let full_image_name = format!("{image_name}:{tag}");
+
+                first_image
+                    .tag(&ImageTagOpts::builder().repo(&image_name).tag(tag).build())
+                    .await?;
+                debug!("Tagged image {full_image_name}");
+
+                let new_image = client.images().get(&full_image_name);
+
+                info!("Pushing {full_image_name}");
+                match new_image
+                    .push(
+                        &ImagePushOpts::builder()
+                            .tls_verify(true)
+                            .auth(
+                                RegistryAuth::builder()
+                                    .username(&username)
+                                    .password(&password)
+                                    .server_address(&registry)
+                                    .build(),
+                            )
+                            .build(),
+                    )
+                    .await
+                {
+                    Ok(_) => info!("Pushed {full_image_name} successfully!"),
+                    Err(e) => bail!("Failed to push image: {e}"),
+                }
+            }
+
+            self.sign_images(&image_name, &tags[0])?;
+        } else if self.rebase {
+            debug!("Rebasing onto locally built image {image_name}");
+
+            if Command::new("rpm-ostree")
+                .arg("rebase")
+                .arg(format!("ostree-unverified-image:{first_image_name}"))
+                .status()?
+                .success()
+            {
+                info!("Successfully rebased to {first_image_name}");
+            } else {
+                bail!("Failed to rebase to {first_image_name}");
+            }
+        }
+        Ok(())
     }
 
     fn build_image(&self) -> Result<()> {
@@ -208,8 +438,6 @@ impl BuildCommand {
             bail!("Failed to login for buildah!");
         }
 
-        info!("Buildah login success at {registry} for user {username}!");
-
         trace!("cosign login -u {username} -p [MASKED] {registry}");
         if !Command::new("cosign")
             .arg("login")
@@ -224,7 +452,7 @@ impl BuildCommand {
         {
             bail!("Failed to login for cosign!");
         }
-        info!("Cosign login success at {registry} for user {username}!");
+        info!("Login success at {registry}");
 
         Ok(())
     }

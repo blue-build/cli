@@ -22,13 +22,10 @@ default:
 	BUILD +blue-build-cli-alpine --NIGHTLY=$NIGHTLY
 	BUILD +installer --NIGHTLY=$NIGHTLY
 	BUILD +integration-test-template --NIGHTLY=$NIGHTLY
+	BUILD +integration-test-build --NIGHTLY=$NIGHTLY
 
 nightly:
 	BUILD +default --NIGHTLY=true
-
-integration-tests:
-	BUILD +integration-test-template --NIGHTLY=true --NIGHTLY=false
-	BUILD +integration-test-build --NIGHTLY=true --NIGHTLY=false
 
 lint:
 	FROM +common
@@ -97,11 +94,11 @@ blue-build-cli-alpine:
 	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY --ALPINE=true
 
 installer:
-	FROM alpine
+	# FROM alpine
+	FROM mgoltzsche/podman:minimal
 	ARG NIGHTLY=false
 
 	BUILD +install --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY
-
 	COPY (+install/bb --BUILD_TARGET="x86_64-unknown-linux-gnu") /out/bb
 	COPY install.sh /install.sh
 
@@ -113,7 +110,8 @@ installer:
 	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY --INSTALLER=$INSTALLER
 
 integration-test-template:
-	FROM DOCKERFILE -f +integration-test-template-containerfile/test/Containerfile +integration-test-template-containerfile/test/*
+	ARG NIGHTLY=false
+	FROM DOCKERFILE -f +integration-test-template-containerfile/test/Containerfile +integration-test-template-containerfile/test/* --NIGHTLY=$NIGHTLY
 
 integration-test-template-containerfile:
 	ARG NIGHTLY=false
@@ -126,12 +124,18 @@ integration-test-build:
 	ARG NIGHTLY=false
 	FROM +integration-test-base --NIGHTLY=$NIGHTLY
 
-	RUN --privileged bb -vv build config/recipe-jp-desktop.yml
+	RUN --entrypoint --privileged podman info && bb -vv build config/recipe-jp-desktop.yml
 
 integration-test-base:
 	ARG NIGHTLY=false
 
 	FROM +blue-build-cli-alpine --NIGHTLY=$NIGHTLY
+
+  	RUN echo "#!/bin/sh
+		echo 'Running podman'" > /usr/bin/podman
+  
+  	RUN echo "#!/bin/sh
+		echo 'Running buildah'" > /usr/bin/buildah
 
 	GIT CLONE https://gitlab.com/wunker-bunker/wunker-os.git /test
 	WORKDIR /test

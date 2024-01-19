@@ -49,8 +49,8 @@ pub struct Recipe {
 
 impl Recipe {
     pub fn generate_tags(&self) -> Vec<String> {
-        debug!("Generating image tags for {}", &self.name);
         trace!("Recipe::generate_tags()");
+        debug!("Generating image tags for {}", &self.name);
 
         let mut tags: Vec<String> = Vec::new();
         let image_version = &self.image_version;
@@ -144,11 +144,12 @@ pub struct Module {
 pub struct TemplateCommand {
     /// The recipe file to create a template from
     #[arg()]
+    #[builder(setter(into))]
     recipe: PathBuf,
 
     /// File to output to instead of STDOUT
     #[arg(short, long)]
-    #[builder(default, setter(into))]
+    #[builder(default, setter(into, strip_option))]
     output: Option<PathBuf>,
 }
 
