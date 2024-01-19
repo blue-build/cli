@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.4.3 (2024-01-19)
+
+### Chore
+
+ - <csr-id-0a780fb9aa31d6d2aedd88635a4a6f7083c9c3d7/> Add CODEOWNERS file
+
+### Other
+
+ - <csr-id-1b950b08dc3ddf0146b86ae50ee21d0c7f427b57/> Use podman-api crate for building images
+ - <csr-id-218cc9c7d3a622183cfcf52d5f45cebc06f45349/> use --privileged instead of WITH DOCKER
+ - <csr-id-5d50ac4fef235f95531a3a8f07870eabf153312c/> Run both nightly and default integration tests
+ - <csr-id-fad8eb2ff9aa11c85192e5c9729f692b3e3bbefc/> Enable integration tests
+
+### Test
+
+ - <csr-id-9636c2edc5f6612267392052a8e24da387c9ba60/> Add integration tests for build and template
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 6 commits contributed to the release over the course of 4 calendar days.
+ - 5 days passed between releases.
+ - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Use podman-api crate for building images (1b950b0)
+    - Use --privileged instead of WITH DOCKER (218cc9c)
+    - Run both nightly and default integration tests (5d50ac4)
+    - Enable integration tests (fad8eb2)
+    - Add integration tests for build and template (9636c2e)
+    - Add CODEOWNERS file (0a780fb)
+</details>
+
 ## v0.4.2 (2024-01-14)
 
 ### Bug Fixes
@@ -15,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -26,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release blue-build v0.4.2 (d142ed7)
     - Used wrong image for installer in Containerfile template (9ad0183)
 </details>
 
