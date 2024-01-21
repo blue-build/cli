@@ -21,7 +21,12 @@ COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
 
 COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
 
-COPY --from=registry.gitlab.com/wunker-bunker/blue-build:latest-installer /out/bb /usr/bin/bb
+COPY --from=registry.gitlab.com/wunker-bunker/blue-build:
+{%- if let Some(tag) = recipe.blue_build_tag -%}
+{{ tag }}
+{%- else -%}
+latest-installer
+{%- endif %} /out/bb /usr/bin/bb
 
 COPY config /tmp/config/
 

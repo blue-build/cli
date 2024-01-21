@@ -11,7 +11,6 @@ use anyhow::{anyhow, bail, Result};
 use clap::Args;
 use log::{debug, error, info, trace, warn};
 use typed_builder::TypedBuilder;
-use users::{Users, UsersCache};
 
 #[cfg(feature = "podman-api")]
 use podman_api::{
@@ -30,11 +29,9 @@ use futures_util::StreamExt;
 use tokio::runtime::Runtime;
 
 use crate::{
-    ops,
+    ops::{self, ARCHIVE_SUFFIX},
     template::{Recipe, TemplateCommand},
 };
-
-const LOCAL_BUILD: &str = "/etc/blue-build";
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BuildCommand {
@@ -42,27 +39,20 @@ pub struct BuildCommand {
     #[arg()]
     recipe: PathBuf,
 
-    /// Rebase your current OS onto the image
-    /// being built.
-    ///
-    /// This will create a tarball of your image at
-    /// `/etc/blue-build/` and invoke `rpm-ostree` to
-    /// rebase onto the image using `oci-archive`.
-    ///
-    /// NOTE: This can only be used if you have `rpm-ostree`
-    /// installed and if the `--push` option isn't
-    /// used. This image will not be signed.
-    #[arg(short, long)]
-    rebase: bool,
-
     /// Push the image with all the tags.
     ///
-    /// Requires `--registry`, `--registry-path`,
+    /// Requires `--registry`,
     /// `--username`, and `--password` if not
     /// building in CI.
     #[arg(short, long)]
     #[builder(default)]
     push: bool,
+
+    /// Archives the built image into a tarfile
+    /// in the specified directory.
+    #[arg(short, long)]
+    #[builder(default, setter(into, strip_option))]
+    archive: Option<PathBuf>,
 
     /// The registry's domain name.
     #[arg(long)]
@@ -142,8 +132,8 @@ impl BuildCommand {
     pub fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
-        if self.push && self.rebase {
-            bail!("You cannot use '--rebase' and '--push' at the same time");
+        if self.push && self.archive.is_some() {
+            bail!("You cannot use '--archive' and '--push' at the same time");
         }
 
         #[cfg(not(feature = "podman-api"))]
@@ -151,18 +141,6 @@ impl BuildCommand {
             ops::check_command_exists("podman").map_err(|e2| {
                 anyhow!("Need either 'buildah' or 'podman' commands to proceed: {e1}, {e2}")
             })?;
-        }
-
-        if self.rebase {
-            ops::check_command_exists("rpm-ostree")?;
-
-            let cache = UsersCache::new();
-
-            if cache.get_current_uid() != 0 {
-                bail!("You need to be root to rebase a local image! Try using 'sudo'.");
-            }
-
-            clean_local_build_dir()?;
         }
 
         if self.push {
@@ -182,8 +160,7 @@ impl BuildCommand {
         #[cfg(feature = "podman-api")]
         match BuildStrategy::determine_strategy()? {
             BuildStrategy::Socket(socket) => {
-                let rt = Runtime::new()?;
-                rt.block_on(self.build_image_podman_api(Podman::unix(socket)))
+                Runtime::new()?.block_on(self.build_image_podman_api(Podman::unix(socket)))
             }
             _ => self.build_image(),
         }
@@ -200,6 +177,7 @@ impl BuildCommand {
             error!("Failed to build image: {e}");
             process::exit(1);
         }
+        info!("Finished building!");
     }
 
     #[cfg(feature = "podman-api")]
@@ -253,10 +231,17 @@ impl BuildCommand {
         // Get values for image
         let tags = recipe.generate_tags();
         let image_name = self.generate_full_image_name(&recipe)?;
-        let first_image_name = if tags.is_empty() || self.rebase {
-            image_name.clone()
-        } else {
-            format!("{}:{}", &image_name, &tags[0])
+        let first_image_name = match &self.archive {
+            Some(archive_dir) => format!(
+                "oci-archive:{}",
+                archive_dir
+                    .join(format!("{image_name}{ARCHIVE_SUFFIX}"))
+                    .display()
+            ),
+            None => tags
+                .first()
+                .map(|t| format!("{image_name}:{t}"))
+                .unwrap_or(image_name.to_string()),
         };
         debug!("Full tag is {first_image_name}");
 
@@ -270,21 +255,29 @@ impl BuildCommand {
             .build();
         trace!("Build options: {opts:#?}");
 
+        info!("Building image {first_image_name}");
         match client.images().build(&opts) {
             Ok(mut build_stream) => {
                 while let Some(chunk) = build_stream.next().await {
                     match chunk {
-                        Ok(chunk) => debug!("{}", chunk.stream.trim()),
-                        Err(e) => error!("{}", e),
+                        Ok(chunk) => chunk
+                            .stream
+                            .trim()
+                            .lines()
+                            .map(|line| line.trim())
+                            .filter(|line| !line.is_empty())
+                            .for_each(|line| info!("{line}")),
+                        Err(e) => bail!("{e}"),
                     }
                 }
             }
-            Err(e) => error!("{}", e),
+            Err(e) => bail!("{e}"),
         };
 
         if self.push {
             debug!("Pushing is enabled");
 
+            info!("Logging into registry using cosign");
             trace!("cosign login -u {username} -p [MASKED] {registry}");
             if !Command::new("cosign")
                 .arg("login")
@@ -334,20 +327,7 @@ impl BuildCommand {
                 }
             }
 
-            self.sign_images(&image_name, &tags[0])?;
-        } else if self.rebase {
-            debug!("Rebasing onto locally built image {image_name}");
-
-            if Command::new("rpm-ostree")
-                .arg("rebase")
-                .arg(format!("ostree-unverified-image:{first_image_name}"))
-                .status()?
-                .success()
-            {
-                info!("Successfully rebased to {first_image_name}");
-            } else {
-                bail!("Failed to rebase to {first_image_name}");
-            }
+            self.sign_images(&image_name, tags.first().map(|x| x.as_str()))?;
         }
         Ok(())
     }
@@ -366,10 +346,6 @@ impl BuildCommand {
         self.run_build(&image_name, &tags)?;
 
         info!("Build complete!");
-
-        if self.rebase {
-            info!("Be sure to restart your computer to use your new changes!");
-        }
 
         Ok(())
     }
@@ -411,6 +387,7 @@ impl BuildCommand {
             _ => bail!("Need '--password' set in order to login"),
         };
 
+        info!("Logging into the registry, {registry}");
         if !match (
             ops::check_command_exists("buildah"),
             ops::check_command_exists("podman"),
@@ -457,15 +434,12 @@ impl BuildCommand {
         Ok(())
     }
 
-    fn generate_full_image_name(&self, recipe: &Recipe) -> Result<String> {
-        info!("Generating full image name");
+    pub fn generate_full_image_name(&self, recipe: &Recipe) -> Result<String> {
         trace!("BuildCommand::generate_full_image_name({recipe:#?})");
+        info!("Generating full image name");
 
-        let image_name = if self.rebase {
-            let local_build_path = PathBuf::from(LOCAL_BUILD);
-
-            let image_path = local_build_path.join(format!("{}.tar.gz", &recipe.name));
-            format!("oci-archive:{}", image_path.display())
+        let image_name = if self.archive.is_some() {
+            recipe.name.to_string()
         } else {
             match (
                 env::var("CI_REGISTRY").ok(),
@@ -514,7 +488,7 @@ impl BuildCommand {
             }
         };
 
-        info!("Using image name '{image_name}'");
+        debug!("Using image name '{image_name}'");
 
         Ok(image_name)
     }
@@ -522,18 +496,20 @@ impl BuildCommand {
     fn run_build(&self, image_name: &str, tags: &[String]) -> Result<()> {
         trace!("BuildCommand::run_build({image_name}, {tags:#?})");
 
-        let mut tags_iter = tags.iter();
-
-        let first_tag = tags_iter
-            .next()
-            .ok_or(anyhow!("We got here with no tags!?"))?;
-
-        let full_image = if self.rebase {
-            image_name.to_owned()
-        } else {
-            format!("{image_name}:{first_tag}")
+        let full_image = match &self.archive {
+            Some(archive_dir) => format!(
+                "oci-archive:{}",
+                archive_dir
+                    .join(format!("{image_name}{ARCHIVE_SUFFIX}"))
+                    .display()
+            ),
+            None => tags
+                .first()
+                .map(|t| format!("{image_name}:{t}"))
+                .unwrap_or(image_name.to_string()),
         };
 
+        info!("Building image {full_image}");
         let status = match (
             ops::check_command_exists("buildah"),
             ops::check_command_exists("podman"),
@@ -564,10 +540,10 @@ impl BuildCommand {
             bail!("Failed to build {image_name}");
         }
 
-        if tags.len() > 1 && !self.rebase {
+        if tags.len() > 1 && self.archive.is_none() {
             debug!("Tagging all images");
 
-            for tag in tags_iter {
+            for tag in tags {
                 debug!("Tagging {image_name} with {tag}");
 
                 let tag_image = format!("{image_name}:{tag}");
@@ -635,32 +611,22 @@ impl BuildCommand {
                 }
             }
 
-            self.sign_images(image_name, first_tag)?;
-        } else if self.rebase {
-            debug!("Rebasing onto locally built image {image_name}");
-
-            if Command::new("rpm-ostree")
-                .arg("rebase")
-                .arg(format!("ostree-unverified-image:{full_image}"))
-                .status()?
-                .success()
-            {
-                info!("Successfully rebased to {full_image}");
-            } else {
-                bail!("Failed to rebase to {full_image}");
-            }
+            self.sign_images(image_name, tags.first().map(|x| x.as_str()))?;
         }
 
         Ok(())
     }
 
-    fn sign_images(&self, image_name: &str, tag: &str) -> Result<()> {
-        trace!("BuildCommand::sign_images({image_name}, {tag})");
+    fn sign_images(&self, image_name: &str, tag: Option<&str>) -> Result<()> {
+        trace!("BuildCommand::sign_images({image_name}, {tag:?})");
 
         env::set_var("COSIGN_PASSWORD", "");
         env::set_var("COSIGN_YES", "true");
 
         let image_digest = get_image_digest(image_name, tag)?;
+        let image_name_tag = tag
+            .map(|t| format!("{image_name}:{t}"))
+            .unwrap_or(image_name.to_owned());
 
         match (
             env::var("CI_DEFAULT_BRANCH"),
@@ -708,7 +674,7 @@ impl BuildCommand {
 
                 let cert_oidc = format!("{ci_server_protocol}://{ci_server_host}");
 
-                trace!("cosign verify --certificate-identity {cert_ident} --certificate-oidc-issuer {cert_oidc} {image_name}:{tag}");
+                trace!("cosign verify --certificate-identity {cert_ident} --certificate-oidc-issuer {cert_oidc} {image_name_tag}");
 
                 if !Command::new("cosign")
                     .arg("verify")
@@ -716,7 +682,7 @@ impl BuildCommand {
                     .arg(&cert_ident)
                     .arg("--certificate-oidc-issuer")
                     .arg(&cert_oidc)
-                    .arg(&format!("{image_name}:{tag}"))
+                    .arg(&image_name_tag)
                     .status()?
                     .success()
                 {
@@ -746,12 +712,12 @@ impl BuildCommand {
                     bail!("Failed to sign image: {image_digest}");
                 }
 
-                trace!("cosign verify --key ./cosign.pub {image_name}:{tag}");
+                trace!("cosign verify --key ./cosign.pub {image_name_tag}");
 
                 if !Command::new("cosign")
                     .arg("verify")
                     .arg("--key=./cosign.pub")
-                    .arg(&format!("{image_name}:{tag}"))
+                    .arg(&image_name_tag)
                     .status()?
                     .success()
                 {
@@ -765,10 +731,13 @@ impl BuildCommand {
     }
 }
 
-fn get_image_digest(image_name: &str, tag: &str) -> Result<String> {
-    trace!("get_image_digest({image_name}, {tag})");
+fn get_image_digest(image_name: &str, tag: Option<&str>) -> Result<String> {
+    trace!("get_image_digest({image_name}, {tag:?})");
 
-    let image_url = format!("docker://{image_name}:{tag}");
+    let image_url = match tag {
+        Some(tag) => format!("docker://{image_name}:{tag}"),
+        None => format!("docker://{image_name}"),
+    };
 
     trace!("skopeo inspect --format='{{.Digest}}' {image_url}");
     let image_digest = String::from_utf8(
@@ -830,34 +799,4 @@ fn check_cosign_files() -> Result<()> {
             Ok(())
         }
     }
-}
-
-fn clean_local_build_dir() -> Result<()> {
-    trace!("clean_local_build_dir()");
-    let local_build_path = Path::new(LOCAL_BUILD);
-
-    if !local_build_path.exists() {
-        trace!(
-            "Creating build output dir at {}",
-            local_build_path.display()
-        );
-        fs::create_dir_all(local_build_path)?;
-    } else {
-        debug!("Cleaning out build dir {LOCAL_BUILD}");
-
-        let entries = fs::read_dir(LOCAL_BUILD)?;
-
-        for entry in entries {
-            let entry = entry?;
-            let path = entry.path();
-            trace!("Found {}", path.display());
-
-            if path.is_file() && path.ends_with(".tar.gz") {
-                trace!("Removing {}", path.display());
-                fs::remove_file(path)?;
-            }
-        }
-    }
-
-    Ok(())
 }

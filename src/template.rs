@@ -9,6 +9,7 @@ use anyhow::Result;
 use askama::Template;
 use chrono::Local;
 use clap::Args;
+use indexmap::IndexMap;
 use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
@@ -40,11 +41,14 @@ pub struct Recipe {
     #[serde(alias = "image-version")]
     pub image_version: String,
 
+    #[serde(alias = "blue-build-tag")]
+    pub blue_build_tag: Option<String>,
+
     #[serde(flatten)]
     pub modules_ext: ModuleExt,
 
     #[serde(flatten)]
-    pub extra: HashMap<String, Value>,
+    pub extra: IndexMap<String, Value>,
 }
 
 impl Recipe {
@@ -137,7 +141,7 @@ pub struct Module {
     pub from_file: Option<String>,
 
     #[serde(flatten)]
-    pub config: HashMap<String, Value>,
+    pub config: IndexMap<String, Value>,
 }
 
 #[derive(Debug, Clone, Args, TypedBuilder)]

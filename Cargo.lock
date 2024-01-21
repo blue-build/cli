@@ -288,6 +288,7 @@ dependencies = [
  "derive_builder",
  "env_logger",
  "futures-util",
+ "indexmap 2.1.0",
  "log",
  "podman-api",
  "rusty-hook",

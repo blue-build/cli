@@ -23,6 +23,8 @@ default:
 	BUILD +installer --NIGHTLY=$NIGHTLY
 	BUILD +integration-test-template --NIGHTLY=$NIGHTLY
 	BUILD +integration-test-build --NIGHTLY=$NIGHTLY
+	BUILD +integration-test-rebase --NIGHTLY=$NIGHTLY
+	BUILD +integration-test-upgrade --NIGHTLY=$NIGHTLY
 
 nightly:
 	BUILD +default --NIGHTLY=true
@@ -124,7 +126,20 @@ integration-test-build:
 	ARG NIGHTLY=false
 	FROM +integration-test-base --NIGHTLY=$NIGHTLY
 
-	RUN --entrypoint --privileged podman info && bb -vv build config/recipe-jp-desktop.yml
+	RUN --privileged bb -vv build config/recipe-jp-desktop.yml
+
+integration-test-rebase:
+	ARG NIGHTLY=false
+	FROM +integration-test-base --NIGHTLY=$NIGHTLY
+
+	RUN --privileged bb -vv rebase config/recipe-jp-desktop.yml
+
+integration-test-upgrade:
+	ARG NIGHTLY=false
+	FROM +integration-test-base --NIGHTLY=$NIGHTLY
+	RUN mkdir -p /etc/blue-build && touch /etc/blue-build/jp-desktop.tar.gz
+
+	RUN --privileged bb -vv upgrade config/recipe-jp-desktop.yml
 
 integration-test-base:
 	ARG NIGHTLY=false
@@ -132,10 +147,16 @@ integration-test-base:
 	FROM +blue-build-cli-alpine --NIGHTLY=$NIGHTLY
 
   	RUN echo "#!/bin/sh
-		echo 'Running podman'" > /usr/bin/podman
+		echo 'Running podman'" > /usr/bin/podman \
+		&& chmod +x /usr/bin/podman
   
   	RUN echo "#!/bin/sh
-		echo 'Running buildah'" > /usr/bin/buildah
+		echo 'Running buildah'" > /usr/bin/buildah \
+		&& chmod +x /usr/bin/buildah
+
+	RUN echo "#!/bin/sh
+		echo 'Running rpm-ostree'" > /usr/bin/rpm-ostree \
+		&& chmod +x /usr/bin/rpm-ostree
 
 	GIT CLONE https://gitlab.com/wunker-bunker/wunker-os.git /test
 	WORKDIR /test

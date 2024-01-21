@@ -11,5 +11,6 @@
 pub mod init;
 
 pub mod build;
+pub mod local;
 mod ops;
 pub mod template;

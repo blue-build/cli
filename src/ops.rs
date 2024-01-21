@@ -8,6 +8,9 @@ use anyhow::{anyhow, bail, Result};
 use clap::ValueEnum;
 use log::{debug, trace};
 
+pub const LOCAL_BUILD: &str = "/etc/blue-build";
+pub const ARCHIVE_SUFFIX: &str = ".tar.gz";
+
 pub fn check_command_exists(command: &str) -> Result<()> {
     trace!("check_command_exists({command})");
     debug!("Checking if {command} exists");
