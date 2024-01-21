@@ -5,7 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.5.0 (2024-01-21)
+
+### New Features (BREAKING)
+
+ - <csr-id-b547a326fd742e06bdea6b17f51afef459a609ad/> Upgrade and Rebase commands
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 1 commit contributed to the release.
+ - 1 day passed between releases.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Upgrade and Rebase commands (b547a32)
+</details>
+
 ## v0.4.3 (2024-01-19)
+
+<csr-id-0a780fb9aa31d6d2aedd88635a4a6f7083c9c3d7/>
+<csr-id-1b950b08dc3ddf0146b86ae50ee21d0c7f427b57/>
+<csr-id-218cc9c7d3a622183cfcf52d5f45cebc06f45349/>
+<csr-id-5d50ac4fef235f95531a3a8f07870eabf153312c/>
+<csr-id-fad8eb2ff9aa11c85192e5c9729f692b3e3bbefc/>
+<csr-id-9636c2edc5f6612267392052a8e24da387c9ba60/>
 
 ### Chore
 
@@ -26,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 6 commits contributed to the release over the course of 4 calendar days.
+ - 7 commits contributed to the release over the course of 4 calendar days.
  - 5 days passed between releases.
  - 6 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -38,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release blue-build v0.4.3 (c70d78c)
     - Use podman-api crate for building images (1b950b0)
     - Use --privileged instead of WITH DOCKER (218cc9c)
     - Run both nightly and default integration tests (5d50ac4)
