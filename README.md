@@ -53,11 +53,25 @@ This will template out the file and build with `buildah` or `podman`.
 
 #### Local Builds
 
-If you want to test your changes, you can do so by using the `--rebase` argument. This will create an image as a `.tar.gz` file, store it in `/etc/blue-build`, an run `rpm-ostree rebase` on that newly built file.
+##### Rebase
+
+If you want to test your changes, you can do so by using the `rebase` command. This will create an image as a `.tar.gz` file, store it in `/etc/blue-build`, an run `rpm-ostree rebase` on that newly built file.
 
 ```bash
-sudo bb build --rebase config/recipe.yml
+sudo bb rebase config/recipe.yml
 ```
+
+You can initiate an immediate restart by adding the `--reboot/-r` option.
+
+##### Upgrade
+
+When you've rebased onto a local image archive, you can update your image for your recipe by running:
+
+```bash
+sudo bb upgrade config/recipe.yml
+```
+
+The `--reboot` argument can be used with this command as well.
 
 #### CI Builds
 
