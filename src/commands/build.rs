@@ -224,12 +224,12 @@ impl BuildCommand {
         // Get values for image
         let tags = recipe.generate_tags();
         let image_name = self.generate_full_image_name(&recipe)?;
-        let first_image_name = match &self.archive {
-            Some(archive_dir) => ops::generate_local_image_name(&image_name, archive_dir.to_str()),
-            None => tags
-                .first()
+        let first_image_name = if self.archive.is_some() {
+            image_name.to_string()
+        } else {
+            tags.first()
                 .map(|t| format!("{image_name}:{t}"))
-                .unwrap_or(image_name.to_string()),
+                .unwrap_or(image_name.to_string())
         };
         debug!("Full tag is {first_image_name}");
 
