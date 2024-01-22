@@ -176,13 +176,6 @@ impl BlueBuildCommand for TemplateCommand {
 
         self.template_file()
     }
-
-    fn run(&mut self) {
-        if let Err(e) = self.try_run() {
-            error!("Failed to template file: {e}");
-            process::exit(1);
-        }
-    }
 }
 
 impl TemplateCommand {
@@ -213,6 +206,10 @@ impl TemplateCommand {
         Ok(())
     }
 }
+
+// ======================================================== //
+// ========================= Helpers ====================== //
+// ======================================================== //
 
 fn print_script(script_contents: &ExportsTemplate) -> String {
     trace!("print_script({script_contents})");

@@ -79,15 +79,6 @@ impl BlueBuildCommand for UpgradeCommand {
         }
         Ok(())
     }
-
-    fn run(&mut self) {
-        trace!("UpgradeCommand::run()");
-
-        if let Err(e) = self.try_run() {
-            error!("Failed to upgrade image: {e}");
-            process::exit(1);
-        }
-    }
 }
 
 #[derive(Default, Clone, Debug, TypedBuilder, Args)]
@@ -142,15 +133,6 @@ impl BlueBuildCommand for RebaseCommand {
             bail!("Failed to rebase to {image_name}");
         }
         Ok(())
-    }
-
-    fn run(&mut self) {
-        trace!("RebaseCommand::run()");
-
-        if let Err(e) = self.try_run() {
-            error!("Failed to rebase onto new image: {e}");
-            process::exit(1);
-        }
     }
 }
 
