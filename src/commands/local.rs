@@ -55,19 +55,15 @@ impl BlueBuildCommand for UpgradeCommand {
 
         build.try_run()?;
 
-        info!("Upgrading from locally built image {image_name}");
-
-        let image_name = format!("ostree-unverified-image:{image_name}");
-
         let status = if self.common.reboot {
-            debug!("Upgrading image {image_name} and rebooting");
+            info!("Upgrading image {image_name} and rebooting");
 
             Command::new("rpm-ostree")
                 .arg("upgrade")
                 .arg("--reboot")
                 .status()?
         } else {
-            debug!("Upgrading image {image_name}");
+            info!("Upgrading image {image_name}");
 
             Command::new("rpm-ostree").arg("upgrade").status()?
         };
@@ -106,24 +102,20 @@ impl BlueBuildCommand for RebaseCommand {
 
         build.try_run()?;
 
-        info!("Rebasing onto locally built image {image_name}");
-
-        let image_name = format!("ostree-unverified-image:{image_name}");
-
         let status = if self.common.reboot {
-            debug!("Rebasing image {image_name} and rebooting");
+            info!("Rebasing image {image_name} and rebooting");
 
             Command::new("rpm-ostree")
                 .arg("rebase")
                 .arg("--reboot")
-                .arg(&image_name)
+                .arg(format!("ostree-unverified-image:{image_name}"))
                 .status()?
         } else {
-            debug!("Rebasing image {image_name}");
+            info!("Rebasing image {image_name}");
 
             Command::new("rpm-ostree")
                 .arg("rebase")
-                .arg(&image_name)
+                .arg(format!("ostree-unverified-image:{image_name}"))
                 .status()?
         };
 
@@ -156,8 +148,7 @@ fn clean_local_build_dir(image_name: &str, rebase: bool) -> Result<()> {
     trace!("clean_local_build_dir()");
 
     let local_build_path = Path::new(LOCAL_BUILD);
-    let image_file_name = format!("{image_name}.tar.gz");
-    let image_file_path = local_build_path.join(image_file_name);
+    let image_file_path = local_build_path.join(image_name.trim_start_matches("oci-archive:"));
 
     if !image_file_path.exists() && !rebase {
         bail!(

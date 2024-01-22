@@ -224,17 +224,12 @@ impl BuildCommand {
         // Get values for image
         let tags = recipe.generate_tags();
         let image_name = self.generate_full_image_name(&recipe)?;
-        let first_image_name = match &self.archive {
-            Some(archive_dir) => format!(
-                "oci-archive:{}",
-                archive_dir
-                    .join(format!("{image_name}{ARCHIVE_SUFFIX}"))
-                    .display()
-            ),
-            None => tags
-                .first()
+        let first_image_name = if self.archive.is_some() {
+            image_name.to_string()
+        } else {
+            tags.first()
                 .map(|t| format!("{image_name}:{t}"))
-                .unwrap_or(image_name.to_string()),
+                .unwrap_or(image_name.to_string())
         };
         debug!("Full tag is {first_image_name}");
 
@@ -434,8 +429,12 @@ impl BuildCommand {
         trace!("BuildCommand::generate_full_image_name({recipe:#?})");
         info!("Generating full image name");
 
-        let image_name = if self.archive.is_some() {
-            recipe.name.to_string()
+        let image_name = if let Some(archive_dir) = &self.archive {
+            format!(
+                "oci-archive:{}/{}.{ARCHIVE_SUFFIX}",
+                archive_dir.to_string_lossy().trim_end_matches('/'),
+                recipe.name.to_lowercase(),
+            )
         } else {
             match (
                 env::var("CI_REGISTRY").ok(),
@@ -449,9 +448,9 @@ impl BuildCommand {
                     trace!("registry={registry}, registry_path={registry_path}");
                     format!(
                         "{}/{}/{}",
-                        registry.trim().trim_matches('/'),
-                        registry_path.trim().trim_matches('/'),
-                        &recipe.name
+                        registry.trim().trim_matches('/').to_lowercase(),
+                        registry_path.trim().trim_matches('/').to_lowercase(),
+                        recipe.name.trim().to_lowercase()
                     )
                 }
                 (
@@ -466,7 +465,7 @@ impl BuildCommand {
                     warn!("Generating Gitlab Registry image");
                     format!(
                         "{ci_registry}/{ci_project_namespace}/{ci_project_name}/{}",
-                        &recipe.name
+                        recipe.name.trim().to_lowercase()
                     )
                 }
                 (None, None, None, Some(github_repository_owner), None, None) => {
@@ -479,7 +478,7 @@ impl BuildCommand {
                     if self.push {
                         bail!("Need '--registry' and '--registry-path' in order to push image");
                     }
-                    recipe.name.clone()
+                    recipe.name.trim().to_lowercase()
                 }
             }
         };
@@ -495,17 +494,12 @@ impl BuildCommand {
     fn run_build(&self, image_name: &str, tags: &[String]) -> Result<()> {
         trace!("BuildCommand::run_build({image_name}, {tags:#?})");
 
-        let full_image = match &self.archive {
-            Some(archive_dir) => format!(
-                "oci-archive:{}",
-                archive_dir
-                    .join(format!("{image_name}{ARCHIVE_SUFFIX}"))
-                    .display()
-            ),
-            None => tags
-                .first()
+        let full_image = if self.archive.is_some() {
+            image_name.to_string()
+        } else {
+            tags.first()
                 .map(|t| format!("{image_name}:{t}"))
-                .unwrap_or(image_name.to_string()),
+                .unwrap_or(image_name.to_string())
         };
 
         info!("Building image {full_image}");
