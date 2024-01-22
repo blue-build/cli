@@ -10,18 +10,17 @@ pub fn check_command_exists(command: &str) -> Result<()> {
     debug!("Checking if {command} exists");
 
     trace!("which {command}");
-    match Command::new("which")
+    if Command::new("which")
         .arg(command)
         .output()?
         .status
         .success()
     {
-        true => {
-            debug!("Command {command} does exist");
-            Ok(())
-        }
-        false => Err(anyhow!(
+        debug!("Command {command} does exist");
+        Ok(())
+    } else {
+        Err(anyhow!(
             "Command {command} doesn't exist and is required to build the image"
-        )),
+        ))
     }
 }

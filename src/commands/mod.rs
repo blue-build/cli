@@ -6,10 +6,12 @@ pub mod local;
 pub mod template;
 
 pub trait BlueBuildCommand {
-    fn run(&mut self);
-
-    /// # Errors
-    ///
-    /// Will return `Err` - Add to Me :)
     fn try_run(&mut self) -> anyhow::Result<()>;
+
+    fn run(&mut self) {
+        if let Err(e) = self.try_run() {
+            eprintln!("Error: {e}");
+            std::process::exit(1);
+        }
+    }
 }

@@ -60,6 +60,7 @@ pub struct Recipe {
 }
 
 impl Recipe {
+    #[must_use]
     pub fn generate_tags(&self) -> Vec<String> {
         trace!("Recipe::generate_tags()");
         debug!("Generating image tags for {}", &self.name);
@@ -85,14 +86,14 @@ impl Recipe {
                 }
             }
 
-            if default_branch != commit_branch {
-                debug!("Running on branch {commit_branch}");
-                tags.push(format!("{commit_branch}-{image_version}"));
-            } else {
+            if default_branch == commit_branch {
                 debug!("Running on the default branch");
                 tags.push(image_version.to_string());
                 tags.push(format!("{image_version}-{timestamp}"));
-                tags.push(timestamp.to_string());
+                tags.push(timestamp);
+            } else {
+                debug!("Running on branch {commit_branch}");
+                tags.push(format!("{commit_branch}-{image_version}"));
             }
 
             tags.push(format!("{commit_sha}-{image_version}"));
@@ -110,7 +111,7 @@ impl Recipe {
             trace!("GITHUB_EVENT_NAME={github_event_name},PR_EVENT_NUMBER={github_event_number},GITHUB_SHA={github_sha},GITHUB_REF_NAME={github_ref_name}");
             warn!("Detected running in Github, pulling information from GITHUB variables");
 
-            let mut short_sha = github_sha.clone();
+            let mut short_sha = github_sha;
             short_sha.truncate(7);
 
             if github_event_name == "pull_request" {
@@ -198,18 +199,14 @@ impl TemplateCommand {
             .build();
 
         let output_str = template.render()?;
+        if let Some(output) = self.output.as_ref() {
+            debug!("Templating to file {}", output.display());
+            trace!("Containerfile:\n{output_str}");
 
-        match self.output.as_ref() {
-            Some(output) => {
-                debug!("Templating to file {}", output.display());
-                trace!("Containerfile:\n{output_str}");
-
-                std::fs::write(output, output_str)?;
-            }
-            None => {
-                debug!("Templating to stdout");
-                println!("{output_str}");
-            }
+            std::fs::write(output, output_str)?;
+        } else {
+            debug!("Templating to stdout");
+            println!("{output_str}");
         }
 
         info!("Finished templating Containerfile");
@@ -288,17 +285,18 @@ fn get_module_from_file(file_name: &str) -> String {
         process::exit(1);
     };
 
-    if let Ok(module_ext) = serde_yaml::from_str::<ModuleExt>(file.as_str()) {
-        module_ext.render().unwrap_or_else(template_err_fn)
-    } else {
-        let module = serde_yaml::from_str::<Module>(file.as_str()).unwrap_or_else(serde_err_fn);
+    serde_yaml::from_str::<ModuleExt>(file.as_str()).map_or_else(
+        |_| {
+            let module = serde_yaml::from_str::<Module>(file.as_str()).unwrap_or_else(serde_err_fn);
 
-        ModuleExt::builder()
-            .modules(vec![module])
-            .build()
-            .render()
-            .unwrap_or_else(template_err_fn)
-    }
+            ModuleExt::builder()
+                .modules(vec![module])
+                .build()
+                .render()
+                .unwrap_or_else(template_err_fn)
+        },
+        |module_ext| module_ext.render().unwrap_or_else(template_err_fn),
+    )
 }
 
 fn print_module_context(module: &Module) -> String {

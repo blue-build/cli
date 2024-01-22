@@ -184,13 +184,7 @@ fn clean_local_build_dir(image_name: &str, rebase: bool) -> Result<()> {
         );
     }
 
-    if !local_build_path.exists() {
-        debug!(
-            "Creating build output dir at {}",
-            local_build_path.display()
-        );
-        fs::create_dir_all(local_build_path)?;
-    } else {
+    if local_build_path.exists() {
         debug!("Cleaning out build dir {LOCAL_BUILD}");
 
         let entries = fs::read_dir(LOCAL_BUILD)?;
@@ -209,6 +203,12 @@ fn clean_local_build_dir(image_name: &str, rebase: bool) -> Result<()> {
                 fs::remove_file(path)?;
             }
         }
+    } else {
+        debug!(
+            "Creating build output dir at {}",
+            local_build_path.display()
+        );
+        fs::create_dir_all(local_build_path)?;
     }
 
     Ok(())

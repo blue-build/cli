@@ -438,6 +438,9 @@ impl BuildCommand {
         Ok(())
     }
 
+    /// # Errors
+    ///
+    /// Will return `Err` if the image name cannot be generated.
     pub fn generate_full_image_name(&self, recipe: &Recipe) -> Result<String> {
         trace!("BuildCommand::generate_full_image_name({recipe:#?})");
         info!("Generating full image name");
@@ -487,7 +490,7 @@ impl BuildCommand {
                     if self.push {
                         bail!("Need '--registry' and '--registry-path' in order to push image");
                     }
-                    recipe.name.to_owned()
+                    recipe.name.clone()
                 }
             }
         };
@@ -497,6 +500,10 @@ impl BuildCommand {
         Ok(image_name)
     }
 
+    /// # Errors
+    ///
+    /// Will return `Err` - Add to Me :)
+    #[allow(clippy::too_many_lines)]
     fn run_build(&self, image_name: &str, tags: &[String]) -> Result<()> {
         trace!("BuildCommand::run_build({image_name}, {tags:#?})");
 
@@ -583,7 +590,7 @@ impl BuildCommand {
 
         if self.push {
             debug!("Pushing all images");
-            for tag in tags.iter() {
+            for tag in tags {
                 debug!("Pushing image {image_name}:{tag}");
 
                 let tag_image = format!("{image_name}:{tag}");
@@ -609,18 +616,19 @@ impl BuildCommand {
                 .status()?;
 
                 if status.success() {
-                    info!("Successfully pushed {image_name}:{tag}!")
+                    info!("Successfully pushed {image_name}:{tag}!");
                 } else {
                     bail!("Failed to push image {image_name}:{tag}");
                 }
             }
 
-            self.sign_images(image_name, tags.first().map(|x| x.as_str()))?;
+            self.sign_images(image_name, tags.first().map(std::string::String::as_str))?;
         }
 
         Ok(())
     }
 
+    // We dont use self so we should split this out as a utility
     fn sign_images(&self, image_name: &str, tag: Option<&str>) -> Result<()> {
         trace!("BuildCommand::sign_images({image_name}, {tag:?})");
 
@@ -738,9 +746,10 @@ impl BuildCommand {
 fn get_image_digest(image_name: &str, tag: Option<&str>) -> Result<String> {
     trace!("get_image_digest({image_name}, {tag:?})");
 
-    let image_url = match tag {
-        Some(tag) => format!("docker://{image_name}:{tag}"),
-        None => format!("docker://{image_name}"),
+    let image_url = if let Some(tag) = tag {
+        format!("docker://{image_name}:{tag}")
+    } else {
+        format!("docker://{image_name}")
     };
 
     trace!("skopeo inspect --format='{{.Digest}}' {image_url}");
