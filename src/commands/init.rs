@@ -42,13 +42,6 @@ impl BlueBuildCommand for InitCommand {
         self.initialize_directory(base_dir);
         Ok(())
     }
-
-    fn run(&mut self) {
-        if let Err(e) = self.try_run() {
-            error!("Failed to init ublue project: {e}");
-            process::exit(1);
-        }
-    }
 }
 
 impl InitCommand {
@@ -85,12 +78,5 @@ impl BlueBuildCommand for NewCommand {
             .common(self.common.clone())
             .build()
             .try_run()
-    }
-
-    fn run(&mut self) {
-        if let Err(e) = self.try_run() {
-            error!("Failed to create new project: {e}");
-            process::exit(1);
-        }
     }
 }
