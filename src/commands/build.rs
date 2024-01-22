@@ -502,8 +502,7 @@ impl BuildCommand {
 
     /// # Errors
     ///
-    /// Will return `Err` - Add to Me :)
-    #[allow(clippy::too_many_lines)]
+    /// Will return `Err` if the build fails.
     fn run_build(&self, image_name: &str, tags: &[String]) -> Result<()> {
         trace!("BuildCommand::run_build({image_name}, {tags:#?})");
 
