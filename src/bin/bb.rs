@@ -1,11 +1,17 @@
-use blue_build::{self, build, local, template};
+#![warn(clippy::pedantic, clippy::nursery)]
+
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use env_logger::WriteStyle;
 use log::trace;
 
+use blue_build::{
+    self,
+    commands::{build, local, template, BlueBuildCommand},
+};
+
 #[cfg(feature = "init")]
-use blue_build::init;
+use blue_build::commands::init;
 
 #[derive(Parser, Debug)]
 #[command(name = "BlueBuild", author, version, about, long_about = None)]
@@ -68,15 +74,15 @@ fn main() {
     trace!("{args:#?}");
 
     match args.command {
+        #[cfg(feature = "init")]
+        CommandArgs::Init(mut command) => command.run(),
+
+        #[cfg(feature = "init")]
+        CommandArgs::New(mut command) => command.run(),
+
+        CommandArgs::Template(mut command) => command.run(),
         CommandArgs::Build(mut command) => command.run(),
-        CommandArgs::Template(command) => command.run(),
-        CommandArgs::Upgrade(command) => command.run(),
-        CommandArgs::Rebase(command) => command.run(),
-
-        #[cfg(feature = "init")]
-        CommandArgs::Init(command) => command.run(),
-
-        #[cfg(feature = "init")]
-        CommandArgs::New(command) => command.run(),
+        CommandArgs::Rebase(mut command) => command.run(),
+        CommandArgs::Upgrade(mut command) => command.run(),
     }
 }

@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
 
+use super::BlueBuildCommand;
+
 #[derive(Debug, Clone, Template, TypedBuilder)]
 #[template(path = "Containerfile")]
 pub struct ContainerFileTemplate<'a> {
@@ -167,20 +169,22 @@ pub struct TemplateCommand {
     output: Option<PathBuf>,
 }
 
-impl TemplateCommand {
-    pub fn try_run(&self) -> Result<()> {
+impl BlueBuildCommand for TemplateCommand {
+    fn try_run(&mut self) -> Result<()> {
         info!("Templating for recipe at {}", self.recipe.display());
 
         self.template_file()
     }
 
-    pub fn run(&self) {
+    fn run(&mut self) {
         if let Err(e) = self.try_run() {
             error!("Failed to template file: {e}");
             process::exit(1);
         }
     }
+}
 
+impl TemplateCommand {
     fn template_file(&self) -> Result<()> {
         trace!("TemplateCommand::template_file()");
 

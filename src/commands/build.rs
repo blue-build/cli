@@ -29,9 +29,11 @@ use futures_util::StreamExt;
 use tokio::runtime::Runtime;
 
 use crate::{
+    commands::template::TemplateCommand,
     ops::{self, ARCHIVE_SUFFIX},
-    template::{Recipe, TemplateCommand},
 };
+
+use super::{template::Recipe, BlueBuildCommand};
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BuildCommand {
@@ -127,9 +129,9 @@ pub struct BuildCommand {
     private_key: Option<String>,
 }
 
-impl BuildCommand {
+impl BlueBuildCommand for BuildCommand {
     /// Runs the command and returns a result.
-    pub fn try_run(&mut self) -> Result<()> {
+    fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
         if self.push && self.archive.is_some() {
@@ -170,7 +172,7 @@ impl BuildCommand {
     }
 
     /// Runs the command and exits if there is an error.
-    pub fn run(&mut self) {
+    fn run(&mut self) {
         trace!("BuildCommand::run()");
 
         if let Err(e) = self.try_run() {
@@ -179,7 +181,9 @@ impl BuildCommand {
         }
         info!("Finished building!");
     }
+}
 
+impl BuildCommand {
     #[cfg(feature = "podman-api")]
     async fn build_image_podman_api(&self, client: Podman) -> Result<()> {
         use podman_api::opts::ImageTagOpts;

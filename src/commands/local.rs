@@ -11,10 +11,11 @@ use typed_builder::TypedBuilder;
 use users::{Users, UsersCache};
 
 use crate::{
-    build::BuildCommand,
+    commands::{build::BuildCommand, template::Recipe},
     ops::{self, ARCHIVE_SUFFIX, LOCAL_BUILD},
-    template::Recipe,
 };
+
+use super::BlueBuildCommand;
 
 #[derive(Default, Clone, Debug, TypedBuilder, Args)]
 pub struct LocalCommonArgs {
@@ -35,8 +36,8 @@ pub struct UpgradeCommand {
     common: LocalCommonArgs,
 }
 
-impl UpgradeCommand {
-    pub fn try_run(&self) -> Result<()> {
+impl BlueBuildCommand for UpgradeCommand {
+    fn try_run(&mut self) -> Result<()> {
         trace!("UpgradeCommand::try_run()");
 
         check_can_run()?;
@@ -79,7 +80,7 @@ impl UpgradeCommand {
         Ok(())
     }
 
-    pub fn run(&self) {
+    fn run(&mut self) {
         trace!("UpgradeCommand::run()");
 
         if let Err(e) = self.try_run() {
@@ -95,8 +96,8 @@ pub struct RebaseCommand {
     common: LocalCommonArgs,
 }
 
-impl RebaseCommand {
-    pub fn try_run(&self) -> Result<()> {
+impl BlueBuildCommand for RebaseCommand {
+    fn try_run(&mut self) -> Result<()> {
         trace!("RebaseCommand::try_run()");
 
         check_can_run()?;
@@ -143,7 +144,7 @@ impl RebaseCommand {
         Ok(())
     }
 
-    pub fn run(&self) {
+    fn run(&mut self) {
         trace!("RebaseCommand::run()");
 
         if let Err(e) = self.try_run() {
@@ -153,13 +154,16 @@ impl RebaseCommand {
     }
 }
 
+// ======================================================== //
+// ========================= Helpers ====================== //
+// ======================================================== //
+
 fn check_can_run() -> Result<()> {
     trace!("check_can_run()");
 
     ops::check_command_exists("rpm-ostree")?;
 
     let cache = UsersCache::new();
-
     if cache.get_current_uid() != 0 {
         bail!("You need to be root to rebase a local image! Try using 'sudo'.");
     }

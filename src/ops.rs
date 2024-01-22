@@ -1,12 +1,6 @@
-use std::{
-    env,
-    path::{Path, PathBuf},
-    process::Command,
-};
-
-use anyhow::{anyhow, bail, Result};
-use clap::ValueEnum;
+use anyhow::{anyhow, Result};
 use log::{debug, trace};
+use std::process::Command;
 
 pub const LOCAL_BUILD: &str = "/etc/blue-build";
 pub const ARCHIVE_SUFFIX: &str = ".tar.gz";
