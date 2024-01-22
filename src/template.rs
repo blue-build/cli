@@ -5,7 +5,7 @@ use std::{
     process,
 };
 
-use anyhow::Result;
+use anyhow::{Error, Result};
 use askama::Template;
 use chrono::Local;
 use clap::Args;
@@ -29,25 +29,31 @@ pub struct ContainerFileTemplate<'a> {
 #[template(path = "export.sh", escape = "none")]
 pub struct ExportsTemplate;
 
-#[derive(Serialize, Clone, Deserialize, Debug)]
+#[derive(Serialize, Clone, Deserialize, Debug, TypedBuilder)]
 pub struct Recipe {
+    #[builder(setter(into))]
     pub name: String,
 
+    #[builder(setter(into))]
     pub description: String,
 
     #[serde(alias = "base-image")]
+    #[builder(setter(into))]
     pub base_image: String,
 
     #[serde(alias = "image-version")]
+    #[builder(setter(into))]
     pub image_version: String,
 
     #[serde(alias = "blue-build-tag")]
+    #[builder(default, setter(into, strip_option))]
     pub blue_build_tag: Option<String>,
 
     #[serde(flatten)]
     pub modules_ext: ModuleExt,
 
     #[serde(flatten)]
+    #[builder(setter(into))]
     pub extra: IndexMap<String, Value>,
 }
 
@@ -126,21 +132,25 @@ impl Recipe {
     }
 }
 
-#[derive(Serialize, Clone, Deserialize, Debug, Template)]
+#[derive(Serialize, Clone, Deserialize, Debug, Template, TypedBuilder)]
 #[template(path = "Containerfile.module", escape = "none")]
 pub struct ModuleExt {
+    #[builder(default, setter(into))]
     pub modules: Vec<Module>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, TypedBuilder)]
 pub struct Module {
     #[serde(rename = "type")]
+    #[builder(default, setter(into, strip_option))]
     pub module_type: Option<String>,
 
     #[serde(rename = "from-file")]
+    #[builder(default, setter(into, strip_option))]
     pub from_file: Option<String>,
 
     #[serde(flatten)]
+    #[builder(default, setter(into))]
     pub config: IndexMap<String, Value>,
 }
 
@@ -252,26 +262,39 @@ fn print_containerfile(containerfile: &str) -> String {
     file
 }
 
-fn get_module_from_file(file: &str) -> String {
-    trace!("get_module_from_file({file})");
+fn get_module_from_file(file_name: &str) -> String {
+    trace!("get_module_from_file({file_name})");
 
-    serde_yaml::from_str::<ModuleExt>(
-        fs::read_to_string(format!("config/{file}").as_str())
-            .unwrap_or_else(|e| {
-                error!("Failed to read module {file}: {e}");
-                process::exit(1);
-            })
-            .as_str(),
-    )
-    .unwrap_or_else(|e| {
-        error!("Failed to parse module {file}: {e}");
+    let io_err_fn = |e| {
+        error!("Failed to read module {file_name}: {e}");
         process::exit(1);
-    })
-    .render()
-    .unwrap_or_else(|e| {
-        error!("Failed to render module {file}: {e}");
+    };
+
+    let file_path = PathBuf::from("config").join(file_name);
+
+    let file = fs::read_to_string(file_path).unwrap_or_else(io_err_fn);
+
+    let serde_err_fn = |e| {
+        error!("Failed to deserialize module {file_name}: {e}");
         process::exit(1);
-    })
+    };
+
+    let template_err_fn = |e| {
+        error!("Failed to render module {file_name}: {e}");
+        process::exit(1);
+    };
+
+    if let Ok(module_ext) = serde_yaml::from_str::<ModuleExt>(file.as_str()) {
+        module_ext.render().unwrap_or_else(template_err_fn)
+    } else {
+        let module = serde_yaml::from_str::<Module>(file.as_str()).unwrap_or_else(serde_err_fn);
+
+        ModuleExt::builder()
+            .modules(vec![module])
+            .build()
+            .render()
+            .unwrap_or_else(template_err_fn)
+    }
 }
 
 fn print_module_context(module: &Module) -> String {
