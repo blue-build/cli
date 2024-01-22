@@ -8,9 +8,11 @@ use clap::Args;
 use log::error;
 use typed_builder::TypedBuilder;
 
-const GITLAB_CI_FILE: &'static str = include_str!("../templates/init/gitlab-ci.yml.tera");
-const RECIPE_FILE: &'static str = include_str!("../templates/init/recipe.yml.tera");
-const LICENSE_FILE: &'static str = include_str!("../LICENSE");
+use super::BlueBuildCommand;
+
+const GITLAB_CI_FILE: &'static str = include_str!("../../templates/init/gitlab-ci.yml.tera");
+const RECIPE_FILE: &'static str = include_str!("../../templates/init/recipe.yml.tera");
+const LICENSE_FILE: &'static str = include_str!("../../LICENSE");
 
 #[derive(Debug, Clone, Default, Args, TypedBuilder)]
 pub struct NewInitCommon {
@@ -30,8 +32,8 @@ pub struct InitCommand {
     common: NewInitCommon,
 }
 
-impl InitCommand {
-    pub fn try_run(&self) -> Result<()> {
+impl BlueBuildCommand for InitCommand {
+    fn try_run(&mut self) -> Result<()> {
         let base_dir = match self.dir.as_ref() {
             Some(dir) => dir,
             None => std::path::Path::new("./"),
@@ -40,14 +42,9 @@ impl InitCommand {
         self.initialize_directory(base_dir);
         Ok(())
     }
+}
 
-    pub fn run(&self) {
-        if let Err(e) = self.try_run() {
-            error!("Failed to init ublue project: {e}");
-            process::exit(1);
-        }
-    }
-
+impl InitCommand {
     fn initialize_directory(&self, base_dir: &Path) {
         let recipe_path = base_dir.join("recipe.yml");
 
@@ -74,19 +71,12 @@ pub struct NewCommand {
     common: NewInitCommon,
 }
 
-impl NewCommand {
-    pub fn try_run(&self) -> Result<()> {
+impl BlueBuildCommand for NewCommand {
+    fn try_run(&mut self) -> Result<()> {
         InitCommand::builder()
             .dir(self.dir.clone())
             .common(self.common.clone())
             .build()
             .try_run()
-    }
-
-    pub fn run(&self) {
-        if let Err(e) = self.try_run() {
-            error!("Failed to create new project: {e}");
-            process::exit(1);
-        }
     }
 }

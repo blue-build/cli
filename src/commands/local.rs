@@ -11,10 +11,11 @@ use typed_builder::TypedBuilder;
 use users::{Users, UsersCache};
 
 use crate::{
-    build::BuildCommand,
+    commands::{build::BuildCommand, template::Recipe},
     ops::{self, ARCHIVE_SUFFIX, LOCAL_BUILD},
-    template::Recipe,
 };
+
+use super::BlueBuildCommand;
 
 #[derive(Default, Clone, Debug, TypedBuilder, Args)]
 pub struct LocalCommonArgs {
@@ -35,8 +36,8 @@ pub struct UpgradeCommand {
     common: LocalCommonArgs,
 }
 
-impl UpgradeCommand {
-    pub fn try_run(&self) -> Result<()> {
+impl BlueBuildCommand for UpgradeCommand {
+    fn try_run(&mut self) -> Result<()> {
         trace!("UpgradeCommand::try_run()");
 
         check_can_run()?;
@@ -78,15 +79,6 @@ impl UpgradeCommand {
         }
         Ok(())
     }
-
-    pub fn run(&self) {
-        trace!("UpgradeCommand::run()");
-
-        if let Err(e) = self.try_run() {
-            error!("Failed to upgrade image: {e}");
-            process::exit(1);
-        }
-    }
 }
 
 #[derive(Default, Clone, Debug, TypedBuilder, Args)]
@@ -95,8 +87,8 @@ pub struct RebaseCommand {
     common: LocalCommonArgs,
 }
 
-impl RebaseCommand {
-    pub fn try_run(&self) -> Result<()> {
+impl BlueBuildCommand for RebaseCommand {
+    fn try_run(&mut self) -> Result<()> {
         trace!("RebaseCommand::try_run()");
 
         check_can_run()?;
@@ -142,16 +134,11 @@ impl RebaseCommand {
         }
         Ok(())
     }
-
-    pub fn run(&self) {
-        trace!("RebaseCommand::run()");
-
-        if let Err(e) = self.try_run() {
-            error!("Failed to rebase onto new image: {e}");
-            process::exit(1);
-        }
-    }
 }
+
+// ======================================================== //
+// ========================= Helpers ====================== //
+// ======================================================== //
 
 fn check_can_run() -> Result<()> {
     trace!("check_can_run()");
@@ -159,7 +146,6 @@ fn check_can_run() -> Result<()> {
     ops::check_command_exists("rpm-ostree")?;
 
     let cache = UsersCache::new();
-
     if cache.get_current_uid() != 0 {
         bail!("You need to be root to rebase a local image! Try using 'sudo'.");
     }
@@ -180,13 +166,7 @@ fn clean_local_build_dir(image_name: &str, rebase: bool) -> Result<()> {
         );
     }
 
-    if !local_build_path.exists() {
-        debug!(
-            "Creating build output dir at {}",
-            local_build_path.display()
-        );
-        fs::create_dir_all(local_build_path)?;
-    } else {
+    if local_build_path.exists() {
         debug!("Cleaning out build dir {LOCAL_BUILD}");
 
         let entries = fs::read_dir(LOCAL_BUILD)?;
@@ -205,6 +185,12 @@ fn clean_local_build_dir(image_name: &str, rebase: bool) -> Result<()> {
                 fs::remove_file(path)?;
             }
         }
+    } else {
+        debug!(
+            "Creating build output dir at {}",
+            local_build_path.display()
+        );
+        fs::create_dir_all(local_build_path)?;
     }
 
     Ok(())

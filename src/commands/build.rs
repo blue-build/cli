@@ -29,9 +29,11 @@ use futures_util::StreamExt;
 use tokio::runtime::Runtime;
 
 use crate::{
+    commands::template::TemplateCommand,
     ops::{self, ARCHIVE_SUFFIX},
-    template::{Recipe, TemplateCommand},
 };
+
+use super::{template::Recipe, BlueBuildCommand};
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BuildCommand {
@@ -127,9 +129,9 @@ pub struct BuildCommand {
     private_key: Option<String>,
 }
 
-impl BuildCommand {
+impl BlueBuildCommand for BuildCommand {
     /// Runs the command and returns a result.
-    pub fn try_run(&mut self) -> Result<()> {
+    fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
         if self.push && self.archive.is_some() {
@@ -168,18 +170,9 @@ impl BuildCommand {
         #[cfg(not(feature = "podman-api"))]
         self.build_image()
     }
+}
 
-    /// Runs the command and exits if there is an error.
-    pub fn run(&mut self) {
-        trace!("BuildCommand::run()");
-
-        if let Err(e) = self.try_run() {
-            error!("Failed to build image: {e}");
-            process::exit(1);
-        }
-        info!("Finished building!");
-    }
-
+impl BuildCommand {
     #[cfg(feature = "podman-api")]
     async fn build_image_podman_api(&self, client: Podman) -> Result<()> {
         use podman_api::opts::ImageTagOpts;
@@ -327,7 +320,7 @@ impl BuildCommand {
                 }
             }
 
-            self.sign_images(&image_name, tags.first().map(|x| x.as_str()))?;
+            sign_images(&image_name, tags.first().map(String::as_str))?;
         }
         Ok(())
     }
@@ -434,6 +427,9 @@ impl BuildCommand {
         Ok(())
     }
 
+    /// # Errors
+    ///
+    /// Will return `Err` if the image name cannot be generated.
     pub fn generate_full_image_name(&self, recipe: &Recipe) -> Result<String> {
         trace!("BuildCommand::generate_full_image_name({recipe:#?})");
         info!("Generating full image name");
@@ -483,7 +479,7 @@ impl BuildCommand {
                     if self.push {
                         bail!("Need '--registry' and '--registry-path' in order to push image");
                     }
-                    recipe.name.to_owned()
+                    recipe.name.clone()
                 }
             }
         };
@@ -493,6 +489,9 @@ impl BuildCommand {
         Ok(image_name)
     }
 
+    /// # Errors
+    ///
+    /// Will return `Err` if the build fails.
     fn run_build(&self, image_name: &str, tags: &[String]) -> Result<()> {
         trace!("BuildCommand::run_build({image_name}, {tags:#?})");
 
@@ -579,7 +578,7 @@ impl BuildCommand {
 
         if self.push {
             debug!("Pushing all images");
-            for tag in tags.iter() {
+            for tag in tags {
                 debug!("Pushing image {image_name}:{tag}");
 
                 let tag_image = format!("{image_name}:{tag}");
@@ -605,138 +604,143 @@ impl BuildCommand {
                 .status()?;
 
                 if status.success() {
-                    info!("Successfully pushed {image_name}:{tag}!")
+                    info!("Successfully pushed {image_name}:{tag}!");
                 } else {
                     bail!("Failed to push image {image_name}:{tag}");
                 }
             }
 
-            self.sign_images(image_name, tags.first().map(|x| x.as_str()))?;
-        }
-
-        Ok(())
-    }
-
-    fn sign_images(&self, image_name: &str, tag: Option<&str>) -> Result<()> {
-        trace!("BuildCommand::sign_images({image_name}, {tag:?})");
-
-        env::set_var("COSIGN_PASSWORD", "");
-        env::set_var("COSIGN_YES", "true");
-
-        let image_digest = get_image_digest(image_name, tag)?;
-        let image_name_tag = tag
-            .map(|t| format!("{image_name}:{t}"))
-            .unwrap_or(image_name.to_owned());
-
-        match (
-            env::var("CI_DEFAULT_BRANCH"),
-            env::var("CI_COMMIT_REF_NAME"),
-            env::var("CI_PROJECT_URL"),
-            env::var("CI_SERVER_PROTOCOL"),
-            env::var("CI_SERVER_HOST"),
-            env::var("SIGSTORE_ID_TOKEN"),
-            env::var("GITHUB_EVENT_NAME"),
-            env::var("GITHUB_REF_NAME"),
-            env::var("COSIGN_PRIVATE_KEY"),
-        ) {
-            (
-                Ok(ci_default_branch),
-                Ok(ci_commit_ref),
-                Ok(ci_project_url),
-                Ok(ci_server_protocol),
-                Ok(ci_server_host),
-                Ok(_),
-                _,
-                _,
-                _,
-            ) if ci_default_branch == ci_commit_ref => {
-                trace!("CI_PROJECT_URL={ci_project_url}, CI_DEFAULT_BRANCH={ci_default_branch}, CI_COMMIT_REF_NAME={ci_commit_ref}, CI_SERVER_PROTOCOL={ci_server_protocol}, CI_SERVER_HOST={ci_server_host}");
-
-                debug!("On default branch");
-
-                info!("Signing image: {image_digest}");
-
-                trace!("cosign sign {image_digest}");
-
-                if Command::new("cosign")
-                    .arg("sign")
-                    .arg(&image_digest)
-                    .status()?
-                    .success()
-                {
-                    info!("Successfully signed image!");
-                } else {
-                    bail!("Failed to sign image: {image_digest}");
-                }
-
-                let cert_ident =
-                    format!("{ci_project_url}//.gitlab-ci.yml@refs/heads/{ci_default_branch}");
-
-                let cert_oidc = format!("{ci_server_protocol}://{ci_server_host}");
-
-                trace!("cosign verify --certificate-identity {cert_ident} --certificate-oidc-issuer {cert_oidc} {image_name_tag}");
-
-                if !Command::new("cosign")
-                    .arg("verify")
-                    .arg("--certificate-identity")
-                    .arg(&cert_ident)
-                    .arg("--certificate-oidc-issuer")
-                    .arg(&cert_oidc)
-                    .arg(&image_name_tag)
-                    .status()?
-                    .success()
-                {
-                    bail!("Failed to verify image!");
-                }
-            }
-            (_, _, _, _, _, _, Ok(github_event_name), Ok(github_ref_name), Ok(_))
-                if github_event_name != "pull_request" && github_ref_name == "live" =>
-            {
-                trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}");
-
-                debug!("On live branch");
-
-                info!("Signing image: {image_digest}");
-
-                trace!("cosign sign --key=env://COSIGN_PRIVATE_KEY {image_digest}");
-
-                if Command::new("cosign")
-                    .arg("sign")
-                    .arg("--key=env://COSIGN_PRIVATE_KEY")
-                    .arg(&image_digest)
-                    .status()?
-                    .success()
-                {
-                    info!("Successfully signed image!");
-                } else {
-                    bail!("Failed to sign image: {image_digest}");
-                }
-
-                trace!("cosign verify --key ./cosign.pub {image_name_tag}");
-
-                if !Command::new("cosign")
-                    .arg("verify")
-                    .arg("--key=./cosign.pub")
-                    .arg(&image_name_tag)
-                    .status()?
-                    .success()
-                {
-                    bail!("Failed to verify image!");
-                }
-            }
-            _ => debug!("Not running in CI with cosign variables, not signing"),
+            sign_images(image_name, tags.first().map(String::as_str))?;
         }
 
         Ok(())
     }
 }
 
+// ======================================================== //
+// ========================= Helpers ====================== //
+// ======================================================== //
+
+fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
+    trace!("BuildCommand::sign_images({image_name}, {tag:?})");
+
+    env::set_var("COSIGN_PASSWORD", "");
+    env::set_var("COSIGN_YES", "true");
+
+    let image_digest = get_image_digest(image_name, tag)?;
+    let image_name_tag = tag
+        .map(|t| format!("{image_name}:{t}"))
+        .unwrap_or(image_name.to_owned());
+
+    match (
+        env::var("CI_DEFAULT_BRANCH"),
+        env::var("CI_COMMIT_REF_NAME"),
+        env::var("CI_PROJECT_URL"),
+        env::var("CI_SERVER_PROTOCOL"),
+        env::var("CI_SERVER_HOST"),
+        env::var("SIGSTORE_ID_TOKEN"),
+        env::var("GITHUB_EVENT_NAME"),
+        env::var("GITHUB_REF_NAME"),
+        env::var("COSIGN_PRIVATE_KEY"),
+    ) {
+        (
+            Ok(ci_default_branch),
+            Ok(ci_commit_ref),
+            Ok(ci_project_url),
+            Ok(ci_server_protocol),
+            Ok(ci_server_host),
+            Ok(_),
+            _,
+            _,
+            _,
+        ) if ci_default_branch == ci_commit_ref => {
+            trace!("CI_PROJECT_URL={ci_project_url}, CI_DEFAULT_BRANCH={ci_default_branch}, CI_COMMIT_REF_NAME={ci_commit_ref}, CI_SERVER_PROTOCOL={ci_server_protocol}, CI_SERVER_HOST={ci_server_host}");
+
+            debug!("On default branch");
+
+            info!("Signing image: {image_digest}");
+
+            trace!("cosign sign {image_digest}");
+
+            if Command::new("cosign")
+                .arg("sign")
+                .arg(&image_digest)
+                .status()?
+                .success()
+            {
+                info!("Successfully signed image!");
+            } else {
+                bail!("Failed to sign image: {image_digest}");
+            }
+
+            let cert_ident =
+                format!("{ci_project_url}//.gitlab-ci.yml@refs/heads/{ci_default_branch}");
+
+            let cert_oidc = format!("{ci_server_protocol}://{ci_server_host}");
+
+            trace!("cosign verify --certificate-identity {cert_ident} --certificate-oidc-issuer {cert_oidc} {image_name_tag}");
+
+            if !Command::new("cosign")
+                .arg("verify")
+                .arg("--certificate-identity")
+                .arg(&cert_ident)
+                .arg("--certificate-oidc-issuer")
+                .arg(&cert_oidc)
+                .arg(&image_name_tag)
+                .status()?
+                .success()
+            {
+                bail!("Failed to verify image!");
+            }
+        }
+        (_, _, _, _, _, _, Ok(github_event_name), Ok(github_ref_name), Ok(_))
+            if github_event_name != "pull_request" && github_ref_name == "live" =>
+        {
+            trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}");
+
+            debug!("On live branch");
+
+            info!("Signing image: {image_digest}");
+
+            trace!("cosign sign --key=env://COSIGN_PRIVATE_KEY {image_digest}");
+
+            if Command::new("cosign")
+                .arg("sign")
+                .arg("--key=env://COSIGN_PRIVATE_KEY")
+                .arg(&image_digest)
+                .status()?
+                .success()
+            {
+                info!("Successfully signed image!");
+            } else {
+                bail!("Failed to sign image: {image_digest}");
+            }
+
+            trace!("cosign verify --key ./cosign.pub {image_name_tag}");
+
+            if !Command::new("cosign")
+                .arg("verify")
+                .arg("--key=./cosign.pub")
+                .arg(&image_name_tag)
+                .status()?
+                .success()
+            {
+                bail!("Failed to verify image!");
+            }
+        }
+        _ => debug!("Not running in CI with cosign variables, not signing"),
+    }
+
+    Ok(())
+}
+
 fn get_image_digest(image_name: &str, tag: Option<&str>) -> Result<String> {
     trace!("get_image_digest({image_name}, {tag:?})");
 
-    let image_url = match tag {
-        Some(tag) => format!("docker://{image_name}:{tag}"),
-        None => format!("docker://{image_name}"),
+    let image_url = if let Some(tag) = tag {
+        format!("docker://{image_name}:{tag}")
+    } else {
+        format!("docker://{image_name}")
     };
 
     trace!("skopeo inspect --format='{{.Digest}}' {image_url}");

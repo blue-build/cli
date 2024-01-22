@@ -1,12 +1,6 @@
-use std::{
-    env,
-    path::{Path, PathBuf},
-    process::Command,
-};
-
-use anyhow::{anyhow, bail, Result};
-use clap::ValueEnum;
+use anyhow::{anyhow, Result};
 use log::{debug, trace};
+use std::process::Command;
 
 pub const LOCAL_BUILD: &str = "/etc/blue-build";
 pub const ARCHIVE_SUFFIX: &str = ".tar.gz";
@@ -16,18 +10,17 @@ pub fn check_command_exists(command: &str) -> Result<()> {
     debug!("Checking if {command} exists");
 
     trace!("which {command}");
-    match Command::new("which")
+    if Command::new("which")
         .arg(command)
         .output()?
         .status
         .success()
     {
-        true => {
-            debug!("Command {command} does exist");
-            Ok(())
-        }
-        false => Err(anyhow!(
+        debug!("Command {command} does exist");
+        Ok(())
+    } else {
+        Err(anyhow!(
             "Command {command} doesn't exist and is required to build the image"
-        )),
+        ))
     }
 }
