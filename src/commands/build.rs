@@ -225,12 +225,7 @@ impl BuildCommand {
         let tags = recipe.generate_tags();
         let image_name = self.generate_full_image_name(&recipe)?;
         let first_image_name = match &self.archive {
-            Some(archive_dir) => format!(
-                "oci-archive:{}",
-                archive_dir
-                    .join(format!("{image_name}{ARCHIVE_SUFFIX}"))
-                    .display()
-            ),
+            Some(archive_dir) => ops::generate_local_image_name(&image_name, archive_dir.to_str()),
             None => tags
                 .first()
                 .map(|t| format!("{image_name}:{t}"))
@@ -496,12 +491,7 @@ impl BuildCommand {
         trace!("BuildCommand::run_build({image_name}, {tags:#?})");
 
         let full_image = match &self.archive {
-            Some(archive_dir) => format!(
-                "oci-archive:{}",
-                archive_dir
-                    .join(format!("{image_name}{ARCHIVE_SUFFIX}"))
-                    .display()
-            ),
+            Some(archive_dir) => ops::generate_local_image_name(image_name, archive_dir.to_str()),
             None => tags
                 .first()
                 .map(|t| format!("{image_name}:{t}"))
