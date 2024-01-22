@@ -24,14 +24,3 @@ pub fn check_command_exists(command: &str) -> Result<()> {
         ))
     }
 }
-
-pub fn generate_local_image_name(image_name: &str, directory: Option<&str>) -> String {
-    if let Some(directory) = directory {
-        format!(
-            "oci-archive:{}/{image_name}.{ARCHIVE_SUFFIX}",
-            directory.trim_end_matches('/')
-        )
-    } else {
-        format!("oci-archive:{image_name}.{ARCHIVE_SUFFIX}")
-    }
-}

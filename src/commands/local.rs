@@ -55,8 +55,6 @@ impl BlueBuildCommand for UpgradeCommand {
 
         build.try_run()?;
 
-        let image_name = ops::generate_local_image_name(&image_name, Some(LOCAL_BUILD));
-
         let status = if self.common.reboot {
             info!("Upgrading image {image_name} and rebooting");
 
@@ -104,22 +102,20 @@ impl BlueBuildCommand for RebaseCommand {
 
         build.try_run()?;
 
-        let image_name = ops::generate_local_image_name(&image_name, Some(LOCAL_BUILD));
-
         let status = if self.common.reboot {
             info!("Rebasing image {image_name} and rebooting");
 
             Command::new("rpm-ostree")
                 .arg("rebase")
                 .arg("--reboot")
-                .arg(&image_name)
+                .arg(format!("ostree-unverified-image:{image_name}"))
                 .status()?
         } else {
             info!("Rebasing image {image_name}");
 
             Command::new("rpm-ostree")
                 .arg("rebase")
-                .arg(&image_name)
+                .arg(format!("ostree-unverified-image:{image_name}"))
                 .status()?
         };
 
@@ -152,8 +148,7 @@ fn clean_local_build_dir(image_name: &str, rebase: bool) -> Result<()> {
     trace!("clean_local_build_dir()");
 
     let local_build_path = Path::new(LOCAL_BUILD);
-    let image_file_name = format!("{image_name}.{ARCHIVE_SUFFIX}");
-    let image_file_path = local_build_path.join(image_file_name);
+    let image_file_path = local_build_path.join(image_name.trim_start_matches("oci-archive:"));
 
     if !image_file_path.exists() && !rebase {
         bail!(
