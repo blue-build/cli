@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.5.1 (2024-01-22)
+
+### Bug Fixes
+
+ - <csr-id-e325d5d3a13b351c0e2250fc89238a95688d5b88/> Allow single module from-file
+
+### Other
+
+ - <csr-id-0573cc1d9ba1ab44721dd87f27bf4ad8bacd8634/> Update README for upgrade and rebase commands
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 2 commits contributed to the release.
+ - 2 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Allow single module from-file (e325d5d)
+    - Update README for upgrade and rebase commands (0573cc1)
+</details>
+
 ## v0.5.0 (2024-01-21)
 
 ### New Features (BREAKING)
@@ -15,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 1 commit contributed to the release.
+ - 2 commits contributed to the release.
  - 1 day passed between releases.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
@@ -27,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Release blue-build v0.5.0 (e2608b9)
     - Upgrade and Rebase commands (b547a32)
 </details>
 
