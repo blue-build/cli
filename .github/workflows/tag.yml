@@ -1,11 +1,9 @@
-name: Earthly +build
+name: Earthly +tag
 
 on:
-  merge_group:
-  pull_request:
   push:
-    branches:
-      - main
+    tags:
+      - "v*.*.*"
 
 env:
   FORCE_COLOR: 1
@@ -26,6 +24,11 @@ jobs:
         with:
           version: v0.8.0
 
+      - name: Add yq (for reading Cargo.toml)
+        uses: mikefarah/yq@v4.40.5
+        with:
+          cmd: ""
+
       # Setup repo and add caching
       - uses: actions/checkout@v4
       - uses: actions/cache@v3
@@ -41,6 +44,17 @@ jobs:
       - name: Docker Login
         run: docker login --username "$DOCKERHUB_USERNAME" --password "$DOCKERHUB_TOKEN"
 
+      - name: Fetch tags
+        run: git fetch --all --tags
+
+      - name: Get Latest Tag
+        id: latest_tag
+        run: echo "LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)" >> $GITHUB_OUTPUT
+
+      - name: Check Cargo Version
+        id: cargo_version
+        run: echo "CARGO_VERSION=$(tomlq '.package.version' $PWD/Cargo.toml | sed 's/\"//g')" >> $GITHUB_OUTPUT
+
       # Pulling rust toolchain & install linux dependencies
       - uses: dtolnay/rust-toolchain@stable
       - name: Install alsa and udev
@@ -48,4 +62,7 @@ jobs:
         if: runner.os == 'linux'
 
       - name: Run build
-        run: earthly --ci --push +build
+        run: earthly --push --ci -P +all --TAG=${{ env.TAG }} --LATEST=${{ env.LATEST }}
+        env:
+          TAG: ${{ steps.latest_tag.outputs.LATEST_TAG }}
+          LATEST: ${{ steps.cargo_version.outputs.CARGO_VERSION == steps.latest_tag.outputs.LATEST_TAG }}
