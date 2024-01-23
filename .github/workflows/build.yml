@@ -1,0 +1,53 @@
+name: Earthly +build
+
+on:
+  merge_group:
+  pull_request:
+  push:
+    branches:
+      - main
+
+env:
+  FORCE_COLOR: 1
+  CARGO_TERM_COLOR: always
+  NIGHTLY_TOOLCHAIN: nightly
+  DOCKERHUB_TOKEN:
+  DOCKERHUB_USERNAME:
+
+jobs:
+  earthly:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    env:
+      FORCE_COLOR: 1
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+
+    steps:
+      - uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.0
+
+      # Setup repo and add caching
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v3
+        with:
+          path: |
+            target/
+            ~/.cargo/bin/
+            ~/.cargo/git/db/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+          key: ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Docker Login
+        run: docker login --username "$DOCKERHUB_USERNAME" --password "$DOCKERHUB_TOKEN"
+
+      # Pulling rust toolchain & install linux dependencies
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+        if: runner.os == 'linux'
+
+      - name: Run build
+        run: earthly --ci --push +build
