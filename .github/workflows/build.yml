@@ -13,7 +13,7 @@ env:
   NIGHTLY_TOOLCHAIN: nightly
 
 jobs:
-  earthly:
+  build:
     timeout-minutes: 30
     runs-on: ubuntu-latest
     env:
@@ -25,6 +25,9 @@ jobs:
       - uses: earthly/actions-setup@v1
         with:
           version: v0.8.0
+
+      # Pulling rust toolchain & install linux dependencies
+      - uses: dtolnay/rust-toolchain@stable
 
       # Setup repo and add caching
       - uses: actions/checkout@v4
@@ -41,11 +44,5 @@ jobs:
       - name: Docker Login
         run: docker login --username "$DOCKERHUB_USERNAME" --password "$DOCKERHUB_TOKEN"
 
-      # Pulling rust toolchain & install linux dependencies
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install alsa and udev
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
-        if: runner.os == 'linux'
-
       - name: Run build
-        run: earthly --ci --push +build
+        run: earthly --push --ci -P +all

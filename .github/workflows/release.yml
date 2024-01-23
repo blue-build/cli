@@ -13,7 +13,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  make-release-pr:
+  release-pr:
     runs-on: ubuntu-latest
     permissions:
       id-token: write # Enable OIDC
@@ -23,6 +23,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: chainguard-dev/actions/setup-gitsign@main
+
+      # Pulling rust toolchain & install linux dependencies
+      - uses: dtolnay/rust-toolchain@stable
 
       - name: Install cargo-release
         uses: taiki-e/install-action@v1
