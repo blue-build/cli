@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Docker Login
-        run: docker login --username "$DOCKERHUB_USERNAME" --password "$DOCKERHUB_TOKEN"
+        run: docker login ghcr.io -u $DOCKERHUB_USERNAME -p $DOCKERHUB_TOKEN
 
       - name: Run build
         run: earthly --push --ci -P +all

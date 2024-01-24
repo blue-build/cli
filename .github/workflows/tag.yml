@@ -41,7 +41,7 @@ jobs:
         run: pip install tomlq
 
       - name: Docker Login
-        run: docker login --username "$DOCKERHUB_USERNAME" --password "$DOCKERHUB_TOKEN"
+        run: docker login ghcr.io -u $DOCKERHUB_USERNAME -p $DOCKERHUB_TOKEN
 
       - name: Fetch tags
         run: git fetch --tags
