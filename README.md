@@ -26,7 +26,7 @@ cargo install --locked blue-build
 This will install the binary on your system in `/usr/local/bin`. This is only a `linux-gnu` version.
 
 ```bash
-podman run --rm registry.gitlab.com/wunker-bunker/blue-build:latest-installer | sudo bash
+podman run --rm ghcr.io/blue-build/cli:latest-installer | sudo bash
 ```
 
 ## How to use
@@ -97,7 +97,7 @@ variables:
       - "build-image"
 build-image:
   stage: build
-  image: registry.gitlab.com/wunker-bunker/blue-build:alpine
+  image: ghcr.io/blue-build/cli:alpine
   retry: 2
   rules:
     - if: $ACTION == "build-image"
