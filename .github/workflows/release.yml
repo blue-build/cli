@@ -1,6 +1,5 @@
 name: Release
 
-# how to trigger: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
 on:
   workflow_dispatch:
 
@@ -11,9 +10,7 @@ jobs:
   release-pr:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write # Enable OIDC
       contents: write
-      pull-requests: write
       packages: write
 
     steps:
@@ -39,4 +36,6 @@ jobs:
           tool: cargo-smart-release
 
       - name: Release
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: cargo smart-release -ue
