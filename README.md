@@ -9,7 +9,7 @@
 
 # BlueBuild
 
-This project attempts to create a more concise version of ublue starting point all condensed into a single Rust based CLI tool.
+BlueBuild's command line program that builds Containerfiles and custom images based on your recipe.yml.
 
 ## Installation
 
