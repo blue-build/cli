@@ -30,6 +30,7 @@ jobs:
       - name: Set up Earthly
         uses: earthly/actions-setup@v1
         with:
+          version: v0.8.0
           use-cache: true
 
       - name: Set up Python
