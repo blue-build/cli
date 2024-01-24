@@ -5,7 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.5.4 (2024-01-24)
+
+### Chore
+
+ - <csr-id-f27475ca39bd341f267cee5b7da65dbb93ec77ff/> Bump version
+ - <csr-id-c59caf45fb3866c2c97b10e1c6972e1447d80aac/> Bump version
+
+### Other
+
+ - <csr-id-8c9a5fc5ec8d401c18064605fbd8fea57c2bc616/> Add token for pushing tags
+ - <csr-id-4d2e56292d3f54df6b7df20c5337fa8fb0e6fc63/> Don't fetch tags again
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **Uncategorized**
+    - Bump version ([`f27475c`](https://github.com/blue-build/cli/commit/f27475ca39bd341f267cee5b7da65dbb93ec77ff))
+    - Bump version ([`c59caf4`](https://github.com/blue-build/cli/commit/c59caf45fb3866c2c97b10e1c6972e1447d80aac))
+    - Add token for pushing tags ([`8c9a5fc`](https://github.com/blue-build/cli/commit/8c9a5fc5ec8d401c18064605fbd8fea57c2bc616))
+    - Don't fetch tags again ([`4d2e562`](https://github.com/blue-build/cli/commit/4d2e56292d3f54df6b7df20c5337fa8fb0e6fc63))
+</details>
+
 ## v0.5.3 (2024-01-24)
+
+<csr-id-56ab314a44a9d3a8d35bb6173646746054368bf6/>
 
 ### Chore
 
@@ -15,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 5 commits contributed to the release.
  - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -26,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump blue-build v0.5.3 ([`b6a50e2`](https://github.com/blue-build/cli/commit/b6a50e213862ef929aeff5caf89bc616b4696ecb))
     - Bump version ([`56ab314`](https://github.com/blue-build/cli/commit/56ab314a44a9d3a8d35bb6173646746054368bf6))
     - Revert "Bump blue-build v0.5.2" ([`aee4182`](https://github.com/blue-build/cli/commit/aee4182ea2074e08a9a69d6e8044eaf970874370))
     - Reapply "ci: Fetch all to get history for changelog updates" ([`a289739`](https://github.com/blue-build/cli/commit/a289739dc4ac951c6c95a4f5038ed21c6a5f2cef))
@@ -35,6 +71,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## v0.5.2 (2024-01-24)
 
 <csr-id-4f62b3e5df47b74191a4222a6d98c9ffc5d7a993/>
+<csr-id-4858d9dc3022edfdd7a0f7b31f42aa503c75fe9b/>
+<csr-id-8bc7cf3a0a7cf4d3995bdcb60071aa2912801ae5/>
+<csr-id-32d31fdf6c7bfc3d577e6ac1d36bf504624887b1/>
+<csr-id-cf04653458059560b8f735e795b72ffd4b1a418c/>
+<csr-id-40d6ffbddef078b7c37e363a8f64ad70e13a5ca9/>
+<csr-id-90dbe0bdedc291459427cc3ad22d6296d79e2b05/>
+<csr-id-5849c4a23febb8f4a5435824cb72e9cee9aba8bf/>
+<csr-id-e8e8bfa0966cd6b2bf827620aad6df7fb5339b36/>
+<csr-id-6a4c89d567c4f7cd76415c56818527d9f7048bc2/>
+<csr-id-99649d2d8804c052ee41e51dbce822ff3ef2fe74/>
+<csr-id-42d879a6e52cc466a1e12d754eaa26ce7b21015a/>
+<csr-id-00b81a25bc546eb7314e4b910f2b4c101b7ee9fc/>
+<csr-id-dbea80c94586b1d34e372639d01f4cf2baa0f2e7/>
 
 ### Chore
 
@@ -139,9 +188,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Update Cargo.toml with new repo URL ([`4f62b3e`](https://github.com/blue-build/cli/commit/4f62b3e5df47b74191a4222a6d98c9ffc5d7a993))
     - Update outdated 60-custom.just ([`9454baa`](https://github.com/blue-build/cli/commit/9454baa75063b7c249fde08f663b5982c0572384))
 </details>
-
-<csr-unknown>
- Update outdated 60-custom.just<csr-unknown/>
 
 ## v0.5.1 (2024-01-22)
 
