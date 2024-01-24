@@ -9,7 +9,7 @@
 
 # BlueBuild
 
-This is my personal project trying to create a more conise version of the [starting point](https://github.com/ublue-os/startingpoint/tree/template) repo all condensed into a single Rust based CLI tool.
+BlueBuild's command line program that builds Containerfiles and custom images based on your recipe.yml.
 
 ## Installation
 
