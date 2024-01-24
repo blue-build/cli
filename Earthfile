@@ -1,6 +1,6 @@
 VERSION 0.8
 
-IMPORT gitlab.com/wunker-bunker/ci-pipelines/earthly/cargo AS cargo
+IMPORT github.com/blue-build/earthly-lib/cargo AS cargo
 
 ARG --global IMAGE=ghcr.io/blue-build/cli
 
