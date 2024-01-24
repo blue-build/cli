@@ -25,14 +25,15 @@ jobs:
           use-cache: true
           version: v0.8.0
 
-      # Pulling rust toolchain & install linux dependencies
-      - uses: dtolnay/rust-toolchain@stable
-
       # Setup repo and add caching
       - uses: actions/checkout@v4
 
-      - name: Docker Login
-        run: docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run build
         run: earthly --push --ci -P +all

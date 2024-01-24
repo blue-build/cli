@@ -35,8 +35,12 @@ jobs:
       - name: Add tomlq
         run: pip install tomlq
 
-      - name: Docker Login
-        run: docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Fetch tags
         run: git fetch --tags
