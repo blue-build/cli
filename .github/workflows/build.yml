@@ -24,6 +24,7 @@ jobs:
     steps:
       - uses: earthly/actions-setup@v1
         with:
+          use-cache: true
           version: v0.8.0
 
       # Pulling rust toolchain & install linux dependencies
