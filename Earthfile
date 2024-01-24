@@ -17,13 +17,16 @@ default:
 	BUILD +blue-build-cli --NIGHTLY=$NIGHTLY
 	BUILD +blue-build-cli-alpine --NIGHTLY=$NIGHTLY
 	BUILD +installer --NIGHTLY=$NIGHTLY
+
+nightly:
+	BUILD +default --NIGHTLY=true
+
+integration-tests:
+	ARG NIGHTLY=false
 	BUILD +integration-test-template --NIGHTLY=$NIGHTLY
 	BUILD +integration-test-build --NIGHTLY=$NIGHTLY
 	BUILD +integration-test-rebase --NIGHTLY=$NIGHTLY
 	BUILD +integration-test-upgrade --NIGHTLY=$NIGHTLY
-
-nightly:
-	BUILD +default --NIGHTLY=true
 
 lint:
 	FROM +common
