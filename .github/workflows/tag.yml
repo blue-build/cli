@@ -21,6 +21,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+          token: ${{ secrets.GIT_REPO_TOKEN }}
 
       #Deps
       - name: Set up Earthly
