@@ -21,7 +21,17 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            target/
+            ~/.cargo/bin/
+            ~/.cargo/git/db/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+          key: ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.toml') }}
+
       - uses: chainguard-dev/actions/setup-gitsign@main
 
       # Pulling rust toolchain & install linux dependencies
@@ -30,9 +40,7 @@ jobs:
       - name: Install cargo-release
         uses: taiki-e/install-action@v1
         with:
-          tool: cargo-release
+          tool: cargo-smart-release
 
-      - uses: cargo-bins/release-pr@v2
-        with:
-          version: ${{ inputs.version }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Release
+        run: cargo smart-release -ue

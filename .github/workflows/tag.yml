@@ -20,27 +20,21 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
     steps:
-      - uses: earthly/actions-setup@v1
-      - uses: actions/setup-python@v5
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Add tomlq
-        run: pip install tomlq
-
       # Setup repo and add caching
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
 
-      - uses: actions/cache@v3
-        with:
-          path: |
-            target/
-            ~/.cargo/bin/
-            ~/.cargo/git/db/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-          key: ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.toml') }}
+      #Deps
+      - name: Set up Earthly
+        uses: earthly/actions-setup@v1
+      - name: Set up Python
+        uses: actions/setup-python@v5
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Add tomlq
+        run: pip install tomlq
 
       - name: Docker Login
         run: docker login --username "$DOCKERHUB_USERNAME" --password "$DOCKERHUB_TOKEN"
