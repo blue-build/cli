@@ -1,6 +1,0 @@
-variables:
-  INTEGRATION_TESTS: 1
-
-include:
-  - project: wunker-bunker/ci-pipelines
-    file: cargo-earthly.yml  
