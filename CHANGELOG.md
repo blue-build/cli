@@ -5,51 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.5.2 (2024-01-22)
+## v0.5.3 (2024-01-24)
 
 ### Chore
 
- - <csr-id-4f62b3e5df47b74191a4222a6d98c9ffc5d7a993/> Update Cargo.toml with new repo URL
-
-### New Features
-
- - <csr-id-dbbd087b5ba3dc7a6bf8f3fa9be2cdb569d6cecb/> run clippy + BlueBuildTrait
-   * feat: run clippy + BlueBuildTrait
-   
-   * chore: add default run impl; more clippy
-   
-   * chore: remove vscode folder; not needed
-   
-   * cleanups
-   
-   * Move to commands.rs
-   
-   * Move functions; remove run function implementation from each command
-   
-   * Remove run impl from init commands
-   
-   * Use error log
-   
-   ---------
-
-### Bug Fixes
-
- - <csr-id-c832bcd1aaca3b29ee45accf1673610aaffaf888/> Rebase path not being generated properly
-   * fix: Rebase path not being generated properly
-   
-   * consolidate logic into generate_full_image_name
-   
-   * Fix nightly build
- - <csr-id-9454baa75063b7c249fde08f663b5982c0572384/> Update outdated 60-custom.just
+ - <csr-id-56ab314a44a9d3a8d35bb6173646746054368bf6/> Bump version
 
 ### Commit Statistics
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release over the course of 1 calendar day.
- - 1 day passed between releases.
- - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
- - 2 unique issues were worked on: [#4](https://github.com/blue-build/cli/issues/4), [#8](https://github.com/blue-build/cli/issues/8)
+ - 4 commits contributed to the release.
+ - 1 commit was understood as [conventional](https://www.conventionalcommits.org).
+ - 0 issues like '(#ID)' were seen in commit messages
 
 ### Commit Details
 
@@ -57,14 +25,123 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <details><summary>view details</summary>
 
+ * **Uncategorized**
+    - Bump version ([`56ab314`](https://github.com/blue-build/cli/commit/56ab314a44a9d3a8d35bb6173646746054368bf6))
+    - Revert "Bump blue-build v0.5.2" ([`aee4182`](https://github.com/blue-build/cli/commit/aee4182ea2074e08a9a69d6e8044eaf970874370))
+    - Reapply "ci: Fetch all to get history for changelog updates" ([`a289739`](https://github.com/blue-build/cli/commit/a289739dc4ac951c6c95a4f5038ed21c6a5f2cef))
+    - Revert "ci: Fetch all to get history for changelog updates" ([`9faf35e`](https://github.com/blue-build/cli/commit/9faf35e8a983f3dff1d99cacf2894edf948a0b85))
+</details>
+
+## v0.5.2 (2024-01-24)
+
+<csr-id-4f62b3e5df47b74191a4222a6d98c9ffc5d7a993/>
+
+### Chore
+
+ - <csr-id-4f62b3e5df47b74191a4222a6d98c9ffc5d7a993/> Update Cargo.toml with new repo URL
+
+### Other
+
+ - <csr-id-4858d9dc3022edfdd7a0f7b31f42aa503c75fe9b/> Allow write for id-token
+ - <csr-id-8bc7cf3a0a7cf4d3995bdcb60071aa2912801ae5/> Fetch all to get history for changelog updates
+ - <csr-id-32d31fdf6c7bfc3d577e6ac1d36bf504624887b1/> Add CARGO_REGISTRY_TOKEN
+ - <csr-id-cf04653458059560b8f735e795b72ffd4b1a418c/> Remove input for release
+ - <csr-id-40d6ffbddef078b7c37e363a8f64ad70e13a5ca9/> Set packages permissions to write
+ - <csr-id-90dbe0bdedc291459427cc3ad22d6296d79e2b05/> Use docker/login-action@v3
+ - <csr-id-5849c4a23febb8f4a5435824cb72e9cee9aba8bf/> Allow workflow_dispatch on build
+ - <csr-id-e8e8bfa0966cd6b2bf827620aad6df7fb5339b36/> Allow write for contents and id-token
+ - <csr-id-6a4c89d567c4f7cd76415c56818527d9f7048bc2/> Don't build integration tests in +all
+ - <csr-id-99649d2d8804c052ee41e51dbce822ff3ef2fe74/> Create GitHub Workflow
+   Add support for building, tagging, and releasing via CICD
+   
+   ---------
+
+### Documentation
+
+ - <csr-id-d005bfc9251313e96687754634bb42178e642a48/> Manual update changelog for release
+ - <csr-id-e71b1897d1e752008a407d27b40fd31c7465e6be/> Update changelog
+
+### Chore
+
+ - <csr-id-42d879a6e52cc466a1e12d754eaa26ce7b21015a/> use GHCR for install.sh
+   Trying to make the action install the binary from the container on GHCR
+   with `podman run --rm ghcr.io/blue-build/cli:main-installer | sudo bash`
+   (like in the README). Getting some error and this _might_ be related and
+   might not, but shouldn't hurt to merge either, since I just made the
+   `cli` package public.
+   
+   ---------
+ - <csr-id-00b81a25bc546eb7314e4b910f2b4c101b7ee9fc/> Update README.md
+   update description
+ - <csr-id-dbea80c94586b1d34e372639d01f4cf2baa0f2e7/> Manual bump of version
+
+### New Features
+
+ - <csr-id-dbbd087b5ba3dc7a6bf8f3fa9be2cdb569d6cecb/> run clippy + BlueBuildTrait
+   * feat: run clippy + BlueBuildTrait
+* chore: add default run impl; more clippy
+* chore: remove vscode folder; not needed
+* cleanups
+* Move to commands.rs
+* Move functions; remove run function implementation from each command
+* Remove run impl from init commands
+* Use error log
+
+### Bug Fixes
+
+<csr-id-9454baa75063b7c249fde08f663b5982c0572384/>
+
+ - <csr-id-c832bcd1aaca3b29ee45accf1673610aaffaf888/> Rebase path not being generated properly
+   * fix: Rebase path not being generated properly
+* consolidate logic into generate_full_image_name
+* Fix nightly build
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 21 commits contributed to the release over the course of 3 calendar days.
+ - 3 days passed between releases.
+ - 19 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 5 unique issues were worked on: [#10](https://github.com/blue-build/cli/issues/10), [#11](https://github.com/blue-build/cli/issues/11), [#4](https://github.com/blue-build/cli/issues/4), [#8](https://github.com/blue-build/cli/issues/8), [#9](https://github.com/blue-build/cli/issues/9)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#10](https://github.com/blue-build/cli/issues/10)**
+    - Update README.md ([`00b81a2`](https://github.com/blue-build/cli/commit/00b81a25bc546eb7314e4b910f2b4c101b7ee9fc))
+ * **[#11](https://github.com/blue-build/cli/issues/11)**
+    - Use GHCR for install.sh ([`42d879a`](https://github.com/blue-build/cli/commit/42d879a6e52cc466a1e12d754eaa26ce7b21015a))
  * **[#4](https://github.com/blue-build/cli/issues/4)**
     - Run clippy + BlueBuildTrait ([`dbbd087`](https://github.com/blue-build/cli/commit/dbbd087b5ba3dc7a6bf8f3fa9be2cdb569d6cecb))
  * **[#8](https://github.com/blue-build/cli/issues/8)**
     - Rebase path not being generated properly ([`c832bcd`](https://github.com/blue-build/cli/commit/c832bcd1aaca3b29ee45accf1673610aaffaf888))
+ * **[#9](https://github.com/blue-build/cli/issues/9)**
+    - Create GitHub Workflow ([`99649d2`](https://github.com/blue-build/cli/commit/99649d2d8804c052ee41e51dbce822ff3ef2fe74))
  * **Uncategorized**
+    - Bump blue-build v0.5.2 ([`c3003e2`](https://github.com/blue-build/cli/commit/c3003e27c50e06e60e18b6e5180fe0c077c8975c))
+    - Allow write for id-token ([`4858d9d`](https://github.com/blue-build/cli/commit/4858d9dc3022edfdd7a0f7b31f42aa503c75fe9b))
+    - Fetch all to get history for changelog updates ([`8bc7cf3`](https://github.com/blue-build/cli/commit/8bc7cf3a0a7cf4d3995bdcb60071aa2912801ae5))
+    - Add CARGO_REGISTRY_TOKEN ([`32d31fd`](https://github.com/blue-build/cli/commit/32d31fdf6c7bfc3d577e6ac1d36bf504624887b1))
+    - Remove input for release ([`cf04653`](https://github.com/blue-build/cli/commit/cf04653458059560b8f735e795b72ffd4b1a418c))
+    - Set packages permissions to write ([`40d6ffb`](https://github.com/blue-build/cli/commit/40d6ffbddef078b7c37e363a8f64ad70e13a5ca9))
+    - Use docker/login-action@v3 ([`90dbe0b`](https://github.com/blue-build/cli/commit/90dbe0bdedc291459427cc3ad22d6296d79e2b05))
+    - Allow workflow_dispatch on build ([`5849c4a`](https://github.com/blue-build/cli/commit/5849c4a23febb8f4a5435824cb72e9cee9aba8bf))
+    - Allow write for contents and id-token ([`e8e8bfa`](https://github.com/blue-build/cli/commit/e8e8bfa0966cd6b2bf827620aad6df7fb5339b36))
+    - Don't build integration tests in +all ([`6a4c89d`](https://github.com/blue-build/cli/commit/6a4c89d567c4f7cd76415c56818527d9f7048bc2))
+    - Release blue-build v0.5.2 ([`6fffe12`](https://github.com/blue-build/cli/commit/6fffe1286e91e62354fa6f19eb1a9220bb0852f5))
+    - Manual bump of version ([`dbea80c`](https://github.com/blue-build/cli/commit/dbea80c94586b1d34e372639d01f4cf2baa0f2e7))
+    - Manual update changelog for release ([`d005bfc`](https://github.com/blue-build/cli/commit/d005bfc9251313e96687754634bb42178e642a48))
+    - Update changelog ([`e71b189`](https://github.com/blue-build/cli/commit/e71b1897d1e752008a407d27b40fd31c7465e6be))
     - Update Cargo.toml with new repo URL ([`4f62b3e`](https://github.com/blue-build/cli/commit/4f62b3e5df47b74191a4222a6d98c9ffc5d7a993))
     - Update outdated 60-custom.just ([`9454baa`](https://github.com/blue-build/cli/commit/9454baa75063b7c249fde08f663b5982c0572384))
 </details>
+
+<csr-unknown>
+ Update outdated 60-custom.just<csr-unknown/>
 
 ## v0.5.1 (2024-01-22)
 
