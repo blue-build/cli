@@ -29,6 +29,9 @@ jobs:
       #Deps
       - name: Set up Earthly
         uses: earthly/actions-setup@v1
+        with:
+          use-cache: true
+
       - name: Set up Python
         uses: actions/setup-python@v5
       - name: Install Rust
