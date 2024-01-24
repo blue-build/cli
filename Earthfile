@@ -53,7 +53,12 @@ install:
 	SAVE ARTIFACT target/$BUILD_TARGET/release/bb
 
 common:
-	FROM registry.gitlab.com/wunker-bunker/cargo-builder
+	FROM rust
+
+	RUN apt-get update && \
+		apt-get install -y musl-dev && \
+		rustup component add clippy && \
+		rustup target add x86_64-unknown-linux-musl
 
 	WORKDIR /app
 	COPY --keep-ts --dir src/ templates/ /app
