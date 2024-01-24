@@ -1,0 +1,53 @@
+name: Earthly +tag
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+env:
+  FORCE_COLOR: 1
+
+jobs:
+  tag:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+
+    steps:
+      # Setup repo and add caching
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      #Deps
+      - name: Set up Earthly
+        uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.0
+          use-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+      - name: Add tomlq
+        run: pip install tomlq
+
+      - name: Docker Login
+        run: docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch tags
+        run: git fetch --tags
+
+      - name: Get Latest Tag
+        id: latest_tag
+        run: echo "LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)" >> $GITHUB_OUTPUT
+
+      - name: Check Cargo Version
+        id: cargo_version
+        run: echo "CARGO_PACKAGE_VERSION=$(tomlq '.package.version' $PWD/Cargo.toml | sed 's/\"//g')" >> $GITHUB_OUTPUT
+
+      - name: Run build
+        env:
+          TAG: ${{ steps.latest_tag.outputs.LATEST_TAG }}
+          LATEST: ${{ steps.cargo_version.outputs.CARGO_PACKAGE_VERSION == steps.latest_tag.outputs.LATEST_TAG }}
+        run: earthly --push --ci -P +all --TAG=${{ env.TAG }} --LATEST=${{ env.LATEST }}

@@ -1,0 +1,46 @@
+name: Open a release PR
+
+# how to trigger: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Enable OIDC
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            target/
+            ~/.cargo/bin/
+            ~/.cargo/git/db/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+          key: ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.toml') }}
+
+      - uses: chainguard-dev/actions/setup-gitsign@main
+
+      # Pulling rust toolchain & install linux dependencies
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-release
+        uses: taiki-e/install-action@v1
+        with:
+          tool: cargo-smart-release
+
+      - name: Release
+        run: cargo smart-release -ue

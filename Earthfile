@@ -1,12 +1,8 @@
-VERSION \
-	--global-cache \
-	--use-function-keyword \
-	--arg-scope-and-set \
-	0.7
+VERSION 0.8
 
-IMPORT gitlab.com/wunker-bunker/ci-pipelines/earthly/cargo AS cargo
+IMPORT github.com/blue-build/earthly-lib/cargo AS cargo
 
-ARG --global IMAGE=registry.gitlab.com/wunker-bunker/blue-build
+ARG --global IMAGE=ghcr.io/blue-build/cli
 
 all:
 	BUILD +default
