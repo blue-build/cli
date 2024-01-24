@@ -11,8 +11,7 @@ env:
 jobs:
   tag:
     permissions:
-      id-token: write # Enable OIDC
-      contents: write
+      packages: write
     timeout-minutes: 60
     runs-on: ubuntu-latest
 

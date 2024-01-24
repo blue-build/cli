@@ -19,6 +19,7 @@ jobs:
       id-token: write # Enable OIDC
       contents: write
       pull-requests: write
+      packages: write
 
     steps:
       - uses: actions/checkout@v4
