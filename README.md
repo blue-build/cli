@@ -9,7 +9,7 @@
 
 # BlueBuild
 
-This is my personal project trying to create a more conise version of the [starting point](https://github.com/ublue-os/startingpoint/tree/template) repo all condensed into a single Rust based CLI tool.
+This project attempts to create a more concise version of ublue starting point all condensed into a single Rust based CLI tool.
 
 ## Installation
 
