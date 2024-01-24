@@ -7,17 +7,11 @@ on:
 
 env:
   FORCE_COLOR: 1
-  CARGO_TERM_COLOR: always
-  NIGHTLY_TOOLCHAIN: nightly
 
 jobs:
   tag:
     timeout-minutes: 60
     runs-on: ubuntu-latest
-    env:
-      FORCE_COLOR: 1
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
     steps:
       # Setup repo and add caching
@@ -35,8 +29,6 @@ jobs:
 
       - name: Set up Python
         uses: actions/setup-python@v5
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
       - name: Add tomlq
         run: pip install tomlq
 
@@ -52,10 +44,10 @@ jobs:
 
       - name: Check Cargo Version
         id: cargo_version
-        run: echo "CARGO_VERSION=$(tomlq '.package.version' $PWD/Cargo.toml | sed 's/\"//g')" >> $GITHUB_OUTPUT
+        run: echo "CARGO_PACKAGE_VERSION=$(tomlq '.package.version' $PWD/Cargo.toml | sed 's/\"//g')" >> $GITHUB_OUTPUT
 
       - name: Run build
-        run: earthly --push --ci -P +all --TAG=${{ env.TAG }} --LATEST=${{ env.LATEST }}
         env:
           TAG: ${{ steps.latest_tag.outputs.LATEST_TAG }}
-          LATEST: ${{ steps.cargo_version.outputs.CARGO_VERSION == steps.latest_tag.outputs.LATEST_TAG }}
+          LATEST: ${{ steps.cargo_version.outputs.CARGO_PACKAGE_VERSION == steps.latest_tag.outputs.LATEST_TAG }}
+        run: earthly --push --ci -P +all --TAG=${{ env.TAG }} --LATEST=${{ env.LATEST }}

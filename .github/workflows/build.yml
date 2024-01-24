@@ -9,17 +9,11 @@ on:
 
 env:
   FORCE_COLOR: 1
-  CARGO_TERM_COLOR: always
-  NIGHTLY_TOOLCHAIN: nightly
 
 jobs:
   build:
     timeout-minutes: 30
     runs-on: ubuntu-latest
-    env:
-      FORCE_COLOR: 1
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
     steps:
       - uses: earthly/actions-setup@v1
