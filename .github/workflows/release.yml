@@ -1,13 +1,8 @@
-name: Open a release PR
+name: Release
 
 # how to trigger: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: Version to release
-        required: true
-        type: string
 
 env:
   CARGO_TERM_COLOR: always
