@@ -97,7 +97,7 @@ variables:
       - "build-image"
 build-image:
   stage: build
-  image: ghcr.io/blue-build/cli:alpine
+  image: ghcr.io/blue-build/cli:latest-alpine
   retry: 2
   rules:
     - if: $ACTION == "build-image"
