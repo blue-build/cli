@@ -24,16 +24,18 @@ podman-api = { version = "0.10.0", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9.25"
+signal-hook = { version = "0.3.17", optional = true }
+signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"], optional = true }
 sigstore = { version = "0.8.0", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
 typed-builder = "0.18.0"
 users = "0.11.0"
-uuid = { version = "1.7.0", features = ["v4"] }
+uuid = { version = "1.7.0", features = ["v4"], optional = true }
 
 [features]
 default = []
 nightly = ["builtin-podman"]
-builtin-podman = ["podman-api", "tokio", "futures-util"]
+builtin-podman = ["podman-api", "tokio", "futures-util", "uuid", "signal-hook-tokio", "signal-hook"]
 tls = ["podman-api/tls", "builtin-podman"]
 init = []
 

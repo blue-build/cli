@@ -8,11 +8,13 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Result};
-use clap::Args;
+use clap::{builder, Args};
 use derivative::Derivative;
 use log::{debug, error, info, trace, warn};
 use typed_builder::TypedBuilder;
-use uuid::{self, Uuid};
+
+#[cfg(feature = "builtin-podman")]
+use std::sync::Arc;
 
 #[cfg(feature = "podman-api")]
 use podman_api::{
@@ -24,18 +26,28 @@ use podman_api::{
 #[cfg(feature = "podman-api")]
 use build_strategy::BuildStrategy;
 
+#[cfg(feature = "signal-hook")]
+use signal_hook::consts::*;
+
+#[cfg(feature = "signal-hook-tokio")]
+use signal_hook_tokio::Signals;
+
 #[cfg(feature = "futures-util")]
 use futures_util::StreamExt;
 
 #[cfg(feature = "tokio")]
 use tokio::runtime::Runtime;
 
+#[cfg(feature = "uuid")]
+use uuid::Uuid;
+
 use crate::{
     commands::template::TemplateCommand,
+    module_recipe::Recipe,
     ops::{self, ARCHIVE_SUFFIX},
 };
 
-use super::{template::Recipe, BlueBuildCommand};
+use super::BlueBuildCommand;
 
 #[derive(Debug, Derivative, Clone, Args, TypedBuilder)]
 #[derivative(Default)]
@@ -162,7 +174,7 @@ impl BlueBuildCommand for BuildCommand {
 
         info!("Building image for recipe at {}", self.recipe.display());
 
-        #[cfg(feature = "podman-api")]
+        #[cfg(feature = "builtin-podman")]
         match BuildStrategy::determine_strategy()? {
             BuildStrategy::Socket(socket) => {
                 Runtime::new()?.block_on(self.build_image_podman_api(Podman::unix(socket)))
@@ -170,15 +182,17 @@ impl BlueBuildCommand for BuildCommand {
             _ => self.build_image(),
         }
 
-        #[cfg(not(feature = "podman-api"))]
+        #[cfg(not(feature = "builtin-podman"))]
         self.build_image()
     }
 }
 
 impl BuildCommand {
-    #[cfg(feature = "podman-api")]
+    #[cfg(feature = "builtin-podman")]
     async fn build_image_podman_api(&self, client: Podman) -> Result<()> {
         use podman_api::opts::ImageTagOpts;
+
+        use crate::ops::BUILD_ID_LABEL;
 
         trace!("BuildCommand::build_image({client:#?})");
 
@@ -236,12 +250,26 @@ impl BuildCommand {
         };
         debug!("Full tag is {first_image_name}");
 
+        // Prepare for the signal trap
+        let client = Arc::new(client);
+        let build_id = Arc::new(Uuid::new_v4());
+
+        let signals = Signals::new(&[SIGTERM, SIGINT, SIGQUIT])?;
+        let handle = signals.handle();
+
+        let signals_task = tokio::spawn(handle_signals(
+            signals,
+            Arc::clone(&build_id),
+            Arc::clone(&client),
+        ));
+
         // Get podman ready to build
         let opts = ImageBuildOpts::builder(".")
             .tag(&first_image_name)
             .dockerfile("Containerfile")
             .remove(true)
             .layers(true)
+            .labels([(BUILD_ID_LABEL, build_id.to_string())])
             .pull(true)
             .build();
         trace!("Build options: {opts:#?}");
@@ -320,6 +348,10 @@ impl BuildCommand {
 
             sign_images(&image_name, tags.first().map(String::as_str))?;
         }
+
+        handle.close();
+        signals_task.await?;
+
         Ok(())
     }
 
@@ -798,6 +830,19 @@ fn check_cosign_files() -> Result<()> {
         _ => {
             debug!("Not building on live branch, skipping cosign file check");
             Ok(())
+        }
+    }
+}
+
+#[cfg(feature = "builtin-podman")]
+async fn handle_signals(mut signals: Signals, _build_id: Arc<Uuid>, _client: Arc<Podman>) {
+    while let Some(signal) = signals.next().await {
+        match signal {
+            SIGTERM | SIGINT | SIGQUIT => {
+                // Shutdown the system;
+                todo!("Clean out working containers")
+            }
+            _ => unreachable!(),
         }
     }
 }

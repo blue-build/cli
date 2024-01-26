@@ -3,7 +3,6 @@ FROM {{ recipe.base_image }}:{{ recipe.image_version }}
 LABEL org.opencontainers.image.title="{{ recipe.name }}"
 LABEL org.opencontainers.image.version="{{ recipe.image_version }}"
 LABEL org.opencontainers.image.description="{{ recipe.description }}"
-LABEL io.blue-build.build-id={{ build_id }}
 LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md
 
 ARG RECIPE={{ recipe_path.display() }}
