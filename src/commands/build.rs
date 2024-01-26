@@ -9,8 +9,10 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use clap::Args;
+use derivative::Derivative;
 use log::{debug, error, info, trace, warn};
 use typed_builder::TypedBuilder;
+use uuid::{self, Uuid};
 
 #[cfg(feature = "podman-api")]
 use podman_api::{
@@ -35,7 +37,8 @@ use crate::{
 
 use super::{template::Recipe, BlueBuildCommand};
 
-#[derive(Debug, Clone, Args, TypedBuilder)]
+#[derive(Debug, Derivative, Clone, Args, TypedBuilder)]
+#[derivative(Default)]
 pub struct BuildCommand {
     /// The recipe file to build an image
     #[arg()]

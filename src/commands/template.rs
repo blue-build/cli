@@ -9,11 +9,13 @@ use anyhow::{Error, Result};
 use askama::Template;
 use chrono::Local;
 use clap::Args;
+use derivative::Derivative;
 use indexmap::IndexMap;
 use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
+use uuid::Uuid;
 
 use super::BlueBuildCommand;
 
@@ -25,6 +27,8 @@ pub struct ContainerFileTemplate<'a> {
 
     #[builder(default)]
     export_script: ExportsTemplate,
+
+    build_id: Uuid,
 }
 
 #[derive(Debug, Clone, Default, Template)]
@@ -168,6 +172,10 @@ pub struct TemplateCommand {
     #[arg(short, long)]
     #[builder(default, setter(into, strip_option))]
     output: Option<PathBuf>,
+
+    #[clap(skip)]
+    #[builder(default, setter(strip_option))]
+    build_id: Option<Uuid>,
 }
 
 impl BlueBuildCommand for TemplateCommand {
@@ -189,6 +197,7 @@ impl TemplateCommand {
         let template = ContainerFileTemplate::builder()
             .recipe(&recipe_de)
             .recipe_path(&self.recipe)
+            .build_id(self.build_id.unwrap_or(Uuid::new_v4()))
             .build();
 
         let output_str = template.render()?;
