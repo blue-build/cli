@@ -2,29 +2,39 @@
 
 set -euo pipefail
 
+# We use sudo for podman so that we can copy directly into /usr/local/bin
+
 function cleanup() {
   echo "Cleaning up image"
-  podman stop -i -t 0 blue-build-installer
+  sudo podman stop -i -t 0 blue-build-installer
   sleep 2
-  podman image rm ghcr.io/blue-build/cli:latest-installer
+  sudo podman image rm ghcr.io/blue-build/cli:latest-installer
 }
 
-podman pull ghcr.io/blue-build/cli:latest-installer
+trap cleanup SIGINT
 
-podman run -d --rm --name blue-build-installer ghcr.io/blue-build/cli:latest-installer tail -f /dev/null
+sudo podman run \
+  --pull always \
+  --replace \
+  --detach \
+  --rm \
+  --name blue-build-installer \
+  ghcr.io/blue-build/cli:latest-installer \
+  tail -f /dev/null
 
 set +e
-podman cp blue-build-installer:/out/bb /usr/local/bin/bb
+sudo podman cp blue-build-installer:/out/bb /usr/local/bin/bb
 
 RETVAL=$?
 set -e
 
-if [ -n $RETVAL ]; then
+if [ $RETVAL != 0 ]; then
   cleanup
-  echo "Failed to copy file, try:"
-  printf "\tpodman run --rm ghcr.io/blue-build/cli:latest-installer | sudo bash\n"
+  echo "Failed to copy file"
   exit 1
 else
+  # sudo mv bb /usr/local/bin/
+  echo "Finished! BlueBuild has been installed at /usr/local/bin/bb"
   cleanup
 fi
 
