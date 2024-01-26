@@ -35,7 +35,7 @@ cargo install --locked blue-build
 This will install the binary on your system in `/usr/local/bin`. This is only a `linux-gnu` version.
 
 ```bash
-podman run --rm ghcr.io/blue-build/cli:latest-installer | sudo bash
+podman run --rm ghcr.io/blue-build/cli:latest-installer | bash
 ```
 
 ## How to use
