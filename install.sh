@@ -9,14 +9,18 @@ function cleanup() {
   sudo podman stop -i -t 0 blue-build-installer
   sleep 2
   sudo podman image rm ghcr.io/blue-build/cli:latest-installer
-  rm -f bb
 }
 
 trap cleanup SIGINT
 
-sudo podman pull ghcr.io/blue-build/cli:latest-installer
-
-sudo podman run --replace -d --rm --name blue-build-installer ghcr.io/blue-build/cli:latest-installer tail -f /dev/null
+sudo podman run \
+  --pull always \
+  --replace \
+  --detach \
+  --rm \
+  --name blue-build-installer \
+  ghcr.io/blue-build/cli:latest-installer \
+  tail -f /dev/null
 
 set +e
 sudo podman cp blue-build-installer:/out/bb /usr/local/bin/bb
