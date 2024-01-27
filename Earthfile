@@ -5,8 +5,7 @@ IMPORT github.com/blue-build/earthly-lib/cargo AS cargo
 ARG --global IMAGE=ghcr.io/blue-build/cli
 
 all:
-	BUILD +default
-	BUILD +nightly
+	BUILD +build
 	BUILD +integration-tests --NIGHTLY=true --NIGHTLY=false
 
 build:
