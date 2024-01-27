@@ -13,6 +13,15 @@ BlueBuild's command line program that builds Containerfiles and custom images ba
 
 ## Installation
 
+### Distrobox
+
+We package a `fedora-toolbox` and `alpine` image with all the tools needed to run `bb`. You can use `distrobox` to run the application without needing to install it on your machine.
+
+```bash
+distrobox create blue-build --image ghcr.io/blue-build/cli
+distrobox enter blue-build
+```
+
 ### Cargo
 
 This is the best way to install as it gives you the opportunity to bulid for your specific environment.
@@ -26,7 +35,7 @@ cargo install --locked blue-build
 This will install the binary on your system in `/usr/local/bin`. This is only a `linux-gnu` version.
 
 ```bash
-podman run --rm ghcr.io/blue-build/cli:latest-installer | sudo bash
+podman run --rm ghcr.io/blue-build/cli:latest-installer | bash
 ```
 
 ## How to use

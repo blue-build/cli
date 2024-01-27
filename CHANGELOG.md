@@ -5,7 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.5.5 (2024-01-26)
+
+### Chore
+
+ - <csr-id-000baae0677be832d1d3aea4a7d6a2348ca6b71a/> Bumb version
+
+### Bug Fixes
+
+ - <csr-id-d7a9b8115f9df96304b9a6212dffb4d49e0d2d94/> Install script not working as intended
+   Related to https://github.com/blue-build/github-action/issues/5
+
+### Other
+
+ - <csr-id-922dd5efb299698b351f8e770909d422e444c752/> Update README for distrobox usage
+   I've just realized the images I have been building were great candidates
+   for distrobox users.
+ - <csr-id-562db1a36c1323de803ec9611fc66e174c185d75/> Update gitlab ci example
+
+### Commit Statistics
+
+<csr-read-only-do-not-edit/>
+
+ - 4 commits contributed to the release over the course of 1 calendar day.
+ - 1 day passed between releases.
+ - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
+ - 2 unique issues were worked on: [#12](https://github.com/blue-build/cli/issues/12), [#15](https://github.com/blue-build/cli/issues/15)
+
+### Commit Details
+
+<csr-read-only-do-not-edit/>
+
+<details><summary>view details</summary>
+
+ * **[#12](https://github.com/blue-build/cli/issues/12)**
+    - Update README for distrobox usage ([`922dd5e`](https://github.com/blue-build/cli/commit/922dd5efb299698b351f8e770909d422e444c752))
+ * **[#15](https://github.com/blue-build/cli/issues/15)**
+    - Install script not working as intended ([`d7a9b81`](https://github.com/blue-build/cli/commit/d7a9b8115f9df96304b9a6212dffb4d49e0d2d94))
+ * **Uncategorized**
+    - Bumb version ([`000baae`](https://github.com/blue-build/cli/commit/000baae0677be832d1d3aea4a7d6a2348ca6b71a))
+    - Update gitlab ci example ([`562db1a`](https://github.com/blue-build/cli/commit/562db1a36c1323de803ec9611fc66e174c185d75))
+</details>
+
 ## v0.5.4 (2024-01-24)
+
+<csr-id-f27475ca39bd341f267cee5b7da65dbb93ec77ff/>
+<csr-id-c59caf45fb3866c2c97b10e1c6972e1447d80aac/>
+<csr-id-8c9a5fc5ec8d401c18064605fbd8fea57c2bc616/>
+<csr-id-4d2e56292d3f54df6b7df20c5337fa8fb0e6fc63/>
 
 ### Chore
 
@@ -21,7 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <csr-read-only-do-not-edit/>
 
- - 4 commits contributed to the release.
+ - 5 commits contributed to the release.
  - 4 commits were understood as [conventional](https://www.conventionalcommits.org).
  - 0 issues like '(#ID)' were seen in commit messages
 
@@ -32,6 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <details><summary>view details</summary>
 
  * **Uncategorized**
+    - Bump blue-build v0.5.4 ([`304fc52`](https://github.com/blue-build/cli/commit/304fc52f675b9d8a30503905e451dc56c777e4df))
     - Bump version ([`f27475c`](https://github.com/blue-build/cli/commit/f27475ca39bd341f267cee5b7da65dbb93ec77ff))
     - Bump version ([`c59caf4`](https://github.com/blue-build/cli/commit/c59caf45fb3866c2c97b10e1c6972e1447d80aac))
     - Add token for pushing tags ([`8c9a5fc`](https://github.com/blue-build/cli/commit/8c9a5fc5ec8d401c18064605fbd8fea57c2bc616))
