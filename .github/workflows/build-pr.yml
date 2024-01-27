@@ -1,4 +1,4 @@
-name: Earthly +build
+name: Earthly PR +build
 
 on:
   pull_request:
