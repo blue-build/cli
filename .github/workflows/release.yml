@@ -22,9 +22,6 @@ jobs:
 
       - uses: chainguard-dev/actions/setup-gitsign@main
 
-      - name: Install cargo-release
-        run: cargo install cargo-release
-
       - uses: actions/cache@v4
         with:
           path: |
@@ -35,15 +32,13 @@ jobs:
             ~/.cargo/registry/cache/
           key: ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.toml') }}
 
+      - name: Install cargo-release
+        run: cargo install cargo-release
+
       - name: Git setup
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
-
-      - name: Release
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo smart-release -ue
 
       # Leaving bevy comments here for us to discuss. Do we want to start tagging our pre-releases with `dev`?
       - name: Setup release
