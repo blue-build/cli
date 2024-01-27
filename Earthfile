@@ -7,6 +7,11 @@ ARG --global IMAGE=ghcr.io/blue-build/cli
 all:
 	BUILD +default
 	BUILD +nightly
+	BUILD +integration-tests --NIGHTLY=true --NIGHTLY=false
+
+build:
+	BUILD +default
+	BUILD +nightly
 
 default:
 	ARG NIGHTLY=false

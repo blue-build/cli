@@ -1,0 +1,27 @@
+name: Earthly +build
+
+on:
+  pull_request:
+
+env:
+  FORCE_COLOR: 1
+
+jobs:
+  build:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: earthly/actions-setup@v1
+        with:
+          use-cache: true
+          version: v0.8.2
+
+      # Setup repo and add caching
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.ref }}
+
+      - name: Run build
+        run: earthly --ci -P +build
+
