@@ -9,7 +9,6 @@ use anyhow::{Error, Result};
 use askama::Template;
 use chrono::Local;
 use clap::Args;
-use derivative::Derivative;
 use indexmap::IndexMap;
 use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};

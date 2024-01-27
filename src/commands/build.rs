@@ -9,7 +9,6 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use clap::{builder, Args};
-use derivative::Derivative;
 use log::{debug, error, info, trace, warn};
 use typed_builder::TypedBuilder;
 
@@ -49,8 +48,7 @@ use crate::{
 
 use super::BlueBuildCommand;
 
-#[derive(Debug, Derivative, Clone, Args, TypedBuilder)]
-#[derivative(Default)]
+#[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BuildCommand {
     /// The recipe file to build an image
     #[arg()]
