@@ -254,7 +254,7 @@ impl BuildCommand {
         let client = Arc::new(client);
         let build_id = Arc::new(Uuid::new_v4());
 
-        let signals = Signals::new(&[SIGTERM, SIGINT, SIGQUIT])?;
+        let signals = Signals::new([SIGTERM, SIGINT, SIGQUIT])?;
         let handle = signals.handle();
 
         let signals_task = tokio::spawn(handle_signals(
@@ -842,7 +842,7 @@ async fn handle_signals(mut signals: Signals, _build_id: Arc<Uuid>, _client: Arc
                 // Shutdown the system;
                 todo!("Clean out working containers")
             }
-            _ => unreachable!(),
+            _ => (),
         }
     }
 }
