@@ -9,4 +9,5 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod commands;
+pub mod module_recipe;
 mod ops;

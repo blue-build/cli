@@ -11,7 +11,8 @@ use typed_builder::TypedBuilder;
 use users::{Users, UsersCache};
 
 use crate::{
-    commands::{build::BuildCommand, template::Recipe},
+    commands::build::BuildCommand,
+    module_recipe::Recipe,
     ops::{self, ARCHIVE_SUFFIX, LOCAL_BUILD},
 };
 
