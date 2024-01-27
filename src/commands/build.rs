@@ -180,44 +180,7 @@ impl BuildCommand {
 
         trace!("BuildCommand::build_image({client:#?})");
 
-        let (registry, username, password) = if self.push {
-            let registry = match (
-                self.registry.as_ref(),
-                env::var("CI_REGISTRY").ok(),
-                env::var("GITHUB_ACTIONS").ok(),
-            ) {
-                (Some(registry), _, _) => registry.to_owned(),
-                (None, Some(ci_registry), None) => ci_registry,
-                (None, None, Some(_)) => "ghcr.io".to_string(),
-                _ => bail!("Need '--registry' set in order to login"),
-            };
-
-            let username = match (
-                self.username.as_ref(),
-                env::var("CI_REGISTRY_USER").ok(),
-                env::var("GITHUB_ACTOR").ok(),
-            ) {
-                (Some(username), _, _) => username.to_owned(),
-                (None, Some(ci_registry_user), None) => ci_registry_user,
-                (None, None, Some(github_actor)) => github_actor,
-                _ => bail!("Need '--username' set in order to login"),
-            };
-
-            let password = match (
-                self.password.as_ref(),
-                env::var("CI_REGISTRY_PASSWORD").ok(),
-                env::var("REGISTRY_TOKEN").ok(),
-            ) {
-                (Some(password), _, _) => password.to_owned(),
-                (None, Some(ci_registry_password), None) => ci_registry_password,
-                (None, None, Some(registry_token)) => registry_token,
-                _ => bail!("Need '--password' set in order to login"),
-            };
-
-            (registry, username, password)
-        } else {
-            Default::default()
-        };
+        let (registry, username, password) = self.get_login_creds()?;
 
         let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(&self.recipe)?.as_str())?;
         trace!("recipe: {recipe:#?}");
@@ -253,7 +216,7 @@ impl BuildCommand {
                             .stream
                             .trim()
                             .lines()
-                            .map(|line| line.trim())
+                            .map(str::trim)
                             .filter(|line| !line.is_empty())
                             .for_each(|line| info!("{line}")),
                         Err(e) => bail!("{e}"),
@@ -343,49 +306,18 @@ impl BuildCommand {
         trace!("BuildCommand::login()");
         info!("Attempting to login to the registry");
 
-        let registry = match (
-            self.registry.as_ref(),
-            env::var("CI_REGISTRY").ok(),
-            env::var("GITHUB_ACTIONS").ok(),
-        ) {
-            (Some(registry), _, _) => registry.to_owned(),
-            (None, Some(ci_registry), None) => ci_registry,
-            (None, None, Some(_)) => "ghcr.io".to_string(),
-            _ => bail!("Need '--registry' set in order to login"),
-        };
-
-        let username = match (
-            self.username.as_ref(),
-            env::var("CI_REGISTRY_USER").ok(),
-            env::var("GITHUB_ACTOR").ok(),
-        ) {
-            (Some(username), _, _) => username.to_owned(),
-            (None, Some(ci_registry_user), None) => ci_registry_user,
-            (None, None, Some(github_actor)) => github_actor,
-            _ => bail!("Need '--username' set in order to login"),
-        };
-
-        let password = match (
-            self.password.as_ref(),
-            env::var("CI_REGISTRY_PASSWORD").ok(),
-            env::var("REGISTRY_TOKEN").ok(),
-        ) {
-            (Some(password), None, None) => password.to_owned(),
-            (None, Some(ci_registry_password), None) => ci_registry_password,
-            (None, None, Some(github_token)) => github_token,
-            _ => bail!("Need '--password' set in order to login"),
-        };
+        let (registry, username, password) = self.get_login_creds()?;
 
         info!("Logging into the registry, {registry}");
         if !match (
             ops::check_command_exists("buildah"),
             ops::check_command_exists("podman"),
         ) {
-            (Ok(_), _) => {
+            (Ok(()), _) => {
                 trace!("buildah login -u {username} -p [MASKED] {registry}");
                 Command::new("buildah")
             }
-            (Err(_), Ok(_)) => {
+            (Err(_), Ok(())) => {
                 trace!("podman login -u {username} -p [MASKED] {registry}");
                 Command::new("podman")
             }
@@ -508,7 +440,7 @@ impl BuildCommand {
             ops::check_command_exists("buildah"),
             ops::check_command_exists("podman"),
         ) {
-            (Ok(_), _) => {
+            (Ok(()), _) => {
                 trace!("buildah build -t {full_image}");
                 Command::new("buildah")
                     .arg("build")
@@ -516,7 +448,7 @@ impl BuildCommand {
                     .arg(&full_image)
                     .status()?
             }
-            (Err(_), Ok(_)) => {
+            (Err(_), Ok(())) => {
                 trace!("podman build . -t {full_image}");
                 Command::new("podman")
                     .arg("build")
@@ -535,80 +467,52 @@ impl BuildCommand {
         }
 
         if tags.len() > 1 && self.archive.is_none() {
-            debug!("Tagging all images");
-
-            for tag in tags {
-                debug!("Tagging {image_name} with {tag}");
-
-                let tag_image = format!("{image_name}:{tag}");
-
-                let status = match (
-                    ops::check_command_exists("buildah"),
-                    ops::check_command_exists("podman"),
-                ) {
-                    (Ok(_), _) => {
-                        trace!("buildah tag {full_image} {tag_image}");
-                        Command::new("buildah")
-                    }
-                    (Err(_), Ok(_)) => {
-                        trace!("podman tag {full_image} {tag_image}");
-                        Command::new("podman")
-                    }
-                    (Err(e1), Err(e2)) => {
-                        bail!("Need either 'buildah' or 'podman' to build: {e1}, {e2}")
-                    }
-                }
-                .arg("tag")
-                .arg(&full_image)
-                .arg(&tag_image)
-                .status()?;
-
-                if status.success() {
-                    info!("Successfully tagged {image_name}:{tag}!");
-                } else {
-                    bail!("Failed to tag image {image_name}:{tag}");
-                }
-            }
+            tag_images(tags, image_name, &full_image)?;
         }
 
         if self.push {
-            debug!("Pushing all images");
-            for tag in tags {
-                debug!("Pushing image {image_name}:{tag}");
-
-                let tag_image = format!("{image_name}:{tag}");
-
-                let status = match (
-                    ops::check_command_exists("buildah"),
-                    ops::check_command_exists("podman"),
-                ) {
-                    (Ok(_), _) => {
-                        trace!("buildah push {tag_image}");
-                        Command::new("buildah")
-                    }
-                    (Err(_), Ok(_)) => {
-                        trace!("podman push {tag_image}");
-                        Command::new("podman")
-                    }
-                    (Err(e1), Err(e2)) => {
-                        bail!("Need either 'buildah' or 'podman' to build: {e1}, {e2}")
-                    }
-                }
-                .arg("push")
-                .arg(&tag_image)
-                .status()?;
-
-                if status.success() {
-                    info!("Successfully pushed {image_name}:{tag}!");
-                } else {
-                    bail!("Failed to push image {image_name}:{tag}");
-                }
-            }
-
+            push_images(tags, image_name)?;
             sign_images(image_name, tags.first().map(String::as_str))?;
         }
 
         Ok(())
+    }
+
+    fn get_login_creds(&self) -> Result<(String, String, String)> {
+        let registry = match (
+            self.registry.as_ref(),
+            env::var("CI_REGISTRY").ok(),
+            env::var("GITHUB_ACTIONS").ok(),
+        ) {
+            (Some(registry), _, _) => registry.to_owned(),
+            (None, Some(ci_registry), None) => ci_registry,
+            (None, None, Some(_)) => "ghcr.io".to_string(),
+            _ => bail!("Need '--registry' set in order to login"),
+        };
+
+        let username = match (
+            self.username.as_ref(),
+            env::var("CI_REGISTRY_USER").ok(),
+            env::var("GITHUB_ACTOR").ok(),
+        ) {
+            (Some(username), _, _) => username.to_owned(),
+            (None, Some(ci_registry_user), None) => ci_registry_user,
+            (None, None, Some(github_actor)) => github_actor,
+            _ => bail!("Need '--username' set in order to login"),
+        };
+
+        let password = match (
+            self.password.as_ref(),
+            env::var("CI_REGISTRY_PASSWORD").ok(),
+            env::var("REGISTRY_TOKEN").ok(),
+        ) {
+            (Some(password), _, _) => password.to_owned(),
+            (None, Some(ci_registry_password), None) => ci_registry_password,
+            (None, None, Some(registry_token)) => registry_token,
+            _ => bail!("Need '--password' set in order to login"),
+        };
+
+        Ok((registry, username, password))
     }
 }
 
@@ -798,4 +702,80 @@ fn check_cosign_files() -> Result<()> {
             Ok(())
         }
     }
+}
+
+fn tag_images(tags: &[String], image_name: &str, full_image: &str) -> Result<()> {
+    debug!("Tagging all images");
+
+    for tag in tags {
+        debug!("Tagging {image_name} with {tag}");
+
+        let tag_image = format!("{image_name}:{tag}");
+
+        let status = match (
+            ops::check_command_exists("buildah"),
+            ops::check_command_exists("podman"),
+        ) {
+            (Ok(()), _) => {
+                trace!("buildah tag {full_image} {tag_image}");
+                Command::new("buildah")
+            }
+            (Err(_), Ok(())) => {
+                trace!("podman tag {full_image} {tag_image}");
+                Command::new("podman")
+            }
+            (Err(e1), Err(e2)) => {
+                bail!("Need either 'buildah' or 'podman' to build: {e1}, {e2}")
+            }
+        }
+        .arg("tag")
+        .arg(full_image)
+        .arg(&tag_image)
+        .status()?;
+
+        if status.success() {
+            info!("Successfully tagged {image_name}:{tag}!");
+        } else {
+            bail!("Failed to tag image {image_name}:{tag}");
+        }
+    }
+
+    Ok(())
+}
+
+fn push_images(tags: &[String], image_name: &str) -> Result<()> {
+    debug!("Pushing all images");
+    for tag in tags {
+        debug!("Pushing image {image_name}:{tag}");
+
+        let tag_image = format!("{image_name}:{tag}");
+
+        let status = match (
+            ops::check_command_exists("buildah"),
+            ops::check_command_exists("podman"),
+        ) {
+            (Ok(()), _) => {
+                trace!("buildah push {tag_image}");
+                Command::new("buildah")
+            }
+            (Err(_), Ok(())) => {
+                trace!("podman push {tag_image}");
+                Command::new("podman")
+            }
+            (Err(e1), Err(e2)) => {
+                bail!("Need either 'buildah' or 'podman' to build: {e1}, {e2}")
+            }
+        }
+        .arg("push")
+        .arg(&tag_image)
+        .status()?;
+
+        if status.success() {
+            info!("Successfully pushed {image_name}:{tag}!");
+        } else {
+            bail!("Failed to push image {image_name}:{tag}");
+        }
+    }
+
+    Ok(())
 }

@@ -1,5 +1,11 @@
 //! The root library for blue-build.
-#![warn(clippy::correctness, clippy::suspicious, clippy::perf, clippy::style)]
+#![warn(
+    clippy::correctness,
+    clippy::suspicious,
+    clippy::perf,
+    clippy::style,
+    clippy::pedantic
+)]
 #![doc(
     html_logo_url = "https://gitlab.com/wunker-bunker/blue-build/-/raw/main/logos/BlueBuild-logo.png"
 )]
