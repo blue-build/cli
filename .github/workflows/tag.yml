@@ -1,4 +1,4 @@
-name: Earthly +tag
+name: Earthly tag +build
 
 on:
   push:
