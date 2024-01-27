@@ -36,6 +36,13 @@ use crate::{
 
 use super::BlueBuildCommand;
 
+#[derive(Debug, Default, Clone, TypedBuilder)]
+pub struct Credentials {
+    pub registry: String,
+    pub username: String,
+    pub password: String,
+}
+
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BuildCommand {
     /// The recipe file to build an image
@@ -180,7 +187,11 @@ impl BuildCommand {
 
         trace!("BuildCommand::build_image({client:#?})");
 
-        let (registry, username, password) = self.get_login_creds()?;
+        let credentials = self.get_login_creds();
+
+        if self.push && credentials.is_none() {
+            bail!("Failed to get credentials");
+        }
 
         let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(&self.recipe)?.as_str())?;
         trace!("recipe: {recipe:#?}");
@@ -229,6 +240,18 @@ impl BuildCommand {
         if self.push {
             debug!("Pushing is enabled");
 
+            let credentials =
+                credentials.ok_or(anyhow!("Should have checked for creds earlier"))?;
+
+            push_images_podman_api(&tags, &image_name, &first_image_name, &client, &credentials)
+                .await?;
+
+            let (registry, username, password) = (
+                credentials.registry,
+                credentials.username,
+                credentials.password,
+            );
+
             info!("Logging into registry using cosign");
             trace!("cosign login -u {username} -p [MASKED] {registry}");
             if !Command::new("cosign")
@@ -245,39 +268,6 @@ impl BuildCommand {
                 bail!("Failed to login for cosign!");
             }
             info!("Cosign login success at {registry}");
-
-            let first_image = client.images().get(&first_image_name);
-
-            for tag in &tags {
-                let full_image_name = format!("{image_name}:{tag}");
-
-                first_image
-                    .tag(&ImageTagOpts::builder().repo(&image_name).tag(tag).build())
-                    .await?;
-                debug!("Tagged image {full_image_name}");
-
-                let new_image = client.images().get(&full_image_name);
-
-                info!("Pushing {full_image_name}");
-                match new_image
-                    .push(
-                        &ImagePushOpts::builder()
-                            .tls_verify(true)
-                            .auth(
-                                RegistryAuth::builder()
-                                    .username(&username)
-                                    .password(&password)
-                                    .server_address(&registry)
-                                    .build(),
-                            )
-                            .build(),
-                    )
-                    .await
-                {
-                    Ok(_) => info!("Pushed {full_image_name} successfully!"),
-                    Err(e) => bail!("Failed to push image: {e}"),
-                }
-            }
 
             sign_images(&image_name, tags.first().map(String::as_str))?;
         }
@@ -306,7 +296,15 @@ impl BuildCommand {
         trace!("BuildCommand::login()");
         info!("Attempting to login to the registry");
 
-        let (registry, username, password) = self.get_login_creds()?;
+        let credentials = self
+            .get_login_creds()
+            .ok_or(anyhow!("Unable to get credentials"))?;
+
+        let (registry, username, password) = (
+            credentials.registry,
+            credentials.username,
+            credentials.password,
+        );
 
         info!("Logging into the registry, {registry}");
         if !match (
@@ -478,7 +476,7 @@ impl BuildCommand {
         Ok(())
     }
 
-    fn get_login_creds(&self) -> Result<(String, String, String)> {
+    fn get_login_creds(&self) -> Option<Credentials> {
         let registry = match (
             self.registry.as_ref(),
             env::var("CI_REGISTRY").ok(),
@@ -487,7 +485,7 @@ impl BuildCommand {
             (Some(registry), _, _) => registry.to_owned(),
             (None, Some(ci_registry), None) => ci_registry,
             (None, None, Some(_)) => "ghcr.io".to_string(),
-            _ => bail!("Need '--registry' set in order to login"),
+            _ => return None,
         };
 
         let username = match (
@@ -498,7 +496,7 @@ impl BuildCommand {
             (Some(username), _, _) => username.to_owned(),
             (None, Some(ci_registry_user), None) => ci_registry_user,
             (None, None, Some(github_actor)) => github_actor,
-            _ => bail!("Need '--username' set in order to login"),
+            _ => return None,
         };
 
         let password = match (
@@ -509,10 +507,16 @@ impl BuildCommand {
             (Some(password), _, _) => password.to_owned(),
             (None, Some(ci_registry_password), None) => ci_registry_password,
             (None, None, Some(registry_token)) => registry_token,
-            _ => bail!("Need '--password' set in order to login"),
+            _ => return None,
         };
 
-        Ok((registry, username, password))
+        Some(
+            Credentials::builder()
+                .registry(registry)
+                .username(username)
+                .password(password)
+                .build(),
+        )
     }
 }
 
@@ -777,5 +781,55 @@ fn push_images(tags: &[String], image_name: &str) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+#[cfg(feature = "podman-api")]
+async fn push_images_podman_api(
+    tags: &[String],
+    image_name: &str,
+    first_image_name: &str,
+    client: &Podman,
+    credentials: &Credentials,
+) -> Result<()> {
+    use podman_api::opts::ImageTagOpts;
+
+    let first_image = client.images().get(first_image_name);
+    let (registry, username, password) = (
+        &credentials.registry,
+        &credentials.username,
+        &credentials.password,
+    );
+
+    for tag in tags {
+        let full_image_name = format!("{image_name}:{tag}");
+
+        first_image
+            .tag(&ImageTagOpts::builder().repo(image_name).tag(tag).build())
+            .await?;
+        debug!("Tagged image {full_image_name}");
+
+        let new_image = client.images().get(&full_image_name);
+
+        info!("Pushing {full_image_name}");
+        match new_image
+            .push(
+                &ImagePushOpts::builder()
+                    .tls_verify(true)
+                    .auth(
+                        RegistryAuth::builder()
+                            .username(username)
+                            .password(password)
+                            .server_address(registry)
+                            .build(),
+                    )
+                    .build(),
+            )
+            .await
+        {
+            Ok(_) => info!("Pushed {full_image_name} successfully!"),
+            Err(e) => bail!("Failed to push image: {e}"),
+        }
+    }
     Ok(())
 }
