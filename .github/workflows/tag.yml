@@ -42,16 +42,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get Latest Tag
-        id: latest_tag
-        run: echo "LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)" >> $GITHUB_OUTPUT
-
-      - name: Check Cargo Version
-        id: cargo_version
-        run: echo "CARGO_PACKAGE_VERSION=$(tomlq '.package.version' $PWD/Cargo.toml | sed 's/\"//g')" >> $GITHUB_OUTPUT
-
       - name: Run build
-        env:
-          TAG: ${{ steps.latest_tag.outputs.LATEST_TAG }}
-          LATEST: ${{ steps.cargo_version.outputs.CARGO_PACKAGE_VERSION == steps.latest_tag.outputs.LATEST_TAG }}
-        run: earthly --push --ci -P +all --TAG=${{ env.TAG }} --LATEST=${{ env.LATEST }}
+        run: |
+          LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+          CARGO_PACKAGE_VERSION="v$(tomlq '.package.version' $PWD/Cargo.toml | sed 's/\"//g')"
+          LATEST=$(test "$CARGO_PACKAGE_VERSION" = "$LATEST_TAG" && echo true || echo false)
+          earthly --push --ci -P +all --TAG=$LATEST_TAG --LATEST=$LATEST
