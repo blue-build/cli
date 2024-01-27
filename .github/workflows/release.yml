@@ -8,6 +8,7 @@ env:
 
 jobs:
   release:
+    if: github.repository == 'blue-build/cli'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -18,10 +19,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Git setup
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
+
+      - uses: chainguard-dev/actions/setup-gitsign@main
+
       - uses: actions/cache@v4
         with:
           path: |
@@ -32,17 +32,40 @@ jobs:
             ~/.cargo/registry/cache/
           key: ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.toml') }}
 
-      - uses: chainguard-dev/actions/setup-gitsign@main
-
-      # Pulling rust toolchain & install linux dependencies
-      - uses: dtolnay/rust-toolchain@stable
-
       - name: Install cargo-release
-        uses: taiki-e/install-action@v1
-        with:
-          tool: cargo-smart-release
+        run: cargo install cargo-release
 
-      - name: Release
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo smart-release -ue
+      - name: Git setup
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+      # Leaving bevy comments here for us to discuss. Do we want to start tagging our pre-releases with `dev`?
+      - name: Setup release
+        run: |
+          # release: remove the dev suffix, like going from 0.X.0-dev to 0.X.0
+          # --workspace: updating all crates in the workspace
+          # --no-publish: do not publish to crates.io
+          # --execute: not a dry run
+          # --no-tag: do not push tag for each new version
+          # --no-push: do not push the update commits
+          # --dependent-version upgrade: change 0.X.0-dev in internal dependencies to 0.X.0
+          # --exclude: ignore those packages
+          cargo release release \
+            --workspace \
+            --no-publish \
+            --execute \
+            --no-tag \
+            --no-confirm \
+            --no-push \
+            --dependent-version upgrade
+
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v5
+        with:
+          delete-branch: true
+          base: "main"
+          title: "Preparing Next Release"
+          body: |
+            Preparing next release
+            This PR has been auto-generated
