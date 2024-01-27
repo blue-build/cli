@@ -48,8 +48,8 @@ impl BuildStrategy {
                 (_, _, _, var_run_podman_sock, _, _) if var_run_podman_sock.exists() => {
                     Self::Socket(var_run_podman_sock)
                 }
-                (_, _, _, _, Ok(_), _) => Self::Buildah,
-                (_, _, _, _, _, Ok(_)) => Self::Podman,
+                (_, _, _, _, Ok(()), _) => Self::Buildah,
+                (_, _, _, _, _, Ok(())) => Self::Podman,
                 _ => bail!("Could not determine strategy"),
             },
         )
