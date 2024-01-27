@@ -30,10 +30,11 @@ use tokio::runtime::Runtime;
 
 use crate::{
     commands::template::TemplateCommand,
+    module_recipe::Recipe,
     ops::{self, ARCHIVE_SUFFIX},
 };
 
-use super::{template::Recipe, BlueBuildCommand};
+use super::BlueBuildCommand;
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BuildCommand {
