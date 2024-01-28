@@ -285,6 +285,7 @@ mod tests {
     fn test_get_shell_info() {
         let shell_info = get_shell_info();
         assert_eq!(shell_info.name, "bash");
+        dbg!(&shell_info.config);
         assert!(shell_info.config.contains("eval"));
         println!("config.config: {}", shell_info.config);
     }

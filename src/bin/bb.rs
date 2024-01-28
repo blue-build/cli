@@ -1,10 +1,9 @@
-#![warn(clippy::pedantic, clippy::nursery)]
+#![warn(clippy::nursery)]
 
-use clap::{command, crate_authors, CommandFactory, Parser, Subcommand};
-use clap_complete::{generate, Shell as CompletionShell};
+use clap::{command, crate_authors, Parser, Subcommand};
+
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use env_logger::WriteStyle;
-use std::io;
 
 use blue_build::{
     self,
@@ -22,7 +21,7 @@ shadow!(shadow);
 #[derive(Parser, Debug)]
 #[clap(
     name = "BlueBuild",
-    about, 
+    about,
     long_about = None,
     author=crate_authors!(),
     version=shadow::PKG_VERSION,
@@ -47,7 +46,6 @@ enum CommandArgs {
     //     #[clap(value_enum)]
     //     shell: CompletionShell,
     // },
-
     /// Build an image from a recipe
     Build(build::BuildCommand),
 

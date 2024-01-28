@@ -8,7 +8,8 @@ use std::time::{Duration, Instant};
 
 use process_control::{ChildExt, Control};
 
-#[must_use] pub fn home_dir() -> Option<PathBuf> {
+#[must_use]
+pub fn home_dir() -> Option<PathBuf> {
     dirs::home_dir()
 }
 
