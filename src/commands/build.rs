@@ -231,12 +231,7 @@ impl BuildCommand {
 
         let (kill_tx, mut kill_rx) = oneshot::channel::<()>();
 
-        let signals_task = tokio::spawn(handle_signals(
-            signals,
-            kill_tx,
-            build_id.clone(),
-            client.clone(),
-        ));
+        let signals_task = tokio::spawn(handle_signals(signals, kill_tx, build_id, client.clone()));
 
         // Get podman ready to build
         let opts = ImageBuildOpts::builder(".")
