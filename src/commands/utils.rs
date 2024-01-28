@@ -7,15 +7,6 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-/// Get the contents of a file
-///
-/// # Errors
-///
-/// This function will return an error if the file cannot be read.
-pub fn get_file_contents<P: AsRef<Path>>(file_path: P) -> Result<String> {
-    std::fs::read_to_string(file_path)
-}
-
 #[must_use]
 pub fn home_dir() -> Option<PathBuf> {
     directories::BaseDirs::new().map(|base_dirs| base_dirs.home_dir().to_path_buf())

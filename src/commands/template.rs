@@ -59,7 +59,7 @@ impl TemplateCommand {
         trace!("TemplateCommand::template_file()");
 
         debug!("Deserializing recipe");
-        let recipe_de = serde_yaml::from_str::<Recipe>(fs::read_to_string(&self.recipe)?.as_str())?;
+        let recipe_de = Recipe::parse(&self.recipe)?;
         trace!("recipe_de: {recipe_de:#?}");
 
         let template = ContainerFileTemplate::builder()

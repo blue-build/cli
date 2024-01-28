@@ -1,4 +1,8 @@
-use std::{env, fs, path::PathBuf, process};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    process,
+};
 
 use askama::Template;
 use chrono::Local;
@@ -37,6 +41,25 @@ pub struct Recipe {
 }
 
 impl Recipe {
+    pub fn parse<P: AsRef<Path>>(recipe_path: &P) -> anyhow::Result<Self> {
+        let recipe_path_string = recipe_path.as_ref().display().to_string();
+
+        trace!("Recipe::parse_recipe({recipe_path_string})");
+        debug!("Parsing recipe at {recipe_path_string}");
+
+        let file = fs::read_to_string(recipe_path).unwrap_or_else(|e| {
+            error!("Failed to read file {recipe_path_string}: {e}");
+            process::exit(1);
+        });
+
+        trace!("Recipe contents {recipe_path_string}:\n{file}");
+
+        serde_yaml::from_str::<Recipe>(file.as_str()).map_err(|e| {
+            error!("Failed to parse recipe {recipe_path_string}: {e}");
+            process::exit(1);
+        })
+    }
+
     #[must_use]
     pub fn generate_tags(&self) -> Vec<String> {
         trace!("Recipe::generate_tags()");
@@ -170,7 +193,7 @@ fn print_containerfile(containerfile: &str) -> String {
     file
 }
 
-fn get_module_from_file(file_name: &str) -> String {
+pub fn get_module_from_file(file_name: &str) -> String {
     trace!("get_module_from_file({file_name})");
 
     let io_err_fn = |e| {
@@ -178,9 +201,8 @@ fn get_module_from_file(file_name: &str) -> String {
         process::exit(1);
     };
 
-    let file_path = PathBuf::from("config").join(file_name);
-
-    let file = fs::read_to_string(file_path).unwrap_or_else(io_err_fn);
+    let root_path = env::current_dir().unwrap();
+    let file = fs::read_to_string(root_path.join(file_name)).unwrap_or_else(io_err_fn);
 
     let serde_err_fn = |e| {
         error!("Failed to deserialize module {file_name}: {e}");
@@ -195,7 +217,6 @@ fn get_module_from_file(file_name: &str) -> String {
     serde_yaml::from_str::<ModuleExt>(file.as_str()).map_or_else(
         |_| {
             let module = serde_yaml::from_str::<Module>(file.as_str()).unwrap_or_else(serde_err_fn);
-
             ModuleExt::builder()
                 .modules(vec![module])
                 .build()

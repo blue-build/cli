@@ -26,12 +26,7 @@
 - Rust channel: {{ rust_channel }} {{ build_rust_channel }}
 - Build Time: {{ build_time }}
 
-#### Recipe
+#### Recipe:
 ```
-  {{ recipe }}
-```
-
-#### Containerfile
-```
-  {{ containerfile }}
+{{ recipe }}
 ```
