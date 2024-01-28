@@ -11,6 +11,7 @@ use anyhow::{anyhow, bail, Result};
 use clap::{builder, Args};
 use log::{debug, error, info, trace, warn};
 use typed_builder::TypedBuilder;
+use uuid::Uuid;
 
 #[cfg(feature = "builtin-podman")]
 use std::sync::Arc;
@@ -32,15 +33,15 @@ use signal_hook_tokio::Signals;
 use futures_util::StreamExt;
 
 #[cfg(feature = "tokio")]
-use tokio::runtime::Runtime;
-
-#[cfg(feature = "uuid")]
-use uuid::Uuid;
+use tokio::{
+    runtime::Runtime,
+    sync::oneshot::{self, Sender},
+};
 
 use crate::{
     commands::template::TemplateCommand,
     module_recipe::Recipe,
-    ops::{self, ARCHIVE_SUFFIX},
+    ops::{self, ARCHIVE_SUFFIX, BUILD_ID_LABEL},
 };
 
 use super::BlueBuildCommand;
@@ -151,6 +152,8 @@ impl BlueBuildCommand for BuildCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
+        let build_id = Uuid::new_v4();
+
         if self.push && self.archive.is_some() {
             bail!("You cannot use '--archive' and '--push' at the same time");
         }
@@ -171,6 +174,7 @@ impl BlueBuildCommand for BuildCommand {
         TemplateCommand::builder()
             .recipe(self.recipe.clone())
             .output(PathBuf::from("Containerfile"))
+            .build_id(build_id)
             .build()
             .try_run()?;
 
@@ -178,9 +182,8 @@ impl BlueBuildCommand for BuildCommand {
 
         #[cfg(feature = "builtin-podman")]
         match BuildStrategy::determine_strategy()? {
-            BuildStrategy::Socket(socket) => {
-                Runtime::new()?.block_on(self.build_image_podman_api(Podman::unix(socket)))
-            }
+            BuildStrategy::Socket(socket) => Runtime::new()?
+                .block_on(self.build_image_podman_api(Podman::unix(socket), build_id)),
             _ => self.build_image(),
         }
 
@@ -191,7 +194,7 @@ impl BlueBuildCommand for BuildCommand {
 
 impl BuildCommand {
     #[cfg(feature = "builtin-podman")]
-    async fn build_image_podman_api(&self, client: Podman) -> Result<()> {
+    async fn build_image_podman_api(&self, client: Podman, build_id: Uuid) -> Result<()> {
         use podman_api::opts::ImageTagOpts;
         use signal_hook::consts::{SIGINT, SIGQUIT, SIGTERM};
 
@@ -222,15 +225,17 @@ impl BuildCommand {
 
         // Prepare for the signal trap
         let client = Arc::new(client);
-        let build_id = Arc::new(Uuid::new_v4());
 
         let signals = Signals::new([SIGTERM, SIGINT, SIGQUIT])?;
         let handle = signals.handle();
 
+        let (kill_tx, mut kill_rx) = oneshot::channel::<()>();
+
         let signals_task = tokio::spawn(handle_signals(
             signals,
-            Arc::clone(&build_id),
-            Arc::clone(&client),
+            kill_tx,
+            build_id.clone(),
+            client.clone(),
         ));
 
         // Get podman ready to build
@@ -246,20 +251,25 @@ impl BuildCommand {
 
         info!("Building image {first_image_name}");
         match client.images().build(&opts) {
-            Ok(mut build_stream) => {
-                while let Some(chunk) = build_stream.next().await {
-                    match chunk {
-                        Ok(chunk) => chunk
-                            .stream
-                            .trim()
-                            .lines()
-                            .map(str::trim)
-                            .filter(|line| !line.is_empty())
-                            .for_each(|line| info!("{line}")),
-                        Err(e) => bail!("{e}"),
+            Ok(mut build_stream) => loop {
+                tokio::select! {
+                    Some(chunk) = build_stream.next() => {
+                        match chunk {
+                            Ok(chunk) => chunk
+                                .stream
+                                .trim()
+                                .lines()
+                                .map(str::trim)
+                                .filter(|line| !line.is_empty())
+                                .for_each(|line| info!("{line}")),
+                            Err(e) => bail!("{e}"),
+                        }
+                    },
+                    _ = &mut kill_rx => {
+                        break;
                     }
                 }
-            }
+            },
             Err(e) => bail!("{e}"),
         };
 
@@ -299,7 +309,7 @@ impl BuildCommand {
         }
 
         handle.close();
-        signals_task.await?;
+        signals_task.await??;
 
         Ok(())
     }
@@ -739,18 +749,63 @@ fn check_cosign_files() -> Result<()> {
 }
 
 #[cfg(feature = "builtin-podman")]
-async fn handle_signals(mut signals: Signals, _build_id: Arc<Uuid>, _client: Arc<Podman>) {
-    use signal_hook::consts::{SIGINT, SIGQUIT, SIGTERM};
+async fn handle_signals(
+    mut signals: Signals,
+    kill: Sender<()>,
+    build_id: Uuid,
+    client: Arc<Podman>,
+) -> Result<()> {
+    use podman_api::opts::{
+        ContainerListOpts, ContainerPruneFilter, ContainerPruneOpts, ImagePruneFilter,
+        ImagePruneOpts,
+    };
+    use signal_hook::consts::{SIGHUP, SIGINT};
+    use tokio::time::{self, Duration};
+
+    trace!("handle_signals(signals, {build_id}, {client:#?})");
 
     while let Some(signal) = signals.next().await {
         match signal {
-            SIGTERM | SIGINT | SIGQUIT => {
-                // Shutdown the system;
-                todo!("Clean out working containers")
+            SIGHUP => (),
+            SIGINT => {
+                kill.send(()).unwrap();
+                info!("Recieved SIGINT, cleaning up build...");
+
+                time::sleep(Duration::from_secs(1)).await;
+
+                let containers = client
+                    .containers()
+                    .list(&ContainerListOpts::builder().sync(true).all(true).build())
+                    .await?;
+
+                trace!("{containers:#?}");
+
+                // Prune containers from this build
+                let container_prune_opts = ContainerPruneOpts::builder()
+                    .filter([ContainerPruneFilter::LabelKeyVal(
+                        BUILD_ID_LABEL.to_string(),
+                        build_id.to_string(),
+                    )])
+                    .build();
+                client.containers().prune(&container_prune_opts).await?;
+                debug!("Pruned containers");
+
+                // Prune images from this build
+                let image_prune_opts = ImagePruneOpts::builder()
+                    .filter([ImagePruneFilter::LabelKeyVal(
+                        BUILD_ID_LABEL.to_string(),
+                        build_id.to_string(),
+                    )])
+                    .build();
+                client.images().prune(&image_prune_opts).await?;
+                debug!("Pruned images");
+                process::exit(2);
             }
-            _ => (),
+            _ => unreachable!(),
         }
     }
+
+    Ok(())
 }
 
 fn tag_images(tags: &[String], image_name: &str, full_image: &str) -> Result<()> {
