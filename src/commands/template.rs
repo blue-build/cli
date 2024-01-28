@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
     env, fs,
     path::{Path, PathBuf},
@@ -22,8 +23,10 @@ use super::BlueBuildCommand;
 #[derive(Debug, Clone, Template, TypedBuilder)]
 #[template(path = "Containerfile")]
 pub struct ContainerFileTemplate<'a> {
-    recipe: &'a Recipe,
-    recipe_path: &'a Path,
+    recipe: Recipe<'a>,
+
+    #[builder(setter(into))]
+    recipe_path: Cow<'a, Path>,
 
     #[builder(default)]
     export_script: ExportsTemplate,
@@ -63,7 +66,7 @@ impl TemplateCommand {
         trace!("recipe_de: {recipe_de:#?}");
 
         let template = ContainerFileTemplate::builder()
-            .recipe(&recipe_de)
+            .recipe(recipe_de)
             .recipe_path(&self.recipe)
             .build();
 

@@ -1,5 +1,6 @@
 FROM {{ recipe.base_image }}:{{ recipe.image_version }}
 
+LABEL {{ crate::ops::BUILD_ID_LABEL }}=""
 LABEL org.opencontainers.image.title="{{ recipe.name }}"
 LABEL org.opencontainers.image.version="{{ recipe.image_version }}"
 LABEL org.opencontainers.image.description="{{ recipe.description }}"

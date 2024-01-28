@@ -1,4 +1,4 @@
-use std::{env, fs, path::PathBuf, process};
+use std::{borrow::Cow, env, fs, path::PathBuf, process};
 
 use askama::Template;
 use chrono::Local;
@@ -9,41 +9,41 @@ use serde_yaml::Value;
 use typed_builder::TypedBuilder;
 
 #[derive(Serialize, Clone, Deserialize, Debug, TypedBuilder)]
-pub struct Recipe {
+pub struct Recipe<'a> {
     #[builder(setter(into))]
-    pub name: String,
+    pub name: Cow<'a, str>,
 
     #[builder(setter(into))]
-    pub description: String,
+    pub description: Cow<'a, str>,
 
     #[serde(alias = "base-image")]
     #[builder(setter(into))]
-    pub base_image: String,
+    pub base_image: Cow<'a, str>,
 
     #[serde(alias = "image-version")]
     #[builder(setter(into))]
-    pub image_version: String,
+    pub image_version: Cow<'a, str>,
 
     #[serde(alias = "blue-build-tag")]
     #[builder(default, setter(into, strip_option))]
-    pub blue_build_tag: Option<String>,
+    pub blue_build_tag: Option<Cow<'a, str>>,
 
     #[serde(flatten)]
-    pub modules_ext: ModuleExt,
+    pub modules_ext: ModuleExt<'a>,
 
     #[serde(flatten)]
     #[builder(setter(into))]
     pub extra: IndexMap<String, Value>,
 }
 
-impl Recipe {
+impl<'a> Recipe<'a> {
     #[must_use]
     pub fn generate_tags(&self) -> Vec<String> {
         trace!("Recipe::generate_tags()");
         debug!("Generating image tags for {}", &self.name);
 
         let mut tags: Vec<String> = Vec::new();
-        let image_version = &self.image_version;
+        let image_version = self.image_version.as_ref();
         let timestamp = Local::now().format("%Y%m%d").to_string();
 
         if let (Ok(commit_branch), Ok(default_branch), Ok(commit_sha), Ok(pipeline_source)) = (
@@ -95,7 +95,7 @@ impl Recipe {
                 debug!("Running in a PR");
                 tags.push(format!("pr-{github_event_number}-{image_version}"));
             } else if github_ref_name == "live" {
-                tags.push(image_version.to_owned());
+                tags.push(image_version.to_string());
                 tags.push(format!("{image_version}-{timestamp}"));
                 tags.push("latest".to_string());
             } else {
@@ -114,20 +114,20 @@ impl Recipe {
 
 #[derive(Serialize, Clone, Deserialize, Debug, Template, TypedBuilder)]
 #[template(path = "Containerfile.module", escape = "none")]
-pub struct ModuleExt {
+pub struct ModuleExt<'a> {
     #[builder(default, setter(into))]
-    pub modules: Vec<Module>,
+    pub modules: Cow<'a, [Module<'a>]>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, TypedBuilder)]
-pub struct Module {
+pub struct Module<'a> {
     #[serde(rename = "type")]
     #[builder(default, setter(into, strip_option))]
-    pub module_type: Option<String>,
+    pub module_type: Option<Cow<'a, str>>,
 
     #[serde(rename = "from-file")]
     #[builder(default, setter(into, strip_option))]
-    pub from_file: Option<String>,
+    pub from_file: Option<Cow<'a, str>>,
 
     #[serde(flatten)]
     #[builder(default, setter(into))]
