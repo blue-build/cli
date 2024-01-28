@@ -26,9 +26,12 @@ jobs:
       #Deps
       - name: Set up Earthly
         uses: earthly/actions-setup@v1
-        with:
-          version: v0.8.0
-          use-cache: true
+
+      - name: Earthly login
+        run: |
+          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }}
+          earthly org s blue-build
+          earthly sat s blue-build
 
       - name: Set up Python
         uses: actions/setup-python@v5
