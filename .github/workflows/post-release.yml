@@ -1,5 +1,6 @@
-name: Release
+name: Post-release version bump
 
+# how to trigger: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
 on:
   workflow_dispatch:
 
@@ -7,14 +8,9 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  release:
+  ci:
     if: github.repository == 'blue-build/cli'
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: write
-      packages: write
-
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,19 +32,14 @@ jobs:
         run: cargo install cargo-release
 
       - name: Git setup
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-
-      - name: Setup release
-        run: just cargo-release --execute
+        run: just cargo-post-release --execute
 
       - name: Create PR
         uses: peter-evans/create-pull-request@v5
         with:
           delete-branch: true
           base: "main"
-          title: "Preparing Next Release"
+          title: "Bump Version after Release"
           body: |
-            Preparing next release
+            Bump version after release
             This PR has been auto-generated
