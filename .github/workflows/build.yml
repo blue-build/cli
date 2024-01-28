@@ -1,4 +1,4 @@
-name: Earthly main branch +build
+name: Earthly main branch +all
 
 on:
   workflow_dispatch:
@@ -47,4 +47,4 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run build
-        run: earthly --push --ci -P +build
+        run: earthly --push --ci -P +all
