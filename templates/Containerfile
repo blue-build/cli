@@ -42,6 +42,6 @@ ARG CONFIG_DIRECTORY="/tmp/config"
 ARG IMAGE_NAME="{{ recipe.name }}"
 ARG BASE_IMAGE="{{ recipe.base_image }}"
 
-{{ recipe.modules_ext }}
+{{ module_template }}
 
 RUN rm -rf /tmp/* /var/* && ostree container commit

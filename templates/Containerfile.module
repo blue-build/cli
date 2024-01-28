@@ -1,4 +1,4 @@
-{%- for module in modules %}
+{%- for module in modules_list.modules %}
 	{%- if let Some(type) = module.module_type %}
 		{%- if type == "containerfile" %}
 			{%- if let Some(containerfiles) = self::get_containerfile_list(module) %}
