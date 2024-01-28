@@ -16,19 +16,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Setup repo and add caching
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
           token: ${{ secrets.GIT_REPO_TOKEN }}
 
+      #Deps
+      - name: Set up Earthly
+        uses: earthly/actions-setup@v1
+
       - name: Earthly login
         run: |
-          wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-amd64 -O /usr/local/bin/earthly && chmod +x /usr/local/bin/earthly
+          earthly bootstrap
           earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }}
           earthly org s blue-build
           earthly sat s blue-build
-          earthly bootstrap
 
       - name: Set up Python
         uses: actions/setup-python@v5
