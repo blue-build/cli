@@ -1,4 +1,5 @@
 VERSION 0.8
+PROJECT blue-build/cli
 
 IMPORT github.com/blue-build/earthly-lib/cargo AS cargo
 

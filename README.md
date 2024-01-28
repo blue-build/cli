@@ -1,9 +1,6 @@
 <div align="center">
   <center>
-    <figure>
-      <img src="https://gitlab.com/wunker-bunker/blue-build/-/raw/main/logos/BlueBuild-banner.png" alt="BlueBuild Banner" style="max-height: 300px;" />
-      <figcaption>Graphic Designer: Ian Price</figcaption>
-    </figure>
+    <img src="https://github.com/blue-build/.github/assets/60004820/337323ed-70e4-4025-8c73-e8fe0c183c7c" alt="BlueBuild. A minimal logo with a blue-billed duck holding a golden wrench in its beak." style="max-height: 300px;" />
   </center>
 </div>
 
