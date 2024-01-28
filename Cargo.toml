@@ -6,6 +6,7 @@ description = "A CLI tool built for creating Containerfile templates based on th
 repository = "https://github.com/blue-build/cli"
 license = "Apache-2.0"
 categories = ["command-line-utilities"]
+build = "build.rs"
 
 [dependencies]
 anyhow = "1"
@@ -23,6 +24,7 @@ podman-api = { version = "0.10.0", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9.25"
+shadow-rs = { version = "0.26.1", default-features = false }
 sigstore = { version = "0.8.0", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
 typed-builder = "0.18.0"
