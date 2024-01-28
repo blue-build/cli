@@ -58,12 +58,7 @@ install:
 	SAVE ARTIFACT target/$BUILD_TARGET/release/bb
 
 common:
-	FROM rust
-
-	RUN apt-get update && \
-		apt-get install -y musl-dev && \
-		rustup component add clippy && \
-		rustup target add x86_64-unknown-linux-musl
+	FROM ghcr.io/blue-build/earthly-lib/cargo-builder
 
 	WORKDIR /app
 	COPY --keep-ts --dir src/ templates/ /app
@@ -106,12 +101,11 @@ blue-build-cli-alpine:
 	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY --ALPINE=true
 
 installer:
-	# FROM alpine
-	FROM mgoltzsche/podman:minimal
+	FROM alpine
 	ARG NIGHTLY=false
 
 	BUILD +install --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY
-	COPY (+install/bb --BUILD_TARGET="x86_64-unknown-linux-gnu") /out/bb
+	COPY (+install/bb --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY) /out/bb
 	COPY install.sh /install.sh
 
 	CMD ["cat", "/install.sh"]
