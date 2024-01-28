@@ -12,6 +12,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # There is a bug selecting a satellite in version 0.8
+      # so we use 0.7 to login and connect to the satellite
+      # before switching to the latest version
       - uses: earthly/actions-setup@v1
         with:
           version: v0.7.23
@@ -23,6 +26,7 @@ jobs:
           earthly sat s blue-build-pr
 
       - uses: earthly/actions-setup@v1
+
         with:
           version: v0.8.2
 
