@@ -18,13 +18,18 @@ jobs:
 
     steps:
       - uses: earthly/actions-setup@v1
+        with:
+          version: v0.7.23
 
       - name: Earthly login
         run: |
-          earthly bootstrap
-          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }}
+          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
           earthly sat s blue-build
+
+      - uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.2
 
       # Setup repo and add caching
       - uses: actions/checkout@v4
