@@ -28,8 +28,11 @@ jobs:
 
       - name: Install just
         run: sudo snap install --edge --classic just
+
+        # Cargo returns an exit code of 1 if already installed
       - name: Install cargo-release
-        run: cargo install cargo-release
+        continue-on-error: true
+        run: cargo install cargo-release --force
 
       - name: Git setup
         run: just cargo-post-release --execute
