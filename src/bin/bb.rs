@@ -42,11 +42,11 @@ enum CommandArgs {
     /// Create a pre-populated GitHub issue with information about your configuration
     BugReport,
 
-    /// Generate starship shell completions for your shell to stdout
-    Completions {
-        #[clap(value_enum)]
-        shell: CompletionShell,
-    },
+    // /// Generate starship shell completions for your shell to stdout
+    // Completions {
+    //     #[clap(value_enum)]
+    //     shell: CompletionShell,
+    // },
 
     /// Build an image from a recipe
     Build(build::BuildCommand),
