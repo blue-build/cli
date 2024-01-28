@@ -1,20 +1,149 @@
+use crate::module_recipe::Recipe;
 use crate::shadow;
-use clap_complete::Shell;
-use nu_ansi_term::Style;
 
+use askama::Template;
+use clap::Args;
+use clap_complete::Shell;
+use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
+use requestty::question::{self, completions, Completions};
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::Duration;
+use typed_builder::TypedBuilder;
 
-use super::utils::{exec_cmd, home_dir};
+use super::utils::{exec_cmd, get_file_contents, home_dir};
+use super::BlueBuildCommand;
 
 const UNKNOWN_SHELL: &str = "<unknown shell>";
-const UNKNOWN_CONFIG: &str = "<unknown config>";
 const UNKNOWN_VERSION: &str = "<unknown version>";
 const UNKNOWN_TERMINAL: &str = "<unknown terminal>";
 const GITHUB_CHAR_LIMIT: usize = 8100; // Magic number accepted by Github
+
+#[derive(Debug, Clone, Args)]
+pub struct BugReportCommand;
+
+impl BlueBuildCommand for BugReportCommand {
+    fn try_run(&mut self) -> anyhow::Result<()> {
+        log::info!("Generating bug report");
+        create_bugreport(&gather_bluebuild_info())
+    }
+}
+
+// ============================================================================= //
+// BlueBuild Info
+// ============================================================================= //
+
+#[derive(Debug)]
+pub struct BlueBuildInfo {
+    recipe: String,
+    container_file: String,
+}
+
+fn get_config_file(title: &str, message: &str) -> anyhow::Result<String> {
+    use std::path::Path;
+
+    let question = requestty::Question::input(title)
+        .message(message)
+        .auto_complete(|p, _| auto_complete(p))
+        .validate(|p, _| {
+            if (p.as_ref() as &Path).exists() {
+                Ok(())
+            } else if p.is_empty() {
+                Err("No file specified. Please enter a file path".to_string())
+            } else {
+                Err(format!("file `{p}` doesn't exist"))
+            }
+        })
+        .build();
+
+    match requestty::prompt_one(question) {
+        Ok(requestty::Answer::String(path)) => match get_file_contents(path) {
+            Ok(contents) => Ok(contents),
+            Err(e) => {
+                log::trace!("Failed to parse file: {}", e);
+                Err(e.into())
+            }
+        },
+        Ok(_) => unreachable!(),
+        Err(e) => {
+            log::trace!("Failed to get file: {}", e);
+            Err(e.into())
+        }
+    }
+}
+
+fn gather_bluebuild_info() -> BlueBuildInfo {
+    let recipe = if let Ok(recipe) = get_config_file("recipe", "Enter path to recipe file") {
+        recipe
+    } else {
+        log::trace!("Failed to get recipe");
+        String::new()
+    };
+
+    let container_file = if let Ok(container_file) =
+        get_config_file("container_file", "Enter path to Containerfile")
+    {
+        container_file
+    } else {
+        log::trace!("Failed to get container_file");
+        String::new()
+    };
+
+    BlueBuildInfo {
+        recipe,
+        container_file,
+    }
+}
+
+fn auto_complete(p: String) -> Completions<String> {
+    use std::path::Path;
+
+    let current: &Path = p.as_ref();
+    let (mut dir, last) = if p.ends_with('/') {
+        (current, "")
+    } else {
+        let dir = current.parent().unwrap_or_else(|| "/".as_ref());
+        let last = current
+            .file_name()
+            .and_then(std::ffi::OsStr::to_str)
+            .unwrap_or("");
+        (dir, last)
+    };
+
+    if dir.to_str().unwrap().is_empty() {
+        dir = ".".as_ref();
+    }
+
+    let mut files: Completions<_> = match dir.read_dir() {
+        Ok(files) => files
+            .flatten()
+            .filter_map(|file| {
+                let path = file.path();
+                let is_dir = path.is_dir();
+                match path.into_os_string().into_string() {
+                    Ok(s) if is_dir => Some(s + "/"),
+                    Ok(s) => Some(s),
+                    Err(_) => None,
+                }
+            })
+            .collect(),
+        Err(_) => {
+            return completions![p];
+        }
+    };
+
+    if files.is_empty() {
+        return completions![p];
+    }
+
+    let fuzzer = SkimMatcherV2::default();
+    files.sort_by_cached_key(|file| fuzzer.fuzzy_match(file, last).unwrap_or(i64::MAX));
+    files
+}
+
+// ============================================================================= //
 
 struct Environment {
     shell_info: ShellInfo,
@@ -27,13 +156,11 @@ struct Environment {
 struct ShellInfo {
     name: String,
     version: String,
-    config: String,
 }
 
 fn get_shell_info() -> ShellInfo {
     let failure_shell_info = ShellInfo {
         name: UNKNOWN_SHELL.to_string(),
-        config: UNKNOWN_CONFIG.to_string(),
         version: UNKNOWN_VERSION.to_string(),
     };
 
@@ -42,60 +169,36 @@ fn get_shell_info() -> ShellInfo {
         None => return failure_shell_info,
     };
 
-    let config = get_config_path(&current_shell)
-        .and_then(|config_path| fs::read_to_string(config_path).ok())
-        .map_or_else(
-            || UNKNOWN_CONFIG.to_string(),
-            |config| config.trim().to_string(),
-        );
-
     let version = get_shell_version(&current_shell);
 
     ShellInfo {
-        config,
         version,
         name: current_shell.to_string(),
     }
 }
 
-pub fn create() {
-    println!("{}\n", shadow::VERSION.trim());
-    let os_info = os_info::get();
+// ============================================================================= //
+// Git
+// ============================================================================= //
 
-    let environment = Environment {
-        os_type: os_info.os_type(),
-        shell_info: get_shell_info(),
-        terminal_info: get_terminal_info(),
-        os_version: os_info.version().clone(),
-    };
-
-    let issue_body = get_github_issue_body(&environment);
-
-    println!(
-        "{}\n{issue_body}\n\n",
-        Style::new().bold().paint("Generated bug report:")
-    );
-    println!("Forward the pre-filled report above to GitHub in your browser?");
-    println!("{} To avoid any sensitive data from being exposed, please review the included information before proceeding. Data forwarded to GitHub is subject to GitHub's privacy policy.", Style::new().bold().paint("Warning:"));
-    println!(
-        "Enter `{}` to accept, or anything else to decline, and `{}` to confirm your choice:\n",
-        Style::new().bold().paint("y"),
-        Style::new().bold().paint("Enter key")
-    );
-
-    let mut input = String::new();
-    let _ = std::io::stdin().read_line(&mut input);
-
-    if input.trim().to_lowercase() == "y" {
-        let link = make_github_issue_link(&issue_body);
-        if let Err(e) = open::that(&link) {
-            println!("Failed to open issue report in your browser: {e}");
-            println!("Please copy the above report and open an issue manually, or try opening the following link:\n{link}");
-        }
-    } else {
-        println!("Will not open an issue in your browser! Please copy the above report and open an issue manually.");
-    }
-    println!("Thanks for using the BlueBuild bug report tool!");
+#[derive(Debug, Clone, Template, TypedBuilder)]
+#[template(path = "github_issue")]
+struct GithubIssueTemplate<'a> {
+    bb_version: &'a str,
+    build_rust_channel: &'a str,
+    build_time: &'a str,
+    containerfile: &'a str,
+    git_commit_hash: &'a str,
+    os_name: &'a str,
+    os_version: &'a str,
+    pkg_branch_tag: &'a str,
+    recipe: &'a str,
+    rust_channel: &'a str,
+    rust_version: &'a str,
+    shell_name: &'a str,
+    shell_version: &'a str,
+    terminal_name: &'a str,
+    terminal_version: &'a str,
 }
 
 fn get_pkg_branch_tag() -> &'static str {
@@ -105,62 +208,41 @@ fn get_pkg_branch_tag() -> &'static str {
     shadow::BRANCH
 }
 
-fn get_github_issue_body(environment: &Environment) -> String {
-    let shell_syntax = match environment.shell_info.name.as_ref() {
-        "powershell" | "pwsh" => "pwsh",
-        "fish" => "fish",
-        "cmd" => "lua",
-        // GitHub does not seem to support elvish syntax highlighting.
-        "elvish" => "bash",
-        _ => "bash",
+fn generate_github_issue(
+    environment: &Environment,
+    user_info: &BlueBuildInfo,
+) -> anyhow::Result<String> {
+    let recipe = if user_info.recipe.is_empty() {
+        "No recipe file provided".to_string()
+    } else {
+        user_info.recipe.clone()
     };
 
-    format!("#### Current Behavior
-<!-- A clear and concise description of the behavior. -->
+    let containerfile = if user_info.container_file.is_empty() {
+        "No Containerfile provided".to_string()
+    } else {
+        user_info.container_file.clone()
+    };
 
-#### Expected Behavior
-<!-- A clear and concise description of what you expected to happen. -->
+    let github_template = GithubIssueTemplate {
+        bb_version: shadow::PKG_VERSION,
+        build_rust_channel: shadow::BUILD_RUST_CHANNEL,
+        build_time: shadow::BUILD_TIME,
+        containerfile: containerfile.as_str(),
+        git_commit_hash: shadow::COMMIT_HASH,
+        os_name: &format!("{}", environment.os_type),
+        os_version: &format!("{}", environment.os_version),
+        pkg_branch_tag: get_pkg_branch_tag(),
+        recipe: recipe.as_str(),
+        rust_channel: shadow::RUST_CHANNEL,
+        rust_version: shadow::RUST_VERSION,
+        shell_name: environment.shell_info.name.as_str(),
+        shell_version: environment.shell_info.version.as_str(),
+        terminal_name: environment.terminal_info.name.as_str(),
+        terminal_version: environment.terminal_info.version.as_str(),
+    };
 
-#### Additional context/Screenshots
-<!-- Add any other context about the problem here. If applicable, add screenshots to help explain. -->
-
-#### Possible Solution
-<!--- Only if you have suggestions on a fix for the bug -->
-
-#### Environment
-- BB version: {bb_version}
-- {shell_name} version: {shell_version}
-- Operating system: {os_name} {os_version}
-- Terminal emulator: {terminal_name} {terminal_version}
-- Git Commit Hash: {git_commit_hash}
-- Branch/Tag: {pkg_branch_tag}
-- Rust Version: {rust_version}
-- Rust channel: {rust_channel} {build_rust_channel}
-- Build Time: {build_time}
-
-#### Relevant Shell Configuration
-
-```{shell_syntax}
-{shell_config}
-```
-
-#### BB Configuration
-",
-        bb_version = shadow::PKG_VERSION,
-        build_rust_channel =  shadow::BUILD_RUST_CHANNEL,
-        build_time =  shadow::BUILD_TIME,
-        git_commit_hash =  shadow::SHORT_COMMIT,
-        os_name = environment.os_type,
-        os_version = environment.os_version,
-        pkg_branch_tag =  get_pkg_branch_tag(),
-        rust_channel =  shadow::RUST_CHANNEL,
-        rust_version =  shadow::RUST_VERSION,
-        shell_name = environment.shell_info.name,
-        shell_config = environment.shell_info.config,
-        shell_version = environment.shell_info.version,
-        terminal_name = environment.terminal_info.name,
-        terminal_version = environment.terminal_info.version,
-    )
+    Ok(github_template.render()?)
 }
 
 fn make_github_issue_link(body: &str) -> String {
@@ -174,6 +256,82 @@ fn make_github_issue_link(body: &str) -> String {
     .chars()
     .take(GITHUB_CHAR_LIMIT)
     .collect()
+}
+
+// ============================================================================= //
+
+/// Create a pre-populated GitHub issue with information about your configuration
+///
+/// # Errors
+///
+/// This function will return an error if it fails to open the issue in your browser.
+pub fn create_bugreport(bb_info: &BlueBuildInfo) -> anyhow::Result<()> {
+    use colorized::{Color, Colors};
+
+    log::debug!("{}\n", shadow::VERSION.trim());
+
+    let os_info = os_info::get();
+    let environment = Environment {
+        os_type: os_info.os_type(),
+        shell_info: get_shell_info(),
+        terminal_info: get_terminal_info(),
+        os_version: os_info.version().clone(),
+    };
+
+    let issue_body = match generate_github_issue(&environment, bb_info) {
+        Ok(body) => body,
+        Err(e) => {
+            println!(
+                "{}: {e}",
+                "Failed to generate bug report".color(Colors::BrightRedFg)
+            );
+            return Err(e);
+        }
+    };
+
+    println!(
+        "\n{}\n{}\n",
+        "Generated bug report:".color(Colors::BrightGreenFg),
+        issue_body
+            .color(Colors::BrightBlackBg)
+            .color(Colors::BrightWhiteFg)
+    );
+
+    let warning_message = "Please copy the above report and open an issue manually.";
+    let question = requestty::Question::confirm("anonymous")
+        .message(
+            "Forward the pre-filled report above to GitHub in your browser?"
+                .color(Colors::BrightYellowFg),
+        )
+        .default(true)
+        .build();
+
+    println!("{} To avoid any sensitive data from being exposed, please review the included information before proceeding.", "Warning:".color(Colors::BrightRedBg).color(Colors::BrightWhiteFg));
+    println!("Data forwarded to GitHub is subject to GitHub's privacy policy. For more information, see https://docs.github.com/en/github/site-policy/github-privacy-statement.\n");
+    match requestty::prompt_one(question) {
+        Ok(answer) => {
+            if answer.as_bool().unwrap() {
+                let link = make_github_issue_link(&issue_body);
+                if let Err(e) = open::that(&link) {
+                    println!("Failed to open issue report in your browser: {e}");
+                    println!("Please copy the above report and open an issue manually, or try opening the following link:\n{link}");
+                    return Err(e.into());
+                }
+            } else {
+                println!("{warning_message}");
+            }
+        }
+        Err(_) => {
+            println!("Will not open an issue in your browser! {warning_message}");
+        }
+    }
+
+    println!(
+        "\n{}",
+        "Thanks for using the BlueBuild bug report tool!".color(Colors::BrightCyanFg)
+    );
+
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -197,38 +355,8 @@ fn get_terminal_info() -> TerminalInfo {
     }
 }
 
-fn get_config_path(shell: &str) -> Option<PathBuf> {
-    if shell == "nu" {
-        return dirs::config_dir().map(|config_dir| config_dir.join("nushell").join("config.nu"));
-    }
-
-    home_dir().and_then(|home_dir| {
-        match shell {
-            "bash" => Some(".bashrc"),
-            "cmd" => Some("AppData/Local/clink/starship.lua"),
-            "elvish" => Some(".elvish/rc.elv"),
-            "fish" => Some(".config/fish/config.fish"),
-            "ion" => Some(".config/ion/initrc"),
-            "powershell" | "pwsh" => {
-                if cfg!(windows) {
-                    Some("Documents/PowerShell/Microsoft.PowerShell_profile.ps1")
-                } else {
-                    Some(".config/powershell/Microsoft.PowerShell_profile.ps1")
-                }
-            }
-            "tcsh" => Some(".tcshrc"),
-            "xonsh" => Some(".xonshrc"),
-            "zsh" => Some(".zshrc"),
-            _ => None,
-        }
-        .map(|path| home_dir.join(path))
-    })
-}
-
 fn get_shell_version(shell: &str) -> String {
     let time_limit = Duration::from_millis(500);
-
-    println!("get_shell_version({shell})");
     match shell {
         "powershell" => exec_cmd(
             shell,
@@ -250,13 +378,17 @@ mod tests {
 
     #[test]
     fn test_make_github_link() {
+        let bb_info = BlueBuildInfo {
+            recipe: "This is the recipe file".to_owned(),
+            container_file: "This is the container file".to_owned(),
+        };
+
         let environment = Environment {
             os_type: os_info::Type::Linux,
             os_version: os_info::Version::Semantic(1, 2, 3),
             shell_info: ShellInfo {
-                name: "test_shell".to_string(),
                 version: "2.3.4".to_string(),
-                config: "No config".to_string(),
+                name: "test_shell".to_string(),
             },
             terminal_info: TerminalInfo {
                 name: "test_terminal".to_string(),
@@ -264,7 +396,7 @@ mod tests {
             },
         };
 
-        let body = get_github_issue_body(&environment);
+        let body = generate_github_issue(&environment, &bb_info).unwrap();
         let link = make_github_issue_link(&body);
 
         assert!(link.contains(clap::crate_version!()));
@@ -272,21 +404,5 @@ mod tests {
         assert!(link.contains("1.2.3"));
         assert!(link.contains("test_shell"));
         assert!(link.contains("2.3.4"));
-    }
-
-    #[test]
-    #[cfg(not(windows))]
-    fn test_get_config_path() {
-        let config_path = get_config_path("bash");
-        assert_eq!(home_dir().unwrap().join(".bashrc"), config_path.unwrap());
-    }
-
-    #[test]
-    fn test_get_shell_info() {
-        let shell_info = get_shell_info();
-        assert_eq!(shell_info.name, "bash");
-        dbg!(&shell_info.config);
-        assert!(shell_info.config.contains("eval"));
-        println!("config.config: {}", shell_info.config);
     }
 }

@@ -1,7 +1,5 @@
-#![warn(clippy::nursery)]
-
-use clap::{command, crate_authors, Parser, Subcommand};
-
+use clap::{command, crate_authors, Args, CommandFactory, Parser, Subcommand};
+use clap_complete::{generate, Shell as CompletionShell};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use env_logger::WriteStyle;
 
@@ -13,10 +11,7 @@ use blue_build::{
 #[cfg(feature = "init")]
 use blue_build::commands::init;
 
-#[macro_use]
-extern crate shadow_rs;
-
-shadow!(shadow);
+shadow_rs::shadow!(shadow);
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -38,14 +33,6 @@ struct BlueBuildArgs {
 
 #[derive(Debug, Subcommand)]
 enum CommandArgs {
-    /// Create a pre-populated GitHub issue with information about your configuration
-    BugReport,
-
-    // /// Generate starship shell completions for your shell to stdout
-    // Completions {
-    //     #[clap(value_enum)]
-    //     shell: CompletionShell,
-    // },
     /// Build an image from a recipe
     Build(build::BuildCommand),
 
@@ -81,6 +68,33 @@ enum CommandArgs {
 
     #[cfg(feature = "init")]
     New(init::NewCommand),
+
+    /// Create a pre-populated GitHub issue with information about your configuration
+    BugReport(bug_report::BugReportCommand),
+
+    /// Generate shell completions for your shell to stdout
+    Completions(CompletionsCommand),
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct CompletionsCommand {
+    #[clap(value_enum)]
+    shell: CompletionShell,
+}
+
+impl BlueBuildCommand for CompletionsCommand {
+    fn try_run(&mut self) -> anyhow::Result<()> {
+        log::debug!("Generating completions for {shell}", shell = self.shell);
+
+        generate(
+            self.shell,
+            &mut BlueBuildArgs::command(),
+            "bb",
+            &mut std::io::stdout().lock(),
+        );
+
+        Ok(())
+    }
 }
 
 fn main() {
@@ -92,19 +106,18 @@ fn main() {
         .write_style(WriteStyle::Always)
         .init();
 
-    log::trace!("Parsed arguments: {:#?}", args);
+    log::trace!("Parsed arguments: {args:#?}");
 
     match args.command {
         #[cfg(feature = "init")]
         CommandArgs::Init(mut command) => command.run(),
-
         #[cfg(feature = "init")]
         CommandArgs::New(mut command) => command.run(),
-
         CommandArgs::Build(mut command) => command.run(),
         CommandArgs::Rebase(mut command) => command.run(),
         CommandArgs::Upgrade(mut command) => command.run(),
         CommandArgs::Template(mut command) => command.run(),
-        CommandArgs::BugReport => bug_report::create(),
+        CommandArgs::BugReport(mut command) => command.run(),
+        CommandArgs::Completions(mut command) => command.run(),
     }
 }

@@ -1,3 +1,4 @@
+use process_control::{ChildExt, Control};
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::fs::read_to_string;
@@ -6,11 +7,18 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use process_control::{ChildExt, Control};
+/// Get the contents of a file
+///
+/// # Errors
+///
+/// This function will return an error if the file cannot be read.
+pub fn get_file_contents<P: AsRef<Path>>(file_path: P) -> Result<String> {
+    std::fs::read_to_string(file_path)
+}
 
 #[must_use]
 pub fn home_dir() -> Option<PathBuf> {
-    dirs::home_dir()
+    directories::BaseDirs::new().map(|base_dirs| base_dirs.home_dir().to_path_buf())
 }
 
 // ================================================================================================= //
@@ -81,7 +89,7 @@ pub fn exec_timeout(cmd: &mut Command, time_limit: Duration) -> Option<CommandOu
     let process = match cmd.spawn() {
         Ok(process) => process,
         Err(error) => {
-            log::info!("Unable to run {:?}, {:?}", cmd.get_program(), error);
+            log::trace!("Unable to run {:?}, {:?}", cmd.get_program(), error);
             return None;
         }
     };
@@ -130,7 +138,7 @@ pub fn exec_timeout(cmd: &mut Command, time_limit: Duration) -> Option<CommandOu
             None
         }
         Err(error) => {
-            log::info!(
+            log::trace!(
                 "Executing command {:?} failed by: {:?}",
                 cmd.get_program(),
                 error
