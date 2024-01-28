@@ -34,7 +34,7 @@ pub struct ContainerFileTemplate<'a> {
 #[derive(Debug, Clone, Template, TypedBuilder)]
 #[template(path = "Containerfile.module", escape = "none")]
 pub struct ModuleTemplate<'a> {
-    modules_list: &'a ModuleExt,
+    module_ext: &'a ModuleExt,
 }
 
 #[derive(Debug, Clone, Default, Template)]
@@ -75,7 +75,7 @@ impl TemplateCommand {
             .recipe_path(&self.recipe)
             .module_template(
                 ModuleTemplate::builder()
-                    .modules_list(&recipe_de.modules_ext)
+                    .module_ext(&recipe_de.modules_ext)
                     .build(),
             )
             .build();
@@ -182,14 +182,14 @@ fn get_module_from_file(file_name: &str) -> String {
             let module = serde_yaml::from_str::<Module>(file.as_str()).unwrap_or_else(serde_err_fn);
 
             ModuleTemplate::builder()
-                .modules_list(&ModuleExt::builder().modules(vec![module]).build())
+                .module_ext(&ModuleExt::builder().modules(vec![module]).build())
                 .build()
                 .render()
                 .unwrap_or_else(template_err_fn)
         },
         |module_ext| {
             ModuleTemplate::builder()
-                .modules_list(&module_ext)
+                .module_ext(&module_ext)
                 .build()
                 .render()
                 .unwrap_or_else(template_err_fn)
