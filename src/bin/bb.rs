@@ -1,20 +1,34 @@
 #![warn(clippy::pedantic, clippy::nursery)]
 
-use clap::{Parser, Subcommand};
+use clap::{command, crate_authors, CommandFactory, Parser, Subcommand};
+use clap_complete::{generate, Shell as CompletionShell};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use env_logger::WriteStyle;
-use log::trace;
+use std::io;
 
 use blue_build::{
     self,
-    commands::{build, local, template, BlueBuildCommand},
+    commands::{bug_report, build, local, template, BlueBuildCommand},
 };
 
 #[cfg(feature = "init")]
 use blue_build::commands::init;
 
+#[macro_use]
+extern crate shadow_rs;
+
+shadow!(shadow);
+
 #[derive(Parser, Debug)]
-#[command(name = "BlueBuild", author, version, about, long_about = None)]
+#[clap(
+    name = "BlueBuild",
+    about, 
+    long_about = None,
+    author=crate_authors!(),
+    version=shadow::PKG_VERSION,
+    long_version=shadow::CLAP_LONG_VERSION,
+    arg_required_else_help=true,
+)]
 struct BlueBuildArgs {
     #[command(subcommand)]
     command: CommandArgs,
@@ -25,6 +39,15 @@ struct BlueBuildArgs {
 
 #[derive(Debug, Subcommand)]
 enum CommandArgs {
+    /// Create a pre-populated GitHub issue with information about your configuration
+    BugReport,
+
+    /// Generate starship shell completions for your shell to stdout
+    Completions {
+        #[clap(value_enum)]
+        shell: CompletionShell,
+    },
+
     /// Build an image from a recipe
     Build(build::BuildCommand),
 
@@ -71,7 +94,7 @@ fn main() {
         .write_style(WriteStyle::Always)
         .init();
 
-    trace!("{args:#?}");
+    log::trace!("Parsed arguments: {:#?}", args);
 
     match args.command {
         #[cfg(feature = "init")]
@@ -80,9 +103,10 @@ fn main() {
         #[cfg(feature = "init")]
         CommandArgs::New(mut command) => command.run(),
 
-        CommandArgs::Template(mut command) => command.run(),
         CommandArgs::Build(mut command) => command.run(),
         CommandArgs::Rebase(mut command) => command.run(),
         CommandArgs::Upgrade(mut command) => command.run(),
+        CommandArgs::Template(mut command) => command.run(),
+        CommandArgs::BugReport => bug_report::create(),
     }
 }

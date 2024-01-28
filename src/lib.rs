@@ -14,6 +14,11 @@
 #![allow(unused_imports)]
 #![allow(clippy::module_name_repetitions)]
 
+#[macro_use]
+extern crate shadow_rs;
+
+shadow!(shadow);
+
 pub mod commands;
 pub mod module_recipe;
 mod ops;

@@ -1,9 +1,11 @@
 #[cfg(feature = "init")]
 pub mod init;
 
+pub mod bug_report;
 pub mod build;
 pub mod local;
 pub mod template;
+pub mod utils;
 
 use log::error;
 
