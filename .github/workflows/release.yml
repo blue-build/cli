@@ -20,8 +20,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: chainguard-dev/actions/setup-gitsign@main
-
       - uses: actions/cache@v4
         with:
           path: |
@@ -32,6 +30,8 @@ jobs:
             ~/.cargo/registry/cache/
           key: ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.toml') }}
 
+      - name: Install just
+        run: sudo snap install --edge --classic just
       - name: Install cargo-release
         run: cargo install cargo-release
 
@@ -40,25 +40,8 @@ jobs:
           git config user.name github-actions
           git config user.email github-actions@github.com
 
-      # Leaving bevy comments here for us to discuss. Do we want to start tagging our pre-releases with `dev`?
       - name: Setup release
-        run: |
-          # release: remove the dev suffix, like going from 0.X.0-dev to 0.X.0
-          # --workspace: updating all crates in the workspace
-          # --no-publish: do not publish to crates.io
-          # --execute: not a dry run
-          # --no-tag: do not push tag for each new version
-          # --no-push: do not push the update commits
-          # --dependent-version upgrade: change 0.X.0-dev in internal dependencies to 0.X.0
-          # --exclude: ignore those packages
-          cargo release release \
-            --workspace \
-            --no-publish \
-            --execute \
-            --no-tag \
-            --no-confirm \
-            --no-push \
-            --dependent-version upgrade
+        run: just cargo-release --execute
 
       - name: Create PR
         uses: peter-evans/create-pull-request@v5
