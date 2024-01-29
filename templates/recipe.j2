@@ -1,0 +1,12 @@
+{%- for module in modules_ext.modules %}
+  {%- if let Some(from_file) = module.from_file %}
+{{ ["from_file",from_file]|join(": ") }}
+    {%- set from_file_module = self::get_module_from_file(from_file) %}
+    {%- for item in from_file_module.modules %}
+{{ item|yaml|indent(2) }}
+    {%- endfor %}
+  {%- else %}
+{{ module|yaml|indent(2) }}
+  {%- endif %}
+{%- endfor %}
+

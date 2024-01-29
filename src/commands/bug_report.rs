@@ -38,11 +38,11 @@ pub struct BugReportCommand {
 
 impl BlueBuildCommand for BugReportCommand {
     fn try_run(&mut self) -> anyhow::Result<()> {
-        log::info!(
+        log::debug!(
             "Generating bug report for hash: {}\n",
             shadow::BB_COMMIT_HASH
         );
-        log::info!("Shadow Versioning:\n{}", shadow::VERSION.trim());
+        log::debug!("Shadow Versioning:\n{}", shadow::VERSION.trim());
 
         BugReportCommand::builder()
             .recipe_path(self.recipe_path.clone())
@@ -57,6 +57,11 @@ impl BugReportCommand {
     /// # Errors
     ///
     /// This function will return an error if it fails to open the issue in your browser.
+    /// If this happens, you can copy the generated report and open an issue manually.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if it fails to get the current shell or terminal version.
     pub fn create_bugreport(&self) -> anyhow::Result<()> {
         use colorized::{Color, Colors};
 
@@ -88,8 +93,6 @@ impl BugReportCommand {
                 .color(Colors::BrightBlackBg)
                 .color(Colors::BrightWhiteFg)
         );
-
-        std::process::exit(0);
 
         let warning_message = "Please copy the above report and open an issue manually.";
         let question = requestty::Question::confirm("anonymous")
@@ -131,7 +134,7 @@ impl BugReportCommand {
     fn get_recipe(&self) -> Option<Recipe> {
         let recipe_path = if let Some(recipe_path) = self.recipe_path.clone() {
             recipe_path
-        } else if let Ok(recipe) = self.get_config_file("recipe", "Enter path to recipe file") {
+        } else if let Ok(recipe) = get_config_file("recipe", "Enter path to recipe file") {
             recipe
         } else {
             log::trace!("Failed to get recipe");
@@ -140,31 +143,31 @@ impl BugReportCommand {
 
         Recipe::parse(&recipe_path).ok()
     }
+}
 
-    fn get_config_file(&self, title: &str, message: &str) -> anyhow::Result<String> {
-        use std::path::Path;
+fn get_config_file(title: &str, message: &str) -> anyhow::Result<String> {
+    use std::path::Path;
 
-        let question = requestty::Question::input(title)
-            .message(message)
-            .auto_complete(|p, _| auto_complete(p))
-            .validate(|p, _| {
-                if (p.as_ref() as &Path).exists() {
-                    Ok(())
-                } else if p.is_empty() {
-                    Err("No file specified. Please enter a file path".to_string())
-                } else {
-                    Err(format!("file `{p}` doesn't exist"))
-                }
-            })
-            .build();
-
-        match requestty::prompt_one(question) {
-            Ok(requestty::Answer::String(path)) => Ok(path),
-            Ok(_) => unreachable!(),
-            Err(e) => {
-                log::trace!("Failed to get file: {}", e);
-                Err(e.into())
+    let question = requestty::Question::input(title)
+        .message(message)
+        .auto_complete(|p, _| auto_complete(p))
+        .validate(|p, _| {
+            if (p.as_ref() as &Path).exists() {
+                Ok(())
+            } else if p.is_empty() {
+                Err("No file specified. Please enter a file path".to_string())
+            } else {
+                Err(format!("file `{p}` doesn't exist"))
             }
+        })
+        .build();
+
+    match requestty::prompt_one(question) {
+        Ok(requestty::Answer::String(path)) => Ok(path),
+        Ok(_) => unreachable!(),
+        Err(e) => {
+            log::trace!("Failed to get file: {}", e);
+            Err(e.into())
         }
     }
 }
@@ -291,7 +294,7 @@ fn get_shell_version(shell: &str) -> String {
 // ============================================================================= //
 
 #[derive(Debug, Clone, Template, TypedBuilder)]
-#[template(path = "github_issue")]
+#[template(path = "github_issue.j2", escape = "md")]
 struct GithubIssueTemplate<'a> {
     #[builder(setter(into))]
     bb_version: Cow<'a, str>,
@@ -344,10 +347,9 @@ fn generate_github_issue(
     environment: &Environment,
     recipe: &Option<Recipe>,
 ) -> anyhow::Result<String> {
-    let recipe = recipe.as_ref().map_or_else(
-        || "".to_string(),
-        |recipe| recipe.render().unwrap_or_default(),
-    );
+    let recipe = recipe
+        .as_ref()
+        .map_or_else(String::new, |recipe| recipe.render().unwrap_or_default());
 
     let github_template = GithubIssueTemplate::builder()
         .bb_version(shadow::PKG_VERSION)

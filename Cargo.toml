@@ -10,11 +10,12 @@ build = "build.rs"
 
 [dependencies]
 anyhow = "1"
-askama = { version = "0.12", features = ["serde-json"] }
+askama = { version = "0.12", features = ["serde-json", "serde-yaml"] }
 chrono = "0.4"
 clap = { version = "4", features = ["derive", "cargo", "unicode"] }
 clap-verbosity-flag = "2"
 clap_complete = "4"
+clap_complete_nushell = "4"
 colorized = "1"
 derive_builder = "0.13"
 directories = "5"

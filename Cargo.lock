@@ -147,6 +147,7 @@ dependencies = [
  "percent-encoding",
  "serde",
  "serde_json",
+ "serde_yaml",
 ]
 
 [[package]]
@@ -285,6 +286,7 @@ dependencies = [
  "clap",
  "clap-verbosity-flag",
  "clap_complete",
+ "clap_complete_nushell",
  "colorized",
  "derive_builder",
  "directories",
@@ -489,6 +491,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df631ae429f6613fcd3a7c1adbdb65f637271e561b03680adaa6573015dfb106"
 dependencies = [
  "clap",
+]
+
+[[package]]
+name = "clap_complete_nushell"
+version = "4.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "948bf70d7e1f179635d3ef819ce8baa2d3074d0d57816ac37387cd6f9eed0c31"
+dependencies = [
+ "clap",
+ "clap_complete",
 ]
 
 [[package]]

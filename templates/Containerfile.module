@@ -1,16 +1,16 @@
 {%- for module in module_ext.modules %}
-  {%- if let Some(type) = module.module_type %}
-    {%- if type == "containerfile" %}
-      {%- if let Some(containerfiles) = self::get_containerfile_list(module) %}
-        {%- for c in containerfiles %}
-          {{ self::print_containerfile(c) }}
-        {%- endfor %}
-      {%- endif %}
-    {%- else %}
+	{%- if let Some(type) = module.module_type %}
+		{%- if type == "containerfile" %}
+			{%- if let Some(containerfiles) = self::get_containerfile_list(module) %}
+				{%- for c in containerfiles %}
+{{ self::print_containerfile(c) }}
+				{%- endfor %}
+			{%- endif %}
+		{%- else %}
 RUN chmod +x /tmp/modules/{{ type }}/{{ type }}.sh && source /tmp/exports.sh && /tmp/modules/{{ type }}/{{ type }}.sh '{{ self::print_module_context(module) }}'
-    {%- endif %}
-  {%- else if let Some(from_file) = module.from_file %}
-    {{ self::get_template_module_from_file(from_file) }}
-  {%- endif %}
+		{%- endif %}
+	{%- else if let Some(from_file) = module.from_file %}
+{{ self::template_module_from_file(from_file) }}
+	{%- endif %}
 {%- endfor %}
 
