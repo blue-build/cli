@@ -119,7 +119,6 @@ fn print_script(script_contents: &ExportsTemplate) -> String {
 
 fn running_gitlab_actions() -> bool {
     trace!(" running_gitlab_actions()");
-
     env::var("GITHUB_ACTIONS").is_ok_and(|e| e == "true")
 }
 

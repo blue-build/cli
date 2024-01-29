@@ -13,8 +13,8 @@
 #### Environment
 - Blue Build Version: {{ bb_version }}
 - Operating system: {{ os_name }} {{ os_version }}
-- Git Commit Hash: {{ git_commit_hash }}
 - Branch/Tag: {{ pkg_branch_tag }}
+- Git Commit Hash: {{ git_commit_hash }}
 
 #### Shell
 - Name: {{ shell_name }} 

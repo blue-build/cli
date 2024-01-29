@@ -16,7 +16,6 @@ use typed_builder::TypedBuilder;
 
 use super::utils::{exec_cmd, home_dir};
 use super::BlueBuildCommand;
-use crate::module_recipe::get_module_from_file;
 
 const UNKNOWN_SHELL: &str = "<unknown shell>";
 const UNKNOWN_VERSION: &str = "<unknown version>";
@@ -33,7 +32,11 @@ pub struct BugReportCommand {
 
 impl BlueBuildCommand for BugReportCommand {
     fn try_run(&mut self) -> anyhow::Result<()> {
-        log::info!("Generating bug report");
+        log::info!(
+            "Generating bug report for hash: {}\n",
+            shadow::BB_COMMIT_HASH
+        );
+        log::info!("Shadow Versioning:\n{}", shadow::VERSION.trim());
 
         BugReportCommand::builder()
             .recipe_path(self.recipe_path.clone())
@@ -49,8 +52,6 @@ impl BugReportCommand {
     ///
     /// This function will return an error if it fails to open the issue in your browser.
     pub fn create_bugreport(&self) -> anyhow::Result<()> {
-        log::debug!("{}\n", shadow::VERSION.trim());
-
         use colorized::{Color, Colors};
 
         let os_info = os_info::get();
@@ -216,6 +217,27 @@ struct Environment {
 }
 
 #[derive(Debug)]
+struct TerminalInfo {
+    name: String,
+    version: String,
+}
+
+fn get_terminal_info() -> TerminalInfo {
+    let terminal = std::env::var("TERM_PROGRAM")
+        .or_else(|_| std::env::var("LC_TERMINAL"))
+        .unwrap_or_else(|_| UNKNOWN_TERMINAL.to_string());
+
+    let version = std::env::var("TERM_PROGRAM_VERSION")
+        .or_else(|_| std::env::var("LC_TERMINAL_VERSION"))
+        .unwrap_or_else(|_| UNKNOWN_VERSION.to_string());
+
+    TerminalInfo {
+        name: terminal,
+        version,
+    }
+}
+
+#[derive(Debug)]
 struct ShellInfo {
     name: String,
     version: String,
@@ -237,27 +259,6 @@ fn get_shell_info() -> ShellInfo {
     ShellInfo {
         version,
         name: current_shell.to_string(),
-    }
-}
-
-#[derive(Debug)]
-struct TerminalInfo {
-    name: String,
-    version: String,
-}
-
-fn get_terminal_info() -> TerminalInfo {
-    let terminal = std::env::var("TERM_PROGRAM")
-        .or_else(|_| std::env::var("LC_TERMINAL"))
-        .unwrap_or_else(|_| UNKNOWN_TERMINAL.to_string());
-
-    let version = std::env::var("TERM_PROGRAM_VERSION")
-        .or_else(|_| std::env::var("LC_TERMINAL_VERSION"))
-        .unwrap_or_else(|_| UNKNOWN_VERSION.to_string());
-
-    TerminalInfo {
-        name: terminal,
-        version,
     }
 }
 
@@ -327,11 +328,8 @@ struct GithubIssueTemplate<'a> {
     terminal_version: Cow<'a, str>,
 }
 
-fn get_pkg_branch_tag() -> &'static str {
-    if !shadow::TAG.is_empty() {
-        return shadow::TAG;
-    }
-    shadow::BRANCH
+fn get_pkg_branch_tag() -> String {
+    format!("{} ({})", shadow::BRANCH, shadow::LAST_TAG)
 }
 
 fn generate_github_issue(
@@ -342,16 +340,11 @@ fn generate_github_issue(
         .as_ref()
         .map_or_else(|| "".to_string(), |recipe| recipe.to_owned());
 
-    println!(
-        "Generating bug report for recipe:\n{:?}",
-        shadow::COMMIT_HASH
-    );
-
     let github_template = GithubIssueTemplate::builder()
-        .bb_version(shadow::VERSION)
+        .bb_version(shadow::PKG_VERSION)
         .build_rust_channel(shadow::BUILD_RUST_CHANNEL)
         .build_time(shadow::BUILD_TIME)
-        .git_commit_hash(shadow::SHORT_COMMIT)
+        .git_commit_hash(shadow::BB_COMMIT_HASH)
         .os_name(format!("{}", environment.os_type))
         .os_version(format!("{}", environment.os_version))
         .pkg_branch_tag(get_pkg_branch_tag())
