@@ -23,11 +23,6 @@ const UNKNOWN_VERSION: &str = "<unknown version>";
 const UNKNOWN_TERMINAL: &str = "<unknown terminal>";
 const GITHUB_CHAR_LIMIT: usize = 8100; // Magic number accepted by Github
 
-#[derive(Debug)]
-pub struct BlueBuildInfo {
-    recipe: Option<String>,
-}
-
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BugReportCommand {
     /// Path to the recipe file
@@ -59,7 +54,7 @@ impl BugReportCommand {
         use colorized::{Color, Colors};
 
         let os_info = os_info::get();
-        let bb_info = self.gather_bluebuild_info();
+        let recipe = self.get_recipe();
 
         let environment = Environment {
             os_type: os_info.os_type(),
@@ -68,7 +63,7 @@ impl BugReportCommand {
             os_version: os_info.version().clone(),
         };
 
-        let issue_body = match generate_github_issue(&environment, &bb_info) {
+        let issue_body = match generate_github_issue(&environment, &recipe) {
             Ok(body) => body,
             Err(e) => {
                 println!(
@@ -124,45 +119,43 @@ impl BugReportCommand {
         Ok(())
     }
 
-    fn gather_bluebuild_info(&self) -> BlueBuildInfo {
+    fn get_recipe(&self) -> Option<String> {
         let recipe_path = if let Some(recipe_path) = self.recipe_path.clone() {
             recipe_path
-        } else if let Ok(recipe) = get_config_file("recipe", "Enter path to recipe file") {
+        } else if let Ok(recipe) = self.get_config_file("recipe", "Enter path to recipe file") {
             recipe
         } else {
             log::trace!("Failed to get recipe");
             String::new()
         };
 
-        BlueBuildInfo {
-            recipe: fs::read_to_string(recipe_path).ok(),
-        }
+        fs::read_to_string(recipe_path).ok()
     }
-}
 
-fn get_config_file(title: &str, message: &str) -> anyhow::Result<String> {
-    use std::path::Path;
+    fn get_config_file(&self, title: &str, message: &str) -> anyhow::Result<String> {
+        use std::path::Path;
 
-    let question = requestty::Question::input(title)
-        .message(message)
-        .auto_complete(|p, _| auto_complete(p))
-        .validate(|p, _| {
-            if (p.as_ref() as &Path).exists() {
-                Ok(())
-            } else if p.is_empty() {
-                Err("No file specified. Please enter a file path".to_string())
-            } else {
-                Err(format!("file `{p}` doesn't exist"))
+        let question = requestty::Question::input(title)
+            .message(message)
+            .auto_complete(|p, _| auto_complete(p))
+            .validate(|p, _| {
+                if (p.as_ref() as &Path).exists() {
+                    Ok(())
+                } else if p.is_empty() {
+                    Err("No file specified. Please enter a file path".to_string())
+                } else {
+                    Err(format!("file `{p}` doesn't exist"))
+                }
+            })
+            .build();
+
+        match requestty::prompt_one(question) {
+            Ok(requestty::Answer::String(path)) => Ok(path),
+            Ok(_) => unreachable!(),
+            Err(e) => {
+                log::trace!("Failed to get file: {}", e);
+                Err(e.into())
             }
-        })
-        .build();
-
-    match requestty::prompt_one(question) {
-        Ok(requestty::Answer::String(path)) => Ok(path),
-        Ok(_) => unreachable!(),
-        Err(e) => {
-            log::trace!("Failed to get file: {}", e);
-            Err(e.into())
         }
     }
 }
@@ -247,6 +240,43 @@ fn get_shell_info() -> ShellInfo {
     }
 }
 
+#[derive(Debug)]
+struct TerminalInfo {
+    name: String,
+    version: String,
+}
+
+fn get_terminal_info() -> TerminalInfo {
+    let terminal = std::env::var("TERM_PROGRAM")
+        .or_else(|_| std::env::var("LC_TERMINAL"))
+        .unwrap_or_else(|_| UNKNOWN_TERMINAL.to_string());
+
+    let version = std::env::var("TERM_PROGRAM_VERSION")
+        .or_else(|_| std::env::var("LC_TERMINAL_VERSION"))
+        .unwrap_or_else(|_| UNKNOWN_VERSION.to_string());
+
+    TerminalInfo {
+        name: terminal,
+        version,
+    }
+}
+
+fn get_shell_version(shell: &str) -> String {
+    let time_limit = Duration::from_millis(500);
+    match shell {
+        "powershell" => exec_cmd(
+            shell,
+            &["(Get-Host | Select Version | Format-Table -HideTableHeaders | Out-String).trim()"],
+            time_limit,
+        ),
+        _ => exec_cmd(shell, &["--version"], time_limit),
+    }
+    .map_or_else(
+        || UNKNOWN_VERSION.to_string(),
+        |output| output.stdout.trim().to_string(),
+    )
+}
+
 // ============================================================================= //
 // Git
 // ============================================================================= //
@@ -306,18 +336,22 @@ fn get_pkg_branch_tag() -> &'static str {
 
 fn generate_github_issue(
     environment: &Environment,
-    user_info: &BlueBuildInfo,
+    recipe: &Option<String>,
 ) -> anyhow::Result<String> {
-    let recipe = match &user_info.recipe {
-        Some(recipe) => recipe,
-        None => "",
-    };
+    let recipe = recipe
+        .as_ref()
+        .map_or_else(|| "".to_string(), |recipe| recipe.to_owned());
+
+    println!(
+        "Generating bug report for recipe:\n{:?}",
+        shadow::COMMIT_HASH
+    );
 
     let github_template = GithubIssueTemplate::builder()
         .bb_version(shadow::VERSION)
         .build_rust_channel(shadow::BUILD_RUST_CHANNEL)
         .build_time(shadow::BUILD_TIME)
-        .git_commit_hash(shadow::COMMIT_HASH)
+        .git_commit_hash(shadow::SHORT_COMMIT)
         .os_name(format!("{}", environment.os_type))
         .os_version(format!("{}", environment.os_version))
         .pkg_branch_tag(get_pkg_branch_tag())
@@ -348,75 +382,34 @@ fn make_github_issue_link(body: &str) -> String {
 
 // ============================================================================= //
 
-#[derive(Debug)]
-struct TerminalInfo {
-    name: String,
-    version: String,
-}
-
-fn get_terminal_info() -> TerminalInfo {
-    let terminal = std::env::var("TERM_PROGRAM")
-        .or_else(|_| std::env::var("LC_TERMINAL"))
-        .unwrap_or_else(|_| UNKNOWN_TERMINAL.to_string());
-
-    let version = std::env::var("TERM_PROGRAM_VERSION")
-        .or_else(|_| std::env::var("LC_TERMINAL_VERSION"))
-        .unwrap_or_else(|_| UNKNOWN_VERSION.to_string());
-
-    TerminalInfo {
-        name: terminal,
-        version,
-    }
-}
-
-fn get_shell_version(shell: &str) -> String {
-    let time_limit = Duration::from_millis(500);
-    match shell {
-        "powershell" => exec_cmd(
-            shell,
-            &["(Get-Host | Select Version | Format-Table -HideTableHeaders | Out-String).trim()"],
-            time_limit,
-        ),
-        _ => exec_cmd(shell, &["--version"], time_limit),
-    }
-    .map_or_else(
-        || UNKNOWN_VERSION.to_string(),
-        |output| output.stdout.trim().to_string(),
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::env;
 
-    // #[test]
-    // fn test_make_github_link() {
-    //     let bb_info = BlueBuildInfo {
-    //         recipe: "This is the recipe file".to_owned(),
-    //         container_file: "This is the container file".to_owned(),
-    //     };
+    #[test]
+    fn test_make_github_link() {
+        let environment = Environment {
+            os_type: os_info::Type::Linux,
+            os_version: os_info::Version::Semantic(1, 2, 3),
+            shell_info: ShellInfo {
+                version: "2.3.4".to_string(),
+                name: "test_shell".to_string(),
+            },
+            terminal_info: TerminalInfo {
+                name: "test_terminal".to_string(),
+                version: "5.6.7".to_string(),
+            },
+        };
 
-    //     let environment = Environment {
-    //         os_type: os_info::Type::Linux,
-    //         os_version: os_info::Version::Semantic(1, 2, 3),
-    //         shell_info: ShellInfo {
-    //             version: "2.3.4".to_string(),
-    //             name: "test_shell".to_string(),
-    //         },
-    //         terminal_info: TerminalInfo {
-    //             name: "test_terminal".to_string(),
-    //             version: "5.6.7".to_string(),
-    //         },
-    //     };
+        let recipe = Some("This is the recipe file".to_owned());
+        let body = generate_github_issue(&environment, &recipe).unwrap();
+        let link = make_github_issue_link(&body);
 
-    //     let body = generate_github_issue(&environment, &bb_info).unwrap();
-    //     let link = make_github_issue_link(&body);
-
-    //     assert!(link.contains(clap::crate_version!()));
-    //     assert!(link.contains("Linux"));
-    //     assert!(link.contains("1.2.3"));
-    //     assert!(link.contains("test_shell"));
-    //     assert!(link.contains("2.3.4"));
-    // }
+        assert!(link.contains(clap::crate_version!()));
+        assert!(link.contains("Linux"));
+        assert!(link.contains("1.2.3"));
+        assert!(link.contains("test_shell"));
+        assert!(link.contains("2.3.4"));
+    }
 }

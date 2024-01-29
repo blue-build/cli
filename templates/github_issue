@@ -11,7 +11,7 @@
 <!--- Only if you have suggestions on a fix for the bug -->
 
 #### Environment
-- Blue Build Version: v{{ bb_version }}
+- Blue Build Version: {{ bb_version }}
 - Operating system: {{ os_name }} {{ os_version }}
 - Git Commit Hash: {{ git_commit_hash }}
 - Branch/Tag: {{ pkg_branch_tag }}

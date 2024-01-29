@@ -21,7 +21,6 @@ shadow_rs::shadow!(shadow);
     author=crate_authors!(),
     version=shadow::PKG_VERSION,
     long_version=shadow::CLAP_LONG_VERSION,
-    arg_required_else_help=true,
 )]
 struct BlueBuildArgs {
     #[command(subcommand)]
@@ -78,7 +77,7 @@ enum CommandArgs {
 
 #[derive(Debug, Clone, Args)]
 pub struct CompletionsCommand {
-    #[clap(value_enum)]
+    #[arg(value_enum)]
     shell: CompletionShell,
 }
 
