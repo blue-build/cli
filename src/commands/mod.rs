@@ -1,9 +1,7 @@
 use log::error;
 
-use clap::{command, crate_authors, Args, CommandFactory, Parser, Subcommand};
-use clap_complete::{generate, Shell as CompletionShell};
+use clap::{command, crate_authors, Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
-use env_logger::WriteStyle;
 
 pub mod bug_report;
 pub mod build;

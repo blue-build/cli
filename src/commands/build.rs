@@ -1,21 +1,16 @@
 #[cfg(feature = "podman-api")]
 mod build_strategy;
 
-use std::{
-    env, fs,
-    path::{Path, PathBuf},
-    process::{self, Command},
-};
+use std::{env, fs, path::PathBuf, process::Command};
 
 use anyhow::{anyhow, bail, Result};
 use clap::Args;
-use log::{debug, error, info, trace, warn};
+use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 
 #[cfg(feature = "podman-api")]
 use podman_api::{
-    api::Image,
-    opts::{ImageBuildOpts, ImageListOpts, ImagePushOpts, RegistryAuth},
+    opts::{ImageBuildOpts, ImagePushOpts, RegistryAuth},
     Podman,
 };
 
@@ -183,8 +178,6 @@ impl BlueBuildCommand for BuildCommand {
 impl BuildCommand {
     #[cfg(feature = "podman-api")]
     async fn build_image_podman_api(&self, client: Podman) -> Result<()> {
-        use podman_api::opts::ImageTagOpts;
-
         trace!("BuildCommand::build_image({client:#?})");
 
         let credentials = self.get_login_creds();

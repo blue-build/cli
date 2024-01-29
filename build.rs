@@ -16,15 +16,17 @@ fn append_write_const(mut file: &File) -> SdResult<()> {
     let hash = Command::new("git")
         .args(["rev-parse", "HEAD"])
         .output()
-        .map(|x| String::from_utf8(x.stdout).ok())
-        .map(|x| x.map(|x| x.trim().to_string()))
+        .map(|x| {
+            String::from_utf8(x.stdout)
+                .ok()
+                .map(|x| x.trim().to_string())
+        })
         .unwrap_or(None);
 
     let short_hash = Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])
         .output()
-        .map(|x| String::from_utf8(x.stdout).ok())
-        .map(|x| x.map(|x| x.trim().to_string()))
+        .map(|x| String::from_utf8(x.stdout).ok().map(|x| x.trim().to_string()))
         .unwrap_or(None);
 
     let hook_const: &str = &format!(

@@ -1,9 +1,8 @@
 use process_control::{ChildExt, Control};
 use std::ffi::OsStr;
 use std::fmt::Debug;
-use std::fs::read_to_string;
 use std::io::{Error, ErrorKind, Result};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 

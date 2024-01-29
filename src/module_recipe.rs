@@ -7,12 +7,10 @@ use std::{
 use askama::Template;
 use chrono::Local;
 use indexmap::IndexMap;
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, trace, warn};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
-
-use crate::commands::template::{get_containerfile_list, print_containerfile};
 
 #[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder, Template)]
 #[template(path = "recipe.j2", escape = "none")]

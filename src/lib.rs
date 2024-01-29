@@ -5,7 +5,6 @@
 )]
 #![doc = include_str!("../README.md")]
 #![forbid(unsafe_code)]
-#![allow(unused_imports)]
 #![allow(clippy::module_name_repetitions)]
 
 shadow_rs::shadow!(shadow);

@@ -1,18 +1,13 @@
 use std::{
-    collections::HashMap,
     env, fs,
     path::{Path, PathBuf},
     process,
 };
 
-use anyhow::{Error, Result};
+use anyhow::Result;
 use askama::Template;
-use chrono::Local;
 use clap::Args;
-use indexmap::IndexMap;
-use log::{debug, error, info, trace, warn};
-use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
+use log::{debug, error, info, trace};
 use typed_builder::TypedBuilder;
 
 use crate::module_recipe::{Module, ModuleExt, Recipe};

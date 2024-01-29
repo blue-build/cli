@@ -1,20 +1,16 @@
-use crate::module_recipe::{Module, Recipe};
+use crate::module_recipe::Recipe;
 use crate::shadow;
 
 use askama::Template;
 use clap::Args;
 use clap_complete::Shell;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
-use requestty::question::{self, completions, Completions};
+use requestty::question::{completions, Completions};
 use std::borrow::Cow;
-use std::fs;
-use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
-use std::process::{Command, Stdio};
 use std::time::Duration;
 use typed_builder::TypedBuilder;
 
-use super::utils::{exec_cmd, home_dir};
+use super::utils::exec_cmd;
 use super::BlueBuildCommand;
 
 const UNKNOWN_SHELL: &str = "<unknown shell>";

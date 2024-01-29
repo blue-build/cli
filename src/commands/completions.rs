@@ -1,9 +1,5 @@
-use log::error;
-
-use clap::{command, crate_authors, Args, CommandFactory, Parser, Subcommand};
+use clap::{Args, CommandFactory};
 use clap_complete::{generate, Shell as CompletionShell};
-use clap_verbosity_flag::{InfoLevel, Verbosity};
-use env_logger::WriteStyle;
 
 use crate::commands::BlueBuildArgs;
 

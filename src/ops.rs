@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use log::{debug, trace};
-use std::{path::Path, process::Command};
+use std::process::Command;
 
 pub const LOCAL_BUILD: &str = "/etc/blue-build";
 pub const ARCHIVE_SUFFIX: &str = "tar.gz";
