@@ -22,6 +22,12 @@ const UNKNOWN_VERSION: &str = "<unknown version>";
 const UNKNOWN_TERMINAL: &str = "<unknown terminal>";
 const GITHUB_CHAR_LIMIT: usize = 8100; // Magic number accepted by Github
 
+#[derive(Default, Debug, Clone, TypedBuilder, Args)]
+pub struct BugReportRecipe {
+    recipe_dir: Option<String>,
+    recipe_path: Option<String>,
+}
+
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BugReportCommand {
     /// Path to the recipe file
@@ -83,6 +89,8 @@ impl BugReportCommand {
                 .color(Colors::BrightWhiteFg)
         );
 
+        std::process::exit(0);
+
         let warning_message = "Please copy the above report and open an issue manually.";
         let question = requestty::Question::confirm("anonymous")
             .message(
@@ -120,7 +128,7 @@ impl BugReportCommand {
         Ok(())
     }
 
-    fn get_recipe(&self) -> Option<String> {
+    fn get_recipe(&self) -> Option<Recipe> {
         let recipe_path = if let Some(recipe_path) = self.recipe_path.clone() {
             recipe_path
         } else if let Ok(recipe) = self.get_config_file("recipe", "Enter path to recipe file") {
@@ -130,7 +138,7 @@ impl BugReportCommand {
             String::new()
         };
 
-        fs::read_to_string(recipe_path).ok()
+        Recipe::parse(&recipe_path).ok()
     }
 
     fn get_config_file(&self, title: &str, message: &str) -> anyhow::Result<String> {
@@ -334,11 +342,12 @@ fn get_pkg_branch_tag() -> String {
 
 fn generate_github_issue(
     environment: &Environment,
-    recipe: &Option<String>,
+    recipe: &Option<Recipe>,
 ) -> anyhow::Result<String> {
-    let recipe = recipe
-        .as_ref()
-        .map_or_else(|| "".to_string(), |recipe| recipe.to_owned());
+    let recipe = recipe.as_ref().map_or_else(
+        || "".to_string(),
+        |recipe| recipe.render().unwrap_or_default(),
+    );
 
     let github_template = GithubIssueTemplate::builder()
         .bb_version(shadow::PKG_VERSION)
@@ -395,8 +404,8 @@ mod tests {
             },
         };
 
-        let recipe = Some("This is the recipe file".to_owned());
-        let body = generate_github_issue(&environment, &recipe).unwrap();
+        let recipe = Recipe::default();
+        let body = generate_github_issue(&environment, &Some(recipe)).unwrap();
         let link = make_github_issue_link(&body);
 
         assert!(link.contains(clap::crate_version!()));

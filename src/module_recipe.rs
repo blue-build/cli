@@ -12,7 +12,11 @@ use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
 
-#[derive(Serialize, Clone, Deserialize, Debug, TypedBuilder)]
+use crate::commands::template::{get_containerfile_list, print_containerfile};
+
+#[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder, Template)]
+#[template(path = "recipe/base", escape = "none")]
+
 pub struct Recipe {
     #[builder(setter(into))]
     pub name: String,
@@ -135,7 +139,7 @@ impl Recipe {
     }
 }
 
-#[derive(Serialize, Clone, Deserialize, Debug, TypedBuilder)]
+#[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
 pub struct ModuleExt {
     #[builder(default, setter(into))]
     pub modules: Vec<Module>,
@@ -155,3 +159,83 @@ pub struct Module {
     #[builder(default, setter(into))]
     pub config: IndexMap<String, Value>,
 }
+
+fn print_files(module: &Module) -> String {
+    let mut files = String::new();
+    for file in module.config.iter() {
+        if let Some(sequence) = file.1.as_sequence() {
+            for seq in sequence {
+                let mapping = seq.as_mapping().unwrap();
+                mapping.iter().for_each(|(k, v)| {
+                    files.push_str(&format!(
+                        "COPY {} => {}\n",
+                        k.as_str().unwrap(),
+                        v.as_str().unwrap()
+                    ));
+                });
+            }
+        }
+    }
+    files
+}
+
+pub fn get_module_from_file(file_name: &str) -> String {
+    trace!("get_module_from_file({file_name})");
+
+    let file_path = PathBuf::from("config").join(file_name);
+    let file = fs::read_to_string(file_path).unwrap_or_else(|e| {
+        error!("Failed to read module {file_name}: {e}");
+        String::default()
+    });
+
+    let serde_err_fn = |e| {
+        error!("Failed to deserialize module {file_name}: {e}");
+        process::exit(1);
+    };
+
+    let template_err_fn = |e| {
+        error!("Failed to render module {file_name}: {e}");
+        process::exit(1);
+    };
+
+    serde_yaml::from_str::<ModuleExt>(file.as_str()).map_or_else(
+        |_| {
+            let module = serde_yaml::from_str::<Module>(file.as_str()).unwrap_or_else(|e| {
+                error!("Failed to deserialize module {file_name}: {e}");
+                process::exit(1);
+            });
+
+            ModuleTemplate::builder()
+                .module_ext(&ModuleExt::builder().modules(vec![module]).build())
+                .build()
+                .render()
+                .unwrap_or_else(template_err_fn)
+        },
+        |module_ext| {
+            ModuleTemplate::builder()
+                .module_ext(&module_ext)
+                .build()
+                .render()
+                .unwrap_or_else(template_err_fn)
+        },
+    )
+}
+// pub fn parse_modules(file_name: &str) -> String {
+//     trace!("parse_modules({file_name})");
+
+//     let file_path = PathBuf::from("config").join(file_name);
+//     let file = fs::read_to_string(file_path).unwrap_or_else(|e| {
+//         error!("Failed to read module {file_name}: {e}");
+//         String::default()
+//     });
+
+//     let template_err_fn = |e| {
+//         error!("Failed to render module {file_name}: {e}");
+//         process::exit(1);
+//     };
+
+//     serde_yaml::from_str::<Module>(file.as_str()).map_or_else(
+//         |_| "".to_owned(),
+//         |module| module.render().unwrap_or_else(template_err_fn),
+//     )
+// }

@@ -122,7 +122,7 @@ fn running_gitlab_actions() -> bool {
     env::var("GITHUB_ACTIONS").is_ok_and(|e| e == "true")
 }
 
-fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
+pub fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
     if module.module_type.as_ref()? == "containerfile" {
         Some(
             module
@@ -138,7 +138,7 @@ fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
     }
 }
 
-fn print_containerfile(containerfile: &str) -> String {
+pub fn print_containerfile(containerfile: &str) -> String {
     trace!("print_containerfile({containerfile})");
     debug!("Loading containerfile contents for {containerfile}");
 
@@ -154,16 +154,15 @@ fn print_containerfile(containerfile: &str) -> String {
     file
 }
 
-fn get_module_from_file(file_name: &str) -> String {
+pub fn get_template_module_from_file(file_name: &str) -> String {
     trace!("get_module_from_file({file_name})");
 
     let io_err_fn = |e| {
         error!("Failed to read module {file_name}: {e}");
-        process::exit(1);
+        String::default()
     };
 
     let file_path = PathBuf::from("config").join(file_name);
-
     let file = fs::read_to_string(file_path).unwrap_or_else(io_err_fn);
 
     let serde_err_fn = |e| {

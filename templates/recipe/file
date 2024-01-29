@@ -1,0 +1,2 @@
+files:
+  {{ self::print_files(module) }}

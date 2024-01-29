@@ -3,13 +3,7 @@ use clap_complete::{generate, Shell as CompletionShell};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use env_logger::WriteStyle;
 
-use blue_build::{
-    self,
-    commands::{bug_report, build, local, template, BlueBuildCommand},
-};
-
-#[cfg(feature = "init")]
-use blue_build::commands::init;
+use blue_build::commands::*;
 
 shadow_rs::shadow!(shadow);
 
