@@ -1,6 +1,7 @@
 use crate::module_recipe::{Module, ModuleExt, Recipe};
 use crate::shadow;
 
+use anyhow::Result;
 use askama::Template;
 use clap::Args;
 use clap_complete::Shell;
@@ -8,9 +9,9 @@ use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use log::{debug, error, trace};
 use requestty::question::{completions, Completions};
 use std::borrow::Cow;
+use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
-use std::{fs, process};
 use typed_builder::TypedBuilder;
 
 use super::utils::exec_cmd;
@@ -380,34 +381,23 @@ fn make_github_issue_link(body: &str) -> String {
     .collect()
 }
 
-fn get_module_from_file(file_name: &str) -> ModuleExt {
+fn get_module_from_file(file_name: &str) -> Result<ModuleExt> {
     let file_path = PathBuf::from("config").join(file_name);
     let file_path = if file_path.is_absolute() {
         file_path
     } else {
-        std::env::current_dir()
-            .unwrap_or_else(|e| {
-                error!("Failed to get current directory: {e}");
-                process::exit(1);
-            })
-            .join(file_path)
+        std::env::current_dir()?.join(file_path)
     };
 
-    let file = fs::read_to_string(file_path.clone()).unwrap_or_else(|e| {
-        error!("Failed to read module {}: {e}", file_path.display());
-        process::exit(1);
-    });
+    let file = fs::read_to_string(file_path.clone())?;
 
     serde_yaml::from_str::<ModuleExt>(file.as_str()).map_or_else(
-        |_| {
-            let module = serde_yaml::from_str::<Module>(file.as_str()).unwrap_or_else(|e| {
-                error!("Failed to deserialize module {file_name}: {e}");
-                process::exit(1);
-            });
+        |_| -> Result<ModuleExt> {
+            let module = serde_yaml::from_str::<Module>(file.as_str())?;
 
-            ModuleExt::builder().modules(vec![module]).build()
+            Ok(ModuleExt::builder().modules(vec![module]).build())
         },
-        |module_ext| module_ext,
+        Ok,
     )
 }
 
@@ -416,7 +406,13 @@ fn get_modules(modules: &[Module]) -> Vec<Module> {
         .iter()
         .flat_map(|module| {
             if let Some(file_name) = &module.from_file {
-                get_modules(&get_module_from_file(file_name).modules)
+                match get_module_from_file(file_name) {
+                    Err(e) => {
+                        error!("Failed to get module from {file_name}: {e}");
+                        vec![]
+                    }
+                    Ok(module_ext) => get_modules(&module_ext.modules),
+                }
             } else {
                 vec![module.clone()]
             }
@@ -438,7 +434,7 @@ fn print_full_recipe(recipe: &Recipe) -> String {
 
     serde_yaml::to_string(&recipe).unwrap_or_else(|e| {
         error!("Failed to serialize recipe: {e}");
-        "Error rendering recipe!!".into()
+        format!("Error rendering recipe!!\n{e}")
     })
 }
 // ============================================================================= //
