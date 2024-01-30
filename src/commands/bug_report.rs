@@ -1,13 +1,16 @@
-use crate::module_recipe::Recipe;
+use crate::module_recipe::{Module, ModuleExt, Recipe};
 use crate::shadow;
 
 use askama::Template;
 use clap::Args;
 use clap_complete::Shell;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
+use log::{debug, error, trace};
 use requestty::question::{completions, Completions};
 use std::borrow::Cow;
+use std::path::PathBuf;
 use std::time::Duration;
+use std::{fs, process};
 use typed_builder::TypedBuilder;
 
 use super::utils::exec_cmd;
@@ -34,16 +37,13 @@ pub struct BugReportCommand {
 
 impl BlueBuildCommand for BugReportCommand {
     fn try_run(&mut self) -> anyhow::Result<()> {
-        log::debug!(
+        debug!(
             "Generating bug report for hash: {}\n",
             shadow::BB_COMMIT_HASH
         );
-        log::debug!("Shadow Versioning:\n{}", shadow::VERSION.trim());
+        debug!("Shadow Versioning:\n{}", shadow::VERSION.trim());
 
-        BugReportCommand::builder()
-            .recipe_path(self.recipe_path.clone())
-            .build()
-            .create_bugreport()
+        self.create_bugreport()
     }
 }
 
@@ -90,7 +90,7 @@ impl BugReportCommand {
                 .color(Colors::BrightWhiteFg)
         );
 
-        let warning_message = "Please copy the above report and open an issue manually.";
+        const WARNING_MESSAGE: &str = "Please copy the above report and open an issue manually.";
         let question = requestty::Question::confirm("anonymous")
             .message(
                 "Forward the pre-filled report above to GitHub in your browser?"
@@ -111,11 +111,11 @@ impl BugReportCommand {
                         return Err(e.into());
                     }
                 } else {
-                    println!("{warning_message}");
+                    println!("{WARNING_MESSAGE}");
                 }
             }
             Err(_) => {
-                println!("Will not open an issue in your browser! {warning_message}");
+                println!("Will not open an issue in your browser! {WARNING_MESSAGE}");
             }
         }
 
@@ -133,7 +133,7 @@ impl BugReportCommand {
         } else if let Ok(recipe) = get_config_file("recipe", "Enter path to recipe file") {
             recipe
         } else {
-            log::trace!("Failed to get recipe");
+            trace!("Failed to get recipe");
             String::new()
         };
 
@@ -162,7 +162,7 @@ fn get_config_file(title: &str, message: &str) -> anyhow::Result<String> {
         Ok(requestty::Answer::String(path)) => Ok(path),
         Ok(_) => unreachable!(),
         Err(e) => {
-            log::trace!("Failed to get file: {}", e);
+            trace!("Failed to get file: {}", e);
             Err(e.into())
         }
     }
@@ -345,7 +345,7 @@ fn generate_github_issue(
 ) -> anyhow::Result<String> {
     let recipe = recipe
         .as_ref()
-        .map_or_else(String::new, |recipe| recipe.render().unwrap_or_default());
+        .map_or_else(|| "No recipe provided".into(), |r| print_full_recipe(r));
 
     let github_template = GithubIssueTemplate::builder()
         .bb_version(shadow::PKG_VERSION)
@@ -380,6 +380,62 @@ fn make_github_issue_link(body: &str) -> String {
     .collect()
 }
 
+fn get_module_from_file(file_name: &str) -> ModuleExt {
+    let file_path = PathBuf::from("config").join(file_name);
+    let file_path = if file_path.is_absolute() {
+        file_path
+    } else {
+        std::env::current_dir()
+            .unwrap_or_else(|e| {
+                error!("Failed to get current directory: {e}");
+                process::exit(1);
+            })
+            .join(file_path)
+    };
+
+    let file = fs::read_to_string(file_path.clone()).unwrap_or_else(|e| {
+        error!("Failed to read module {}: {e}", file_path.display());
+        process::exit(1);
+    });
+
+    serde_yaml::from_str::<ModuleExt>(file.as_str()).map_or_else(
+        |_| {
+            let module = serde_yaml::from_str::<Module>(file.as_str()).unwrap_or_else(|e| {
+                error!("Failed to deserialize module {file_name}: {e}");
+                process::exit(1);
+            });
+
+            ModuleExt::builder().modules(vec![module]).build()
+        },
+        |module_ext| module_ext,
+    )
+}
+
+fn print_full_recipe(recipe: &Recipe) -> String {
+    let mut module_list: Vec<Module> = vec![];
+
+    recipe.modules_ext.modules.iter().for_each(|module| {
+        if let Some(file_name) = &module.from_file {
+            module_list.extend(get_module_from_file(file_name).modules);
+        } else {
+            module_list.push(module.clone());
+        }
+    });
+
+    let recipe = Recipe::builder()
+        .name(recipe.name.as_ref())
+        .description(recipe.description.as_ref())
+        .base_image(recipe.base_image.as_ref())
+        .image_version(recipe.image_version.as_ref())
+        .extra(recipe.extra.clone())
+        .modules_ext(ModuleExt::builder().modules(module_list).build())
+        .build();
+
+    serde_yaml::to_string(&recipe).unwrap_or_else(|e| {
+        error!("Failed to serialize recipe: {e}");
+        "Error rendering recipe!!".into()
+    })
+}
 // ============================================================================= //
 
 #[cfg(test)]

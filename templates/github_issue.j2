@@ -26,7 +26,7 @@
 - Rust channel: {{ rust_channel }} {{ build_rust_channel }}
 - Build Time: {{ build_time }}
 
-{%- if recipe != "" %}
+{%- if !recipe.is_empty() %}
 
 #### Recipe:
 ```yml

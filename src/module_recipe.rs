@@ -1,10 +1,5 @@
-use std::{
-    env, fs,
-    path::{Path, PathBuf},
-    process, vec,
-};
+use std::{borrow::Cow, env, fs, path::Path, process};
 
-use askama::Template;
 use chrono::Local;
 use indexmap::IndexMap;
 use log::{debug, error, trace, warn};
@@ -12,26 +7,25 @@ use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
 
-#[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder, Template)]
-#[template(path = "recipe.j2", escape = "none", whitespace = "suppress")]
-pub struct Recipe {
+#[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
+pub struct Recipe<'a> {
     #[builder(setter(into))]
-    pub name: String,
+    pub name: Cow<'a, str>,
 
     #[builder(setter(into))]
-    pub description: String,
+    pub description: Cow<'a, str>,
 
     #[serde(alias = "base-image")]
     #[builder(setter(into))]
-    pub base_image: String,
+    pub base_image: Cow<'a, str>,
 
     #[serde(alias = "image-version")]
     #[builder(setter(into))]
-    pub image_version: String,
+    pub image_version: Cow<'a, str>,
 
     #[serde(alias = "blue-build-tag")]
     #[builder(default, setter(into, strip_option))]
-    pub blue_build_tag: Option<String>,
+    pub blue_build_tag: Option<Cow<'a, str>>,
 
     #[serde(flatten)]
     pub modules_ext: ModuleExt,
@@ -41,7 +35,7 @@ pub struct Recipe {
     pub extra: IndexMap<String, Value>,
 }
 
-impl Recipe {
+impl<'a> Recipe<'a> {
     #[must_use]
     pub fn generate_tags(&self) -> Vec<String> {
         trace!("Recipe::generate_tags()");
@@ -100,7 +94,7 @@ impl Recipe {
                 debug!("Running in a PR");
                 tags.push(format!("pr-{github_event_number}-{image_version}"));
             } else if github_ref_name == "live" {
-                tags.push(image_version.to_owned());
+                tags.push(image_version.to_string());
                 tags.push(format!("{image_version}-{timestamp}"));
                 tags.push("latest".to_string());
             } else {
@@ -117,8 +111,6 @@ impl Recipe {
     }
 
     /// # Parse a recipe file
-    /// #
-    /// # Panics
     /// #
     /// # Errors
     pub fn parse<P: AsRef<Path>>(path: &P) -> anyhow::Result<Self> {
@@ -165,41 +157,4 @@ pub struct Module {
     #[serde(flatten)]
     #[builder(default, setter(into))]
     pub config: IndexMap<String, Value>,
-}
-
-fn get_module_from_file(file_name: &str) -> ModuleExt {
-    let file_path = PathBuf::from("config").join(file_name);
-    let file_path = if file_path.is_absolute() {
-        file_path
-    } else {
-        std::env::current_dir().unwrap().join(file_path)
-    };
-
-    let file = fs::read_to_string(file_path.clone()).unwrap_or_else(|e| {
-        error!("Failed to read module {}: {e}", file_path.display());
-        String::default()
-    });
-
-    serde_yaml::from_str::<ModuleExt>(file.as_str()).map_or_else(
-        |_| {
-            let module = serde_yaml::from_str::<Module>(file.as_str()).unwrap_or_else(|e| {
-                error!("Failed to deserialize module {file_name}: {e}");
-                process::exit(1);
-            });
-
-            ModuleExt::builder().modules(vec![module]).build()
-        },
-        |module_ext| module_ext,
-    )
-}
-
-// Any filter defined in the module `filters` is accessible in your template.
-mod filters {
-    /// Strip leading and trailing whitespace
-    pub fn trim_end<T: std::fmt::Display>(s: T) -> ::askama::Result<String> {
-        let s = s.to_string();
-        println!("Trimming: {s}");
-        println!("Trimmed: {}", s.trim_end());
-        Ok(s.trim_end().to_owned())
-    }
 }

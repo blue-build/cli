@@ -40,6 +40,7 @@ typed-builder = "0.18.1"
 urlencoding = "2.1.3"
 users = "0.11.0"
 which = "6"
+format_serde_error = "0.3.0"
 
 [features]
 default = []

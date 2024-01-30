@@ -17,7 +17,7 @@ use super::BlueBuildCommand;
 #[derive(Debug, Clone, Template, TypedBuilder)]
 #[template(path = "Containerfile")]
 pub struct ContainerFileTemplate<'a> {
-    recipe: &'a Recipe,
+    recipe: &'a Recipe<'a>,
     recipe_path: &'a Path,
 
     module_template: ModuleTemplate<'a>,
