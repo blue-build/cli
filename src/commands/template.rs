@@ -158,7 +158,7 @@ pub fn template_module_from_file(file_name: &str) -> String {
     let file_path = PathBuf::from("config").join(file_name);
     let file = fs::read_to_string(file_path).unwrap_or_else(|e| {
         error!("Failed to read module {file_name}: {e}");
-        String::default()
+        process::exit(1);
     });
 
     let template_err_fn = |e| {

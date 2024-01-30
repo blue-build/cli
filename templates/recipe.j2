@@ -1,12 +1,18 @@
-{%- for module in modules_ext.modules %}
-  {%- if let Some(from_file) = module.from_file %}
-{{ ["from_file",from_file]|join(": ") }}
-    {%- set from_file_module = self::get_module_from_file(from_file) %}
-    {%- for item in from_file_module.modules %}
-{{ item|yaml|indent(2) }}
-    {%- endfor %}
-  {%- else %}
-{{ module|yaml|indent(2) }}
-  {%- endif %}
-{%- endfor %}
+{%- macro fmt_module(prefix, module) -%}
+  {{ "{}{}"|format(prefix, module|yaml|safe|trim_end|indent(2)) }}
+{%- endmacro -%}
 
+{%- macro from_file(path) -%}
+  {% set from_file_module = self::get_module_from_file(path) %}
+  {% for module in from_file_module.modules -%}
+    {% call fmt_module("- ", module) %}
+  {% endfor %}
+{%- endmacro -%}
+
+{%- for module in modules_ext.modules %}
+  {% if let Some(from_file_path) = module.from_file +%}
+    {% call from_file(from_file_path) %}
+  {%- else -%}
+    {% call fmt_module("\n\n- ", module) %}
+  {%- endif -%}
+{%- endfor %}

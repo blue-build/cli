@@ -15,16 +15,10 @@ pub fn home_dir() -> Option<PathBuf> {
 // CommandOutput
 // ================================================================================================= //
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandOutput {
     pub stdout: String,
     pub stderr: String,
-}
-
-impl PartialEq for CommandOutput {
-    fn eq(&self, other: &Self) -> bool {
-        self.stdout == other.stdout && self.stderr == other.stderr
-    }
 }
 
 /// # Attempt to resolve `binary_name` from and creates a new `Command` pointing at it

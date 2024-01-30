@@ -13,7 +13,7 @@ pub struct CompletionsCommand {
 
 impl BlueBuildCommand for CompletionsCommand {
     fn try_run(&mut self) -> anyhow::Result<()> {
-        log::debug!("Generating completions for {shell}", shell = self.shell);
+        log::debug!("Generating completions for {}", self.shell);
 
         generate(
             self.shell,

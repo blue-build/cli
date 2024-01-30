@@ -1,7 +1,7 @@
 use std::{
     env, fs,
     path::{Path, PathBuf},
-    process,
+    process, vec,
 };
 
 use askama::Template;
@@ -13,8 +13,7 @@ use serde_yaml::Value;
 use typed_builder::TypedBuilder;
 
 #[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder, Template)]
-#[template(path = "recipe.j2", escape = "none")]
-
+#[template(path = "recipe.j2", escape = "none", whitespace = "suppress")]
 pub struct Recipe {
     #[builder(setter(into))]
     pub name: String,
@@ -45,8 +44,8 @@ pub struct Recipe {
 impl Recipe {
     #[must_use]
     pub fn generate_tags(&self) -> Vec<String> {
-        debug!("Recipe::generate_tags()");
-        debug!("Generating image tags for {}", &self.name);
+        trace!("Recipe::generate_tags()");
+        trace!("Generating image tags for {}", &self.name);
 
         let mut tags: Vec<String> = Vec::new();
         let image_version = &self.image_version;
@@ -126,10 +125,10 @@ impl Recipe {
         let file_path = if Path::new(path.as_ref()).is_absolute() {
             path.as_ref().to_path_buf()
         } else {
-            std::env::current_dir().unwrap().join(path.as_ref())
+            std::env::current_dir()?.join(path.as_ref())
         };
 
-        let recipe_path = fs::canonicalize(file_path).unwrap();
+        let recipe_path = fs::canonicalize(file_path)?;
         let recipe_path_string = recipe_path.display().to_string();
         debug!("Recipe::parse_recipe({recipe_path_string})");
 
@@ -190,9 +189,17 @@ fn get_module_from_file(file_name: &str) -> ModuleExt {
 
             ModuleExt::builder().modules(vec![module]).build()
         },
-        |module_ext| {
-            debug!("Successfully deserialized module {module_ext:?}",);
-            module_ext
-        },
+        |module_ext| module_ext,
     )
+}
+
+// Any filter defined in the module `filters` is accessible in your template.
+mod filters {
+    /// Strip leading and trailing whitespace
+    pub fn trim_end<T: std::fmt::Display>(s: T) -> ::askama::Result<String> {
+        let s = s.to_string();
+        println!("Trimming: {s}");
+        println!("Trimmed: {}", s.trim_end());
+        Ok(s.trim_end().to_owned())
+    }
 }
