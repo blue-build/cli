@@ -345,7 +345,7 @@ fn generate_github_issue(
 ) -> anyhow::Result<String> {
     let recipe = recipe
         .as_ref()
-        .map_or_else(|| "No recipe provided".into(), |r| print_full_recipe(r));
+        .map_or_else(Default::default, |r| print_full_recipe(r));
 
     let github_template = GithubIssueTemplate::builder()
         .bb_version(shadow::PKG_VERSION)
@@ -411,16 +411,21 @@ fn get_module_from_file(file_name: &str) -> ModuleExt {
     )
 }
 
-fn print_full_recipe(recipe: &Recipe) -> String {
-    let mut module_list: Vec<Module> = vec![];
+fn get_modules(modules: &[Module]) -> Vec<Module> {
+    modules
+        .iter()
+        .flat_map(|module| {
+            if let Some(file_name) = &module.from_file {
+                get_modules(&get_module_from_file(file_name).modules)
+            } else {
+                vec![module.clone()]
+            }
+        })
+        .collect()
+}
 
-    recipe.modules_ext.modules.iter().for_each(|module| {
-        if let Some(file_name) = &module.from_file {
-            module_list.extend(get_module_from_file(file_name).modules);
-        } else {
-            module_list.push(module.clone());
-        }
-    });
+fn print_full_recipe(recipe: &Recipe) -> String {
+    let module_list: Vec<Module> = get_modules(&recipe.modules_ext.modules);
 
     let recipe = Recipe::builder()
         .name(recipe.name.as_ref())
