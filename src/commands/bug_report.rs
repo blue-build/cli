@@ -273,11 +273,10 @@ fn get_shell_info() -> ShellInfo {
 fn get_shell_version(shell: &str) -> String {
     let time_limit = Duration::from_millis(500);
     match shell {
-        "powershell" => exec_cmd(
-            shell,
-            &["(Get-Host | Select Version | Format-Table -HideTableHeaders | Out-String).trim()"],
-            time_limit,
-        ),
+        "powershecll" => {
+            error!("Powershell is not supported.");
+            None
+        }
         _ => exec_cmd(shell, &["--version"], time_limit),
     }
     .map_or_else(
