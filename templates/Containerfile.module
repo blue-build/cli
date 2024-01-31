@@ -10,7 +10,7 @@
 RUN chmod +x /tmp/modules/{{ type }}/{{ type }}.sh && source /tmp/exports.sh && /tmp/modules/{{ type }}/{{ type }}.sh '{{ self::print_module_context(module) }}'
 		{%- endif %}
 	{%- else if let Some(from_file) = module.from_file %}
-{{ self::get_module_from_file(from_file) }}
+{{ self::template_module_from_file(from_file) }}
 	{%- endif %}
 {%- endfor %}
 

@@ -1,32 +1,31 @@
-use std::{env, fs, path::PathBuf, process};
+use std::{borrow::Cow, env, fs, path::Path, process};
 
-use askama::Template;
 use chrono::Local;
 use indexmap::IndexMap;
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, trace, warn};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
 
-#[derive(Serialize, Clone, Deserialize, Debug, TypedBuilder)]
-pub struct Recipe {
+#[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
+pub struct Recipe<'a> {
     #[builder(setter(into))]
-    pub name: String,
+    pub name: Cow<'a, str>,
 
     #[builder(setter(into))]
-    pub description: String,
+    pub description: Cow<'a, str>,
 
     #[serde(alias = "base-image")]
     #[builder(setter(into))]
-    pub base_image: String,
+    pub base_image: Cow<'a, str>,
 
     #[serde(alias = "image-version")]
     #[builder(setter(into))]
-    pub image_version: String,
+    pub image_version: Cow<'a, str>,
 
     #[serde(alias = "blue-build-tag")]
     #[builder(default, setter(into, strip_option))]
-    pub blue_build_tag: Option<String>,
+    pub blue_build_tag: Option<Cow<'a, str>>,
 
     #[serde(flatten)]
     pub modules_ext: ModuleExt,
@@ -36,11 +35,11 @@ pub struct Recipe {
     pub extra: IndexMap<String, Value>,
 }
 
-impl Recipe {
+impl<'a> Recipe<'a> {
     #[must_use]
     pub fn generate_tags(&self) -> Vec<String> {
         trace!("Recipe::generate_tags()");
-        debug!("Generating image tags for {}", &self.name);
+        trace!("Generating image tags for {}", &self.name);
 
         let mut tags: Vec<String> = Vec::new();
         let image_version = &self.image_version;
@@ -95,7 +94,7 @@ impl Recipe {
                 debug!("Running in a PR");
                 tags.push(format!("pr-{github_event_number}-{image_version}"));
             } else if github_ref_name == "live" {
-                tags.push(image_version.to_owned());
+                tags.push(image_version.to_string());
                 tags.push(format!("{image_version}-{timestamp}"));
                 tags.push("latest".to_string());
             } else {
@@ -106,13 +105,40 @@ impl Recipe {
             warn!("Running locally");
             tags.push(format!("{image_version}-local"));
         }
-        info!("Finished generating tags!");
+        debug!("Finished generating tags!");
         debug!("Tags: {tags:#?}");
         tags
     }
+
+    /// # Parse a recipe file
+    /// #
+    /// # Errors
+    pub fn parse<P: AsRef<Path>>(path: &P) -> anyhow::Result<Self> {
+        let file_path = if Path::new(path.as_ref()).is_absolute() {
+            path.as_ref().to_path_buf()
+        } else {
+            std::env::current_dir()?.join(path.as_ref())
+        };
+
+        let recipe_path = fs::canonicalize(file_path)?;
+        let recipe_path_string = recipe_path.display().to_string();
+        debug!("Recipe::parse_recipe({recipe_path_string})");
+
+        let file = fs::read_to_string(recipe_path).unwrap_or_else(|e| {
+            error!("Failed to read file {recipe_path_string}: {e}");
+            process::exit(1);
+        });
+
+        debug!("Recipe contents: {file}");
+
+        serde_yaml::from_str::<Recipe>(file.as_str()).map_err(|e| {
+            error!("Failed to parse recipe {recipe_path_string}: {e}");
+            process::exit(1);
+        })
+    }
 }
 
-#[derive(Serialize, Clone, Deserialize, Debug, TypedBuilder)]
+#[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
 pub struct ModuleExt {
     #[builder(default, setter(into))]
     pub modules: Vec<Module>,
@@ -120,19 +146,15 @@ pub struct ModuleExt {
 
 #[derive(Serialize, Deserialize, Debug, Clone, TypedBuilder)]
 pub struct Module {
-    #[serde(rename = "type")]
     #[builder(default, setter(into, strip_option))]
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub module_type: Option<String>,
 
-    #[serde(rename = "from-file")]
     #[builder(default, setter(into, strip_option))]
+    #[serde(rename = "from-file", skip_serializing_if = "Option::is_none")]
     pub from_file: Option<String>,
 
     #[serde(flatten)]
     #[builder(default, setter(into))]
     pub config: IndexMap<String, Value>,
 }
-
-// ======================================================== //
-// ========================= Helpers ====================== //
-// ======================================================== //

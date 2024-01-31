@@ -1,18 +1,13 @@
 use std::{
-    collections::HashMap,
     env, fs,
     path::{Path, PathBuf},
     process,
 };
 
-use anyhow::{Error, Result};
+use anyhow::Result;
 use askama::Template;
-use chrono::Local;
 use clap::Args;
-use indexmap::IndexMap;
-use log::{debug, error, info, trace, warn};
-use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
+use log::{debug, error, info, trace};
 use typed_builder::TypedBuilder;
 
 use crate::module_recipe::{Module, ModuleExt, Recipe};
@@ -22,7 +17,7 @@ use super::BlueBuildCommand;
 #[derive(Debug, Clone, Template, TypedBuilder)]
 #[template(path = "Containerfile")]
 pub struct ContainerFileTemplate<'a> {
-    recipe: &'a Recipe,
+    recipe: &'a Recipe<'a>,
     recipe_path: &'a Path,
 
     module_template: ModuleTemplate<'a>,
@@ -67,7 +62,7 @@ impl TemplateCommand {
         trace!("TemplateCommand::template_file()");
 
         debug!("Deserializing recipe");
-        let recipe_de = serde_yaml::from_str::<Recipe>(fs::read_to_string(&self.recipe)?.as_str())?;
+        let recipe_de = Recipe::parse(&self.recipe)?;
         trace!("recipe_de: {recipe_de:#?}");
 
         let template = ContainerFileTemplate::builder()
@@ -119,11 +114,11 @@ fn print_script(script_contents: &ExportsTemplate) -> String {
 
 fn running_gitlab_actions() -> bool {
     trace!(" running_gitlab_actions()");
-
     env::var("GITHUB_ACTIONS").is_ok_and(|e| e == "true")
 }
 
-fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
+#[must_use]
+pub fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
     if module.module_type.as_ref()? == "containerfile" {
         Some(
             module
@@ -139,8 +134,9 @@ fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
     }
 }
 
-fn print_containerfile(containerfile: &str) -> String {
-    trace!("print_containerfile({containerfile})");
+#[must_use]
+pub fn print_containerfile(containerfile: &str) -> String {
+    debug!("print_containerfile({containerfile})");
     debug!("Loading containerfile contents for {containerfile}");
 
     let path = format!("config/containerfiles/{containerfile}/Containerfile");
@@ -150,27 +146,20 @@ fn print_containerfile(containerfile: &str) -> String {
         process::exit(1);
     });
 
-    trace!("Containerfile contents {path}:\n{file}");
+    debug!("Containerfile contents {path}:\n{file}");
 
     file
 }
 
-fn get_module_from_file(file_name: &str) -> String {
-    trace!("get_module_from_file({file_name})");
-
-    let io_err_fn = |e| {
-        error!("Failed to read module {file_name}: {e}");
-        process::exit(1);
-    };
+#[must_use]
+pub fn template_module_from_file(file_name: &str) -> String {
+    debug!("get_module_from_file({file_name})");
 
     let file_path = PathBuf::from("config").join(file_name);
-
-    let file = fs::read_to_string(file_path).unwrap_or_else(io_err_fn);
-
-    let serde_err_fn = |e| {
-        error!("Failed to deserialize module {file_name}: {e}");
+    let file = fs::read_to_string(file_path).unwrap_or_else(|e| {
+        error!("Failed to read module {file_name}: {e}");
         process::exit(1);
-    };
+    });
 
     let template_err_fn = |e| {
         error!("Failed to render module {file_name}: {e}");
@@ -179,7 +168,10 @@ fn get_module_from_file(file_name: &str) -> String {
 
     serde_yaml::from_str::<ModuleExt>(file.as_str()).map_or_else(
         |_| {
-            let module = serde_yaml::from_str::<Module>(file.as_str()).unwrap_or_else(serde_err_fn);
+            let module = serde_yaml::from_str::<Module>(file.as_str()).unwrap_or_else(|e| {
+                error!("Failed to deserialize module {file_name}: {e}");
+                process::exit(1);
+            });
 
             ModuleTemplate::builder()
                 .module_ext(&ModuleExt::builder().modules(vec![module]).build())

@@ -1,12 +1,12 @@
 use std::{
     fs,
     path::{Path, PathBuf},
-    process::{self, Command},
+    process::Command,
 };
 
 use anyhow::{bail, Result};
-use clap::{Args, Subcommand};
-use log::{debug, error, info, trace};
+use clap::Args;
+use log::{debug, info, trace};
 use typed_builder::TypedBuilder;
 use users::{Users, UsersCache};
 

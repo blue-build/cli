@@ -1,2 +1,6 @@
 [language-server.rust-analyzer.config]
 cargo.features = ["nightly"]
+
+[language-server.rust-analyzer.config.check]
+command = "clippy"
+args = ["--no-deps"]

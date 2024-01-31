@@ -65,6 +65,7 @@ common:
 	COPY --keep-ts Cargo.* /app
 	COPY --keep-ts *.md /app
 	COPY --keep-ts LICENSE /app
+	COPY --keep-ts build.rs /app
 
 	DO cargo+INIT
 
