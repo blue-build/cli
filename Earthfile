@@ -141,7 +141,7 @@ integration-test-rebase:
 integration-test-upgrade:
 	ARG NIGHTLY=false
 	FROM +integration-test-base --NIGHTLY=$NIGHTLY
-	RUN mkdir -p /etc/blue-build && touch /etc/blue-build/jp-desktop.tar.gz
+	RUN mkdir -p /etc/bluebuild && touch /etc/bluebuild/jp-desktop.tar.gz
 
 	RUN --privileged bb -vv upgrade config/recipe-jp-desktop.yml
 
