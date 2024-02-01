@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use log::{debug, trace};
 use std::process::Command;
 
-pub const LOCAL_BUILD: &str = "/etc/blue-build";
+pub const LOCAL_BUILD: &str = "/etc/bluebuild";
 pub const ARCHIVE_SUFFIX: &str = "tar.gz";
 
 pub fn check_command_exists(command: &str) -> Result<()> {
