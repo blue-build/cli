@@ -590,7 +590,8 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
             }
         }
         (_, _, _, _, _, _, Ok(github_event_name), Ok(github_ref_name), Ok(_))
-            if github_event_name != "pull_request" && github_ref_name == "live" =>
+            if github_event_name != "pull_request"
+                && (github_ref_name == "live" || github_ref_name == "main") =>
         {
             trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}");
 
@@ -663,8 +664,9 @@ fn check_cosign_files() -> Result<()> {
         env::var("GITHUB_REF_NAME").ok(),
         env::var("COSIGN_PRIVATE_KEY").ok(),
     ) {
-        (Some(github_event_name), Some(github_ref), Some(_))
-            if github_event_name != "pull_request" && github_ref == "live" =>
+        (Some(github_event_name), Some(github_ref_name), Some(_))
+            if github_event_name != "pull_request"
+                && (github_ref_name == "live" || github_ref_name == "main") =>
         {
             env::set_var("COSIGN_PASSWORD", "");
             env::set_var("COSIGN_YES", "true");

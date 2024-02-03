@@ -1,11 +1,21 @@
-use std::{borrow::Cow, env, fs, path::Path, process};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    env, fs,
+    path::Path,
+    process::{self, Command},
+};
 
+use anyhow::Result;
 use chrono::Local;
 use indexmap::IndexMap;
-use log::{debug, error, trace, warn};
+use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
+
+use crate::ops::check_command_exists;
 
 #[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
 pub struct Recipe<'a> {
@@ -36,13 +46,12 @@ pub struct Recipe<'a> {
 }
 
 impl<'a> Recipe<'a> {
-    #[must_use]
     pub fn generate_tags(&self) -> Vec<String> {
         trace!("Recipe::generate_tags()");
         trace!("Generating image tags for {}", &self.name);
 
         let mut tags: Vec<String> = Vec::new();
-        let image_version = &self.image_version;
+        let image_version = self.get_os_version();
         let timestamp = Local::now().format("%Y%m%d").to_string();
 
         if let (Ok(commit_branch), Ok(default_branch), Ok(commit_sha), Ok(pipeline_source)) = (
@@ -65,11 +74,12 @@ impl<'a> Recipe<'a> {
             if default_branch == commit_branch {
                 debug!("Running on the default branch");
                 tags.push(image_version.to_string());
-                tags.push(format!("{image_version}-{timestamp}"));
+                tags.push(format!("{timestamp}-{image_version}"));
+                tags.push("latest".into());
                 tags.push(timestamp);
             } else {
                 debug!("Running on branch {commit_branch}");
-                tags.push(format!("{commit_branch}-{image_version}"));
+                tags.push(format!("br-{commit_branch}-{image_version}"));
             }
 
             tags.push(format!("{commit_sha}-{image_version}"));
@@ -93,27 +103,29 @@ impl<'a> Recipe<'a> {
             if github_event_name == "pull_request" {
                 debug!("Running in a PR");
                 tags.push(format!("pr-{github_event_number}-{image_version}"));
-            } else if github_ref_name == "live" {
+            } else if github_ref_name == "live" || github_ref_name == "main" {
                 tags.push(image_version.to_string());
-                tags.push(format!("{image_version}-{timestamp}"));
-                tags.push("latest".to_string());
+                tags.push(format!("{timestamp}-{image_version}"));
+                tags.push("latest".into());
+                tags.push(timestamp);
             } else {
                 tags.push(format!("br-{github_ref_name}-{image_version}"));
             }
             tags.push(format!("{short_sha}-{image_version}"));
         } else {
             warn!("Running locally");
-            tags.push(format!("{image_version}-local"));
+            tags.push(format!("local-{image_version}"));
         }
         debug!("Finished generating tags!");
         debug!("Tags: {tags:#?}");
+
         tags
     }
 
     /// # Parse a recipe file
     /// #
     /// # Errors
-    pub fn parse<P: AsRef<Path>>(path: &P) -> anyhow::Result<Self> {
+    pub fn parse<P: AsRef<Path>>(path: &P) -> Result<Self> {
         let file_path = if Path::new(path.as_ref()).is_absolute() {
             path.as_ref().to_path_buf()
         } else {
@@ -134,6 +146,54 @@ impl<'a> Recipe<'a> {
         serde_yaml::from_str::<Recipe>(file.as_str()).map_err(|e| {
             error!("Failed to parse recipe {recipe_path_string}: {e}");
             process::exit(1);
+        })
+    }
+
+    fn get_os_version(&self) -> String {
+        trace!("Recipe::get_os_version()");
+
+        if check_command_exists("skopeo").is_err() {
+            warn!("The 'skopeo' command doesn't exist, falling back to version defined in recipe");
+            return self.image_version.to_string();
+        }
+
+        let base_image = self.base_image.as_ref();
+        let image_version = self.image_version.as_ref();
+
+        info!("Retrieving information from {base_image}:{image_version}, this will take a bit");
+
+        let output = match Command::new("skopeo")
+            .arg("inspect")
+            .arg(format!("docker://{base_image}:{image_version}"))
+            .output()
+        {
+            Err(_) => {
+                warn!(
+                    "Issue running the 'skopeo' command, falling back to version defined in recipe"
+                );
+                return self.image_version.to_string();
+            }
+            Ok(output) => output,
+        };
+
+        if !output.status.success() {
+            warn!("Failed to get image information for {base_image}:{image_version}, falling back to version defined in recipe");
+            return self.image_version.to_string();
+        }
+
+        let inspection: ImageInspection = match serde_json::from_str(
+            String::from_utf8_lossy(&output.stdout).as_ref(),
+        ) {
+            Err(_) => {
+                warn!("Issue deserializing 'skopeo' output, falling back to version defined in recipe");
+                return self.image_version.to_string();
+            }
+            Ok(inspection) => inspection,
+        };
+
+        inspection.get_version().unwrap_or_else(|| {
+            warn!("Version label does not exist on image, using version in recipe");
+            image_version.to_string()
         })
     }
 }
@@ -157,4 +217,24 @@ pub struct Module {
     #[serde(flatten)]
     #[builder(default, setter(into))]
     pub config: IndexMap<String, Value>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct ImageInspection {
+    #[serde(alias = "Labels")]
+    labels: HashMap<String, JsonValue>,
+}
+
+impl ImageInspection {
+    pub fn get_version(&self) -> Option<String> {
+        Some(
+            self.labels
+                .get("org.opencontainers.image.version")?
+                .as_str()
+                .map(|v| v.to_string())?
+                .split('.')
+                .take(1)
+                .collect(),
+        )
+    }
 }
