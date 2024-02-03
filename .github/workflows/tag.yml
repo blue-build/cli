@@ -28,17 +28,13 @@ jobs:
       # before switching to the latest version
       - uses: earthly/actions-setup@v1
         with:
-          version: v0.7.23
+          version: v0.8.3
 
       - name: Earthly login
         run: |
           earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
           earthly sat s blue-build
-
-      - uses: earthly/actions-setup@v1
-        with:
-          version: v0.8.2
 
       - name: Set up Python
         uses: actions/setup-python@v5
