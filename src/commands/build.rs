@@ -190,7 +190,7 @@ impl BuildCommand {
         trace!("recipe: {recipe:#?}");
 
         // Get values for image
-        let tags = recipe.generate_tags()?;
+        let tags = recipe.generate_tags();
         let image_name = self.generate_full_image_name(&recipe)?;
         let first_image_name = if self.archive.is_some() {
             image_name.to_string()
@@ -271,7 +271,7 @@ impl BuildCommand {
         trace!("BuildCommand::build_image()");
         let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(&self.recipe)?.as_str())?;
 
-        let tags = recipe.generate_tags()?;
+        let tags = recipe.generate_tags();
 
         let image_name = self.generate_full_image_name(&recipe)?;
 

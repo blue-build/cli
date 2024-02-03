@@ -6,7 +6,7 @@ use std::{
     process::{self, Command},
 };
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use chrono::Local;
 use indexmap::IndexMap;
 use log::{debug, error, info, trace, warn};
@@ -46,12 +46,12 @@ pub struct Recipe<'a> {
 }
 
 impl<'a> Recipe<'a> {
-    pub fn generate_tags(&self) -> Result<Vec<String>> {
+    pub fn generate_tags(&self) -> Vec<String> {
         trace!("Recipe::generate_tags()");
         trace!("Generating image tags for {}", &self.name);
 
         let mut tags: Vec<String> = Vec::new();
-        let image_version = self.get_os_version()?;
+        let image_version = self.get_os_version();
         let timestamp = Local::now().format("%Y%m%d").to_string();
 
         if let (Ok(commit_branch), Ok(default_branch), Ok(commit_sha), Ok(pipeline_source)) = (
@@ -119,7 +119,7 @@ impl<'a> Recipe<'a> {
         debug!("Finished generating tags!");
         debug!("Tags: {tags:#?}");
 
-        Ok(tags)
+        tags
     }
 
     /// # Parse a recipe file
@@ -149,31 +149,52 @@ impl<'a> Recipe<'a> {
         })
     }
 
-    fn get_os_version(&self) -> Result<String> {
+    fn get_os_version(&self) -> String {
         trace!("Recipe::get_os_version()");
-        check_command_exists("skopeo")?;
+
+        if check_command_exists("skopeo").is_err() {
+            warn!("The 'skopeo' command doesn't exist, falling back to version defined in recipe");
+            return self.image_version.to_string();
+        }
 
         let base_image = self.base_image.as_ref();
         let image_version = self.image_version.as_ref();
 
         info!("Retrieving information from {base_image}:{image_version}, this will take a bit");
 
-        let output = Command::new("skopeo")
+        let output = match Command::new("skopeo")
             .arg("inspect")
             .arg(format!("docker://{base_image}:{image_version}"))
-            .output()?;
+            .output()
+        {
+            Err(_) => {
+                warn!(
+                    "Issue running the 'skopeo' command, falling back to version defined in recipe"
+                );
+                return self.image_version.to_string();
+            }
+            Ok(output) => output,
+        };
 
         if !output.status.success() {
-            bail!("Failed to get image information for {base_image}:{image_version}");
+            warn!("Failed to get image information for {base_image}:{image_version}, falling back to version defined in recipe");
+            return self.image_version.to_string();
         }
 
-        let inspection: ImageInspection =
-            serde_json::from_str(String::from_utf8(output.stdout)?.as_str())?;
+        let inspection: ImageInspection = match serde_json::from_str(
+            String::from_utf8_lossy(&output.stdout).as_ref(),
+        ) {
+            Err(_) => {
+                warn!("Issue deserializing 'skopeo' output, falling back to version defined in recipe");
+                return self.image_version.to_string();
+            }
+            Ok(inspection) => inspection,
+        };
 
-        Ok(inspection.get_version().unwrap_or_else(|| {
+        inspection.get_version().unwrap_or_else(|| {
             warn!("Version label does not exist on image, using version in recipe");
             image_version.to_string()
-        }))
+        })
     }
 }
 
