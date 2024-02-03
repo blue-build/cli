@@ -118,7 +118,7 @@ fn running_gitlab_actions() -> bool {
 }
 
 #[must_use]
-pub fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
+fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
     if module.module_type.as_ref()? == "containerfile" {
         Some(
             module
@@ -135,7 +135,7 @@ pub fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
 }
 
 #[must_use]
-pub fn print_containerfile(containerfile: &str) -> String {
+fn print_containerfile(containerfile: &str) -> String {
     debug!("print_containerfile({containerfile})");
     debug!("Loading containerfile contents for {containerfile}");
 
@@ -152,7 +152,7 @@ pub fn print_containerfile(containerfile: &str) -> String {
 }
 
 #[must_use]
-pub fn template_module_from_file(file_name: &str) -> String {
+fn template_module_from_file(file_name: &str) -> String {
     debug!("get_module_from_file({file_name})");
 
     let file_path = PathBuf::from("config").join(file_name);
@@ -194,4 +194,23 @@ fn print_module_context(module: &Module) -> String {
         error!("Failed to parse module: {e}");
         process::exit(1);
     })
+}
+
+fn get_files_list(module: &Module) -> Option<Vec<(String, String)>> {
+    Some(
+        module
+            .config
+            .get("files")?
+            .as_sequence()?
+            .iter()
+            .filter_map(|entry| entry.as_mapping())
+            .flatten()
+            .filter_map(|(src, dest)| {
+                Some((
+                    format!("./config/files/{}", src.as_str()?),
+                    dest.as_str()?.to_string(),
+                ))
+            })
+            .collect(),
+    )
 }
