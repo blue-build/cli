@@ -1,7 +1,11 @@
 #[cfg(feature = "podman-api")]
 mod build_strategy;
 
-use std::{env, fs, path::PathBuf, process::Command};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use anyhow::{anyhow, bail, Result};
 use clap::Args;
@@ -25,6 +29,7 @@ use tokio::runtime::Runtime;
 
 use crate::{
     commands::template::TemplateCommand,
+    constants::RECIPE_PATH,
     module_recipe::Recipe,
     ops::{self, ARCHIVE_SUFFIX},
 };
@@ -42,7 +47,8 @@ pub struct Credentials {
 pub struct BuildCommand {
     /// The recipe file to build an image
     #[arg()]
-    recipe: PathBuf,
+    #[builder(default, setter(into, strip_option))]
+    recipe: Option<PathBuf>,
 
     /// Push the image with all the tags.
     ///
@@ -141,6 +147,11 @@ impl BlueBuildCommand for BuildCommand {
             bail!("You cannot use '--archive' and '--push' at the same time");
         }
 
+        let recipe_path = self
+            .recipe
+            .clone()
+            .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
+
         #[cfg(not(feature = "podman-api"))]
         if let Err(e1) = ops::check_command_exists("buildah") {
             ops::check_command_exists("podman").map_err(|e2| {
@@ -155,29 +166,28 @@ impl BlueBuildCommand for BuildCommand {
         }
 
         TemplateCommand::builder()
-            .recipe(self.recipe.clone())
+            .recipe(&recipe_path)
             .output(PathBuf::from("Containerfile"))
             .build()
             .try_run()?;
 
-        info!("Building image for recipe at {}", self.recipe.display());
+        info!("Building image for recipe at {}", recipe_path.display());
 
         #[cfg(feature = "podman-api")]
         match BuildStrategy::determine_strategy()? {
-            BuildStrategy::Socket(socket) => {
-                Runtime::new()?.block_on(self.build_image_podman_api(Podman::unix(socket)))
-            }
-            _ => self.build_image(),
+            BuildStrategy::Socket(socket) => Runtime::new()?
+                .block_on(self.build_image_podman_api(Podman::unix(socket), &recipe_path)),
+            _ => self.build_image(&recipe_path),
         }
 
         #[cfg(not(feature = "podman-api"))]
-        self.build_image()
+        self.build_image(&recipe_path)
     }
 }
 
 impl BuildCommand {
     #[cfg(feature = "podman-api")]
-    async fn build_image_podman_api(&self, client: Podman) -> Result<()> {
+    async fn build_image_podman_api(&self, client: Podman, recipe_path: &Path) -> Result<()> {
         trace!("BuildCommand::build_image({client:#?})");
 
         let credentials = self.get_login_creds();
@@ -186,7 +196,7 @@ impl BuildCommand {
             bail!("Failed to get credentials");
         }
 
-        let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(&self.recipe)?.as_str())?;
+        let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(recipe_path)?.as_str())?;
         trace!("recipe: {recipe:#?}");
 
         // Get values for image
@@ -267,9 +277,10 @@ impl BuildCommand {
         Ok(())
     }
 
-    fn build_image(&self) -> Result<()> {
+    fn build_image(&self, recipe_path: &Path) -> Result<()> {
         trace!("BuildCommand::build_image()");
-        let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(&self.recipe)?.as_str())?;
+
+        let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(recipe_path)?.as_str())?;
 
         let tags = recipe.generate_tags();
 
