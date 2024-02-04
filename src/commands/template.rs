@@ -11,7 +11,11 @@ use log::{debug, error, info, trace};
 use typed_builder::TypedBuilder;
 
 use crate::{
+<<<<<<< Updated upstream
     constants::RECIPE_PATH,
+=======
+    globals,
+>>>>>>> Stashed changes
     module_recipe::{Module, ModuleExt, Recipe},
 };
 
@@ -126,9 +130,11 @@ fn print_script(script_contents: &ExportsTemplate) -> String {
     )
 }
 
-fn running_gitlab_actions() -> bool {
-    trace!(" running_gitlab_actions()");
-    env::var("GITHUB_ACTIONS").is_ok_and(|e| e == "true")
+fn has_cosign_file() -> bool {
+    trace!("has_cosign_file()");
+    println!("Checking for cosign.pub file");
+    let cosign_path = std::env::current_dir().unwrap().join(globals::COSIGN_PATH);
+    Path::new(globals::COSIGN_PATH).exists()
 }
 
 #[must_use]

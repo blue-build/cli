@@ -296,6 +296,7 @@ dependencies = [
  "futures-util",
  "fuzzy-matcher",
  "indexmap 2.2.1",
+ "lazy_static",
  "log",
  "open",
  "os_info",
