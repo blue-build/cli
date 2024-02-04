@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::{bail, Result};
 use clap::Args;
+use format_serde_error::SerdeError;
 use log::{debug, info, trace};
 use typed_builder::TypedBuilder;
 use users::{Users, UsersCache};
@@ -44,7 +45,9 @@ impl BlueBuildCommand for UpgradeCommand {
         check_can_run()?;
 
         let recipe: Recipe =
-            serde_yaml::from_str(fs::read_to_string(&self.common.recipe)?.as_str())?;
+            serde_yaml::from_str(fs::read_to_string(&self.common.recipe)?.as_str())
+                .map_err(|err| SerdeError::new(self.common.recipe.display().to_string(), err))?;
+
         let mut build = BuildCommand::builder()
             .recipe(self.common.recipe.clone())
             .archive(LOCAL_BUILD)
@@ -91,7 +94,9 @@ impl BlueBuildCommand for RebaseCommand {
         check_can_run()?;
 
         let recipe: Recipe =
-            serde_yaml::from_str(fs::read_to_string(&self.common.recipe)?.as_str())?;
+            serde_yaml::from_str(fs::read_to_string(&self.common.recipe)?.as_str())
+                .map_err(|err| SerdeError::new(self.common.recipe.display().to_string(), err))?;
+
         let mut build = BuildCommand::builder()
             .recipe(self.common.recipe.clone())
             .archive(LOCAL_BUILD)

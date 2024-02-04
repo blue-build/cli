@@ -147,7 +147,7 @@ dependencies = [
  "percent-encoding",
  "serde",
  "serde_json",
- "serde_yaml 0.9.30",
+ "serde_yaml",
 ]
 
 [[package]]
@@ -305,7 +305,7 @@ dependencies = [
  "rusty-hook",
  "serde",
  "serde_json",
- "serde_yaml 0.9.30",
+ "serde_yaml",
  "shadow-rs",
  "sigstore",
  "tokio",
@@ -1145,13 +1145,13 @@ dependencies = [
 [[package]]
 name = "format_serde_error"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5837b8e6a4001f99fe4746767fb7379e8510c508a843caa136cc12ed9c0bad0"
+source = "git+https://github.com/duyet/format_serde_error#56e012b81ca12b4d265620db255a361ca6eaff86"
 dependencies = [
  "colored",
  "serde",
  "serde_json",
- "serde_yaml 0.8.26",
+ "serde_yaml",
+ "toml",
  "unicode-segmentation",
 ]
 
@@ -3041,18 +3041,6 @@ dependencies = [
 
 [[package]]
 name = "serde_yaml"
-version = "0.8.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "578a7433b776b56a35785ed5ce9a7e777ac0598aac5a6dd1b4b18a307c7fc71b"
-dependencies = [
- "indexmap 1.9.3",
- "ryu",
- "serde",
- "yaml-rust",
-]
-
-[[package]]
-name = "serde_yaml"
 version = "0.9.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1bf28c79a99f70ee1f1d83d10c875d2e70618417fda01ad1785e027579d9d38"
@@ -4213,15 +4201,6 @@ dependencies = [
  "libc",
  "linux-raw-sys",
  "rustix",
-]
-
-[[package]]
-name = "yaml-rust"
-version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56c1936c4cc7a1c9ab21a1ebb602eb942ba868cbd44a99cb7cdc5892335e1c85"
-dependencies = [
- "linked-hash-map",
 ]
 
 [[package]]
