@@ -10,10 +10,6 @@
 shadow_rs::shadow!(shadow);
 
 pub mod commands;
-<<<<<<< Updated upstream
 pub mod constants;
-=======
-pub mod globals;
->>>>>>> Stashed changes
 pub mod module_recipe;
 mod ops;

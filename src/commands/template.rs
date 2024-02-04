@@ -11,11 +11,15 @@ use log::{debug, error, info, trace};
 use typed_builder::TypedBuilder;
 
 use crate::{
+<<<<<<< HEAD
 <<<<<<< Updated upstream
     constants::RECIPE_PATH,
 =======
     globals,
 >>>>>>> Stashed changes
+=======
+    constants::RECIPE_PATH,
+>>>>>>> main
     module_recipe::{Module, ModuleExt, Recipe},
 };
 
