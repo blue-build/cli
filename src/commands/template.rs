@@ -1,5 +1,5 @@
 use std::{
-    env, fs,
+    fs,
     path::{Path, PathBuf},
     process,
 };
@@ -11,15 +11,7 @@ use log::{debug, error, info, trace};
 use typed_builder::TypedBuilder;
 
 use crate::{
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-    constants::RECIPE_PATH,
-=======
-    globals,
->>>>>>> Stashed changes
-=======
-    constants::RECIPE_PATH,
->>>>>>> main
+    constants::{self},
     module_recipe::{Module, ModuleExt, Recipe},
 };
 
@@ -66,7 +58,7 @@ impl BlueBuildCommand for TemplateCommand {
             "Templating for recipe at {}",
             self.recipe
                 .clone()
-                .unwrap_or_else(|| PathBuf::from(RECIPE_PATH))
+                .unwrap_or_else(|| PathBuf::from(constants::RECIPE_PATH))
                 .display()
         );
 
@@ -81,7 +73,7 @@ impl TemplateCommand {
         let recipe_path = self
             .recipe
             .clone()
-            .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
+            .unwrap_or_else(|| PathBuf::from(constants::RECIPE_PATH));
 
         debug!("Deserializing recipe");
         let recipe_de = Recipe::parse(&recipe_path)?;
@@ -136,9 +128,9 @@ fn print_script(script_contents: &ExportsTemplate) -> String {
 
 fn has_cosign_file() -> bool {
     trace!("has_cosign_file()");
-    println!("Checking for cosign.pub file");
-    let cosign_path = std::env::current_dir().unwrap().join(globals::COSIGN_PATH);
-    Path::new(globals::COSIGN_PATH).exists()
+    std::env::current_dir()
+        .map(|p| p.join(constants::COSIGN_PATH).exists())
+        .unwrap_or(false)
 }
 
 #[must_use]
