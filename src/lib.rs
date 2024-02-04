@@ -10,5 +10,6 @@
 shadow_rs::shadow!(shadow);
 
 pub mod commands;
+pub mod constants;
 pub mod module_recipe;
 mod ops;
