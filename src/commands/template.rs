@@ -10,7 +10,10 @@ use clap::Args;
 use log::{debug, error, info, trace};
 use typed_builder::TypedBuilder;
 
-use crate::module_recipe::{Module, ModuleExt, Recipe};
+use crate::{
+    constants::RECIPE_PATH,
+    module_recipe::{Module, ModuleExt, Recipe},
+};
 
 use super::BlueBuildCommand;
 
@@ -40,8 +43,8 @@ pub struct ExportsTemplate;
 pub struct TemplateCommand {
     /// The recipe file to create a template from
     #[arg()]
-    #[builder(setter(into))]
-    recipe: PathBuf,
+    #[builder(default, setter(into, strip_option))]
+    recipe: Option<PathBuf>,
 
     /// File to output to instead of STDOUT
     #[arg(short, long)]
@@ -51,7 +54,13 @@ pub struct TemplateCommand {
 
 impl BlueBuildCommand for TemplateCommand {
     fn try_run(&mut self) -> Result<()> {
-        info!("Templating for recipe at {}", self.recipe.display());
+        info!(
+            "Templating for recipe at {}",
+            self.recipe
+                .clone()
+                .unwrap_or_else(|| PathBuf::from(RECIPE_PATH))
+                .display()
+        );
 
         self.template_file()
     }
@@ -61,13 +70,18 @@ impl TemplateCommand {
     fn template_file(&self) -> Result<()> {
         trace!("TemplateCommand::template_file()");
 
+        let recipe_path = self
+            .recipe
+            .clone()
+            .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
+
         debug!("Deserializing recipe");
-        let recipe_de = Recipe::parse(&self.recipe)?;
+        let recipe_de = Recipe::parse(&recipe_path)?;
         trace!("recipe_de: {recipe_de:#?}");
 
         let template = ContainerFileTemplate::builder()
             .recipe(&recipe_de)
-            .recipe_path(&self.recipe)
+            .recipe_path(&recipe_path)
             .module_template(
                 ModuleTemplate::builder()
                     .module_ext(&recipe_de.modules_ext)
