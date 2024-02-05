@@ -6,8 +6,16 @@ LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/ublue-
 LABEL io.artifacthub.package.logo-url=https://avatars.githubusercontent.com/u/120078124?s=200&v=4
 
 ARG RECIPE={{ recipe_path.display() }}
+
+{%- if let Some(repo_owner) = self::get_github_repo_owner() %}
+ARG IMAGE_REGISTRY=ghcr.io/{{ repo_owner }}
+{%- else if let Some(registry) = self::get_gitlab_registry_path() %}
+ARG IMAGE_REGISTRY={{ registry }}
+{%- else %}
+ARG IMAGE_REGISTRY=localhost
+{%- endif %}
+
 {%- if self::has_cosign_file() %}
-ARG IMAGE_REGISTRY=ghcr.io/ublue-os
 COPY cosign.pub /usr/share/ublue-os/cosign.pub
 {%- endif %}
 
