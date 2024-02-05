@@ -44,9 +44,9 @@ impl BlueBuildCommand for UpgradeCommand {
 
         check_can_run()?;
 
-        let recipe: Recipe =
-            serde_yaml::from_str(fs::read_to_string(&self.common.recipe)?.as_str())
-                .map_err(|err| SerdeError::new(self.common.recipe.display().to_string(), err))?;
+        let recipe_str = fs::read_to_string(&self.common.recipe)?;
+        let recipe: Recipe = serde_yaml::from_str(&recipe_str)
+            .map_err(|err| SerdeError::new(recipe_str.to_owned(), err))?;
 
         let mut build = BuildCommand::builder()
             .recipe(self.common.recipe.clone())
@@ -93,9 +93,9 @@ impl BlueBuildCommand for RebaseCommand {
 
         check_can_run()?;
 
-        let recipe: Recipe =
-            serde_yaml::from_str(fs::read_to_string(&self.common.recipe)?.as_str())
-                .map_err(|err| SerdeError::new(self.common.recipe.display().to_string(), err))?;
+        let recipe_str = fs::read_to_string(&self.common.recipe)?;
+        let recipe: Recipe = serde_yaml::from_str(&recipe_str)
+            .map_err(|err| SerdeError::new(recipe_str.to_owned(), err))?;
 
         let mut build = BuildCommand::builder()
             .recipe(self.common.recipe.clone())
