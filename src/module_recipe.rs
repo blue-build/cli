@@ -1,16 +1,10 @@
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    env, fs,
-    path::Path,
-    process::{self, Command},
-};
+use std::{borrow::Cow, collections::HashMap, env, fs, path::Path, process::Command};
 
 use anyhow::Result;
 use chrono::Local;
 use format_serde_error::SerdeError;
 use indexmap::IndexMap;
-use log::{debug, error, info, trace, warn};
+use log::{debug, info, trace, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use serde_yaml::Value;
@@ -138,10 +132,7 @@ impl<'a> Recipe<'a> {
         let recipe_path_string = recipe_path.display().to_string();
         debug!("Recipe::parse_recipe({recipe_path_string})");
 
-        let file = fs::read_to_string(recipe_path).unwrap_or_else(|e| {
-            error!("Failed to read file {recipe_path_string}: {e}");
-            process::exit(1);
-        });
+        let file = fs::read_to_string(recipe_path)?;
 
         debug!("Recipe contents: {file}");
 

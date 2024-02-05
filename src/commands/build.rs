@@ -22,7 +22,7 @@ use podman_api::{
 #[cfg(feature = "podman-api")]
 use build_strategy::BuildStrategy;
 
-#[cfg(feature = "podman-api")]
+#[cfg(feature = "tokio")]
 use tokio::runtime::Runtime;
 
 use crate::{
