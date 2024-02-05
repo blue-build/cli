@@ -1,5 +1,5 @@
 use std::{
-    fs,
+    env, fs,
     path::{Path, PathBuf},
     process,
 };
@@ -232,5 +232,21 @@ fn get_files_list(module: &Module) -> Option<Vec<(String, String)>> {
                 ))
             })
             .collect(),
+    )
+}
+
+fn get_github_repo_owner() -> Option<String> {
+    Some(env::var("GITHUB_REPOSITORY_OWNER").ok()?.to_lowercase())
+}
+
+fn get_gitlab_registry_path() -> Option<String> {
+    Some(
+        format!(
+            "{}/{}/{}",
+            env::var("CI_REGISTRY").ok()?,
+            env::var("CI_PROJECT_NAMESPACE").ok()?,
+            env::var("CI_PROJECT_NAME").ok()?,
+        )
+        .to_lowercase(),
     )
 }

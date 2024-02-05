@@ -376,20 +376,24 @@ impl BuildCommand {
             )
         } else {
             match (
-                env::var("CI_REGISTRY").ok(),
-                env::var("CI_PROJECT_NAMESPACE").ok(),
-                env::var("CI_PROJECT_NAME").ok(),
-                env::var("GITHUB_REPOSITORY_OWNER").ok(),
-                self.registry.as_ref(),
-                self.registry_path.as_ref(),
+                env::var("CI_REGISTRY").ok().map(|s| s.to_lowercase()),
+                env::var("CI_PROJECT_NAMESPACE")
+                    .ok()
+                    .map(|s| s.to_lowercase()),
+                env::var("CI_PROJECT_NAME").ok().map(|s| s.to_lowercase()),
+                env::var("GITHUB_REPOSITORY_OWNER")
+                    .ok()
+                    .map(|s| s.to_lowercase()),
+                self.registry.as_ref().map(|s| s.to_lowercase()),
+                self.registry_path.as_ref().map(|s| s.to_lowercase()),
             ) {
                 (_, _, _, _, Some(registry), Some(registry_path)) => {
                     trace!("registry={registry}, registry_path={registry_path}");
                     format!(
                         "{}/{}/{}",
-                        registry.trim().trim_matches('/').to_lowercase(),
-                        registry_path.trim().trim_matches('/').to_lowercase(),
-                        recipe.name.trim().to_lowercase()
+                        registry.trim().trim_matches('/'),
+                        registry_path.trim().trim_matches('/'),
+                        recipe.name.trim(),
                     )
                 }
                 (
