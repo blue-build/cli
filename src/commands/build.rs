@@ -197,7 +197,7 @@ impl BuildCommand {
         }
 
         let recipe_str = fs::read_to_string(recipe_path)?;
-        let recipe: Recipe = serde_yaml::from_str(recipe_str.as_str())
+        let recipe: Recipe = serde_yaml::from_str(&recipe_str)
             .map_err(|err| SerdeError::new(recipe_str.to_owned(), err))?;
         trace!("recipe: {recipe:#?}");
 
@@ -283,8 +283,7 @@ impl BuildCommand {
         trace!("BuildCommand::build_image()");
 
         let recipe_str = fs::read_to_string(recipe_path)?;
-        let recipe_str = recipe_str.as_str();
-        let recipe: Recipe = serde_yaml::from_str(recipe_str)
+        let recipe: Recipe = serde_yaml::from_str(&recipe_str)
             .map_err(|err| SerdeError::new(recipe_str.to_owned(), err))?;
 
         let tags = recipe.generate_tags();
