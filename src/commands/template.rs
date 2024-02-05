@@ -1,5 +1,5 @@
 use std::{
-    env, fs,
+    fs,
     path::{Path, PathBuf},
     process,
 };
@@ -11,7 +11,7 @@ use log::{debug, error, info, trace};
 use typed_builder::TypedBuilder;
 
 use crate::{
-    constants::RECIPE_PATH,
+    constants::{self},
     module_recipe::{Module, ModuleExt, Recipe},
 };
 
@@ -58,7 +58,7 @@ impl BlueBuildCommand for TemplateCommand {
             "Templating for recipe at {}",
             self.recipe
                 .clone()
-                .unwrap_or_else(|| PathBuf::from(RECIPE_PATH))
+                .unwrap_or_else(|| PathBuf::from(constants::RECIPE_PATH))
                 .display()
         );
 
@@ -73,7 +73,7 @@ impl TemplateCommand {
         let recipe_path = self
             .recipe
             .clone()
-            .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
+            .unwrap_or_else(|| PathBuf::from(constants::RECIPE_PATH));
 
         debug!("Deserializing recipe");
         let recipe_de = Recipe::parse(&recipe_path)?;
@@ -126,9 +126,11 @@ fn print_script(script_contents: &ExportsTemplate) -> String {
     )
 }
 
-fn running_gitlab_actions() -> bool {
-    trace!(" running_gitlab_actions()");
-    env::var("GITHUB_ACTIONS").is_ok_and(|e| e == "true")
+fn has_cosign_file() -> bool {
+    trace!("has_cosign_file()");
+    std::env::current_dir()
+        .map(|p| p.join(constants::COSIGN_PATH).exists())
+        .unwrap_or(false)
 }
 
 #[must_use]
