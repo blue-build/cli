@@ -196,8 +196,10 @@ impl BuildCommand {
             bail!("Failed to get credentials");
         }
 
-        let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(recipe_path)?.as_str())
-            .map_err(|err| SerdeError::new(recipe_path.display().to_string(), err))?;
+        let recipe_str = fs::read_to_string(recipe_path)?;
+        let recipe_str = recipe_str.as_str();
+        let recipe: Recipe =
+            serde_yaml::from_str(recipe).map_err(|err| SerdeError::new(recipe, err))?;
         trace!("recipe: {recipe:#?}");
 
         // Get values for image
@@ -281,8 +283,10 @@ impl BuildCommand {
     fn build_image(&self, recipe_path: &Path) -> Result<()> {
         trace!("BuildCommand::build_image()");
 
-        let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(recipe_path)?.as_str())
-            .map_err(|err| SerdeError::new(recipe_path.display().to_string(), err))?;
+        let recipe_str = fs::read_to_string(recipe_path)?;
+        let recipe_str = recipe_str.as_str();
+        let recipe: Recipe = serde_yaml::from_str(recipe_str)
+            .map_err(|err| SerdeError::new(recipe_str.to_owned(), err))?;
 
         let tags = recipe.generate_tags();
 

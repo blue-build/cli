@@ -20,7 +20,7 @@ colorized = "1"
 derive_builder = "0.13"
 directories = "5"
 env_logger = "0.11"
-format_serde_error = { git = "https://github.com/duyet/format_serde_error" }
+format_serde_error = { git = "https://github.com/blue-build/format_serde_error" }
 futures-util = { version = "0.3", optional = true }
 fuzzy-matcher = "0.3"
 indexmap = { version = "2", features = ["serde"] }
