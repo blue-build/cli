@@ -47,6 +47,7 @@ pub struct Recipe<'a> {
 }
 
 impl<'a> Recipe<'a> {
+    #[must_use]
     pub fn generate_tags(&self) -> Vec<String> {
         trace!("Recipe::generate_tags()");
         trace!("Generating image tags for {}", &self.name);
@@ -232,7 +233,7 @@ impl ImageInspection {
             self.labels
                 .get("org.opencontainers.image.version")?
                 .as_str()
-                .map(|v| v.to_string())?
+                .map(std::string::ToString::to_string)?
                 .split('.')
                 .take(1)
                 .collect(),

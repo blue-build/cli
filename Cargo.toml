@@ -27,7 +27,6 @@ indexmap = { version = "2", features = ["serde"] }
 log = "0.4"
 open = "5"
 # update os module config and tests when upgrading os_info
-shadow-rs = { version = "0.26" }
 os_info = "3.7"
 podman-api = { version = "0.10.0", optional = true }
 process_control = { version = "4.0.3", features = ["crossbeam-channel"] }
@@ -35,6 +34,7 @@ requestty = { version = "0.5", features = ["macros", "termion"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9.30"
+shadow-rs = { version = "0.26" }
 sigstore = { version = "0.8.0", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
 typed-builder = "0.18.1"
