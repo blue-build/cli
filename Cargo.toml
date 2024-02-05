@@ -24,7 +24,6 @@ format_serde_error = "0.3.0"
 futures-util = { version = "0.3", optional = true }
 fuzzy-matcher = "0.3"
 indexmap = { version = "2", features = ["serde"] }
-lazy_static = "1"
 log = "0.4"
 open = "5"
 # update os module config and tests when upgrading os_info
