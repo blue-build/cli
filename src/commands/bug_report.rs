@@ -5,6 +5,7 @@ use anyhow::Result;
 use askama::Template;
 use clap::Args;
 use clap_complete::Shell;
+use format_serde_error::SerdeError;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use log::{debug, error, trace};
 use requestty::question::{completions, Completions};
@@ -390,10 +391,16 @@ fn get_module_from_file(file_name: &str) -> Result<ModuleExt> {
 
     let file = fs::read_to_string(file_path.clone())?;
 
-    serde_yaml::from_str::<ModuleExt>(file.as_str()).map_or_else(
-        |_| -> Result<ModuleExt> {
-            let module = serde_yaml::from_str::<Module>(file.as_str())?;
+    serde_yaml::from_str::<ModuleExt>(&file).map_or_else(
+        |err| -> Result<ModuleExt> {
+            error!(
+                "Failed to parse module from {}: {}",
+                file_path.display(),
+                SerdeError::new(file.to_owned(), err).to_string()
+            );
 
+            let module =
+                serde_yaml::from_str::<Module>(&file).map_err(|err| SerdeError::new(file, err))?;
             Ok(ModuleExt::builder().modules(vec![module]).build())
         },
         Ok,

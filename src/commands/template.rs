@@ -7,6 +7,7 @@ use std::{
 use anyhow::Result;
 use askama::Template;
 use clap::Args;
+use format_serde_error::SerdeError;
 use log::{debug, error, info, trace};
 use typed_builder::TypedBuilder;
 
@@ -184,8 +185,11 @@ fn template_module_from_file(file_name: &str) -> String {
 
     serde_yaml::from_str::<ModuleExt>(file.as_str()).map_or_else(
         |_| {
-            let module = serde_yaml::from_str::<Module>(file.as_str()).unwrap_or_else(|e| {
-                error!("Failed to deserialize module {file_name}: {e}");
+            let module = serde_yaml::from_str::<Module>(file.as_str()).unwrap_or_else(|err| {
+                error!(
+                    "Failed to deserialize module {file_name}: {}",
+                    SerdeError::new(file_name.to_owned(), err)
+                );
                 process::exit(1);
             });
 

@@ -9,6 +9,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use clap::Args;
+use format_serde_error::SerdeError;
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 
@@ -20,9 +21,6 @@ use podman_api::{
 
 #[cfg(feature = "podman-api")]
 use build_strategy::BuildStrategy;
-
-#[cfg(feature = "futures-util")]
-use futures_util::StreamExt;
 
 #[cfg(feature = "tokio")]
 use tokio::runtime::Runtime;
@@ -188,6 +186,8 @@ impl BlueBuildCommand for BuildCommand {
 impl BuildCommand {
     #[cfg(feature = "podman-api")]
     async fn build_image_podman_api(&self, client: Podman, recipe_path: &Path) -> Result<()> {
+        use futures_util::StreamExt;
+
         trace!("BuildCommand::build_image({client:#?})");
 
         let credentials = self.get_login_creds();
@@ -196,7 +196,9 @@ impl BuildCommand {
             bail!("Failed to get credentials");
         }
 
-        let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(recipe_path)?.as_str())?;
+        let recipe_str = fs::read_to_string(recipe_path)?;
+        let recipe: Recipe = serde_yaml::from_str(&recipe_str)
+            .map_err(|err| SerdeError::new(recipe_str.to_owned(), err))?;
         trace!("recipe: {recipe:#?}");
 
         // Get values for image
@@ -280,7 +282,9 @@ impl BuildCommand {
     fn build_image(&self, recipe_path: &Path) -> Result<()> {
         trace!("BuildCommand::build_image()");
 
-        let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(recipe_path)?.as_str())?;
+        let recipe_str = fs::read_to_string(recipe_path)?;
+        let recipe: Recipe = serde_yaml::from_str(&recipe_str)
+            .map_err(|err| SerdeError::new(recipe_str.to_owned(), err))?;
 
         let tags = recipe.generate_tags();
 

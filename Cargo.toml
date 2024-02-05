@@ -20,7 +20,7 @@ colorized = "1"
 derive_builder = "0.13"
 directories = "5"
 env_logger = "0.11"
-format_serde_error = "0.3.0"
+format_serde_error = { git = "https://github.com/blue-build/format_serde_error" }
 futures-util = { version = "0.3", optional = true }
 fuzzy-matcher = "0.3"
 indexmap = { version = "2", features = ["serde"] }
@@ -44,10 +44,10 @@ which = "6"
 
 [features]
 default = []
-nightly = ["builtin-podman"]
-builtin-podman = ["podman-api", "tokio", "futures-util"]
-tls = ["podman-api/tls", "builtin-podman"]
 init = []
+nightly = ["podman-api"]
+tls = ["podman-api/tls", "podman-api"]
+podman-api = ["dep:podman-api", "tokio", "futures-util"]
 
 [dev-dependencies]
 rusty-hook = "0.11.2"
