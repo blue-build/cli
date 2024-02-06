@@ -1,10 +1,16 @@
-use std::{borrow::Cow, collections::HashMap, env, fs, path::Path, process::Command};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    env, fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use anyhow::Result;
 use chrono::Local;
 use format_serde_error::SerdeError;
 use indexmap::IndexMap;
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use serde_yaml::Value;
@@ -136,7 +142,12 @@ impl<'a> Recipe<'a> {
 
         debug!("Recipe contents: {file}");
 
-        Ok(serde_yaml::from_str::<Recipe>(&file).map_err(|err| SerdeError::new(file, err))?)
+        let mut recipe =
+            serde_yaml::from_str::<Recipe>(&file).map_err(|err| SerdeError::new(file, err))?;
+
+        recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules);
+
+        Ok(recipe)
     }
 
     fn get_os_version(&self) -> String {
@@ -197,6 +208,34 @@ pub struct ModuleExt {
     pub modules: Vec<Module>,
 }
 
+impl ModuleExt {
+    pub fn parse_module_from_file(file_name: &str) -> Result<ModuleExt> {
+        let file_path = PathBuf::from("config").join(file_name);
+        let file_path = if file_path.is_absolute() {
+            file_path
+        } else {
+            std::env::current_dir()?.join(file_path)
+        };
+
+        let file = fs::read_to_string(file_path.clone())?;
+
+        serde_yaml::from_str::<ModuleExt>(&file).map_or_else(
+            |err| -> Result<ModuleExt> {
+                error!(
+                    "Failed to parse module from {}: {}",
+                    file_path.display(),
+                    SerdeError::new(file.to_owned(), err).to_string()
+                );
+
+                let module = serde_yaml::from_str::<Module>(&file)
+                    .map_err(|err| SerdeError::new(file, err))?;
+                Ok(ModuleExt::builder().modules(vec![module]).build())
+            },
+            Ok,
+        )
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, TypedBuilder)]
 pub struct Module {
     #[builder(default, setter(into, strip_option))]
@@ -210,6 +249,27 @@ pub struct Module {
     #[serde(flatten)]
     #[builder(default, setter(into))]
     pub config: IndexMap<String, Value>,
+}
+
+impl Module {
+    pub fn get_modules(modules: &[Self]) -> Vec<Self> {
+        modules
+            .iter()
+            .flat_map(|module| {
+                if let Some(file_name) = &module.from_file {
+                    match ModuleExt::parse_module_from_file(file_name) {
+                        Err(e) => {
+                            error!("Failed to get module from {file_name}: {e}");
+                            vec![]
+                        }
+                        Ok(module_ext) => Self::get_modules(&module_ext.modules),
+                    }
+                } else {
+                    vec![module.clone()]
+                }
+            })
+            .collect()
+    }
 }
 
 #[derive(Deserialize, Debug, Clone)]

@@ -1,17 +1,13 @@
-use crate::module_recipe::{Module, ModuleExt, Recipe};
+use crate::module_recipe::Recipe;
 use crate::shadow;
 
-use anyhow::Result;
 use askama::Template;
 use clap::Args;
 use clap_complete::Shell;
-use format_serde_error::SerdeError;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use log::{debug, error, trace};
 use requestty::question::{completions, Completions};
 use std::borrow::Cow;
-use std::fs;
-use std::path::PathBuf;
 use std::time::Duration;
 use typed_builder::TypedBuilder;
 
@@ -344,9 +340,7 @@ fn generate_github_issue(
     environment: &Environment,
     recipe: &Option<Recipe>,
 ) -> anyhow::Result<String> {
-    let recipe = recipe
-        .as_ref()
-        .map_or_else(Default::default, |r| print_full_recipe(r));
+    let recipe = serde_yaml::to_string(recipe)?;
 
     let github_template = GithubIssueTemplate::builder()
         .bb_version(shadow::PKG_VERSION)
@@ -381,68 +375,6 @@ fn make_github_issue_link(body: &str) -> String {
     .collect()
 }
 
-fn get_module_from_file(file_name: &str) -> Result<ModuleExt> {
-    let file_path = PathBuf::from("config").join(file_name);
-    let file_path = if file_path.is_absolute() {
-        file_path
-    } else {
-        std::env::current_dir()?.join(file_path)
-    };
-
-    let file = fs::read_to_string(file_path.clone())?;
-
-    serde_yaml::from_str::<ModuleExt>(&file).map_or_else(
-        |err| -> Result<ModuleExt> {
-            error!(
-                "Failed to parse module from {}: {}",
-                file_path.display(),
-                SerdeError::new(file.to_owned(), err).to_string()
-            );
-
-            let module =
-                serde_yaml::from_str::<Module>(&file).map_err(|err| SerdeError::new(file, err))?;
-            Ok(ModuleExt::builder().modules(vec![module]).build())
-        },
-        Ok,
-    )
-}
-
-fn get_modules(modules: &[Module]) -> Vec<Module> {
-    modules
-        .iter()
-        .flat_map(|module| {
-            if let Some(file_name) = &module.from_file {
-                match get_module_from_file(file_name) {
-                    Err(e) => {
-                        error!("Failed to get module from {file_name}: {e}");
-                        vec![]
-                    }
-                    Ok(module_ext) => get_modules(&module_ext.modules),
-                }
-            } else {
-                vec![module.clone()]
-            }
-        })
-        .collect()
-}
-
-fn print_full_recipe(recipe: &Recipe) -> String {
-    let module_list: Vec<Module> = get_modules(&recipe.modules_ext.modules);
-
-    let recipe = Recipe::builder()
-        .name(recipe.name.as_ref())
-        .description(recipe.description.as_ref())
-        .base_image(recipe.base_image.as_ref())
-        .image_version(recipe.image_version.as_ref())
-        .extra(recipe.extra.clone())
-        .modules_ext(ModuleExt::builder().modules(module_list).build())
-        .build();
-
-    serde_yaml::to_string(&recipe).unwrap_or_else(|e| {
-        error!("Failed to serialize recipe: {e}");
-        format!("Error rendering recipe!!\n{e}")
-    })
-}
 // ============================================================================= //
 
 #[cfg(test)]

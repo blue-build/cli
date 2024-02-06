@@ -9,7 +9,6 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use clap::Args;
-use format_serde_error::SerdeError;
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 
@@ -196,9 +195,7 @@ impl BuildCommand {
             bail!("Failed to get credentials");
         }
 
-        let recipe_str = fs::read_to_string(recipe_path)?;
-        let recipe: Recipe = serde_yaml::from_str(&recipe_str)
-            .map_err(|err| SerdeError::new(recipe_str.to_owned(), err))?;
+        let recipe = Recipe::parse(&recipe_path)?;
         trace!("recipe: {recipe:#?}");
 
         // Get values for image
@@ -282,9 +279,7 @@ impl BuildCommand {
     fn build_image(&self, recipe_path: &Path) -> Result<()> {
         trace!("BuildCommand::build_image()");
 
-        let recipe_str = fs::read_to_string(recipe_path)?;
-        let recipe: Recipe = serde_yaml::from_str(&recipe_str)
-            .map_err(|err| SerdeError::new(recipe_str.to_owned(), err))?;
+        let recipe = Recipe::parse(&recipe_path)?;
 
         let tags = recipe.generate_tags();
 

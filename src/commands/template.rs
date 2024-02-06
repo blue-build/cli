@@ -7,13 +7,12 @@ use std::{
 use anyhow::Result;
 use askama::Template;
 use clap::Args;
-use format_serde_error::SerdeError;
 use log::{debug, error, info, trace};
 use typed_builder::TypedBuilder;
 
 use crate::{
     constants::{self},
-    module_recipe::{Module, ModuleExt, Recipe},
+    module_recipe::{Module, Recipe},
 };
 
 use super::BlueBuildCommand;
@@ -24,16 +23,8 @@ pub struct ContainerFileTemplate<'a> {
     recipe: &'a Recipe<'a>,
     recipe_path: &'a Path,
 
-    module_template: ModuleTemplate<'a>,
-
     #[builder(default)]
     export_script: ExportsTemplate,
-}
-
-#[derive(Debug, Clone, Template, TypedBuilder)]
-#[template(path = "Containerfile.module", escape = "none")]
-pub struct ModuleTemplate<'a> {
-    module_ext: &'a ModuleExt,
 }
 
 #[derive(Debug, Clone, Default, Template)]
@@ -83,11 +74,6 @@ impl TemplateCommand {
         let template = ContainerFileTemplate::builder()
             .recipe(&recipe_de)
             .recipe_path(&recipe_path)
-            .module_template(
-                ModuleTemplate::builder()
-                    .module_ext(&recipe_de.modules_ext)
-                    .build(),
-            )
             .build();
 
         let output_str = template.render()?;
@@ -166,47 +152,6 @@ fn print_containerfile(containerfile: &str) -> String {
     debug!("Containerfile contents {path}:\n{file}");
 
     file
-}
-
-#[must_use]
-fn template_module_from_file(file_name: &str) -> String {
-    debug!("get_module_from_file({file_name})");
-
-    let file_path = PathBuf::from("config").join(file_name);
-    let file = fs::read_to_string(file_path).unwrap_or_else(|e| {
-        error!("Failed to read module {file_name}: {e}");
-        process::exit(1);
-    });
-
-    let template_err_fn = |e| {
-        error!("Failed to render module {file_name}: {e}");
-        process::exit(1);
-    };
-
-    serde_yaml::from_str::<ModuleExt>(file.as_str()).map_or_else(
-        |_| {
-            let module = serde_yaml::from_str::<Module>(file.as_str()).unwrap_or_else(|err| {
-                error!(
-                    "Failed to deserialize module {file_name}: {}",
-                    SerdeError::new(file_name.to_owned(), err)
-                );
-                process::exit(1);
-            });
-
-            ModuleTemplate::builder()
-                .module_ext(&ModuleExt::builder().modules(vec![module]).build())
-                .build()
-                .render()
-                .unwrap_or_else(template_err_fn)
-        },
-        |module_ext| {
-            ModuleTemplate::builder()
-                .module_ext(&module_ext)
-                .build()
-                .render()
-                .unwrap_or_else(template_err_fn)
-        },
-    )
 }
 
 fn print_module_context(module: &Module) -> String {
