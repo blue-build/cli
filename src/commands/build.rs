@@ -114,7 +114,7 @@ pub struct BuildCommand {
     ///
     /// For example:
     ///
-    /// bb build --public-key env://PUBLIC_KEY ...
+    /// bluebuild build --public-key env://PUBLIC_KEY ...
     #[cfg(feature = "sigstore")]
     #[arg(long)]
     #[builder(default, setter(into, strip_option))]
@@ -128,7 +128,7 @@ pub struct BuildCommand {
     ///
     /// For example:
     ///
-    /// bb build --private-key env://PRIVATE_KEY ...
+    /// bluebuild build --private-key env://PRIVATE_KEY ...
     #[cfg(feature = "sigstore")]
     #[arg(long)]
     #[builder(default, setter(into, strip_option))]

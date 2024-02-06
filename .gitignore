@@ -2,5 +2,5 @@
 .sccache/
 .vscode/
 
-# Local testing for bb recipe files
+# Local testing for bluebuild recipe files
 /config/

@@ -55,7 +55,7 @@ install:
 
 	DO cargo+BUILD_RELEASE --BUILD_TARGET=$BUILD_TARGET --NIGHTLY=$NIGHTLY
 
-	SAVE ARTIFACT target/$BUILD_TARGET/release/bb
+	SAVE ARTIFACT target/$BUILD_TARGET/release/bluebuild
 
 common:
 	FROM ghcr.io/blue-build/earthly-lib/cargo-builder
@@ -79,7 +79,7 @@ blue-build-cli:
 
 	COPY +cosign/cosign /usr/bin/cosign
 
-	COPY (+install/bb --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY) /usr/bin/bb
+	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY) /usr/bin/bluebuild
 
 	ARG TAG
 	ARG LATEST=false
@@ -94,7 +94,7 @@ blue-build-cli-alpine:
 	RUN apk update && apk add buildah podman skopeo fuse-overlayfs
 
 	COPY +cosign/cosign /usr/bin/cosign
-	COPY (+install/bb --BUILD_TARGET="x86_64-unknown-linux-musl" --NIGHTLY=$NIGHTLY) /usr/bin/bb
+	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-musl" --NIGHTLY=$NIGHTLY) /usr/bin/bluebuild
 
 	ARG TAG
 	ARG LATEST=false
@@ -105,7 +105,7 @@ installer:
 	ARG NIGHTLY=false
 
 	BUILD +install --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY
-	COPY (+install/bb --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY) /out/bb
+	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY) /out/bluebuild
 	COPY install.sh /install.sh
 
 	CMD ["cat", "/install.sh"]
@@ -122,7 +122,7 @@ integration-test-template:
 integration-test-template-containerfile:
 	ARG NIGHTLY=false
 	FROM +integration-test-base --NIGHTLY=$NIGHTLY
-	RUN bb -vv template config/recipe-jp-desktop.yml | tee Containerfile
+	RUN bluebuild -vv template config/recipe-jp-desktop.yml | tee Containerfile
 
 	SAVE ARTIFACT /test
 
@@ -130,20 +130,20 @@ integration-test-build:
 	ARG NIGHTLY=false
 	FROM +integration-test-base --NIGHTLY=$NIGHTLY
 
-	RUN --privileged bb -vv build config/recipe-jp-desktop.yml
+	RUN --privileged bluebuild -vv build config/recipe-jp-desktop.yml
 
 integration-test-rebase:
 	ARG NIGHTLY=false
 	FROM +integration-test-base --NIGHTLY=$NIGHTLY
 
-	RUN --privileged bb -vv rebase config/recipe-jp-desktop.yml
+	RUN --privileged bluebuild -vv rebase config/recipe-jp-desktop.yml
 
 integration-test-upgrade:
 	ARG NIGHTLY=false
 	FROM +integration-test-base --NIGHTLY=$NIGHTLY
 	RUN mkdir -p /etc/bluebuild && touch /etc/bluebuild/jp-desktop.tar.gz
 
-	RUN --privileged bb -vv upgrade config/recipe-jp-desktop.yml
+	RUN --privileged bluebuild -vv upgrade config/recipe-jp-desktop.yml
 
 integration-test-base:
 	ARG NIGHTLY=false

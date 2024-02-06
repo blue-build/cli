@@ -12,7 +12,7 @@ BlueBuild's command line program that builds Containerfiles and custom images ba
 
 ### Distrobox
 
-We package a `fedora-toolbox` and `alpine` image with all the tools needed to run `bb`. You can use `distrobox` to run the application without needing to install it on your machine.
+We package a `fedora-toolbox` and `alpine` image with all the tools needed to run `bluebuild`. You can use `distrobox` to run the application without needing to install it on your machine.
 
 ```bash
 distrobox create blue-build --image ghcr.io/blue-build/cli
@@ -42,17 +42,17 @@ podman run --rm ghcr.io/blue-build/cli:latest-installer | bash
 Once you have the CLI tool installed, you can run the following to pull in your recipe file to generate a `Containerfile`.
 
 ```bash
-bb template -o <CONTAINERFILE> <RECIPE_FILE>
+bluebuild template -o <CONTAINERFILE> <RECIPE_FILE>
 ```
 
-You can then use this with `podman` or `buildah` to build and publish your image. Further options can be viewed by running `bb template --help`
+You can then use this with `podman` or `buildah` to build and publish your image. Further options can be viewed by running `bluebuild template --help`
 
 ### Building
 
 If you don't care about the details of the template, you can run the `build` command.
 
 ```bash
-bb build ./config/recipe.yaml
+bluebuild build ./config/recipe.yaml
 ```
 
 This will template out the file and build with `buildah` or `podman`. 
@@ -64,7 +64,7 @@ This will template out the file and build with `buildah` or `podman`.
 If you want to test your changes, you can do so by using the `rebase` command. This will create an image as a `.tar.gz` file, store it in `/etc/blue-build`, an run `rpm-ostree rebase` on that newly built file.
 
 ```bash
-sudo bb rebase config/recipe.yml
+sudo bluebuild rebase config/recipe.yml
 ```
 
 You can initiate an immediate restart by adding the `--reboot/-r` option.
@@ -74,7 +74,7 @@ You can initiate an immediate restart by adding the `--reboot/-r` option.
 When you've rebased onto a local image archive, you can update your image for your recipe by running:
 
 ```bash
-sudo bb upgrade config/recipe.yml
+sudo bluebuild upgrade config/recipe.yml
 ```
 
 The `--reboot` argument can be used with this command as well.
@@ -157,7 +157,7 @@ build-image:
     SIGSTORE_ID_TOKEN:
       aud: sigstore
   script:
-    - bb build --push ./config/$RECIPE
+    - bluebuild build --push ./config/$RECIPE
 ```
 
 ## Future Features

@@ -23,7 +23,7 @@ sudo podman run \
   tail -f /dev/null
 
 set +e
-sudo podman cp blue-build-installer:/out/bb /usr/local/bin/bb
+sudo podman cp blue-build-installer:/out/bluebuild /usr/local/bin/bluebuild
 
 RETVAL=$?
 set -e
@@ -33,8 +33,8 @@ if [ $RETVAL != 0 ]; then
   echo "Failed to copy file"
   exit 1
 else
-  # sudo mv bb /usr/local/bin/
-  echo "Finished! BlueBuild has been installed at /usr/local/bin/bb"
+  # sudo mv bluebuild /usr/local/bin/
+  echo "Finished! BlueBuild has been installed at /usr/local/bin/bluebuild"
   cleanup
 fi
 
