@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use format_serde_error::SerdeError;
 use log::{debug, trace};
 use std::process::Command;
 
@@ -22,5 +23,20 @@ pub fn check_command_exists(command: &str) -> Result<()> {
         Err(anyhow!(
             "Command {command} doesn't exist and is required to build the image"
         ))
+    }
+}
+
+pub fn serde_yaml_err(contents: &str) -> impl Fn(serde_yaml::Error) -> SerdeError + '_ {
+    |err: serde_yaml::Error| {
+        let location = err.location();
+        let location = location.as_ref();
+        SerdeError::new(
+            contents.to_string(),
+            (
+                err.into(),
+                location.map_or(0, |l| l.line()).into(),
+                location.map_or(0, |l| l.column()).into(),
+            ),
+        )
     }
 }

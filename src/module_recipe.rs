@@ -16,7 +16,7 @@ use serde_json::Value as JsonValue;
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
 
-use crate::ops::check_command_exists;
+use crate::ops::{self, check_command_exists};
 
 #[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
 pub struct Recipe<'a> {
@@ -143,7 +143,7 @@ impl<'a> Recipe<'a> {
         debug!("Recipe contents: {file}");
 
         let mut recipe =
-            serde_yaml::from_str::<Recipe>(&file).map_err(|err| SerdeError::new(file, err))?;
+            serde_yaml::from_str::<Recipe>(&file).map_err(ops::serde_yaml_err(&file))?;
 
         recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules);
 
@@ -220,15 +220,9 @@ impl ModuleExt {
         let file = fs::read_to_string(file_path.clone())?;
 
         serde_yaml::from_str::<ModuleExt>(&file).map_or_else(
-            |err| -> Result<ModuleExt> {
-                error!(
-                    "Failed to parse module from {}: {}",
-                    file_path.display(),
-                    SerdeError::new(file.to_owned(), err).to_string()
-                );
-
-                let module = serde_yaml::from_str::<Module>(&file)
-                    .map_err(|err| SerdeError::new(file, err))?;
+            |_| -> Result<ModuleExt> {
+                let module =
+                    serde_yaml::from_str::<Module>(&file).map_err(ops::serde_yaml_err(&file))?;
                 Ok(ModuleExt::builder().modules(vec![module]).build())
             },
             Ok,
