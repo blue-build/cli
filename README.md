@@ -81,6 +81,48 @@ The `--reboot` argument can be used with this command as well.
 
 #### CI Builds
 
+##### GitHub
+
+You can use our [GitHub Action](https://github.com/blue-build/github-action) by using the following `.github/workflows/build.yaml`:
+
+```yaml
+name: bluebuild
+on:
+  schedule:
+    - cron: "00 17 * * *" # build at 17:00 UTC every day 
+                          # (20 minutes after last ublue images start building)
+  push:
+    paths-ignore: # don't rebuild if only documentation has changed
+      - "**.md"
+  pull_request:
+  workflow_dispatch: # allow manually triggering builds
+jobs:
+  bluebuild:
+    name: Build Custom Image
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false # stop GH from cancelling all matrix builds if one fails
+      matrix:
+        recipe:
+          # !! Add your recipes here 
+          - recipe.yml
+    steps:
+       # the build is fully handled by the reusable github action
+      - name: Build Custom Image
+        uses: blue-build/github-action@v1.0.0
+        with:
+          recipe: ${{ matrix.recipe }}
+          cosign_private_key: ${{ secrets.SIGNING_SECRET }}
+          registry_token: ${{ github.token }}
+          pr_event_number: ${{ github.event.number }}
+ ```
+
+##### Gitlab
+
 If you're running in Gitlab CI, it will automatically sign your image using Gitlab's own OIDC service. Here's an example of a `.gitlab-ci.yaml`:
 
 ```yaml
@@ -116,62 +158,6 @@ build-image:
       aud: sigstore
   script:
     - bb build --push ./config/$RECIPE
-```
-
-Support was also added for building in GitHub! You can use this tool instead of the standard GitHub Actions by using the following `.github/workflows/build.yaml`:
-
-```yaml
-name: build-ublue
-on:
-  schedule:
-    - cron: "30 16 * * *"
-  push:
-    branches:
-      - live
-      - template
-      - main
-    paths-ignore:
-      - "**.md"
-  pull_request:
-  workflow_dispatch:
-jobs:
-  ublue-build:
-    name: Build Ublue Image
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-    strategy:
-      fail-fast: false
-      matrix:
-        recipe:
-          - recipe.yml
-    steps:
-      - name: Maximize build space
-        uses: AdityaGarg8/remove-unwanted-software@v1
-        with:
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
-      - uses: actions/checkout@v4
-      - uses: sigstore/cosign-installer@v3.3.0
-      - name: Install Cargo
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      - name: Install BlueBuild tool
-        run: |
-          cargo install blue-build --locked
-      - name: Install Dependencies
-        run: |
-          sudo apt-get install -y buildah skopeo
-      - name: Build Image
-        env:
-          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
-          PR_EVENT_NUMBER: ${{ github.event.number }}
-          REGISTRY_TOKEN: ${{ github.token }}
-        run: |
-          bb build --push ./config/${{ matrix.recipe }}
 ```
 
 ## Future Features
