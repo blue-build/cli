@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2024-02-07
+
+### Features
+
+- Snippets (#51)
+
+### Refactor
+
+- [**breaking**] Rename bb to bluebuild (#50)
+
 ## [0.6.0] - 2024-02-06
 
 ### Bug Fixes
@@ -35,6 +45,7 @@ All notable changes to this project will be documented in this file.
 - Update README to show github action use
 - Set version to 0.5.6-dev.0 to prepare for first release
 - Switch back to crate format_serde_error
+- Prepare for 0.6.0 release
 
 ### Refactor
 
