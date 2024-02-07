@@ -3,4 +3,5 @@
 .vscode/
 
 # Local testing for bluebuild recipe files
-/config/
+/config/*
+Containerfile

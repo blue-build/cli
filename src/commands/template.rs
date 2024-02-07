@@ -121,12 +121,12 @@ fn has_cosign_file() -> bool {
 }
 
 #[must_use]
-fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
-    if module.module_type.as_ref()? == "containerfile" {
+fn get_module_type_list(module: &Module, typ: &str, list_key: &str) -> Option<Vec<String>> {
+    if module.module_type.as_ref()? == typ {
         Some(
             module
                 .config
-                .get("containerfiles")?
+                .get(list_key)?
                 .as_sequence()?
                 .iter()
                 .filter_map(|t| Some(t.as_str()?.to_owned()))
@@ -135,6 +135,16 @@ fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
     } else {
         None
     }
+}
+
+#[must_use]
+fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
+    get_module_type_list(module, "containerfile", "containerfiles")
+}
+
+#[must_use]
+fn get_containerfile_snippets(module: &Module) -> Option<Vec<String>> {
+    get_module_type_list(module, "containerfile", "snippets")
 }
 
 #[must_use]
@@ -156,7 +166,7 @@ fn print_containerfile(containerfile: &str) -> String {
 
 fn print_module_context(module: &Module) -> String {
     serde_json::to_string(module).unwrap_or_else(|e| {
-        error!("Failed to parse module: {e}");
+        error!("Failed to parse module!!!!!: {e}");
         process::exit(1);
     })
 }
