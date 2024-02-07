@@ -18,7 +18,7 @@ impl BlueBuildCommand for CompletionsCommand {
         generate(
             self.shell,
             &mut BlueBuildArgs::command(),
-            "bb",
+            "bluebuild",
             &mut std::io::stdout().lock(),
         );
 

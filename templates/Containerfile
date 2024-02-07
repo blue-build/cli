@@ -33,7 +33,7 @@ COPY --from=ghcr.io/blue-build/cli:
 {{ tag }}
 {%- else -%}
 latest-installer
-{%- endif %} /out/bb /usr/bin/bb
+{%- endif %} /out/bluebuild /usr/bin/bluebuild
 
 COPY config /tmp/config/
 
