@@ -121,12 +121,12 @@ fn has_cosign_file() -> bool {
 }
 
 #[must_use]
-fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
-    if module.module_type.as_ref()? == "containerfile" {
+fn get_module_type_list(module: &Module, typ: &str, list_key: &str) -> Option<Vec<String>> {
+    if module.module_type.as_ref()? == typ {
         Some(
             module
                 .config
-                .get("containerfiles")?
+                .get(list_key)?
                 .as_sequence()?
                 .iter()
                 .filter_map(|t| Some(t.as_str()?.to_owned()))
@@ -135,6 +135,16 @@ fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
     } else {
         None
     }
+}
+
+#[must_use]
+fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
+    get_module_type_list(module, "containerfile", "containerfiles")
+}
+
+#[must_use]
+fn get_containerfile_snippets(module: &Module) -> Option<Vec<String>> {
+    get_module_type_list(module, "containerfile", "snippets")
 }
 
 #[must_use]
@@ -152,33 +162,6 @@ fn print_containerfile(containerfile: &str) -> String {
     debug!("Containerfile contents {path}:\n{file}");
 
     file
-}
-
-fn print_module_snippets(module: &Module) -> String {
-    trace!("print_module_snippets({module:?})");
-
-    let snippets = module
-        .config
-        .iter()
-        .filter_map(|s| {
-            if s.0.as_str() == "snippets" {
-                Some(s.1.as_sequence()?)
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
-
-    snippets
-        .iter()
-        .map(|s| {
-            s.iter()
-                .filter_map(|s| s.as_str())
-                .collect::<Vec<_>>()
-                .join("\n")
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 fn print_module_context(module: &Module) -> String {

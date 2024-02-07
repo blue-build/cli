@@ -55,6 +55,11 @@ ARG BASE_IMAGE="{{ recipe.base_image }}"
 {{ self::print_containerfile(c) }}
 				{%- endfor %}
 			{%- endif %}
+			{%- if let Some(snippets) = self::get_containerfile_snippets(module) %}
+				{%- for s in snippets %}
+{{ s }}
+				{%- endfor %}
+			{%- endif %}
 		{%- else if type == "files" %}
 			{%- if let Some(files) = self::get_files_list(module) %}
 				{%- for (src, dest) in files %}
@@ -63,7 +68,6 @@ COPY {{ src }} {{ dest }}
 			{%- endif %}
 		{%- else %}
 RUN chmod +x /tmp/modules/{{ type }}/{{ type }}.sh && source /tmp/exports.sh && /tmp/modules/{{ type }}/{{ type }}.sh '{{ self::print_module_context(module) }}'
-{{ self::print_module_snippets(module) }}
 		{%- endif %}
   {%- endif %}
 {%- endfor %}
