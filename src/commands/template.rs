@@ -154,9 +154,36 @@ fn print_containerfile(containerfile: &str) -> String {
     file
 }
 
+fn print_module_snippets(module: &Module) -> String {
+    trace!("print_module_snippets({module:?})");
+
+    let snippets = module
+        .config
+        .iter()
+        .filter_map(|s| {
+            if s.0.as_str() == "snippets" {
+                Some(s.1.as_sequence()?)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    snippets
+        .iter()
+        .map(|s| {
+            s.iter()
+                .filter_map(|s| s.as_str())
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn print_module_context(module: &Module) -> String {
     serde_json::to_string(module).unwrap_or_else(|e| {
-        error!("Failed to parse module: {e}");
+        error!("Failed to parse module!!!!!: {e}");
         process::exit(1);
     })
 }

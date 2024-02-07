@@ -34,8 +34,8 @@ pub fn serde_yaml_err(contents: &str) -> impl Fn(serde_yaml::Error) -> SerdeErro
             contents.to_string(),
             (
                 err.into(),
-                location.map_or(0, |l| l.line()).into(),
-                location.map_or(0, |l| l.column()).into(),
+                location.map_or(0, serde_yaml::Location::line).into(),
+                location.map_or(0, serde_yaml::Location::column).into(),
             ),
         )
     }

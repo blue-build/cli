@@ -209,6 +209,11 @@ pub struct ModuleExt {
 }
 
 impl ModuleExt {
+    /// # Parse a module file returning a [`ModuleExt`]
+    ///
+    /// # Errors
+    /// Can return an `anyhow` Error if the file cannot be read or deserialized
+    /// into a [`ModuleExt`]
     pub fn parse_module_from_file(file_name: &str) -> Result<ModuleExt> {
         let file_path = PathBuf::from("config").join(file_name);
         let file_path = if file_path.is_absolute() {
@@ -246,6 +251,7 @@ pub struct Module {
 }
 
 impl Module {
+    #[must_use]
     pub fn get_modules(modules: &[Self]) -> Vec<Self> {
         modules
             .iter()
