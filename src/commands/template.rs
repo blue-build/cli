@@ -121,8 +121,8 @@ fn has_cosign_file() -> bool {
 }
 
 #[must_use]
-fn get_module_type_list(module: &Module, typ: &str, list_key: &str) -> Option<Vec<String>> {
-    if module.module_type.as_ref()? == typ {
+fn get_module_type_list(module: &Module, type: &str, list_key: &str) -> Option<Vec<String>> {
+    if module.module_type.as_ref()? == type {
         Some(
             module
                 .config
