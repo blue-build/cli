@@ -8,8 +8,8 @@ COPY ./config /config
 # The default modules are inside ublue-os/bling
 # Custom modules overwrite defaults
 FROM scratch as stage-modules
-COPY ./modules /modules
 COPY --from=ghcr.io/ublue-os/bling:latest /modules /modules
+COPY ./modules /modules
 
 # This stage is responsible for holding onto
 # exports like the exports.sh
