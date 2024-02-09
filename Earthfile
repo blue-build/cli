@@ -7,7 +7,7 @@ ARG --global IMAGE=ghcr.io/blue-build/cli
 
 all:
 	BUILD +build
-	BUILD +integration-tests --NIGHTLY=true --NIGHTLY=false
+	BUILD ./integration-tests+all --NIGHTLY=true --NIGHTLY=false
 
 build:
 	BUILD +default
@@ -25,13 +25,6 @@ default:
 
 nightly:
 	BUILD +default --NIGHTLY=true
-
-integration-tests:
-	ARG NIGHTLY=false
-	BUILD +integration-test-template --NIGHTLY=$NIGHTLY
-	BUILD +integration-test-build --NIGHTLY=$NIGHTLY
-	BUILD +integration-test-rebase --NIGHTLY=$NIGHTLY
-	BUILD +integration-test-upgrade --NIGHTLY=$NIGHTLY
 
 lint:
 	FROM +common
@@ -114,66 +107,6 @@ installer:
 	ARG LATEST=false
 	ARG INSTALLER=true
 	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY --INSTALLER=$INSTALLER
-
-integration-test-template:
-	ARG NIGHTLY=false
-	FROM DOCKERFILE -f +integration-test-template-containerfile/test/Containerfile +integration-test-template-containerfile/test/* --NIGHTLY=$NIGHTLY
-
-integration-test-template-containerfile:
-	ARG NIGHTLY=false
-	FROM +integration-test-base --NIGHTLY=$NIGHTLY
-	RUN bluebuild -vv template config/recipe-jp-desktop.yml | tee Containerfile
-
-	SAVE ARTIFACT /test
-
-integration-test-build:
-	ARG NIGHTLY=false
-	FROM +integration-test-base --NIGHTLY=$NIGHTLY
-
-	RUN --privileged bluebuild -vv build config/recipe-jp-desktop.yml
-
-integration-test-rebase:
-	ARG NIGHTLY=false
-	FROM +integration-test-base --NIGHTLY=$NIGHTLY
-
-	RUN --privileged bluebuild -vv rebase config/recipe-jp-desktop.yml
-
-integration-test-upgrade:
-	ARG NIGHTLY=false
-	FROM +integration-test-base --NIGHTLY=$NIGHTLY
-	RUN mkdir -p /etc/bluebuild && touch /etc/bluebuild/jp-desktop.tar.gz
-
-	RUN --privileged bluebuild -vv upgrade config/recipe-jp-desktop.yml
-
-integration-test-base:
-	ARG NIGHTLY=false
-
-	FROM +blue-build-cli-alpine --NIGHTLY=$NIGHTLY
-
-  	RUN echo "#!/bin/sh
-		echo 'Running podman'" > /usr/bin/podman \
-		&& chmod +x /usr/bin/podman
-  
-  	RUN echo "#!/bin/sh
-		echo 'Running buildah'" > /usr/bin/buildah \
-		&& chmod +x /usr/bin/buildah
-
-	RUN echo "#!/bin/sh
-		echo 'Running rpm-ostree'" > /usr/bin/rpm-ostree \
-		&& chmod +x /usr/bin/rpm-ostree
-
-	GIT CLONE https://gitlab.com/wunker-bunker/wunker-os.git /test
-	WORKDIR /test
-
-iso-generator:
-	FROM registry.fedoraproject.org/fedora-toolbox
-
-    GIT CLONE https://github.com/ublue-os/isogenerator.git /isogenerator
-    WORKDIR /isogenerator
-    ARG PACKAGES=$(cat deps.txt)
-    RUN dnf install --disablerepo="*" --enablerepo="fedora,updates" --setopt install_weak_deps=0 --assumeyes $PACKAGES
-
-    SAVE IMAGE --push $IMAGE/iso-generator
 
 cosign:
 	FROM gcr.io/projectsigstore/cosign

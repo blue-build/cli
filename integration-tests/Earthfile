@@ -1,0 +1,57 @@
+VERSION 0.8
+PROJECT blue-build/cli
+
+all:
+	ARG NIGHTLY=false
+	BUILD +build-template --NIGHTLY=$NIGHTLY
+	BUILD +build --NIGHTLY=$NIGHTLY
+	BUILD +rebase --NIGHTLY=$NIGHTLY
+	BUILD +upgrade --NIGHTLY=$NIGHTLY
+
+build-template:
+	ARG NIGHTLY=false
+	FROM DOCKERFILE \
+		-f +template-containerfile/test/Containerfile \
+		+template-containerfile/test/* --NIGHTLY=$NIGHTLY
+	RUN [ -f /usr/test-file ]
+
+template-containerfile:
+	ARG NIGHTLY=false
+	FROM +test-base --NIGHTLY=$NIGHTLY
+	RUN bluebuild -vv template config/recipe.yml | tee Containerfile
+
+	SAVE ARTIFACT /test
+
+build:
+	ARG NIGHTLY=false
+	FROM +test-base --NIGHTLY=$NIGHTLY
+
+	RUN --privileged bluebuild -vv build config/recipe.yml
+
+rebase:
+	ARG NIGHTLY=false
+	FROM +test-base --NIGHTLY=$NIGHTLY
+
+	RUN --privileged bluebuild -vv rebase config/recipe.yml
+
+upgrade:
+	ARG NIGHTLY=false
+	FROM +test-base --NIGHTLY=$NIGHTLY
+	RUN mkdir -p /etc/bluebuild && touch /etc/bluebuild/template.tar.gz
+
+	RUN --privileged bluebuild -vv upgrade config/recipe.yml
+
+test-base:
+	ARG NIGHTLY=false
+
+	FROM ../+blue-build-cli-alpine --NIGHTLY=$NIGHTLY
+
+	COPY ./mock-scripts/ /usr/bin/
+
+	WORKDIR /test
+	COPY ./test-repo /test
+
+	# Setup a cosign key pair
+	RUN echo -n "\n\n" | cosign generate-key-pair
+	ENV COSIGN_PRIVATE_KEY=$(cat cosign.key)
+	RUN rm cosign.key
