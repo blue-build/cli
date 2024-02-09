@@ -50,7 +50,10 @@ impl BlueBuildCommand for UpgradeCommand {
             .archive(LOCAL_BUILD)
             .build();
 
-        let image_name = format!("{}.tar.gz", build.generate_full_image_name(&recipe)?);
+        let image_name = format!(
+            "{}.{ARCHIVE_SUFFIX}",
+            build.generate_full_image_name(&recipe)?
+        );
         clean_local_build_dir(&image_name, false)?;
         debug!("Image name is {image_name}");
 
@@ -97,7 +100,10 @@ impl BlueBuildCommand for RebaseCommand {
             .archive(LOCAL_BUILD)
             .build();
 
-        let image_name = format!("{}.tar.gz", build.generate_full_image_name(&recipe)?);
+        let image_name = format!(
+            "{}.{ARCHIVE_SUFFIX}",
+            build.generate_full_image_name(&recipe)?
+        );
         clean_local_build_dir(&image_name, true)?;
         debug!("Image name is {image_name}");
 
