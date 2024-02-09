@@ -17,18 +17,16 @@ jobs:
           version: v0.8.3
 
       - name: Earthly login
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN != null
+        if: github.repository == 'blue-build/cli'
         run: |
           earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
-          earthly sat s blue-build-pr
+          earthly sat s blue-build
 
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.ref }}
 
       - name: Run build
-        run: earthly --ci -P +build
+        run: earthly --ci -P +all
 

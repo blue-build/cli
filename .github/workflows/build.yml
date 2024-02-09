@@ -22,6 +22,7 @@ jobs:
           version: v0.8.3
 
       - name: Earthly login
+        if: github.repository == 'blue-build/cli'
         run: |
           earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
@@ -40,4 +41,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run build
+        if: github.repository == 'blue-build/cli'
         run: earthly --push --ci -P +all
+      - name: Run build
+        if: github.repository != 'blue-build/cli'
+        run: earthly --ci -P +all
