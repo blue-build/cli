@@ -363,61 +363,53 @@ impl BuildCommand {
         trace!("BuildCommand::generate_full_image_name({recipe:#?})");
         info!("Generating full image name");
 
-        let image_name = if let Some(archive_dir) = &self.archive {
-            format!(
-                "oci-archive:{}/{}.{ARCHIVE_SUFFIX}",
-                archive_dir.to_string_lossy().trim_end_matches('/'),
-                recipe.name.to_lowercase(),
-            )
-        } else {
-            match (
-                env::var("CI_REGISTRY").ok().map(|s| s.to_lowercase()),
-                env::var("CI_PROJECT_NAMESPACE")
-                    .ok()
-                    .map(|s| s.to_lowercase()),
-                env::var("CI_PROJECT_NAME").ok().map(|s| s.to_lowercase()),
-                env::var("GITHUB_REPOSITORY_OWNER")
-                    .ok()
-                    .map(|s| s.to_lowercase()),
-                self.registry.as_ref().map(|s| s.to_lowercase()),
-                self.registry_path.as_ref().map(|s| s.to_lowercase()),
-            ) {
-                (_, _, _, _, Some(registry), Some(registry_path)) => {
-                    trace!("registry={registry}, registry_path={registry_path}");
-                    format!(
-                        "{}/{}/{}",
-                        registry.trim().trim_matches('/'),
-                        registry_path.trim().trim_matches('/'),
-                        recipe.name.trim(),
-                    )
-                }
-                (
-                    Some(ci_registry),
-                    Some(ci_project_namespace),
-                    Some(ci_project_name),
-                    None,
-                    None,
-                    None,
-                ) => {
-                    trace!("CI_REGISTRY={ci_registry}, CI_PROJECT_NAMESPACE={ci_project_namespace}, CI_PROJECT_NAME={ci_project_name}");
-                    warn!("Generating Gitlab Registry image");
-                    format!(
-                        "{ci_registry}/{ci_project_namespace}/{ci_project_name}/{}",
-                        recipe.name.trim().to_lowercase()
-                    )
-                }
-                (None, None, None, Some(github_repository_owner), None, None) => {
-                    trace!("GITHUB_REPOSITORY_OWNER={github_repository_owner}");
-                    warn!("Generating Github Registry image");
-                    format!("ghcr.io/{github_repository_owner}/{}", &recipe.name)
-                }
-                _ => {
-                    trace!("Nothing to indicate an image name with a registry");
-                    if self.push {
-                        bail!("Need '--registry' and '--registry-path' in order to push image");
-                    }
+        let image_name = match (
+            env::var("CI_REGISTRY").ok().map(|s| s.to_lowercase()),
+            env::var("CI_PROJECT_NAMESPACE")
+                .ok()
+                .map(|s| s.to_lowercase()),
+            env::var("CI_PROJECT_NAME").ok().map(|s| s.to_lowercase()),
+            env::var("GITHUB_REPOSITORY_OWNER")
+                .ok()
+                .map(|s| s.to_lowercase()),
+            self.registry.as_ref().map(|s| s.to_lowercase()),
+            self.registry_path.as_ref().map(|s| s.to_lowercase()),
+        ) {
+            (_, _, _, _, Some(registry), Some(registry_path)) => {
+                trace!("registry={registry}, registry_path={registry_path}");
+                format!(
+                    "{}/{}/{}",
+                    registry.trim().trim_matches('/'),
+                    registry_path.trim().trim_matches('/'),
+                    recipe.name.trim(),
+                )
+            }
+            (
+                Some(ci_registry),
+                Some(ci_project_namespace),
+                Some(ci_project_name),
+                None,
+                None,
+                None,
+            ) => {
+                trace!("CI_REGISTRY={ci_registry}, CI_PROJECT_NAMESPACE={ci_project_namespace}, CI_PROJECT_NAME={ci_project_name}");
+                warn!("Generating Gitlab Registry image");
+                format!(
+                    "{ci_registry}/{ci_project_namespace}/{ci_project_name}/{}",
                     recipe.name.trim().to_lowercase()
+                )
+            }
+            (None, None, None, Some(github_repository_owner), None, None) => {
+                trace!("GITHUB_REPOSITORY_OWNER={github_repository_owner}");
+                warn!("Generating Github Registry image");
+                format!("ghcr.io/{github_repository_owner}/{}", &recipe.name)
+            }
+            _ => {
+                trace!("Nothing to indicate an image name with a registry");
+                if self.push {
+                    bail!("Need '--registry' and '--registry-path' in order to push image");
                 }
+                recipe.name.trim().to_lowercase()
             }
         };
 
@@ -478,6 +470,8 @@ impl BuildCommand {
         if self.push {
             push_images(tags, image_name)?;
             sign_images(image_name, tags.first().map(String::as_str))?;
+        } else if let Some(archive_dir) = &self.archive {
+            save_image(archive_dir, image_name)?;
         }
 
         Ok(())
@@ -530,6 +524,59 @@ impl BuildCommand {
 // ======================================================== //
 // ========================= Helpers ====================== //
 // ======================================================== //
+
+fn save_image(archive_dir: &Path, image_name: &str) -> Result<()> {
+    let archive_path = archive_dir.join(format!("{image_name}.{ARCHIVE_SUFFIX}"));
+    let full_image = format!("localhost/{image_name}");
+    info!("Saving image to {}", archive_path.display());
+
+    if archive_path.exists() {
+        debug!("Deleting existing file {}", archive_path.display());
+        fs::remove_file(&archive_path)?;
+    }
+
+    let status = match (
+        ops::check_command_exists("buildah"),
+        ops::check_command_exists("podman"),
+    ) {
+        (Ok(()), _) => {
+            trace!(
+                "buildah push {full_image} oci-archive:{}",
+                archive_path.display()
+            );
+            Command::new("buildah")
+                .arg("push")
+                .arg(&full_image)
+                .arg(format!("oci-archive:{}", archive_path.display()))
+                .status()?
+        }
+        (Err(_), Ok(())) => {
+            trace!(
+                "podman image save -o {} {full_image}",
+                archive_path.display()
+            );
+            Command::new("podman")
+                .arg("image")
+                .arg("save")
+                .arg("--format=oci-archive")
+                .arg("-o")
+                .arg(&archive_path)
+                .arg(&full_image)
+                .status()?
+        }
+        (Err(e1), Err(e2)) => bail!("Need either 'buildah' or 'podman' to build: {e1}, {e2}"),
+    };
+
+    if status.success() {
+        info!("Saved image to local archive at {}", archive_path.display());
+    } else {
+        bail!(
+            "Failed to save image as local archive to {}",
+            archive_path.display()
+        );
+    }
+    Ok(())
+}
 
 fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
     trace!("BuildCommand::sign_images({image_name}, {tag:?})");
