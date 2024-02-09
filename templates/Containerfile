@@ -1,13 +1,13 @@
 # This stage is responsible for holding onto
 # your config without copying it directly into
 # the final image
-FROM docker.io/alpine as stage-config
+FROM scratch as stage-config
 COPY ./config /config
 
 # Copy modules
 # The default modules are inside ublue-os/bling
 # Custom modules overwrite defaults
-FROM docker.io/alpine as stage-modules
+FROM scratch as stage-modules
 COPY ./modules /modules
 COPY --from=ghcr.io/ublue-os/bling:latest /modules /modules
 
