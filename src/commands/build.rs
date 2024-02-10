@@ -206,7 +206,7 @@ impl BuildCommand {
         } else {
             tags.first()
                 .map(|t| format!("{image_name}:{t}"))
-                .unwrap_or(image_name.to_string())
+                .unwrap_or_else(|| image_name.to_string())
         };
         debug!("Full tag is {first_image_name}");
 
@@ -243,7 +243,7 @@ impl BuildCommand {
             debug!("Pushing is enabled");
 
             let credentials =
-                credentials.ok_or(anyhow!("Should have checked for creds earlier"))?;
+                credentials.ok_or_else(|| anyhow!("Should have checked for creds earlier"))?;
 
             push_images_podman_api(&tags, &image_name, &first_image_name, &client, &credentials)
                 .await?;
@@ -301,7 +301,7 @@ impl BuildCommand {
 
         let credentials = self
             .get_login_creds()
-            .ok_or(anyhow!("Unable to get credentials"))?;
+            .ok_or_else(|| anyhow!("Unable to get credentials"))?;
 
         let (registry, username, password) = (
             credentials.registry,
@@ -437,7 +437,7 @@ impl BuildCommand {
         } else {
             tags.first()
                 .map(|t| format!("{image_name}:{t}"))
-                .unwrap_or(image_name.to_string())
+                .unwrap_or_else(|| image_name.to_string())
         };
 
         info!("Building image {full_image}");
@@ -540,7 +540,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
     let image_digest = get_image_digest(image_name, tag)?;
     let image_name_tag = tag
         .map(|t| format!("{image_name}:{t}"))
-        .unwrap_or(image_name.to_owned());
+        .unwrap_or_else(|| image_name.to_owned());
 
     match (
         env::var("CI_DEFAULT_BRANCH"),
@@ -648,11 +648,10 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
 fn get_image_digest(image_name: &str, tag: Option<&str>) -> Result<String> {
     trace!("get_image_digest({image_name}, {tag:?})");
 
-    let image_url = if let Some(tag) = tag {
-        format!("docker://{image_name}:{tag}")
-    } else {
-        format!("docker://{image_name}")
-    };
+    let image_url = tag.map_or_else(
+        || format!("docker://{image_name}"),
+        |tag| format!("docker://{image_name}:{tag}"),
+    );
 
     trace!("skopeo inspect --format='{{.Digest}}' {image_url}");
     let image_digest = String::from_utf8(

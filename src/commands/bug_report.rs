@@ -126,14 +126,18 @@ impl BugReportCommand {
     }
 
     fn get_recipe(&self) -> Option<Recipe> {
-        let recipe_path = if let Some(recipe_path) = self.recipe_path.clone() {
-            recipe_path
-        } else if let Ok(recipe) = get_config_file("recipe", "Enter path to recipe file") {
-            recipe
-        } else {
-            trace!("Failed to get recipe");
-            String::new()
-        };
+        let recipe_path = self.recipe_path.clone().map_or_else(
+            || {
+                get_config_file("recipe", "Enter path to recipe file").map_or_else(
+                    |_| {
+                        trace!("Failed to get recipe");
+                        String::new()
+                    },
+                    |recipe| recipe,
+                )
+            },
+            |recipe_path| recipe_path,
+        );
 
         Recipe::parse(&recipe_path).ok()
     }
@@ -263,7 +267,7 @@ fn get_shell_info() -> ShellInfo {
 
     ShellInfo {
         version,
-        name: current_shell.to_string(),
+        name: current_shell,
     }
 }
 
