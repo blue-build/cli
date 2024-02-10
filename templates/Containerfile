@@ -1,3 +1,21 @@
+# This stage is responsible for holding onto
+# your config without copying it directly into
+# the final image
+FROM scratch as stage-config
+COPY ./config /config
+
+# Copy modules
+# The default modules are inside ublue-os/bling
+# Custom modules overwrite defaults
+FROM scratch as stage-modules
+COPY --from=ghcr.io/ublue-os/bling:latest /modules /modules
+COPY ./modules /modules
+
+# This stage is responsible for holding onto
+# exports like the exports.sh
+FROM docker.io/alpine as stage-exports
+RUN printf {{ self::print_script(export_script) }} >> /exports.sh && chmod +x /exports.sh
+
 FROM {{ recipe.base_image }}:{{ recipe.image_version }}
 
 LABEL org.opencontainers.image.title="{{ recipe.name }}"
@@ -29,16 +47,6 @@ COPY --from=ghcr.io/blue-build/cli:
 latest-installer
 {%- endif %} /out/bluebuild /usr/bin/bluebuild
 
-COPY config /tmp/config/
-
-# Copy modules
-# The default modules are inside ublue-os/bling
-COPY --from=ghcr.io/ublue-os/bling:latest /modules /tmp/modules/
-# Custom modules overwrite defaults
-COPY modules /tmp/modules/
-
-RUN printf {{ self::print_script(export_script) }} >> /tmp/exports.sh && chmod +x /tmp/exports.sh
-
 ARG CONFIG_DIRECTORY="/tmp/config"
 ARG IMAGE_NAME="{{ recipe.name }}"
 ARG BASE_IMAGE="{{ recipe.base_image }}"
@@ -63,7 +71,12 @@ COPY {{ src }} {{ dest }}
 				{%- endfor %}
 			{%- endif %}
 		{%- else %}
-RUN chmod +x /tmp/modules/{{ type }}/{{ type }}.sh && source /tmp/exports.sh && /tmp/modules/{{ type }}/{{ type }}.sh '{{ self::print_module_context(module) }}'
+RUN \
+	--mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
+	--mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
+	--mount=type=bind,from=stage-exports,src=/exports.sh,dst=/tmp/exports.sh \
+	chmod +x /tmp/modules/{{ type }}/{{ type }}.sh \
+	&& source /tmp/exports.sh && /tmp/modules/{{ type }}/{{ type }}.sh '{{ self::print_module_context(module) }}'
 		{%- endif %}
   {%- endif %}
 {%- endfor %}
