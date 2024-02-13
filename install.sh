@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION=v0.7.0
+VERSION=v0.7.1
 
 # We use sudo for podman so that we can copy directly into /usr/local/bin
 

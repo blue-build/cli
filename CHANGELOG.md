@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.1] - 2024-02-13
+
+### Bug Fixes
+
+- Remove deprecated bling `COPY` for `files` and `rpms` (#52)
+- Only use earthly builder if token exists (#53)
+
+### Features
+
+- Use Multi-stage builds to prevent COPY for modules and config (#54)
+- Alias update for upgrade subcommand (#60)
+
+### Miscellaneous Tasks
+
+- Update /Containerfile in .gitignore
+- Create base integration test setup (#55)
+- Remove nightly flags
+- Rename registry-path arg to registry-namespace but keep previous as alias
+- Add cargo release files
+
+### Refactor
+
+- Enable clippy nursery lint
+
 ## [0.7.0] - 2024-02-07
 
 ### Features
