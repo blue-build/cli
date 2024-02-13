@@ -66,6 +66,7 @@ pub enum CommandArgs {
     /// NOTE: This can only be used if you have `rpm-ostree`
     /// installed and if the `--push` and `--rebase` option isn't
     /// used. This image will not be signed.
+    #[command(visible_alias("update"))]
     Upgrade(local::UpgradeCommand),
 
     /// Rebase your current OS onto the image
