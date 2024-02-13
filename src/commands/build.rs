@@ -71,7 +71,8 @@ pub struct BuildCommand {
     /// project images.
     #[arg(long)]
     #[builder(default, setter(into, strip_option))]
-    registry_path: Option<String>,
+    #[arg(visible_alias("registry-path"))]
+    registry_namespace: Option<String>,
 
     /// The username to login to the
     /// container registry.
@@ -380,7 +381,7 @@ impl BuildCommand {
                     .ok()
                     .map(|s| s.to_lowercase()),
                 self.registry.as_ref().map(|s| s.to_lowercase()),
-                self.registry_path.as_ref().map(|s| s.to_lowercase()),
+                self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
             ) {
                 (_, _, _, _, Some(registry), Some(registry_path)) => {
                     trace!("registry={registry}, registry_path={registry_path}");
