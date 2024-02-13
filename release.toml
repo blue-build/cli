@@ -1,0 +1,4 @@
+pre-release-hook = ["git", "cliff", "-o", "CHANGELOG.md", "--tag", "{{version}}"]
+pre-release-replacements = [
+  { file = "install.sh", search="VERSION=v\\d+\\.\\d+\\.\\d+", replace = "VERSION=v{{version}}" }
+]
