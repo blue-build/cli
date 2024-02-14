@@ -5,6 +5,7 @@ use std::process::Command;
 
 pub const LOCAL_BUILD: &str = "/etc/bluebuild";
 pub const ARCHIVE_SUFFIX: &str = "tar.gz";
+pub const BUILD_ID_LABEL: &str = "org.blue-build.build-id";
 
 pub fn check_command_exists(command: &str) -> Result<()> {
     trace!("check_command_exists({command})");

@@ -39,7 +39,7 @@ pub struct Recipe<'a> {
     pub blue_build_tag: Option<Cow<'a, str>>,
 
     #[serde(flatten)]
-    pub modules_ext: ModuleExt,
+    pub modules_ext: ModuleExt<'a>,
 
     #[serde(flatten)]
     #[builder(setter(into))]
@@ -145,7 +145,7 @@ impl<'a> Recipe<'a> {
         let mut recipe =
             serde_yaml::from_str::<Recipe>(&file).map_err(ops::serde_yaml_err(&file))?;
 
-        recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules);
+        recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules).into();
 
         Ok(recipe)
     }
@@ -203,12 +203,12 @@ impl<'a> Recipe<'a> {
 }
 
 #[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
-pub struct ModuleExt {
+pub struct ModuleExt<'a> {
     #[builder(default, setter(into))]
-    pub modules: Vec<Module>,
+    pub modules: Cow<'a, [Module<'a>]>,
 }
 
-impl ModuleExt {
+impl ModuleExt<'_> {
     /// # Parse a module file returning a [`ModuleExt`]
     ///
     /// # Errors
@@ -236,21 +236,21 @@ impl ModuleExt {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, TypedBuilder)]
-pub struct Module {
+pub struct Module<'a> {
     #[builder(default, setter(into, strip_option))]
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
-    pub module_type: Option<String>,
+    pub module_type: Option<Cow<'a, str>>,
 
     #[builder(default, setter(into, strip_option))]
     #[serde(rename = "from-file", skip_serializing_if = "Option::is_none")]
-    pub from_file: Option<String>,
+    pub from_file: Option<Cow<'a, str>>,
 
     #[serde(flatten)]
     #[builder(default, setter(into))]
     pub config: IndexMap<String, Value>,
 }
 
-impl Module {
+impl Module<'_> {
     #[must_use]
     pub fn get_modules(modules: &[Self]) -> Vec<Self> {
         modules

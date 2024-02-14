@@ -11,6 +11,10 @@ use anyhow::{anyhow, bail, Result};
 use clap::Args;
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
+use uuid::Uuid;
+
+#[cfg(feature = "builtin-podman")]
+use std::sync::Arc;
 
 #[cfg(feature = "podman-api")]
 use podman_api::{
@@ -21,8 +25,14 @@ use podman_api::{
 #[cfg(feature = "podman-api")]
 use build_strategy::BuildStrategy;
 
+#[cfg(feature = "signal-hook-tokio")]
+use signal_hook_tokio::Signals;
+
 #[cfg(feature = "tokio")]
-use tokio::runtime::Runtime;
+use tokio::{
+    runtime::Runtime,
+    sync::oneshot::{self, Sender},
+};
 
 use crate::{
     commands::template::TemplateCommand,
@@ -141,6 +151,8 @@ impl BlueBuildCommand for BuildCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
+        let build_id = Uuid::new_v4();
+
         if self.push && self.archive.is_some() {
             bail!("You cannot use '--archive' and '--push' at the same time");
         }
@@ -166,27 +178,39 @@ impl BlueBuildCommand for BuildCommand {
         TemplateCommand::builder()
             .recipe(&recipe_path)
             .output(PathBuf::from("Containerfile"))
+            .build_id(build_id)
             .build()
             .try_run()?;
 
         info!("Building image for recipe at {}", recipe_path.display());
 
-        #[cfg(feature = "podman-api")]
+        #[cfg(feature = "builtin-podman")]
         match BuildStrategy::determine_strategy()? {
-            BuildStrategy::Socket(socket) => Runtime::new()?
-                .block_on(self.build_image_podman_api(Podman::unix(socket), &recipe_path)),
+            BuildStrategy::Socket(socket) => Runtime::new()?.block_on(self.build_image_podman_api(
+                Podman::unix(socket),
+                build_id,
+                &recipe_path,
+            )),
             _ => self.build_image(&recipe_path),
         }
 
-        #[cfg(not(feature = "podman-api"))]
+        #[cfg(not(feature = "builtin-podman"))]
         self.build_image(&recipe_path)
     }
 }
 
 impl BuildCommand {
-    #[cfg(feature = "podman-api")]
-    async fn build_image_podman_api(&self, client: Podman, recipe_path: &Path) -> Result<()> {
+    #[cfg(feature = "builtin-podman")]
+    async fn build_image_podman_api(
+        &self,
+        client: Podman,
+        build_id: Uuid,
+        recipe_path: &Path,
+    ) -> Result<()> {
         use futures_util::StreamExt;
+        use signal_hook::consts::{SIGINT, SIGQUIT, SIGTERM};
+
+        use crate::ops::BUILD_ID_LABEL;
 
         trace!("BuildCommand::build_image({client:#?})");
 
@@ -211,34 +235,52 @@ impl BuildCommand {
         };
         debug!("Full tag is {first_image_name}");
 
+        // Prepare for the signal trap
+        let client = Arc::new(client);
+
+        let signals = Signals::new([SIGTERM, SIGINT, SIGQUIT])?;
+        let handle = signals.handle();
+
+        let (kill_tx, mut kill_rx) = oneshot::channel::<()>();
+
+        let signals_task = tokio::spawn(handle_signals(signals, kill_tx, build_id, client.clone()));
+
         // Get podman ready to build
         let opts = ImageBuildOpts::builder(".")
             .tag(&first_image_name)
             .dockerfile("Containerfile")
             .remove(true)
             .layers(true)
+            .labels([(BUILD_ID_LABEL, build_id.to_string())])
             .pull(true)
             .build();
         trace!("Build options: {opts:#?}");
 
         info!("Building image {first_image_name}");
         match client.images().build(&opts) {
-            Ok(mut build_stream) => {
-                while let Some(chunk) = build_stream.next().await {
-                    match chunk {
-                        Ok(chunk) => chunk
-                            .stream
-                            .trim()
-                            .lines()
-                            .map(str::trim)
-                            .filter(|line| !line.is_empty())
-                            .for_each(|line| info!("{line}")),
-                        Err(e) => bail!("{e}"),
+            Ok(mut build_stream) => loop {
+                tokio::select! {
+                    Some(chunk) = build_stream.next() => {
+                        match chunk {
+                            Ok(chunk) => chunk
+                                .stream
+                                .trim()
+                                .lines()
+                                .map(str::trim)
+                                .filter(|line| !line.is_empty())
+                                .for_each(|line| info!("{line}")),
+                            Err(e) => bail!("{e}"),
+                        }
+                    },
+                    _ = &mut kill_rx => {
+                        break;
                     }
                 }
-            }
+            },
             Err(e) => bail!("{e}"),
         };
+        handle.close();
+        signals_task.await??;
 
         if self.push {
             debug!("Pushing is enabled");
@@ -274,6 +316,7 @@ impl BuildCommand {
 
             sign_images(&image_name, tags.first().map(String::as_str))?;
         }
+
         Ok(())
     }
 
@@ -763,6 +806,71 @@ fn check_cosign_files() -> Result<()> {
             Ok(())
         }
     }
+}
+
+#[cfg(feature = "builtin-podman")]
+async fn handle_signals(
+    mut signals: Signals,
+    kill: Sender<()>,
+    build_id: Uuid,
+    client: Arc<Podman>,
+) -> Result<()> {
+    use std::process;
+
+    use futures_util::StreamExt;
+    use podman_api::opts::{
+        ContainerListOpts, ContainerPruneFilter, ContainerPruneOpts, ImagePruneFilter,
+        ImagePruneOpts,
+    };
+    use signal_hook::consts::{SIGHUP, SIGINT};
+    use tokio::time::{self, Duration};
+
+    use crate::ops::BUILD_ID_LABEL;
+
+    trace!("handle_signals(signals, {build_id}, {client:#?})");
+
+    while let Some(signal) = signals.next().await {
+        match signal {
+            SIGHUP => (),
+            SIGINT => {
+                kill.send(()).unwrap();
+                info!("Recieved SIGINT, cleaning up build...");
+
+                time::sleep(Duration::from_secs(1)).await;
+
+                let containers = client
+                    .containers()
+                    .list(&ContainerListOpts::builder().sync(true).all(true).build())
+                    .await?;
+
+                trace!("{containers:#?}");
+
+                // Prune containers from this build
+                let container_prune_opts = ContainerPruneOpts::builder()
+                    .filter([ContainerPruneFilter::LabelKeyVal(
+                        BUILD_ID_LABEL.to_string(),
+                        build_id.to_string(),
+                    )])
+                    .build();
+                client.containers().prune(&container_prune_opts).await?;
+                debug!("Pruned containers");
+
+                // Prune images from this build
+                let image_prune_opts = ImagePruneOpts::builder()
+                    .filter([ImagePruneFilter::LabelKeyVal(
+                        BUILD_ID_LABEL.to_string(),
+                        build_id.to_string(),
+                    )])
+                    .build();
+                client.images().prune(&image_prune_opts).await?;
+                debug!("Pruned images");
+                process::exit(2);
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    Ok(())
 }
 
 fn tag_images(tags: &[String], image_name: &str, full_image: &str) -> Result<()> {
