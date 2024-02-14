@@ -727,7 +727,8 @@ fn check_cosign_files() -> Result<()> {
     ) {
         (Some(github_event_name), Some(github_ref_name), Some(_))
             if github_event_name != "pull_request"
-                && (github_ref_name == "live" || github_ref_name == "main") =>
+                && (github_ref_name == "live" || github_ref_name == "main")
+                && Path::new("cosign.pub").exists() =>
         {
             env::set_var("COSIGN_PASSWORD", "");
             env::set_var("COSIGN_YES", "true");
@@ -758,7 +759,7 @@ fn check_cosign_files() -> Result<()> {
             }
         }
         _ => {
-            debug!("Not building on live branch, skipping cosign file check");
+            debug!("Not building on live branch or cosign.pub doesn't exist, skipping cosign file check");
             Ok(())
         }
     }
