@@ -26,7 +26,7 @@ use tokio::runtime::Runtime;
 
 use crate::{
     commands::template::TemplateCommand,
-    constants::RECIPE_PATH,
+    constants::{GITHUB_TOKEN_ISSUER_URL, RECIPE_PATH},
     module_recipe::Recipe,
     ops::{self, ARCHIVE_SUFFIX},
 };
@@ -552,6 +552,8 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         env::var("SIGSTORE_ID_TOKEN"),
         env::var("GITHUB_EVENT_NAME"),
         env::var("GITHUB_REF_NAME"),
+        env::var("GITHUB_WORKFLOW_REF"),
+        env::var("GITHUB_SERVER_URL"),
         env::var("COSIGN_PRIVATE_KEY"),
     ) {
         (
@@ -561,6 +563,8 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
             Ok(ci_server_protocol),
             Ok(ci_server_host),
             Ok(_),
+            _,
+            _,
             _,
             _,
             _,
@@ -604,7 +608,53 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
                 bail!("Failed to verify image!");
             }
         }
-        (_, _, _, _, _, _, Ok(github_event_name), Ok(github_ref_name), Ok(_))
+        (
+            _,
+            _,
+            _,
+            _,
+            _,
+            Ok(_),
+            Ok(github_event_name),
+            Ok(github_ref_name),
+            Ok(github_worflow_ref),
+            Ok(github_server_url),
+            _,
+        ) if github_event_name != "pull_request"
+            && (github_ref_name == "live" || github_ref_name == "main") =>
+        {
+            trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}, GITHUB_WORKFLOW_REF={github_worflow_ref}, GITHUB_SERVER_URL={github_server_url}");
+
+            debug!("On {github_ref_name} branch");
+
+            info!("Signing image {image_digest}");
+
+            trace!("cosign sign {image_digest}");
+            if Command::new("cosign")
+                .arg("sign")
+                .arg(&image_digest)
+                .status()?
+                .success()
+            {
+                info!("Successfully signed image!");
+            } else {
+                bail!("Failed to sign image: {image_digest}");
+            }
+
+            if !Command::new("cosign")
+                .arg("verify")
+                .arg("--certificate-github-workflow-ref")
+                .arg(&github_worflow_ref)
+                .arg("--certificate-oidc-issuer")
+                .arg(GITHUB_TOKEN_ISSUER_URL)
+                .arg(&image_name_tag)
+                .status()?
+                .success()
+            {
+                bail!("Failed to verify image!");
+            }
+        }
+        (_, _, _, _, _, _, Ok(github_event_name), Ok(github_ref_name), _, _, Ok(_))
             if github_event_name != "pull_request"
                 && (github_ref_name == "live" || github_ref_name == "main") =>
         {
