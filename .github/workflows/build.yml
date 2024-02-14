@@ -17,6 +17,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Maximize build space
+        uses: ublue-os/remove-unwanted-software@v6
+
       - uses: earthly/actions-setup@v1
         with:
           version: v0.8.3
