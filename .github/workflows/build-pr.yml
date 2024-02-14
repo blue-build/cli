@@ -17,7 +17,9 @@ jobs:
           version: v0.8.3
 
       - name: Earthly login
-        if: github.repository == 'blue-build/cli'
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN != null
         run: |
           earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
