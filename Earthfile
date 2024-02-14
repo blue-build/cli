@@ -76,6 +76,11 @@ blue-build-cli:
 
 	ARG TAG
 	ARG LATEST=false
+
+	RUN mkdir -p /bluebuild
+	WORKDIR /bluebuild
+	CMD bluebuild
+
 	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY
 
 blue-build-cli-alpine:
@@ -91,6 +96,11 @@ blue-build-cli-alpine:
 
 	ARG TAG
 	ARG LATEST=false
+
+	RUN mkdir -p /bluebuild
+	WORKDIR /bluebuild
+	CMD bluebuild
+
 	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY --ALPINE=true
 
 installer:
