@@ -7,7 +7,7 @@ ARG --global IMAGE=ghcr.io/blue-build/cli
 
 all:
 	BUILD +build
-	BUILD +integration-tests --NIGHTLY=true --NIGHTLY=false
+	BUILD ./integration-tests+all --NIGHTLY=true --NIGHTLY=false
 
 build:
 	BUILD +default
@@ -25,13 +25,6 @@ default:
 
 nightly:
 	BUILD +default --NIGHTLY=true
-
-integration-tests:
-	ARG NIGHTLY=false
-	BUILD +integration-test-template --NIGHTLY=$NIGHTLY
-	BUILD +integration-test-build --NIGHTLY=$NIGHTLY
-	BUILD +integration-test-rebase --NIGHTLY=$NIGHTLY
-	BUILD +integration-test-upgrade --NIGHTLY=$NIGHTLY
 
 lint:
 	FROM +common
@@ -55,7 +48,7 @@ install:
 
 	DO cargo+BUILD_RELEASE --BUILD_TARGET=$BUILD_TARGET --NIGHTLY=$NIGHTLY
 
-	SAVE ARTIFACT target/$BUILD_TARGET/release/bb
+	SAVE ARTIFACT target/$BUILD_TARGET/release/bluebuild
 
 common:
 	FROM ghcr.io/blue-build/earthly-lib/cargo-builder
@@ -65,6 +58,7 @@ common:
 	COPY --keep-ts Cargo.* /app
 	COPY --keep-ts *.md /app
 	COPY --keep-ts LICENSE /app
+	COPY --keep-ts build.rs /app
 
 	DO cargo+INIT
 
@@ -78,10 +72,15 @@ blue-build-cli:
 
 	COPY +cosign/cosign /usr/bin/cosign
 
-	COPY (+install/bb --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY) /usr/bin/bb
+	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY) /usr/bin/bluebuild
 
 	ARG TAG
 	ARG LATEST=false
+
+	RUN mkdir -p /bluebuild
+	WORKDIR /bluebuild
+	ENTRYPOINT ["bluebuild"]
+
 	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY
 
 blue-build-cli-alpine:
@@ -93,10 +92,15 @@ blue-build-cli-alpine:
 	RUN apk update && apk add buildah podman skopeo fuse-overlayfs
 
 	COPY +cosign/cosign /usr/bin/cosign
-	COPY (+install/bb --BUILD_TARGET="x86_64-unknown-linux-musl" --NIGHTLY=$NIGHTLY) /usr/bin/bb
+	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-musl" --NIGHTLY=$NIGHTLY) /usr/bin/bluebuild
 
 	ARG TAG
 	ARG LATEST=false
+
+	RUN mkdir -p /bluebuild
+	WORKDIR /bluebuild
+	ENTRYPOINT ["bluebuild"]
+
 	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY --ALPINE=true
 
 installer:
@@ -104,7 +108,7 @@ installer:
 	ARG NIGHTLY=false
 
 	BUILD +install --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY
-	COPY (+install/bb --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY) /out/bb
+	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY) /out/bluebuild
 	COPY install.sh /install.sh
 
 	CMD ["cat", "/install.sh"]
@@ -113,66 +117,6 @@ installer:
 	ARG LATEST=false
 	ARG INSTALLER=true
 	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY --INSTALLER=$INSTALLER
-
-integration-test-template:
-	ARG NIGHTLY=false
-	FROM DOCKERFILE -f +integration-test-template-containerfile/test/Containerfile +integration-test-template-containerfile/test/* --NIGHTLY=$NIGHTLY
-
-integration-test-template-containerfile:
-	ARG NIGHTLY=false
-	FROM +integration-test-base --NIGHTLY=$NIGHTLY
-	RUN bb -vv template config/recipe-jp-desktop.yml | tee Containerfile
-
-	SAVE ARTIFACT /test
-
-integration-test-build:
-	ARG NIGHTLY=false
-	FROM +integration-test-base --NIGHTLY=$NIGHTLY
-
-	RUN --privileged bb -vv build config/recipe-jp-desktop.yml
-
-integration-test-rebase:
-	ARG NIGHTLY=false
-	FROM +integration-test-base --NIGHTLY=$NIGHTLY
-
-	RUN --privileged bb -vv rebase config/recipe-jp-desktop.yml
-
-integration-test-upgrade:
-	ARG NIGHTLY=false
-	FROM +integration-test-base --NIGHTLY=$NIGHTLY
-	RUN mkdir -p /etc/blue-build && touch /etc/blue-build/jp-desktop.tar.gz
-
-	RUN --privileged bb -vv upgrade config/recipe-jp-desktop.yml
-
-integration-test-base:
-	ARG NIGHTLY=false
-
-	FROM +blue-build-cli-alpine --NIGHTLY=$NIGHTLY
-
-  	RUN echo "#!/bin/sh
-		echo 'Running podman'" > /usr/bin/podman \
-		&& chmod +x /usr/bin/podman
-  
-  	RUN echo "#!/bin/sh
-		echo 'Running buildah'" > /usr/bin/buildah \
-		&& chmod +x /usr/bin/buildah
-
-	RUN echo "#!/bin/sh
-		echo 'Running rpm-ostree'" > /usr/bin/rpm-ostree \
-		&& chmod +x /usr/bin/rpm-ostree
-
-	GIT CLONE https://gitlab.com/wunker-bunker/wunker-os.git /test
-	WORKDIR /test
-
-iso-generator:
-	FROM registry.fedoraproject.org/fedora-toolbox
-
-    GIT CLONE https://github.com/ublue-os/isogenerator.git /isogenerator
-    WORKDIR /isogenerator
-    ARG PACKAGES=$(cat deps.txt)
-    RUN dnf install --disablerepo="*" --enablerepo="fedora,updates" --setopt install_weak_deps=0 --assumeyes $PACKAGES
-
-    SAVE IMAGE --push $IMAGE/iso-generator
 
 cosign:
 	FROM gcr.io/projectsigstore/cosign

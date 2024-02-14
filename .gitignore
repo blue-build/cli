@@ -1,3 +1,7 @@
 /target
 .sccache/
 .vscode/
+
+# Local testing for bluebuild recipe files
+/config/*
+/Containerfile

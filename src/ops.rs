@@ -1,8 +1,9 @@
 use anyhow::{anyhow, Result};
+use format_serde_error::SerdeError;
 use log::{debug, trace};
-use std::{path::Path, process::Command};
+use std::process::Command;
 
-pub const LOCAL_BUILD: &str = "/etc/blue-build";
+pub const LOCAL_BUILD: &str = "/etc/bluebuild";
 pub const ARCHIVE_SUFFIX: &str = "tar.gz";
 pub const BUILD_ID_LABEL: &str = "org.blue-build.build-id";
 
@@ -23,5 +24,20 @@ pub fn check_command_exists(command: &str) -> Result<()> {
         Err(anyhow!(
             "Command {command} doesn't exist and is required to build the image"
         ))
+    }
+}
+
+pub fn serde_yaml_err(contents: &str) -> impl Fn(serde_yaml::Error) -> SerdeError + '_ {
+    |err: serde_yaml::Error| {
+        let location = err.location();
+        let location = location.as_ref();
+        SerdeError::new(
+            contents.to_string(),
+            (
+                err.into(),
+                location.map_or(0, serde_yaml::Location::line).into(),
+                location.map_or(0, serde_yaml::Location::column).into(),
+            ),
+        )
     }
 }

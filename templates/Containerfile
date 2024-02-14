@@ -1,24 +1,43 @@
+# This stage is responsible for holding onto
+# your config without copying it directly into
+# the final image
+FROM scratch as stage-config
+COPY ./config /config
+
+# Copy modules
+# The default modules are inside ublue-os/bling
+# Custom modules overwrite defaults
+FROM scratch as stage-modules
+COPY --from=ghcr.io/ublue-os/bling:latest /modules /modules
+COPY ./modules /modules
+
+# This stage is responsible for holding onto
+# exports like the exports.sh
+FROM docker.io/alpine as stage-exports
+RUN printf {{ self::print_script(export_script) }} >> /exports.sh && chmod +x /exports.sh
+
 FROM {{ recipe.base_image }}:{{ recipe.image_version }}
 
 LABEL {{ crate::ops::BUILD_ID_LABEL }}="{{ build_id }}"
 LABEL org.opencontainers.image.title="{{ recipe.name }}"
-LABEL org.opencontainers.image.version="{{ recipe.image_version }}"
 LABEL org.opencontainers.image.description="{{ recipe.description }}"
 LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md
 
 ARG RECIPE={{ recipe_path.display() }}
-{%- if self::running_gitlab_actions() %}
-ARG IMAGE_REGISTRY=ghcr.io/ublue-os
+
+{%- if let Some(repo_owner) = self::get_github_repo_owner() %}
+ARG IMAGE_REGISTRY=ghcr.io/{{ repo_owner }}
+{%- else if let Some(registry) = self::get_gitlab_registry_path() %}
+ARG IMAGE_REGISTRY={{ registry }}
+{%- else %}
+ARG IMAGE_REGISTRY=localhost
+{%- endif %}
+
+{%- if self::has_cosign_file() %}
 COPY cosign.pub /usr/share/ublue-os/cosign.pub
 {%- endif %}
 
-# Copy the bling from ublue-os/bling into tmp, to be installed later by the bling module
-# Feel free to remove these lines if you want to speed up image builds and don't want any bling
-COPY --from=ghcr.io/ublue-os/bling:latest /rpms /tmp/bling/rpms
-COPY --from=ghcr.io/ublue-os/bling:latest /files /tmp/bling/files
-
 COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
-
 COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
 
 COPY --from=ghcr.io/blue-build/cli:
@@ -26,22 +45,41 @@ COPY --from=ghcr.io/blue-build/cli:
 {{ tag }}
 {%- else -%}
 latest-installer
-{%- endif %} /out/bb /usr/bin/bb
-
-COPY config /tmp/config/
-
-# Copy modules
-# The default modules are inside ublue-os/bling
-COPY --from=ghcr.io/ublue-os/bling:latest /modules /tmp/modules/
-# Custom modules overwrite defaults
-COPY modules /tmp/modules/
-
-RUN printf {{ self::print_script(export_script) }} >> /tmp/exports.sh && chmod +x /tmp/exports.sh
+{%- endif %} /out/bluebuild /usr/bin/bluebuild
 
 ARG CONFIG_DIRECTORY="/tmp/config"
 ARG IMAGE_NAME="{{ recipe.name }}"
 ARG BASE_IMAGE="{{ recipe.base_image }}"
 
-{{ recipe.modules_ext }}
+{%- for module in recipe.modules_ext.modules %}
+	{%- if let Some(type) = module.module_type %}
+		{%- if type == "containerfile" %}
+			{%- if let Some(containerfiles) = self::get_containerfile_list(module) %}
+				{%- for c in containerfiles %}
+{{ self::print_containerfile(c) }}
+				{%- endfor %}
+			{%- endif %}
+			{%- if let Some(snippets) = self::get_containerfile_snippets(module) %}
+				{%- for s in snippets %}
+{{ s }}
+				{%- endfor %}
+			{%- endif %}
+		{%- else if type == "files" %}
+			{%- if let Some(files) = self::get_files_list(module) %}
+				{%- for (src, dest) in files %}
+COPY {{ src }} {{ dest }}
+				{%- endfor %}
+			{%- endif %}
+		{%- else %}
+RUN \
+	--mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
+	--mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
+	--mount=type=bind,from=stage-exports,src=/exports.sh,dst=/tmp/exports.sh \
+	chmod +x /tmp/modules/{{ type }}/{{ type }}.sh \
+	&& source /tmp/exports.sh && /tmp/modules/{{ type }}/{{ type }}.sh '{{ self::print_module_context(module) }}'
+		{%- endif %}
+  {%- endif %}
+{%- endfor %}
+
 
 RUN rm -rf /tmp/* /var/* && ostree container commit

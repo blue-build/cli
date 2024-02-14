@@ -1,14 +1,24 @@
-use std::{borrow::Cow, env, fs, path::PathBuf, process};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    env, fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
-use askama::Template;
+use anyhow::Result;
 use chrono::Local;
+use format_serde_error::SerdeError;
 use indexmap::IndexMap;
 use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
 
-#[derive(Serialize, Clone, Deserialize, Debug, TypedBuilder)]
+use crate::ops::{self, check_command_exists};
+
+#[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
 pub struct Recipe<'a> {
     #[builder(setter(into))]
     pub name: Cow<'a, str>,
@@ -40,10 +50,10 @@ impl<'a> Recipe<'a> {
     #[must_use]
     pub fn generate_tags(&self) -> Vec<String> {
         trace!("Recipe::generate_tags()");
-        debug!("Generating image tags for {}", &self.name);
+        trace!("Generating image tags for {}", &self.name);
 
         let mut tags: Vec<String> = Vec::new();
-        let image_version = self.image_version.as_ref();
+        let image_version = self.get_os_version();
         let timestamp = Local::now().format("%Y%m%d").to_string();
 
         if let (Ok(commit_branch), Ok(default_branch), Ok(commit_sha), Ok(pipeline_source)) = (
@@ -66,11 +76,12 @@ impl<'a> Recipe<'a> {
             if default_branch == commit_branch {
                 debug!("Running on the default branch");
                 tags.push(image_version.to_string());
-                tags.push(format!("{image_version}-{timestamp}"));
+                tags.push(format!("{timestamp}-{image_version}"));
+                tags.push("latest".into());
                 tags.push(timestamp);
             } else {
                 debug!("Running on branch {commit_branch}");
-                tags.push(format!("{commit_branch}-{image_version}"));
+                tags.push(format!("br-{commit_branch}-{image_version}"));
             }
 
             tags.push(format!("{commit_sha}-{image_version}"));
@@ -94,39 +105,144 @@ impl<'a> Recipe<'a> {
             if github_event_name == "pull_request" {
                 debug!("Running in a PR");
                 tags.push(format!("pr-{github_event_number}-{image_version}"));
-            } else if github_ref_name == "live" {
+            } else if github_ref_name == "live" || github_ref_name == "main" {
                 tags.push(image_version.to_string());
-                tags.push(format!("{image_version}-{timestamp}"));
-                tags.push("latest".to_string());
+                tags.push(format!("{timestamp}-{image_version}"));
+                tags.push("latest".into());
+                tags.push(timestamp);
             } else {
                 tags.push(format!("br-{github_ref_name}-{image_version}"));
             }
             tags.push(format!("{short_sha}-{image_version}"));
         } else {
             warn!("Running locally");
-            tags.push(format!("{image_version}-local"));
+            tags.push(format!("local-{image_version}"));
         }
-        info!("Finished generating tags!");
+        debug!("Finished generating tags!");
         debug!("Tags: {tags:#?}");
+
         tags
+    }
+
+    /// # Parse a recipe file
+    /// #
+    /// # Errors
+    pub fn parse<P: AsRef<Path>>(path: &P) -> Result<Self> {
+        let file_path = if Path::new(path.as_ref()).is_absolute() {
+            path.as_ref().to_path_buf()
+        } else {
+            std::env::current_dir()?.join(path.as_ref())
+        };
+
+        let recipe_path = fs::canonicalize(file_path)?;
+        let recipe_path_string = recipe_path.display().to_string();
+        debug!("Recipe::parse_recipe({recipe_path_string})");
+
+        let file = fs::read_to_string(recipe_path)?;
+
+        debug!("Recipe contents: {file}");
+
+        let mut recipe =
+            serde_yaml::from_str::<Recipe>(&file).map_err(ops::serde_yaml_err(&file))?;
+
+        recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules).into();
+
+        Ok(recipe)
+    }
+
+    fn get_os_version(&self) -> String {
+        trace!("Recipe::get_os_version()");
+
+        if check_command_exists("skopeo").is_err() {
+            warn!("The 'skopeo' command doesn't exist, falling back to version defined in recipe");
+            return self.image_version.to_string();
+        }
+
+        let base_image = self.base_image.as_ref();
+        let image_version = self.image_version.as_ref();
+
+        info!("Retrieving information from {base_image}:{image_version}, this will take a bit");
+
+        let output = match Command::new("skopeo")
+            .arg("inspect")
+            .arg(format!("docker://{base_image}:{image_version}"))
+            .output()
+        {
+            Err(_) => {
+                warn!(
+                    "Issue running the 'skopeo' command, falling back to version defined in recipe"
+                );
+                return self.image_version.to_string();
+            }
+            Ok(output) => output,
+        };
+
+        if !output.status.success() {
+            warn!("Failed to get image information for {base_image}:{image_version}, falling back to version defined in recipe");
+            return self.image_version.to_string();
+        }
+
+        let inspection: ImageInspection = match serde_json::from_str(
+            String::from_utf8_lossy(&output.stdout).as_ref(),
+        ) {
+            Err(err) => {
+                let err_msg =
+                    SerdeError::new(String::from_utf8_lossy(&output.stdout).to_string(), err)
+                        .to_string();
+                warn!("Issue deserializing 'skopeo' output, falling back to version defined in recipe. {err_msg}",);
+                return self.image_version.to_string();
+            }
+            Ok(inspection) => inspection,
+        };
+
+        inspection.get_version().unwrap_or_else(|| {
+            warn!("Version label does not exist on image, using version in recipe");
+            image_version.to_string()
+        })
     }
 }
 
-#[derive(Serialize, Clone, Deserialize, Debug, Template, TypedBuilder)]
-#[template(path = "Containerfile.module", escape = "none")]
+#[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
 pub struct ModuleExt<'a> {
     #[builder(default, setter(into))]
     pub modules: Cow<'a, [Module<'a>]>,
 }
 
+impl ModuleExt<'_> {
+    /// # Parse a module file returning a [`ModuleExt`]
+    ///
+    /// # Errors
+    /// Can return an `anyhow` Error if the file cannot be read or deserialized
+    /// into a [`ModuleExt`]
+    pub fn parse_module_from_file(file_name: &str) -> Result<Self> {
+        let file_path = PathBuf::from("config").join(file_name);
+        let file_path = if file_path.is_absolute() {
+            file_path
+        } else {
+            std::env::current_dir()?.join(file_path)
+        };
+
+        let file = fs::read_to_string(file_path)?;
+
+        serde_yaml::from_str::<Self>(&file).map_or_else(
+            |_| -> Result<Self> {
+                let module =
+                    serde_yaml::from_str::<Module>(&file).map_err(ops::serde_yaml_err(&file))?;
+                Ok(Self::builder().modules(vec![module]).build())
+            },
+            Ok,
+        )
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, TypedBuilder)]
 pub struct Module<'a> {
-    #[serde(rename = "type")]
     #[builder(default, setter(into, strip_option))]
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub module_type: Option<Cow<'a, str>>,
 
-    #[serde(rename = "from-file")]
     #[builder(default, setter(into, strip_option))]
+    #[serde(rename = "from-file", skip_serializing_if = "Option::is_none")]
     pub from_file: Option<Cow<'a, str>>,
 
     #[serde(flatten)]
@@ -134,81 +250,43 @@ pub struct Module<'a> {
     pub config: IndexMap<String, Value>,
 }
 
-// ======================================================== //
-// ========================= Helpers ====================== //
-// ======================================================== //
-
-fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
-    if module.module_type.as_ref()? == "containerfile" {
-        Some(
-            module
-                .config
-                .get("containerfiles")?
-                .as_sequence()?
-                .iter()
-                .filter_map(|t| Some(t.as_str()?.to_owned()))
-                .collect(),
-        )
-    } else {
-        None
+impl Module<'_> {
+    #[must_use]
+    pub fn get_modules(modules: &[Self]) -> Vec<Self> {
+        modules
+            .iter()
+            .flat_map(|module| {
+                module.from_file.as_ref().map_or_else(
+                    || vec![module.clone()],
+                    |file_name| match ModuleExt::parse_module_from_file(file_name) {
+                        Err(e) => {
+                            error!("Failed to get module from {file_name}: {e}");
+                            vec![]
+                        }
+                        Ok(module_ext) => Self::get_modules(&module_ext.modules),
+                    },
+                )
+            })
+            .collect()
     }
 }
 
-fn print_containerfile(containerfile: &str) -> String {
-    trace!("print_containerfile({containerfile})");
-    debug!("Loading containerfile contents for {containerfile}");
-
-    let path = format!("config/containerfiles/{containerfile}/Containerfile");
-
-    let file = fs::read_to_string(&path).unwrap_or_else(|e| {
-        error!("Failed to read file {path}: {e}");
-        process::exit(1);
-    });
-
-    trace!("Containerfile contents {path}:\n{file}");
-
-    file
+#[derive(Deserialize, Debug, Clone)]
+struct ImageInspection {
+    #[serde(alias = "Labels")]
+    labels: HashMap<String, JsonValue>,
 }
 
-fn get_module_from_file(file_name: &str) -> String {
-    trace!("get_module_from_file({file_name})");
-
-    let io_err_fn = |e| {
-        error!("Failed to read module {file_name}: {e}");
-        process::exit(1);
-    };
-
-    let file_path = PathBuf::from("config").join(file_name);
-
-    let file = fs::read_to_string(file_path).unwrap_or_else(io_err_fn);
-
-    let serde_err_fn = |e| {
-        error!("Failed to deserialize module {file_name}: {e}");
-        process::exit(1);
-    };
-
-    let template_err_fn = |e| {
-        error!("Failed to render module {file_name}: {e}");
-        process::exit(1);
-    };
-
-    serde_yaml::from_str::<ModuleExt>(file.as_str()).map_or_else(
-        |_| {
-            let module = serde_yaml::from_str::<Module>(file.as_str()).unwrap_or_else(serde_err_fn);
-
-            ModuleExt::builder()
-                .modules(vec![module])
-                .build()
-                .render()
-                .unwrap_or_else(template_err_fn)
-        },
-        |module_ext| module_ext.render().unwrap_or_else(template_err_fn),
-    )
-}
-
-fn print_module_context(module: &Module) -> String {
-    serde_json::to_string(module).unwrap_or_else(|e| {
-        error!("Failed to parse module: {e}");
-        process::exit(1);
-    })
+impl ImageInspection {
+    pub fn get_version(&self) -> Option<String> {
+        Some(
+            self.labels
+                .get("org.opencontainers.image.version")?
+                .as_str()
+                .map(std::string::ToString::to_string)?
+                .split('.')
+                .take(1)
+                .collect(),
+        )
+    }
 }

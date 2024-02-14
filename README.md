@@ -12,7 +12,7 @@ BlueBuild's command line program that builds Containerfiles and custom images ba
 
 ### Distrobox
 
-We package a `fedora-toolbox` and `alpine` image with all the tools needed to run `bb`. You can use `distrobox` to run the application without needing to install it on your machine.
+We package a `fedora-toolbox` and `alpine` image with all the tools needed to run `bluebuild`. You can use `distrobox` to run the application without needing to install it on your machine.
 
 ```bash
 distrobox create blue-build --image ghcr.io/blue-build/cli
@@ -42,17 +42,17 @@ podman run --rm ghcr.io/blue-build/cli:latest-installer | bash
 Once you have the CLI tool installed, you can run the following to pull in your recipe file to generate a `Containerfile`.
 
 ```bash
-bb template -o <CONTAINERFILE> <RECIPE_FILE>
+bluebuild template -o <CONTAINERFILE> <RECIPE_FILE>
 ```
 
-You can then use this with `podman` or `buildah` to build and publish your image. Further options can be viewed by running `bb template --help`
+You can then use this with `podman` or `buildah` to build and publish your image. Further options can be viewed by running `bluebuild template --help`
 
 ### Building
 
 If you don't care about the details of the template, you can run the `build` command.
 
 ```bash
-bb build ./config/recipe.yaml
+bluebuild build ./config/recipe.yaml
 ```
 
 This will template out the file and build with `buildah` or `podman`. 
@@ -64,7 +64,7 @@ This will template out the file and build with `buildah` or `podman`.
 If you want to test your changes, you can do so by using the `rebase` command. This will create an image as a `.tar.gz` file, store it in `/etc/blue-build`, an run `rpm-ostree rebase` on that newly built file.
 
 ```bash
-sudo bb rebase config/recipe.yml
+sudo bluebuild rebase config/recipe.yml
 ```
 
 You can initiate an immediate restart by adding the `--reboot/-r` option.
@@ -74,12 +74,54 @@ You can initiate an immediate restart by adding the `--reboot/-r` option.
 When you've rebased onto a local image archive, you can update your image for your recipe by running:
 
 ```bash
-sudo bb upgrade config/recipe.yml
+sudo bluebuild upgrade config/recipe.yml
 ```
 
 The `--reboot` argument can be used with this command as well.
 
 #### CI Builds
+
+##### GitHub
+
+You can use our [GitHub Action](https://github.com/blue-build/github-action) by using the following `.github/workflows/build.yaml`:
+
+```yaml
+name: bluebuild
+on:
+  schedule:
+    - cron: "00 17 * * *" # build at 17:00 UTC every day 
+                          # (20 minutes after last ublue images start building)
+  push:
+    paths-ignore: # don't rebuild if only documentation has changed
+      - "**.md"
+  pull_request:
+  workflow_dispatch: # allow manually triggering builds
+jobs:
+  bluebuild:
+    name: Build Custom Image
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      fail-fast: false # stop GH from cancelling all matrix builds if one fails
+      matrix:
+        recipe:
+          # !! Add your recipes here 
+          - recipe.yml
+    steps:
+       # the build is fully handled by the reusable github action
+      - name: Build Custom Image
+        uses: blue-build/github-action@v1.0.0
+        with:
+          recipe: ${{ matrix.recipe }}
+          cosign_private_key: ${{ secrets.SIGNING_SECRET }}
+          registry_token: ${{ github.token }}
+          pr_event_number: ${{ github.event.number }}
+ ```
+
+##### Gitlab
 
 If you're running in Gitlab CI, it will automatically sign your image using Gitlab's own OIDC service. Here's an example of a `.gitlab-ci.yaml`:
 
@@ -115,63 +157,7 @@ build-image:
     SIGSTORE_ID_TOKEN:
       aud: sigstore
   script:
-    - bb build --push ./config/$RECIPE
-```
-
-Support was also added for building in GitHub! You can use this tool instead of the standard GitHub Actions by using the following `.github/workflows/build.yaml`:
-
-```yaml
-name: build-ublue
-on:
-  schedule:
-    - cron: "30 16 * * *"
-  push:
-    branches:
-      - live
-      - template
-      - main
-    paths-ignore:
-      - "**.md"
-  pull_request:
-  workflow_dispatch:
-jobs:
-  ublue-build:
-    name: Build Ublue Image
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-    strategy:
-      fail-fast: false
-      matrix:
-        recipe:
-          - recipe.yml
-    steps:
-      - name: Maximize build space
-        uses: AdityaGarg8/remove-unwanted-software@v1
-        with:
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
-      - uses: actions/checkout@v4
-      - uses: sigstore/cosign-installer@v3.3.0
-      - name: Install Cargo
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-      - name: Install BlueBuild tool
-        run: |
-          cargo install blue-build --locked
-      - name: Install Dependencies
-        run: |
-          sudo apt-get install -y buildah skopeo
-      - name: Build Image
-        env:
-          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
-          PR_EVENT_NUMBER: ${{ github.event.number }}
-          REGISTRY_TOKEN: ${{ github.token }}
-        run: |
-          bb build --push ./config/${{ matrix.recipe }}
+    - bluebuild build --push ./config/$RECIPE
 ```
 
 ## Future Features

@@ -17,22 +17,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # There is a bug selecting a satellite in version 0.8
-      # so we use 0.7 to login and connect to the satellite
-      # before switching to the latest version
+      - name: Maximize build space
+        uses: ublue-os/remove-unwanted-software@v6
+
       - uses: earthly/actions-setup@v1
         with:
-          version: v0.7.23
+          version: v0.8.3
 
       - name: Earthly login
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN != null
         run: |
           earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
           earthly sat s blue-build
-
-      - uses: earthly/actions-setup@v1
-        with:
-          version: v0.8.2
 
       # Setup repo and add caching
       - uses: actions/checkout@v4
@@ -47,4 +46,5 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run build
+        if: github.repository == 'blue-build/cli'
         run: earthly --push --ci -P +all

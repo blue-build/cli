@@ -4,12 +4,12 @@ mod build_strategy;
 use std::{
     env, fs,
     path::{Path, PathBuf},
-    process::{self, Command},
+    process::Command,
 };
 
 use anyhow::{anyhow, bail, Result};
-use clap::{builder, Args};
-use log::{debug, error, info, trace, warn};
+use clap::Args;
+use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
@@ -18,8 +18,7 @@ use std::sync::Arc;
 
 #[cfg(feature = "podman-api")]
 use podman_api::{
-    api::Image,
-    opts::{ImageBuildOpts, ImageListOpts, ImagePushOpts, RegistryAuth},
+    opts::{ImageBuildOpts, ImagePushOpts, RegistryAuth},
     Podman,
 };
 
@@ -29,9 +28,6 @@ use build_strategy::BuildStrategy;
 #[cfg(feature = "signal-hook-tokio")]
 use signal_hook_tokio::Signals;
 
-#[cfg(feature = "futures-util")]
-use futures_util::StreamExt;
-
 #[cfg(feature = "tokio")]
 use tokio::{
     runtime::Runtime,
@@ -40,8 +36,9 @@ use tokio::{
 
 use crate::{
     commands::template::TemplateCommand,
+    constants::{GITHUB_TOKEN_ISSUER_URL, RECIPE_PATH},
     module_recipe::Recipe,
-    ops::{self, ARCHIVE_SUFFIX, BUILD_ID_LABEL},
+    ops::{self, ARCHIVE_SUFFIX},
 };
 
 use super::BlueBuildCommand;
@@ -57,7 +54,8 @@ pub struct Credentials {
 pub struct BuildCommand {
     /// The recipe file to build an image
     #[arg()]
-    recipe: PathBuf,
+    #[builder(default, setter(into, strip_option))]
+    recipe: Option<PathBuf>,
 
     /// Push the image with all the tags.
     ///
@@ -83,7 +81,8 @@ pub struct BuildCommand {
     /// project images.
     #[arg(long)]
     #[builder(default, setter(into, strip_option))]
-    registry_path: Option<String>,
+    #[arg(visible_alias("registry-path"))]
+    registry_namespace: Option<String>,
 
     /// The username to login to the
     /// container registry.
@@ -126,7 +125,7 @@ pub struct BuildCommand {
     ///
     /// For example:
     ///
-    /// bb build --public-key env://PUBLIC_KEY ...
+    /// bluebuild build --public-key env://PUBLIC_KEY ...
     #[cfg(feature = "sigstore")]
     #[arg(long)]
     #[builder(default, setter(into, strip_option))]
@@ -140,7 +139,7 @@ pub struct BuildCommand {
     ///
     /// For example:
     ///
-    /// bb build --private-key env://PRIVATE_KEY ...
+    /// bluebuild build --private-key env://PRIVATE_KEY ...
     #[cfg(feature = "sigstore")]
     #[arg(long)]
     #[builder(default, setter(into, strip_option))]
@@ -158,6 +157,11 @@ impl BlueBuildCommand for BuildCommand {
             bail!("You cannot use '--archive' and '--push' at the same time");
         }
 
+        let recipe_path = self
+            .recipe
+            .clone()
+            .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
+
         #[cfg(not(feature = "podman-api"))]
         if let Err(e1) = ops::check_command_exists("buildah") {
             ops::check_command_exists("podman").map_err(|e2| {
@@ -172,30 +176,38 @@ impl BlueBuildCommand for BuildCommand {
         }
 
         TemplateCommand::builder()
-            .recipe(self.recipe.clone())
+            .recipe(&recipe_path)
             .output(PathBuf::from("Containerfile"))
             .build_id(build_id)
             .build()
             .try_run()?;
 
-        info!("Building image for recipe at {}", self.recipe.display());
+        info!("Building image for recipe at {}", recipe_path.display());
 
         #[cfg(feature = "builtin-podman")]
         match BuildStrategy::determine_strategy()? {
-            BuildStrategy::Socket(socket) => Runtime::new()?
-                .block_on(self.build_image_podman_api(Podman::unix(socket), build_id)),
-            _ => self.build_image(),
+            BuildStrategy::Socket(socket) => Runtime::new()?.block_on(self.build_image_podman_api(
+                Podman::unix(socket),
+                build_id,
+                &recipe_path,
+            )),
+            _ => self.build_image(&recipe_path),
         }
 
         #[cfg(not(feature = "builtin-podman"))]
-        self.build_image()
+        self.build_image(&recipe_path)
     }
 }
 
 impl BuildCommand {
     #[cfg(feature = "builtin-podman")]
-    async fn build_image_podman_api(&self, client: Podman, build_id: Uuid) -> Result<()> {
-        use podman_api::opts::ImageTagOpts;
+    async fn build_image_podman_api(
+        &self,
+        client: Podman,
+        build_id: Uuid,
+        recipe_path: &Path,
+    ) -> Result<()> {
+        use futures_util::StreamExt;
         use signal_hook::consts::{SIGINT, SIGQUIT, SIGTERM};
 
         use crate::ops::BUILD_ID_LABEL;
@@ -208,7 +220,7 @@ impl BuildCommand {
             bail!("Failed to get credentials");
         }
 
-        let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(&self.recipe)?.as_str())?;
+        let recipe = Recipe::parse(&recipe_path)?;
         trace!("recipe: {recipe:#?}");
 
         // Get values for image
@@ -219,7 +231,7 @@ impl BuildCommand {
         } else {
             tags.first()
                 .map(|t| format!("{image_name}:{t}"))
-                .unwrap_or(image_name.to_string())
+                .unwrap_or_else(|| image_name.to_string())
         };
         debug!("Full tag is {first_image_name}");
 
@@ -272,7 +284,7 @@ impl BuildCommand {
             debug!("Pushing is enabled");
 
             let credentials =
-                credentials.ok_or(anyhow!("Should have checked for creds earlier"))?;
+                credentials.ok_or_else(|| anyhow!("Should have checked for creds earlier"))?;
 
             push_images_podman_api(&tags, &image_name, &first_image_name, &client, &credentials)
                 .await?;
@@ -309,9 +321,10 @@ impl BuildCommand {
         Ok(())
     }
 
-    fn build_image(&self) -> Result<()> {
+    fn build_image(&self, recipe_path: &Path) -> Result<()> {
         trace!("BuildCommand::build_image()");
-        let recipe: Recipe = serde_yaml::from_str(fs::read_to_string(&self.recipe)?.as_str())?;
+
+        let recipe = Recipe::parse(&recipe_path)?;
 
         let tags = recipe.generate_tags();
 
@@ -333,7 +346,7 @@ impl BuildCommand {
 
         let credentials = self
             .get_login_creds()
-            .ok_or(anyhow!("Unable to get credentials"))?;
+            .ok_or_else(|| anyhow!("Unable to get credentials"))?;
 
         let (registry, username, password) = (
             credentials.registry,
@@ -342,7 +355,7 @@ impl BuildCommand {
         );
 
         info!("Logging into the registry, {registry}");
-        if !match (
+        let login_output = match (
             ops::check_command_exists("buildah"),
             ops::check_command_exists("podman"),
         ) {
@@ -362,26 +375,26 @@ impl BuildCommand {
         .arg("-p")
         .arg(&password)
         .arg(&registry)
-        .output()?
-        .status
-        .success()
-        {
-            bail!("Failed to login for buildah!");
+        .output()?;
+
+        if !login_output.status.success() {
+            let err_out = String::from_utf8_lossy(&login_output.stderr);
+            bail!("Failed to login for buildah: {err_out}");
         }
 
         trace!("cosign login -u {username} -p [MASKED] {registry}");
-        if !Command::new("cosign")
+        let login_output = Command::new("cosign")
             .arg("login")
             .arg("-u")
             .arg(&username)
             .arg("-p")
             .arg(&password)
             .arg(&registry)
-            .output()?
-            .status
-            .success()
-        {
-            bail!("Failed to login for cosign!");
+            .output()?;
+
+        if !login_output.status.success() {
+            let err_output = String::from_utf8_lossy(&login_output.stderr);
+            bail!("Failed to login for cosign: {err_output}");
         }
         info!("Login success at {registry}");
 
@@ -403,20 +416,24 @@ impl BuildCommand {
             )
         } else {
             match (
-                env::var("CI_REGISTRY").ok(),
-                env::var("CI_PROJECT_NAMESPACE").ok(),
-                env::var("CI_PROJECT_NAME").ok(),
-                env::var("GITHUB_REPOSITORY_OWNER").ok(),
-                self.registry.as_ref(),
-                self.registry_path.as_ref(),
+                env::var("CI_REGISTRY").ok().map(|s| s.to_lowercase()),
+                env::var("CI_PROJECT_NAMESPACE")
+                    .ok()
+                    .map(|s| s.to_lowercase()),
+                env::var("CI_PROJECT_NAME").ok().map(|s| s.to_lowercase()),
+                env::var("GITHUB_REPOSITORY_OWNER")
+                    .ok()
+                    .map(|s| s.to_lowercase()),
+                self.registry.as_ref().map(|s| s.to_lowercase()),
+                self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
             ) {
                 (_, _, _, _, Some(registry), Some(registry_path)) => {
                     trace!("registry={registry}, registry_path={registry_path}");
                     format!(
                         "{}/{}/{}",
-                        registry.trim().trim_matches('/').to_lowercase(),
-                        registry_path.trim().trim_matches('/').to_lowercase(),
-                        recipe.name.trim().to_lowercase()
+                        registry.trim().trim_matches('/'),
+                        registry_path.trim().trim_matches('/'),
+                        recipe.name.trim(),
                     )
                 }
                 (
@@ -465,7 +482,7 @@ impl BuildCommand {
         } else {
             tags.first()
                 .map(|t| format!("{image_name}:{t}"))
-                .unwrap_or(image_name.to_string())
+                .unwrap_or_else(|| image_name.to_string())
         };
 
         info!("Building image {full_image}");
@@ -568,7 +585,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
     let image_digest = get_image_digest(image_name, tag)?;
     let image_name_tag = tag
         .map(|t| format!("{image_name}:{t}"))
-        .unwrap_or(image_name.to_owned());
+        .unwrap_or_else(|| image_name.to_owned());
 
     match (
         env::var("CI_DEFAULT_BRANCH"),
@@ -579,6 +596,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         env::var("SIGSTORE_ID_TOKEN"),
         env::var("GITHUB_EVENT_NAME"),
         env::var("GITHUB_REF_NAME"),
+        env::var("GITHUB_WORKFLOW_REF"),
         env::var("COSIGN_PRIVATE_KEY"),
     ) {
         (
@@ -588,6 +606,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
             Ok(ci_server_protocol),
             Ok(ci_server_host),
             Ok(_),
+            _,
             _,
             _,
             _,
@@ -631,8 +650,54 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
                 bail!("Failed to verify image!");
             }
         }
-        (_, _, _, _, _, _, Ok(github_event_name), Ok(github_ref_name), Ok(_))
-            if github_event_name != "pull_request" && github_ref_name == "live" =>
+        (
+            _,
+            _,
+            _,
+            _,
+            _,
+            Ok(_),
+            Ok(github_event_name),
+            Ok(github_ref_name),
+            Ok(github_worflow_ref),
+            _,
+        ) if github_event_name != "pull_request"
+            && (github_ref_name == "live" || github_ref_name == "main") =>
+        {
+            trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}, GITHUB_WORKFLOW_REF={github_worflow_ref}");
+
+            debug!("On {github_ref_name} branch");
+
+            info!("Signing image {image_digest}");
+
+            trace!("cosign sign {image_digest}");
+            if Command::new("cosign")
+                .arg("sign")
+                .arg(&image_digest)
+                .status()?
+                .success()
+            {
+                info!("Successfully signed image!");
+            } else {
+                bail!("Failed to sign image: {image_digest}");
+            }
+
+            if !Command::new("cosign")
+                .arg("verify")
+                .arg("--certificate-github-workflow-ref")
+                .arg(&github_worflow_ref)
+                .arg("--certificate-oidc-issuer")
+                .arg(GITHUB_TOKEN_ISSUER_URL)
+                .arg(&image_name_tag)
+                .status()?
+                .success()
+            {
+                bail!("Failed to verify image!");
+            }
+        }
+        (_, _, _, _, _, _, Ok(github_event_name), Ok(github_ref_name), _, Ok(_))
+            if github_event_name != "pull_request"
+                && (github_ref_name == "live" || github_ref_name == "main") =>
         {
             trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}");
 
@@ -675,11 +740,10 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
 fn get_image_digest(image_name: &str, tag: Option<&str>) -> Result<String> {
     trace!("get_image_digest({image_name}, {tag:?})");
 
-    let image_url = if let Some(tag) = tag {
-        format!("docker://{image_name}:{tag}")
-    } else {
-        format!("docker://{image_name}")
-    };
+    let image_url = tag.map_or_else(
+        || format!("docker://{image_name}"),
+        |tag| format!("docker://{image_name}:{tag}"),
+    );
 
     trace!("skopeo inspect --format='{{.Digest}}' {image_url}");
     let image_digest = String::from_utf8(
@@ -705,8 +769,10 @@ fn check_cosign_files() -> Result<()> {
         env::var("GITHUB_REF_NAME").ok(),
         env::var("COSIGN_PRIVATE_KEY").ok(),
     ) {
-        (Some(github_event_name), Some(github_ref), Some(_))
-            if github_event_name != "pull_request" && github_ref == "live" =>
+        (Some(github_event_name), Some(github_ref_name), Some(_))
+            if github_event_name != "pull_request"
+                && (github_ref_name == "live" || github_ref_name == "main")
+                && Path::new("cosign.pub").exists() =>
         {
             env::set_var("COSIGN_PASSWORD", "");
             env::set_var("COSIGN_YES", "true");
@@ -737,7 +803,7 @@ fn check_cosign_files() -> Result<()> {
             }
         }
         _ => {
-            debug!("Not building on live branch, skipping cosign file check");
+            debug!("Not building on live branch or cosign.pub doesn't exist, skipping cosign file check");
             Ok(())
         }
     }
@@ -750,12 +816,17 @@ async fn handle_signals(
     build_id: Uuid,
     client: Arc<Podman>,
 ) -> Result<()> {
+    use std::process;
+
+    use futures_util::StreamExt;
     use podman_api::opts::{
         ContainerListOpts, ContainerPruneFilter, ContainerPruneOpts, ImagePruneFilter,
         ImagePruneOpts,
     };
     use signal_hook::consts::{SIGHUP, SIGINT};
     use tokio::time::{self, Duration};
+
+    use crate::ops::BUILD_ID_LABEL;
 
     trace!("handle_signals(signals, {build_id}, {client:#?})");
 

@@ -1,12 +1,12 @@
 use std::{
     fs,
     path::{Path, PathBuf},
-    process::{self, Command},
+    process::Command,
 };
 
 use anyhow::{bail, Result};
-use clap::{Args, Subcommand};
-use log::{debug, error, info, trace};
+use clap::Args;
+use log::{debug, info, trace};
 use typed_builder::TypedBuilder;
 use users::{Users, UsersCache};
 
@@ -43,8 +43,8 @@ impl BlueBuildCommand for UpgradeCommand {
 
         check_can_run()?;
 
-        let recipe: Recipe =
-            serde_yaml::from_str(fs::read_to_string(&self.common.recipe)?.as_str())?;
+        let recipe = Recipe::parse(&self.common.recipe)?;
+
         let mut build = BuildCommand::builder()
             .recipe(self.common.recipe.clone())
             .archive(LOCAL_BUILD)
@@ -90,8 +90,8 @@ impl BlueBuildCommand for RebaseCommand {
 
         check_can_run()?;
 
-        let recipe: Recipe =
-            serde_yaml::from_str(fs::read_to_string(&self.common.recipe)?.as_str())?;
+        let recipe = Recipe::parse(&self.common.recipe)?;
+
         let mut build = BuildCommand::builder()
             .recipe(self.common.recipe.clone())
             .archive(LOCAL_BUILD)
