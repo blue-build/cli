@@ -311,7 +311,7 @@ impl BuildCommand {
         );
 
         info!("Logging into the registry, {registry}");
-        if !match (
+        let login_output = match (
             ops::check_command_exists("buildah"),
             ops::check_command_exists("podman"),
         ) {
@@ -331,26 +331,26 @@ impl BuildCommand {
         .arg("-p")
         .arg(&password)
         .arg(&registry)
-        .output()?
-        .status
-        .success()
-        {
-            bail!("Failed to login for buildah!");
+        .output()?;
+
+        if !login_output.status.success() {
+            let err_out = String::from_utf8_lossy(&login_output.stderr);
+            bail!("Failed to login for buildah: {err_out}");
         }
 
         trace!("cosign login -u {username} -p [MASKED] {registry}");
-        if !Command::new("cosign")
+        let login_output = Command::new("cosign")
             .arg("login")
             .arg("-u")
             .arg(&username)
             .arg("-p")
             .arg(&password)
             .arg(&registry)
-            .output()?
-            .status
-            .success()
-        {
-            bail!("Failed to login for cosign!");
+            .output()?;
+
+        if !login_output.status.success() {
+            let err_output = String::from_utf8_lossy(&login_output.stderr);
+            bail!("Failed to login for cosign: {err_output}");
         }
         info!("Login success at {registry}");
 
