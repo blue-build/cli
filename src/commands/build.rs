@@ -279,6 +279,8 @@ impl BuildCommand {
             },
             Err(e) => bail!("{e}"),
         };
+        handle.close();
+        signals_task.await??;
 
         if self.push {
             debug!("Pushing is enabled");
@@ -314,9 +316,6 @@ impl BuildCommand {
 
             sign_images(&image_name, tags.first().map(String::as_str))?;
         }
-
-        handle.close();
-        signals_task.await??;
 
         Ok(())
     }
