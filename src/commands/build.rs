@@ -553,7 +553,6 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         env::var("GITHUB_EVENT_NAME"),
         env::var("GITHUB_REF_NAME"),
         env::var("GITHUB_WORKFLOW_REF"),
-        env::var("GITHUB_SERVER_URL"),
         env::var("COSIGN_PRIVATE_KEY"),
     ) {
         (
@@ -563,7 +562,6 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
             Ok(ci_server_protocol),
             Ok(ci_server_host),
             Ok(_),
-            _,
             _,
             _,
             _,
@@ -618,12 +616,11 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
             Ok(github_event_name),
             Ok(github_ref_name),
             Ok(github_worflow_ref),
-            Ok(github_server_url),
             _,
         ) if github_event_name != "pull_request"
             && (github_ref_name == "live" || github_ref_name == "main") =>
         {
-            trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}, GITHUB_WORKFLOW_REF={github_worflow_ref}, GITHUB_SERVER_URL={github_server_url}");
+            trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}, GITHUB_WORKFLOW_REF={github_worflow_ref}");
 
             debug!("On {github_ref_name} branch");
 
@@ -654,7 +651,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
                 bail!("Failed to verify image!");
             }
         }
-        (_, _, _, _, _, _, Ok(github_event_name), Ok(github_ref_name), _, _, Ok(_))
+        (_, _, _, _, _, _, Ok(github_event_name), Ok(github_ref_name), _, Ok(_))
             if github_event_name != "pull_request"
                 && (github_ref_name == "live" || github_ref_name == "main") =>
         {
