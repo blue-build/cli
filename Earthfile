@@ -79,7 +79,7 @@ blue-build-cli:
 
 	RUN mkdir -p /bluebuild
 	WORKDIR /bluebuild
-	CMD bluebuild
+	ENTRYPOINT ["bluebuild"]
 
 	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY
 
@@ -99,7 +99,7 @@ blue-build-cli-alpine:
 
 	RUN mkdir -p /bluebuild
 	WORKDIR /bluebuild
-	CMD bluebuild
+	ENTRYPOINT ["bluebuild"]
 
 	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY --ALPINE=true
 
