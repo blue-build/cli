@@ -9,6 +9,9 @@ COPY ./config /config
 # Custom modules overwrite defaults
 FROM scratch as stage-modules
 COPY --from=ghcr.io/ublue-os/bling:latest /modules /modules
+{%- for source in self::get_external_module_images(recipe.modules_ext.modules) %}
+COPY --from={{ source }} /modules /modules
+{%- endfor %}
 COPY ./modules /modules
 
 # This stage is responsible for holding onto

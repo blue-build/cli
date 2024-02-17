@@ -1,4 +1,6 @@
 use std::{
+    borrow::Cow,
+    collections::HashSet,
     env, fs,
     path::{Path, PathBuf},
     process,
@@ -221,4 +223,14 @@ fn get_gitlab_registry_path() -> Option<String> {
         )
         .to_lowercase(),
     )
+}
+
+fn get_external_module_images<'a>(modules: &'a [Module]) -> Vec<Cow<'a, str>> {
+    let mut seen = HashSet::new();
+
+    modules
+        .iter()
+        .filter_map(|module| module.source.clone())
+        .filter(|source| seen.insert(source.clone()))
+        .collect::<Vec<_>>()
 }
