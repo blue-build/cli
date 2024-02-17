@@ -72,6 +72,8 @@ COPY {{ src }} {{ dest }}
 			{%- endif %}
 		{%- else %}
 RUN \
+	--mount=type=tmpfs,target=/tmp \
+	--mount=type=tmpfs,target=/var \
 	--mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
 	--mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
 	--mount=type=bind,from=stage-exports,src=/exports.sh,dst=/tmp/exports.sh \
@@ -81,5 +83,4 @@ RUN \
   {%- endif %}
 {%- endfor %}
 
-
-RUN rm -rf /tmp/* /var/* && ostree container commit
+RUN ostree container commit
