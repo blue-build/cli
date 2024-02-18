@@ -245,6 +245,10 @@ pub struct Module<'a> {
     #[serde(rename = "from-file", skip_serializing_if = "Option::is_none")]
     pub from_file: Option<Cow<'a, str>>,
 
+    #[builder(default, setter(into, strip_option))]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<Cow<'a, str>>,
+
     #[serde(flatten)]
     #[builder(default, setter(into))]
     pub config: IndexMap<String, Value>,
