@@ -81,10 +81,10 @@ RUN \
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
       {%- endif %}
       {%- if type == "akmods" %}
-        {%- if let Some(image_version) = self::get_akmods_image_version(module) %}
-  --mount=type=bind,from=ghcr.io/ublue-os/akmods:{{ image_version }},src=/rpms,dst=/tmp/rpms,rw \
+        {%- if let Some(base) = self::get_akmods_base(module) %}
+  --mount=type=bind,from=ghcr.io/ublue-os/akmods:{{ base }}-{{ recipe.get_os_version() }},src=/rpms,dst=/tmp/rpms,rw \
         {%- else %}
-  --mount=type=bind,from=ghcr.io/ublue-os/akmods:main-latest,src=/rpms,dst=/tmp/rpms,rw \
+  --mount=type=bind,from=ghcr.io/ublue-os/akmods:main-{{ recipe.get_os_version() }},src=/rpms,dst=/tmp/rpms,rw \
         {%- endif %}
       {%- endif %}
   --mount=type=bind,from=stage-exports,src=/exports.sh,dst=/tmp/exports.sh \

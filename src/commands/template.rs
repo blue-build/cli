@@ -223,6 +223,6 @@ fn get_gitlab_registry_path() -> Option<String> {
     )
 }
 
-fn get_akmods_image_version<'a>(module: &'a Module) -> Option<&'a str> {
-    module.config.get("version-tag")?.as_str()
+fn get_akmods_base<'a>(module: &'a Module) -> Option<&'a str> {
+    module.config.get("base")?.as_str()
 }

@@ -150,7 +150,7 @@ impl<'a> Recipe<'a> {
         Ok(recipe)
     }
 
-    fn get_os_version(&self) -> String {
+    pub fn get_os_version(&self) -> String {
         trace!("Recipe::get_os_version()");
 
         if check_command_exists("skopeo").is_err() {
