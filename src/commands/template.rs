@@ -222,3 +222,7 @@ fn get_gitlab_registry_path() -> Option<String> {
         .to_lowercase(),
     )
 }
+
+fn get_akmods_image_version<'a>(module: &'a Module) -> Option<&'a str> {
+    module.config.get("version-tag")?.as_str()
+}

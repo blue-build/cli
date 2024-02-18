@@ -80,6 +80,13 @@ RUN \
       {%- else %}
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
       {%- endif %}
+      {%- if type == "akmods" %}
+        {%- if let Some(image_version) = self::get_akmods_image_version(module) %}
+  --mount=type=bind,from=ghcr.io/ublue-os/akmods:{{ image_version }},src=/rpms,dst=/tmp/rpms,rw \
+        {%- else %}
+  --mount=type=bind,from=ghcr.io/ublue-os/akmods:main-latest,src=/rpms,dst=/tmp/rpms,rw \
+        {%- endif %}
+      {%- endif %}
   --mount=type=bind,from=stage-exports,src=/exports.sh,dst=/tmp/exports.sh \
   chmod +x /tmp/modules/{{ type }}/{{ type }}.sh \
   && source /tmp/exports.sh && /tmp/modules/{{ type }}/{{ type }}.sh '{{ self::print_module_context(module) }}'
