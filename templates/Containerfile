@@ -9,9 +9,6 @@ COPY ./config /config
 # Custom modules overwrite defaults
 FROM scratch as stage-modules
 COPY --from=ghcr.io/ublue-os/bling:latest /modules /modules
-{%- for source in self::get_external_module_images(recipe.modules_ext.modules) %}
-COPY --from={{ source }} /modules /modules
-{%- endfor %}
 COPY ./modules /modules
 
 # This stage is responsible for holding onto
@@ -78,7 +75,11 @@ RUN \
 	--mount=type=tmpfs,target=/tmp \
 	--mount=type=tmpfs,target=/var \
 	--mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
+			{%- if let Some(source) = module.source %}
+	--mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
+			{%- else %}
 	--mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
+			{%- endif %}
 	--mount=type=bind,from=stage-exports,src=/exports.sh,dst=/tmp/exports.sh \
 	chmod +x /tmp/modules/{{ type }}/{{ type }}.sh \
 	&& source /tmp/exports.sh && /tmp/modules/{{ type }}/{{ type }}.sh '{{ self::print_module_context(module) }}'
