@@ -1,3 +1,4 @@
+{%- let os_version = recipe.get_os_version() %}
 # This stage is responsible for holding onto
 # your config without copying it directly into
 # the final image
@@ -82,9 +83,9 @@ RUN \
       {%- endif %}
       {%- if type == "akmods" %}
         {%- if let Some(base) = self::get_akmods_base(module) %}
-  --mount=type=bind,from=ghcr.io/ublue-os/akmods:{{ base }}-{{ recipe.get_os_version() }},src=/rpms,dst=/tmp/rpms,rw \
+  --mount=type=bind,from=ghcr.io/ublue-os/akmods:{{ base }}-{{ os_version }},src=/rpms,dst=/tmp/rpms,rw \
         {%- else %}
-  --mount=type=bind,from=ghcr.io/ublue-os/akmods:main-{{ recipe.get_os_version() }},src=/rpms,dst=/tmp/rpms,rw \
+  --mount=type=bind,from=ghcr.io/ublue-os/akmods:main-{{ os_version }},src=/rpms,dst=/tmp/rpms,rw \
         {%- endif %}
       {%- endif %}
   --mount=type=bind,from=stage-exports,src=/exports.sh,dst=/tmp/exports.sh \
