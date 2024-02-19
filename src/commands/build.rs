@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use clap::Args;
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
@@ -36,7 +36,7 @@ use tokio::{
 
 use crate::{
     commands::template::TemplateCommand,
-    constants::{GITHUB_TOKEN_ISSUER_URL, RECIPE_PATH},
+    constants::{self, GITHUB_TOKEN_ISSUER_URL, RECIPE_PATH},
     module_recipe::Recipe,
     ops::{self, ARCHIVE_SUFFIX},
 };
@@ -151,8 +151,34 @@ impl BlueBuildCommand for BuildCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
-        let build_id = Uuid::new_v4();
+        // This exist to help with initial transition incase a user
+        // doesn't realize that we override the Containerfile
+        if ops::check_file_modified("Containerfile")? {
+            trace!("Containerfile is modified, checking for BlueBuild Tag");
 
+            let container_file_path =
+                std::env::current_dir().map(|p| p.join(constants::CONTAINER_FILE_PATH))?;
+            let file = match fs::read_to_string(container_file_path) {
+                Ok(file) => file,
+                Err(e) => {
+                    error!("Failed to read Containerfile: {e}");
+                    return Ok(());
+                }
+            };
+
+            if !file.lines().any(|line| {
+                line.to_string()
+                    .trim()
+                    .starts_with(&constants::BLUEBUILD_TAG.to_string())
+            }) {
+                info!("Containerfile has not been modified by BlueBuild, skipping build");
+                return Ok(());
+            }
+        } else {
+            info!("Containerfile is not modified, building build");
+        }
+
+        let build_id = Uuid::new_v4();
         if self.push && self.archive.is_some() {
             bail!("You cannot use '--archive' and '--push' at the same time");
         }
@@ -230,8 +256,7 @@ impl BuildCommand {
             image_name.to_string()
         } else {
             tags.first()
-                .map(|t| format!("{image_name}:{t}"))
-                .unwrap_or_else(|| image_name.to_string())
+                .map_or_else(|| image_name.to_string(), |t| format!("{image_name}:{t}"))
         };
         debug!("Full tag is {first_image_name}");
 
@@ -480,8 +505,7 @@ impl BuildCommand {
             image_name.to_string()
         } else {
             tags.first()
-                .map(|t| format!("{image_name}:{t}"))
-                .unwrap_or_else(|| image_name.to_string())
+                .map_or_else(|| image_name.to_string(), |t| format!("{image_name}:{t}"))
         };
 
         info!("Building image {full_image}");
@@ -582,9 +606,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
     env::set_var("COSIGN_YES", "true");
 
     let image_digest = get_image_digest(image_name, tag)?;
-    let image_name_tag = tag
-        .map(|t| format!("{image_name}:{t}"))
-        .unwrap_or_else(|| image_name.to_owned());
+    let image_name_tag = tag.map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));
 
     match (
         env::var("CI_DEFAULT_BRANCH"),

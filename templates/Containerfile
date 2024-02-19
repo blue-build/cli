@@ -47,45 +47,46 @@ COPY --from=ghcr.io/blue-build/cli:
 latest-installer
 {%- endif %} /out/bluebuild /usr/bin/bluebuild
 
+ARG BLUE_BUILD_DATE={{ self::get_build_date() }}
 ARG CONFIG_DIRECTORY="/tmp/config"
 ARG IMAGE_NAME="{{ recipe.name }}"
 ARG BASE_IMAGE="{{ recipe.base_image }}"
 
 {%- for module in recipe.modules_ext.modules %}
-  {%- if let Some(type) = module.module_type %}
-    {%- if type == "containerfile" %}
-      {%- if let Some(containerfiles) = self::get_containerfile_list(module) %}
-        {%- for c in containerfiles %}
+{%- if let Some(type) = module.module_type %}
+{%- if type == "containerfile" %}
+{%- if let Some(containerfiles) = self::get_containerfile_list(module) %}
+{%- for c in containerfiles %}
 {{ self::print_containerfile(c) }}
-        {%- endfor %}
-      {%- endif %}
-      {%- if let Some(snippets) = self::get_containerfile_snippets(module) %}
-        {%- for s in snippets %}
+{%- endfor %}
+{%- endif %}
+{%- if let Some(snippets) = self::get_containerfile_snippets(module) %}
+{%- for s in snippets %}
 {{ s }}
-        {%- endfor %}
-      {%- endif %}
-    {%- else if type == "files" %}
-      {%- if let Some(files) = self::get_files_list(module) %}
-        {%- for (src, dest) in files %}
+{%- endfor %}
+{%- endif %}
+{%- else if type == "files" %}
+{%- if let Some(files) = self::get_files_list(module) %}
+{%- for (src, dest) in files %}
 COPY {{ src }} {{ dest }}
-        {%- endfor %}
-      {%- endif %}
-    {%- else %}
+{%- endfor %}
+{%- endif %}
+{%- else %}
 RUN \
   --mount=type=tmpfs,target=/tmp \
   --mount=type=tmpfs,target=/var \
   --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
-      {%- if let Some(source) = module.source %}
-  --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
-      {%- else %}
-  --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
-      {%- endif %}
-  --mount=type=bind,from=stage-exports,src=/exports.sh,dst=/tmp/exports.sh \
+  {%- if let Some(source) = module.source %}
+--mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
+  {%- else %}
+--mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
+  {%- endif %}
+--mount=type=bind,from=stage-exports,src=/exports.sh,dst=/tmp/exports.sh \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
   chmod +x /tmp/modules/{{ type }}/{{ type }}.sh \
   && source /tmp/exports.sh && /tmp/modules/{{ type }}/{{ type }}.sh '{{ self::print_module_context(module) }}'
-    {%- endif %}
-  {%- endif %}
+{%- endif %}
+{%- endif %}
 {%- endfor %}
 
 RUN ostree container commit

@@ -27,6 +27,24 @@ pub fn check_command_exists(command: &str) -> Result<()> {
     }
 }
 
+pub fn check_file_modified(file: &str) -> Result<bool> {
+    trace!("check_file_modified({file})");
+    debug!("Checking if {file} is modified");
+
+    // Git returns 0 if the file is not modified, 1 if it is
+    let is_dirty = Command::new("git")
+        .args(["status", "--porcelain", "|", "grep", file])
+        .output()?;
+
+    if is_dirty.stdout.is_empty() {
+        debug!("{file} is not modified");
+        Ok(false)
+    } else {
+        debug!("{file} is modified");
+        Ok(true)
+    }
+}
+
 pub fn serde_yaml_err(contents: &str) -> impl Fn(serde_yaml::Error) -> SerdeError + '_ {
     |err: serde_yaml::Error| {
         let location = err.location();
