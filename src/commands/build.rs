@@ -686,6 +686,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
                 bail!("Failed to sign image: {image_digest}");
             }
 
+            trace!("cosign verify --certificate-identity-regexp {github_worflow_ref} --certificate-oidc-issuer {GITHUB_TOKEN_ISSUER_URL} {image_name_tag}");
             if !Command::new("cosign")
                 .arg("verify")
                 .arg("--certificate-identity-regexp")
