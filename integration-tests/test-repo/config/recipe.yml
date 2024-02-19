@@ -16,6 +16,7 @@ modules:
     install:
       - nvidia
   - type: akmods
+    base: surface
     install:
       - openrazer
   - type: files
