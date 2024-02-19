@@ -171,11 +171,11 @@ impl BlueBuildCommand for BuildCommand {
                     .trim()
                     .starts_with(&constants::BLUEBUILD_TAG.to_string())
             }) {
-                info!("Containerfile has not been modified by BlueBuild, skipping build");
+                trace!("Containerfile has not been modified by BlueBuild, skipping build");
                 return Ok(());
             }
         } else {
-            info!("Containerfile is not modified, building build");
+            trace!("Containerfile is not modified, building build");
         }
 
         let build_id = Uuid::new_v4();
