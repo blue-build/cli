@@ -223,7 +223,7 @@ fn get_gitlab_registry_path() -> Option<String> {
     )
 }
 
-fn generate_akmods_image_tag(module: &Module, os_version: &str) -> String {
+fn generate_akmods_base(module: &Module, os_version: &str) -> String {
     let base = module
         .config
         .get("base")
@@ -231,16 +231,14 @@ fn generate_akmods_image_tag(module: &Module, os_version: &str) -> String {
     let nvidia_version = module
         .config
         .get("nvidia-version")
-        .map(|n| n.as_str().unwrap_or_default());
+        .map(|v| v.as_u64().unwrap_or_default());
 
     match (base, nvidia_version) {
-        (Some(base), Some(nvidia_version)) if !base.is_empty() && !nvidia_version.is_empty() => {
-            format!("{base}-{os_version}-{nvidia_version}")
+        (Some(b), Some(nv)) if !b.is_empty() && nv > 0 => {
+            format!("akmods-nvidia:{b}-{os_version}-{nv}")
         }
-        (Some(base), _) if !base.is_empty() => format!("{base}-{os_version}"),
-        (_, Some(nvidia_version)) if !nvidia_version.is_empty() => {
-            format!("main-{os_version}-{nvidia_version}")
-        }
-        _ => format!("main-{os_version}"),
+        (Some(b), _) if !b.is_empty() => format!("akmods:{b}-{os_version}"),
+        (_, Some(nv)) if nv > 0 => format!("akmods-nvidia:main-{os_version}-{nv}"),
+        _ => format!("akmods:main-{os_version}"),
     }
 }

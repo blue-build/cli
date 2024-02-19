@@ -4,7 +4,7 @@ name: template
 description: This is my personal OS image.
 
 # the base image to build on top of (FROM) and the version tag to use
-base-image: ghcr.io/ublue-os/silverblue-surface-nvidia
+base-image: ghcr.io/ublue-os/silverblue-surface
 image-version: 39 # latest is also supported if you want new updates ASAP
 
 # module configuration, executed in order
@@ -12,7 +12,10 @@ image-version: 39 # latest is also supported if you want new updates ASAP
 modules:
   - type: akmods
     base: surface
-    nvidia-version: '545'
+    nvidia-version: 545
+    install:
+      - nvidia
+  - type: akmods
     install:
       - openrazer
   - type: files
