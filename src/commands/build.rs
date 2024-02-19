@@ -688,7 +688,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
 
             if !Command::new("cosign")
                 .arg("verify")
-                .arg("--certificate-github-workflow-ref")
+                .arg("--certificate-identity-regexp")
                 .arg(&github_worflow_ref)
                 .arg("--certificate-oidc-issuer")
                 .arg(GITHUB_TOKEN_ISSUER_URL)
