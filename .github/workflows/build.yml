@@ -47,4 +47,7 @@ jobs:
 
       - name: Run build
         if: github.repository == 'blue-build/cli'
-        run: earthly --push --ci -P +all
+        run: |
+          earthly --push --ci +build
+          earthly sat s blue-build-integration-tests
+          earthly --ci -P ./integration-tests+all
