@@ -593,6 +593,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         env::var("CI_SERVER_PROTOCOL"),
         env::var("CI_SERVER_HOST"),
         env::var("SIGSTORE_ID_TOKEN"),
+        env::var("GITHUB_TOKEN"),
         env::var("GITHUB_EVENT_NAME"),
         env::var("GITHUB_REF_NAME"),
         env::var("GITHUB_WORKFLOW_REF"),
@@ -605,6 +606,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
             Ok(ci_server_protocol),
             Ok(ci_server_host),
             Ok(_),
+            _,
             _,
             _,
             _,
@@ -655,6 +657,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
             _,
             _,
             _,
+            _,
             Ok(_),
             Ok(github_event_name),
             Ok(github_ref_name),
@@ -694,7 +697,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
                 bail!("Failed to verify image!");
             }
         }
-        (_, _, _, _, _, _, Ok(github_event_name), Ok(github_ref_name), _, Ok(_))
+        (_, _, _, _, _, _, _, Ok(github_event_name), Ok(github_ref_name), _, Ok(_))
             if github_event_name != "pull_request"
                 && (github_ref_name == "live" || github_ref_name == "main") =>
         {
