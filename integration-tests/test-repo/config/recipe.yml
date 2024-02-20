@@ -15,9 +15,6 @@ modules:
     nvidia-version: 545
     install:
       - nvidia
-  - type: akmods
-    base: surface
-    install:
       - openrazer
   - type: files
     files:

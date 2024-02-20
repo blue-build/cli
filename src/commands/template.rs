@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     env, fs,
     path::{Path, PathBuf},
     process,
@@ -13,7 +14,7 @@ use uuid::Uuid;
 
 use crate::{
     constants::{self},
-    module_recipe::{Module, Recipe},
+    module_recipe::{Module, ModuleExt, Recipe},
 };
 
 use super::BlueBuildCommand;
@@ -166,7 +167,7 @@ fn get_containerfile_snippets(module: &Module) -> Option<Vec<String>> {
 
 #[must_use]
 fn print_containerfile(containerfile: &str) -> String {
-    debug!("print_containerfile({containerfile})");
+    trace!("print_containerfile({containerfile})");
     debug!("Loading containerfile contents for {containerfile}");
 
     let path = format!("config/containerfiles/{containerfile}/Containerfile");
@@ -223,7 +224,23 @@ fn get_gitlab_registry_path() -> Option<String> {
     )
 }
 
-fn generate_akmods_base(module: &Module, os_version: &str) -> String {
+fn get_akmods_image_list(module_ext: &ModuleExt, os_version: &str) -> Vec<String> {
+    trace!("get_akmods_image_list({module_ext:#?}, {os_version})");
+
+    let mut seen = HashSet::new();
+
+    module_ext
+        .modules
+        .iter()
+        .filter(|module| module.module_type.as_ref().is_some_and(|t| t == "akmods"))
+        .flat_map(|module| generate_akmods_base(module, os_version))
+        .filter(|image| seen.insert(image.clone()))
+        .collect()
+}
+
+fn generate_akmods_base(module: &Module, os_version: &str) -> Vec<String> {
+    trace!("generate_akmods_base({module:#?}, {os_version})");
+
     let base = module
         .config
         .get("base")
@@ -233,12 +250,22 @@ fn generate_akmods_base(module: &Module, os_version: &str) -> String {
         .get("nvidia-version")
         .map(|v| v.as_u64().unwrap_or_default());
 
-    match (base, nvidia_version) {
-        (Some(b), Some(nv)) if !b.is_empty() && nv > 0 => {
-            format!("akmods-nvidia:{b}-{os_version}-{nv}")
-        }
-        (Some(b), _) if !b.is_empty() => format!("akmods:{b}-{os_version}"),
-        (_, Some(nv)) if nv > 0 => format!("akmods-nvidia:main-{os_version}-{nv}"),
+    // There will only be max of 2 images created
+    let mut image_list = Vec::with_capacity(2);
+
+    image_list.push(match base {
+        Some(b) if !b.is_empty() => format!("akmods:{b}-{os_version}"),
         _ => format!("akmods:main-{os_version}"),
+    });
+
+    if let Some(nv) = nvidia_version {
+        if nv > 0 {
+            image_list.push(match base {
+                Some(b) if !b.is_empty() => format!("akmods-nvidia:{b}-{os_version}-{nv}"),
+                _ => format!("akmods-nvidia:main-{os_version}-{nv}"),
+            });
+        }
     }
+
+    image_list
 }

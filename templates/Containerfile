@@ -12,6 +12,12 @@ FROM scratch as stage-modules
 COPY --from=ghcr.io/ublue-os/bling:latest /modules /modules
 COPY ./modules /modules
 
+# This stage is responsible for collecting all akmods rpms.
+FROM scratch as stage-akmods
+{%- for image in self::get_akmods_image_list(recipe.modules_ext, os_version) %}
+COPY --from=ghcr.io/ublue-os/{{ image }} /rpms /rpms
+{%- endfor %}
+
 # This stage is responsible for holding onto
 # exports like the exports.sh
 FROM docker.io/alpine as stage-exports
@@ -37,16 +43,6 @@ ARG IMAGE_REGISTRY=localhost
 {%- if self::has_cosign_file() %}
 COPY cosign.pub /usr/share/ublue-os/cosign.pub
 {%- endif %}
-
-COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
-COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
-
-COPY --from=ghcr.io/blue-build/cli:
-{%- if let Some(tag) = recipe.blue_build_tag -%}
-{{ tag }}
-{%- else -%}
-latest-installer
-{%- endif %} /out/bluebuild /usr/bin/bluebuild
 
 ARG CONFIG_DIRECTORY="/tmp/config"
 ARG IMAGE_NAME="{{ recipe.name }}"
@@ -75,6 +71,7 @@ COPY {{ src }} {{ dest }}
 RUN \
   --mount=type=tmpfs,target=/tmp \
   --mount=type=tmpfs,target=/var \
+  --mount=type=bind,from=docker.io/mikefarah/yq,src=/usr/bin/yq,dst=/usr/bin/yq \
   --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
       {%- if let Some(source) = module.source %}
   --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
@@ -82,7 +79,7 @@ RUN \
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
       {%- endif %}
       {%- if type == "akmods" %}
-  --mount=type=bind,from=ghcr.io/ublue-os/{{ self::generate_akmods_base(module, os_version) }},src=/rpms,dst=/tmp/rpms \
+  --mount=type=bind,from=stage-akmods,src=/rpms,dst=/tmp/rpms,rw \
       {%- endif %}
   --mount=type=bind,from=stage-exports,src=/exports.sh,dst=/tmp/exports.sh \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
@@ -91,5 +88,13 @@ RUN \
     {%- endif %}
   {%- endif %}
 {%- endfor %}
+
+COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
+COPY --from=ghcr.io/blue-build/cli:
+{%- if let Some(tag) = recipe.blue_build_tag -%}
+{{ tag }}
+{%- else -%}
+latest-installer
+{%- endif %} /out/bluebuild /usr/bin/bluebuild
 
 RUN ostree container commit
