@@ -202,7 +202,6 @@ impl BlueBuildCommand for BuildCommand {
 
                 if let Ok(answer) = requestty::prompt_one(question) {
                     if answer.as_bool().unwrap() {
-                        println!("Will remove Containerfile from git and add it to .gitignore");
                         ops::append_to_file(constants::GITIGNORE_PATH, &container_path)?;
                     }
                 }
