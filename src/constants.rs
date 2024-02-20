@@ -1,10 +1,11 @@
 // Paths
 pub const ARCHIVE_SUFFIX: &str = "tar.gz";
 pub const COSIGN_PATH: &str = "./cosign.pub";
+pub const GITIGNORE_PATH: &str = ".gitignore";
 pub const LOCAL_BUILD: &str = "/etc/bluebuild";
+pub const CONTAINER_FILE: &str = "Containerfile";
 pub const MODULES_PATH: &str = "./config/modules";
 pub const RECIPE_PATH: &str = "./config/recipe.yml";
-pub const CONTAINER_FILE_PATH: &str = "./Containerfile";
 pub const RUN_PODMAN_SOCK: &str = "/run/podman/podman.sock";
 pub const VAR_RUN_PODMAN_PODMAN_SOCK: &str = "/var/run/podman/podman.sock";
 pub const VAR_RUN_PODMAN_SOCK: &str = "/var/run/podman.sock";

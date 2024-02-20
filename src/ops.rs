@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Result};
 use format_serde_error::SerdeError;
 use log::{debug, trace};
-use std::process::{Command, Stdio};
+use std::io::{Seek, SeekFrom, Write};
+use std::process::Command;
 
 pub fn check_command_exists(command: &str) -> Result<()> {
     trace!("check_command_exists({command})");
@@ -23,31 +24,43 @@ pub fn check_command_exists(command: &str) -> Result<()> {
     }
 }
 
-pub fn check_file_modified(file: &str) -> Result<bool> {
-    trace!("check_file_modified({file})");
-    debug!("Checking if {file} is modified");
+pub fn get_last_char(file_path: &str) -> Result<char> {
+    use std::io::Read;
 
-    // First command: echo "Hello, world!"
-    let git_status = Command::new("git")
-        .args(["status", "--porcelain"])
-        .stdout(Stdio::piped())
-        .spawn()?;
+    trace!("get_last_char({file_path})");
+    debug!("Getting last character of {file_path}");
 
-    let git_status_output = git_status.stdout.expect("failed to capture echo stdout");
+    let mut last_char_buffer = vec![0; 4096];
+    let mut file = std::fs::File::open(file_path)?;
 
-    // Git returns 0 if the file is not modified, 1 if it is
-    let git_status_output = Command::new("grep")
-        .arg(file)
-        .stdin(Stdio::from(git_status_output))
-        .output()?;
+    // get the last character
+    file.seek(SeekFrom::Start(file.metadata()?.len() - 1))?;
+    file.read_exact(&mut last_char_buffer[0..1])?;
 
-    if git_status_output.stdout.is_empty() {
-        debug!("{file} is not modified");
-        Ok(false)
-    } else {
-        debug!("{file} is modified");
-        Ok(true)
+    Ok(String::from_utf8_lossy(&last_char_buffer)
+        .to_string()
+        .chars()
+        .next()
+        .unwrap_or('\0'))
+}
+
+pub fn append_to_file(file_path: &str, content: &str) -> Result<()> {
+    trace!("append_to_file({file_path}, {content})");
+    debug!("Appending {content} to {file_path}");
+
+    let last_char = get_last_char(file_path)?;
+    let mut file = std::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(file_path)?;
+
+    // Check if last character is a newline
+    if last_char != 0xA as char {
+        file.write_all(b"\n")?;
     }
+
+    file.write_all(format!("{}\n", content).as_bytes())?;
+    Ok(())
 }
 
 pub fn serde_yaml_err(contents: &str) -> impl Fn(serde_yaml::Error) -> SerdeError + '_ {

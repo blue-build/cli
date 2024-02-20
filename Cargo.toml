@@ -35,7 +35,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9.30"
 signal-hook = { version = "0.3.17", optional = true }
-signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"], optional = true }
+signal-hook-tokio = { version = "0.3.1", features = [
+  "futures-v0_3",
+], optional = true }
 shadow-rs = { version = "0.26" }
 sigstore = { version = "0.8.0", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
@@ -48,7 +50,13 @@ which = "6"
 [features]
 default = []
 nightly = ["builtin-podman"]
-builtin-podman = ["podman-api", "tokio", "futures-util", "signal-hook-tokio", "signal-hook"]
+builtin-podman = [
+  "podman-api",
+  "tokio",
+  "futures-util",
+  "signal-hook-tokio",
+  "signal-hook",
+]
 tls = ["podman-api/tls", "builtin-podman"]
 
 [dev-dependencies]
