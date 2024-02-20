@@ -34,12 +34,7 @@ use tokio::{
     sync::oneshot::{self, Sender},
 };
 
-use crate::{
-    commands::template::TemplateCommand,
-    constants::{GITHUB_TOKEN_ISSUER_URL, RECIPE_PATH},
-    module_recipe::Recipe,
-    ops::{self, ARCHIVE_SUFFIX},
-};
+use crate::{commands::template::TemplateCommand, constants::*, module_recipe::Recipe, ops};
 
 use super::BlueBuildCommand;
 
@@ -209,8 +204,6 @@ impl BuildCommand {
     ) -> Result<()> {
         use futures_util::StreamExt;
         use signal_hook::consts::{SIGINT, SIGQUIT, SIGTERM};
-
-        use crate::ops::BUILD_ID_LABEL;
 
         trace!("BuildCommand::build_image({client:#?})");
 
@@ -415,12 +408,12 @@ impl BuildCommand {
             )
         } else {
             match (
-                env::var("CI_REGISTRY").ok().map(|s| s.to_lowercase()),
-                env::var("CI_PROJECT_NAMESPACE")
+                env::var(CI_REGISTRY).ok().map(|s| s.to_lowercase()),
+                env::var(CI_PROJECT_NAMESPACE)
                     .ok()
                     .map(|s| s.to_lowercase()),
-                env::var("CI_PROJECT_NAME").ok().map(|s| s.to_lowercase()),
-                env::var("GITHUB_REPOSITORY_OWNER")
+                env::var(CI_PROJECT_NAME).ok().map(|s| s.to_lowercase()),
+                env::var(GITHUB_REPOSITORY_OWNER)
                     .ok()
                     .map(|s| s.to_lowercase()),
                 self.registry.as_ref().map(|s| s.to_lowercase()),
@@ -530,8 +523,8 @@ impl BuildCommand {
     fn get_login_creds(&self) -> Option<Credentials> {
         let registry = match (
             self.registry.as_ref(),
-            env::var("CI_REGISTRY").ok(),
-            env::var("GITHUB_ACTIONS").ok(),
+            env::var(CI_REGISTRY).ok(),
+            env::var(GITHUB_ACTIONS).ok(),
         ) {
             (Some(registry), _, _) => registry.to_owned(),
             (None, Some(ci_registry), None) => ci_registry,
@@ -541,8 +534,8 @@ impl BuildCommand {
 
         let username = match (
             self.username.as_ref(),
-            env::var("CI_REGISTRY_USER").ok(),
-            env::var("GITHUB_ACTOR").ok(),
+            env::var(CI_REGISTRY_USER).ok(),
+            env::var(GITHUB_ACTOR).ok(),
         ) {
             (Some(username), _, _) => username.to_owned(),
             (None, Some(ci_registry_user), None) => ci_registry_user,
@@ -552,8 +545,8 @@ impl BuildCommand {
 
         let password = match (
             self.password.as_ref(),
-            env::var("CI_REGISTRY_PASSWORD").ok(),
-            env::var("REGISTRY_TOKEN").ok(),
+            env::var(CI_REGISTRY_PASSWORD).ok(),
+            env::var(GITHUB_TOKEN).ok(),
         ) {
             (Some(password), _, _) => password.to_owned(),
             (None, Some(ci_registry_password), None) => ci_registry_password,
@@ -587,17 +580,17 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         .unwrap_or_else(|| image_name.to_owned());
 
     match (
-        env::var("CI_DEFAULT_BRANCH"),
-        env::var("CI_COMMIT_REF_NAME"),
-        env::var("CI_PROJECT_URL"),
-        env::var("CI_SERVER_PROTOCOL"),
-        env::var("CI_SERVER_HOST"),
-        env::var("SIGSTORE_ID_TOKEN"),
-        env::var("REGISTRY_TOKEN"),
-        env::var("GITHUB_EVENT_NAME"),
-        env::var("GITHUB_REF_NAME"),
-        env::var("GITHUB_WORKFLOW_REF"),
-        env::var("COSIGN_PRIVATE_KEY"),
+        env::var(CI_DEFAULT_BRANCH),
+        env::var(CI_COMMIT_REF_NAME),
+        env::var(CI_PROJECT_URL),
+        env::var(CI_SERVER_PROTOCOL),
+        env::var(CI_SERVER_HOST),
+        env::var(SIGSTORE_ID_TOKEN),
+        env::var(GITHUB_TOKEN),
+        env::var(GITHUB_EVENT_NAME),
+        env::var(GITHUB_REF_NAME),
+        env::var(GITHUB_WORKFLOW_REF),
+        env::var(COSIGN_PRIVATE_KEY),
     ) {
         (
             Ok(ci_default_branch),
@@ -658,55 +651,6 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
             _,
             _,
             _,
-            Ok(registry_token),
-            Ok(github_event_name),
-            Ok(github_ref_name),
-            Ok(github_worflow_ref),
-            _,
-        ) if github_event_name != "pull_request"
-            && (github_ref_name == "live" || github_ref_name == "main") =>
-        {
-            trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}, GITHUB_WORKFLOW_REF={github_worflow_ref}");
-
-            env::set_var("GITHUB_TOKEN", registry_token);
-
-            debug!("On {github_ref_name} branch");
-
-            info!("Signing image {image_digest}");
-
-            trace!("cosign sign {image_digest}");
-            if Command::new("cosign")
-                .arg("sign")
-                .arg(&image_digest)
-                .status()?
-                .success()
-            {
-                info!("Successfully signed image!");
-            } else {
-                bail!("Failed to sign image: {image_digest}");
-            }
-
-            trace!("cosign verify --certificate-identity-regexp {github_worflow_ref} --certificate-oidc-issuer {GITHUB_TOKEN_ISSUER_URL} {image_name_tag}");
-            if !Command::new("cosign")
-                .arg("verify")
-                .arg("--certificate-identity-regexp")
-                .arg(&github_worflow_ref)
-                .arg("--certificate-oidc-issuer")
-                .arg(GITHUB_TOKEN_ISSUER_URL)
-                .arg(&image_name_tag)
-                .status()?
-                .success()
-            {
-                bail!("Failed to verify image!");
-            }
-        }
-        (
-            _,
-            _,
-            _,
-            _,
-            _,
-            _,
             _,
             Ok(github_event_name),
             Ok(github_ref_name),
@@ -714,7 +658,8 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
             Ok(cosign_private_key),
         ) if github_event_name != "pull_request"
             && (github_ref_name == "live" || github_ref_name == "main")
-            && !cosign_private_key.is_empty() =>
+            && !cosign_private_key.is_empty()
+            && Path::new("cosign.pub").exists() =>
         {
             trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}");
 
@@ -741,6 +686,53 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
             if !Command::new("cosign")
                 .arg("verify")
                 .arg("--key=./cosign.pub")
+                .arg(&image_name_tag)
+                .status()?
+                .success()
+            {
+                bail!("Failed to verify image!");
+            }
+        }
+        (
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            Ok(_),
+            Ok(github_event_name),
+            Ok(github_ref_name),
+            Ok(github_worflow_ref),
+            _,
+        ) if github_event_name != "pull_request"
+            && (github_ref_name == "live" || github_ref_name == "main") =>
+        {
+            trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}, GITHUB_WORKFLOW_REF={github_worflow_ref}");
+
+            debug!("On {github_ref_name} branch");
+
+            info!("Signing image {image_digest}");
+
+            trace!("cosign sign {image_digest}");
+            if Command::new("cosign")
+                .arg("sign")
+                .arg(&image_digest)
+                .status()?
+                .success()
+            {
+                info!("Successfully signed image!");
+            } else {
+                bail!("Failed to sign image: {image_digest}");
+            }
+
+            trace!("cosign verify --certificate-identity-regexp {github_worflow_ref} --certificate-oidc-issuer {GITHUB_TOKEN_ISSUER_URL} {image_name_tag}");
+            if !Command::new("cosign")
+                .arg("verify")
+                .arg("--certificate-identity-regexp")
+                .arg(&github_worflow_ref)
+                .arg("--certificate-oidc-issuer")
+                .arg(GITHUB_TOKEN_ISSUER_URL)
                 .arg(&image_name_tag)
                 .status()?
                 .success()
@@ -782,9 +774,9 @@ fn check_cosign_files() -> Result<()> {
     trace!("check_for_cosign_files()");
 
     match (
-        env::var("GITHUB_EVENT_NAME").ok(),
-        env::var("GITHUB_REF_NAME").ok(),
-        env::var("COSIGN_PRIVATE_KEY").ok(),
+        env::var(GITHUB_EVENT_NAME).ok(),
+        env::var(GITHUB_REF_NAME).ok(),
+        env::var(COSIGN_PRIVATE_KEY).ok(),
     ) {
         (Some(github_event_name), Some(github_ref_name), Some(_))
             if github_event_name != "pull_request"
@@ -842,8 +834,6 @@ async fn handle_signals(
     };
     use signal_hook::consts::{SIGHUP, SIGINT};
     use tokio::time::{self, Duration};
-
-    use crate::ops::BUILD_ID_LABEL;
 
     trace!("handle_signals(signals, {build_id}, {client:#?})");
 
