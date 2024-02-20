@@ -16,7 +16,10 @@ use serde_json::Value as JsonValue;
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
 
-use crate::ops::{self, check_command_exists};
+use crate::{
+    constants::*,
+    ops::{self, check_command_exists},
+};
 
 #[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
 pub struct Recipe<'a> {
@@ -57,15 +60,15 @@ impl<'a> Recipe<'a> {
         let timestamp = Local::now().format("%Y%m%d").to_string();
 
         if let (Ok(commit_branch), Ok(default_branch), Ok(commit_sha), Ok(pipeline_source)) = (
-            env::var("CI_COMMIT_REF_NAME"),
-            env::var("CI_DEFAULT_BRANCH"),
-            env::var("CI_COMMIT_SHORT_SHA"),
-            env::var("CI_PIPELINE_SOURCE"),
+            env::var(CI_COMMIT_REF_NAME),
+            env::var(CI_DEFAULT_BRANCH),
+            env::var(CI_COMMIT_SHORT_SHA),
+            env::var(CI_PIPELINE_SOURCE),
         ) {
             trace!("CI_COMMIT_REF_NAME={commit_branch}, CI_DEFAULT_BRANCH={default_branch},CI_COMMIT_SHORT_SHA={commit_sha}, CI_PIPELINE_SOURCE={pipeline_source}");
             warn!("Detected running in Gitlab, pulling information from CI variables");
 
-            if let Ok(mr_iid) = env::var("CI_MERGE_REQUEST_IID") {
+            if let Ok(mr_iid) = env::var(CI_MERGE_REQUEST_IID) {
                 trace!("CI_MERGE_REQUEST_IID={mr_iid}");
                 if pipeline_source == "merge_request_event" {
                     debug!("Running in a MR");
@@ -91,10 +94,10 @@ impl<'a> Recipe<'a> {
             Ok(github_sha),
             Ok(github_ref_name),
         ) = (
-            env::var("GITHUB_EVENT_NAME"),
-            env::var("PR_EVENT_NUMBER"),
-            env::var("GITHUB_SHA"),
-            env::var("GITHUB_REF_NAME"),
+            env::var(GITHUB_EVENT_NAME),
+            env::var(PR_EVENT_NUMBER),
+            env::var(GITHUB_SHA),
+            env::var(GITHUB_REF_NAME),
         ) {
             trace!("GITHUB_EVENT_NAME={github_event_name},PR_EVENT_NUMBER={github_event_number},GITHUB_SHA={github_sha},GITHUB_REF_NAME={github_ref_name}");
             warn!("Detected running in Github, pulling information from GITHUB variables");

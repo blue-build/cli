@@ -13,7 +13,7 @@ use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
 use crate::{
-    constants::{self},
+    constants::*,
     module_recipe::{Module, ModuleExt, Recipe},
 };
 
@@ -61,7 +61,7 @@ impl BlueBuildCommand for TemplateCommand {
             "Templating for recipe at {}",
             self.recipe
                 .clone()
-                .unwrap_or_else(|| PathBuf::from(constants::RECIPE_PATH))
+                .unwrap_or_else(|| PathBuf::from(RECIPE_PATH))
                 .display()
         );
 
@@ -78,7 +78,7 @@ impl TemplateCommand {
         let recipe_path = self
             .recipe
             .clone()
-            .unwrap_or_else(|| PathBuf::from(constants::RECIPE_PATH));
+            .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
 
         debug!("Deserializing recipe");
         let recipe_de = Recipe::parse(&recipe_path)?;
@@ -134,7 +134,7 @@ fn print_script(script_contents: &ExportsTemplate) -> String {
 fn has_cosign_file() -> bool {
     trace!("has_cosign_file()");
     std::env::current_dir()
-        .map(|p| p.join(constants::COSIGN_PATH).exists())
+        .map(|p| p.join(COSIGN_PATH).exists())
         .unwrap_or(false)
 }
 
@@ -209,16 +209,16 @@ fn get_files_list(module: &Module) -> Option<Vec<(String, String)>> {
 }
 
 fn get_github_repo_owner() -> Option<String> {
-    Some(env::var("GITHUB_REPOSITORY_OWNER").ok()?.to_lowercase())
+    Some(env::var(GITHUB_REPOSITORY_OWNER).ok()?.to_lowercase())
 }
 
 fn get_gitlab_registry_path() -> Option<String> {
     Some(
         format!(
             "{}/{}/{}",
-            env::var("CI_REGISTRY").ok()?,
-            env::var("CI_PROJECT_NAMESPACE").ok()?,
-            env::var("CI_PROJECT_NAME").ok()?,
+            env::var(CI_REGISTRY).ok()?,
+            env::var(CI_PROJECT_NAMESPACE).ok()?,
+            env::var(CI_PROJECT_NAME).ok()?,
         )
         .to_lowercase(),
     )

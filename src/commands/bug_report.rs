@@ -1,6 +1,3 @@
-use crate::module_recipe::Recipe;
-use crate::shadow;
-
 use askama::Template;
 use clap::Args;
 use clap_complete::Shell;
@@ -14,10 +11,7 @@ use typed_builder::TypedBuilder;
 use super::utils::exec_cmd;
 use super::BlueBuildCommand;
 
-const UNKNOWN_SHELL: &str = "<unknown shell>";
-const UNKNOWN_VERSION: &str = "<unknown version>";
-const UNKNOWN_TERMINAL: &str = "<unknown terminal>";
-const GITHUB_CHAR_LIMIT: usize = 8100; // Magic number accepted by Github
+use crate::{constants::*, module_recipe::Recipe, shadow};
 
 #[derive(Default, Debug, Clone, TypedBuilder, Args)]
 pub struct BugReportRecipe {
@@ -232,12 +226,12 @@ struct TerminalInfo {
 }
 
 fn get_terminal_info() -> TerminalInfo {
-    let terminal = std::env::var("TERM_PROGRAM")
-        .or_else(|_| std::env::var("LC_TERMINAL"))
+    let terminal = std::env::var(TERM_PROGRAM)
+        .or_else(|_| std::env::var(LC_TERMINAL))
         .unwrap_or_else(|_| UNKNOWN_TERMINAL.to_string());
 
-    let version = std::env::var("TERM_PROGRAM_VERSION")
-        .or_else(|_| std::env::var("LC_TERMINAL_VERSION"))
+    let version = std::env::var(TERM_PROGRAM_VERSION)
+        .or_else(|_| std::env::var(LC_TERMINAL_VERSION))
         .unwrap_or_else(|_| UNKNOWN_VERSION.to_string());
 
     TerminalInfo {
