@@ -47,7 +47,14 @@ jobs:
 
       - name: Run build
         if: github.repository == 'blue-build/cli'
-        run: |
-          earthly --push --ci +build
-          earthly sat s blue-build-integration-tests
-          earthly --ci -P ./integration-tests+all
+        run: earthly --push --ci +build
+
+      - name: Switch to integration-tests satellite
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN != null
+        run: earthly sat s blue-build-integration-tests
+
+      - name: Run integration tests
+        if: github.repository == 'blue-build/cli'
+        run: earthly --ci -P ./integration-tests+all
