@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use clap::Args;
-use log::{debug, error, info, trace, warn};
+use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
@@ -34,7 +34,12 @@ use tokio::{
     sync::oneshot::{self, Sender},
 };
 
-use crate::{commands::template::TemplateCommand, constants::{self, *}, module_recipe::Recipe, ops};
+use crate::{
+    commands::template::TemplateCommand,
+    constants::{self, *},
+    module_recipe::Recipe,
+    ops,
+};
 
 use super::BlueBuildCommand;
 
@@ -153,20 +158,20 @@ impl BlueBuildCommand for BuildCommand {
 
             let container_file_path =
                 std::env::current_dir().map(|p| p.join(constants::CONTAINER_FILE_PATH))?;
+
             let file = match fs::read_to_string(container_file_path) {
                 Ok(file) => file,
                 Err(e) => {
-                    error!("Failed to read Containerfile: {e}");
-                    return Ok(());
+                    bail!("Failed to read Containerfile: {e}")
                 }
             };
 
             if !file.lines().any(|line| {
                 line.to_string()
                     .trim()
-                    .starts_with(&constants::BLUEBUILD_TAG.to_string())
+                    .starts_with(&format!("LABEL {}", constants::BUILD_ID_LABEL))
             }) {
-                trace!("Containerfile has not been modified by BlueBuild, skipping build");
+                warn!("Containerfile has not been modified by BlueBuild, skipping build");
                 return Ok(());
             }
         } else {

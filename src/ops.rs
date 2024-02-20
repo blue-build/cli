@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use format_serde_error::SerdeError;
 use log::{debug, trace};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 pub fn check_command_exists(command: &str) -> Result<()> {
     trace!("check_command_exists({command})");
@@ -27,12 +27,21 @@ pub fn check_file_modified(file: &str) -> Result<bool> {
     trace!("check_file_modified({file})");
     debug!("Checking if {file} is modified");
 
+    // First command: echo "Hello, world!"
+    let git_status = Command::new("git")
+        .args(["status", "--porcelain"])
+        .stdout(Stdio::piped())
+        .spawn()?;
+
+    let git_status_output = git_status.stdout.expect("failed to capture echo stdout");
+
     // Git returns 0 if the file is not modified, 1 if it is
-    let is_dirty = Command::new("git")
-        .args(["status", "--porcelain", "|", "grep", file])
+    let git_status_output = Command::new("grep")
+        .arg(file)
+        .stdin(Stdio::from(git_status_output))
         .output()?;
 
-    if is_dirty.stdout.is_empty() {
+    if git_status_output.stdout.is_empty() {
         debug!("{file} is not modified");
         Ok(false)
     } else {

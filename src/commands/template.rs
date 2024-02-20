@@ -181,14 +181,6 @@ fn print_containerfile(containerfile: &str) -> String {
     file
 }
 
-#[must_use]
-fn get_build_date() -> String {
-    debug!("get_build_date()");
-    let date = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-    debug!("Build date: {date}");
-    date
-}
-
 fn print_module_context(module: &Module) -> String {
     serde_json::to_string(module).unwrap_or_else(|e| {
         error!("Failed to parse module!!!!!: {e}");
