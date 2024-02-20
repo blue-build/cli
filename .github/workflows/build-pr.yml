@@ -33,8 +33,15 @@ jobs:
           ref: ${{ github.event.pull_request.ref }}
 
       - name: Run build
-        run: |
-          earthly --ci +build
-          earthly sat s blue-build-integration-tests
-          earthly --ci -P ./integration-tests+all
+        run: earthly --ci +build
+
+      - name: Switch to integration-tests satellite
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN != null
+        run: earthly sat s blue-build-integration-tests
+
+      - name: Run integration tests
+        if: github.repository == 'blue-build/cli'
+        run: earthly --ci -P ./integration-tests+all
 
