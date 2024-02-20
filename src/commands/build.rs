@@ -593,7 +593,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         env::var("CI_SERVER_PROTOCOL"),
         env::var("CI_SERVER_HOST"),
         env::var("SIGSTORE_ID_TOKEN"),
-        env::var("GITHUB_TOKEN"),
+        env::var("REGISTRY_TOKEN"),
         env::var("GITHUB_EVENT_NAME"),
         env::var("GITHUB_REF_NAME"),
         env::var("GITHUB_WORKFLOW_REF"),
@@ -658,7 +658,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
             _,
             _,
             _,
-            Ok(_),
+            Ok(registry_token),
             Ok(github_event_name),
             Ok(github_ref_name),
             Ok(github_worflow_ref),
@@ -667,6 +667,8 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
             && (github_ref_name == "live" || github_ref_name == "main") =>
         {
             trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}, GITHUB_WORKFLOW_REF={github_worflow_ref}");
+
+            env::set_var("GITHUB_TOKEN", registry_token);
 
             debug!("On {github_ref_name} branch");
 
@@ -684,9 +686,10 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
                 bail!("Failed to sign image: {image_digest}");
             }
 
+            trace!("cosign verify --certificate-identity-regexp {github_worflow_ref} --certificate-oidc-issuer {GITHUB_TOKEN_ISSUER_URL} {image_name_tag}");
             if !Command::new("cosign")
                 .arg("verify")
-                .arg("--certificate-github-workflow-ref")
+                .arg("--certificate-identity-regexp")
                 .arg(&github_worflow_ref)
                 .arg("--certificate-oidc-issuer")
                 .arg(GITHUB_TOKEN_ISSUER_URL)
@@ -697,9 +700,21 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
                 bail!("Failed to verify image!");
             }
         }
-        (_, _, _, _, _, _, _, Ok(github_event_name), Ok(github_ref_name), _, Ok(_))
-            if github_event_name != "pull_request"
-                && (github_ref_name == "live" || github_ref_name == "main") =>
+        (
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            _,
+            Ok(github_event_name),
+            Ok(github_ref_name),
+            _,
+            Ok(cosign_private_key),
+        ) if github_event_name != "pull_request"
+            && (github_ref_name == "live" || github_ref_name == "main")
+            && !cosign_private_key.is_empty() =>
         {
             trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}");
 
