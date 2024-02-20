@@ -18,7 +18,7 @@ RUN printf {{ self::print_script(export_script) }} >> /exports.sh && chmod +x /e
 
 FROM {{ recipe.base_image }}:{{ recipe.image_version }}
 
-LABEL {{ crate::ops::BUILD_ID_LABEL }}="{{ build_id }}"
+LABEL {{ crate::constants::BUILD_ID_LABEL }}="{{ build_id }}"
 LABEL org.opencontainers.image.title="{{ recipe.name }}"
 LABEL org.opencontainers.image.description="{{ recipe.description }}"
 LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md

@@ -12,8 +12,9 @@ use users::{Users, UsersCache};
 
 use crate::{
     commands::build::BuildCommand,
+    constants::{ARCHIVE_SUFFIX, LOCAL_BUILD},
     module_recipe::Recipe,
-    ops::{self, ARCHIVE_SUFFIX, LOCAL_BUILD},
+    ops,
 };
 
 use super::BlueBuildCommand;

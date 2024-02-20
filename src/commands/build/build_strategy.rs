@@ -6,7 +6,7 @@ use std::{
 use anyhow::{bail, Result};
 use log::trace;
 
-use crate::ops;
+use crate::{constants::*, ops};
 
 #[cfg(feature = "podman-api")]
 #[derive(Debug, Clone, Default)]
@@ -25,10 +25,10 @@ impl BuildStrategy {
 
         Ok(
             match (
-                env::var("XDG_RUNTIME_DIR"),
-                PathBuf::from("/run/podman/podman.sock"),
-                PathBuf::from("/var/run/podman/podman.sock"),
-                PathBuf::from("/var/run/podman.sock"),
+                env::var(XDG_RUNTIME_DIR),
+                PathBuf::from(RUN_PODMAN_SOCK),
+                PathBuf::from(VAR_RUN_PODMAN_PODMAN_SOCK),
+                PathBuf::from(VAR_RUN_PODMAN_SOCK),
                 ops::check_command_exists("buildah"),
                 ops::check_command_exists("podman"),
             ) {
