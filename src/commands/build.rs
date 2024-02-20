@@ -659,7 +659,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         ) if github_event_name != "pull_request"
             && (github_ref_name == "live" || github_ref_name == "main")
             && !cosign_private_key.is_empty()
-            && Path::new("cosign.pub").exists() =>
+            && Path::new(COSIGN_PATH).exists() =>
         {
             trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}");
 
@@ -681,11 +681,11 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
                 bail!("Failed to sign image: {image_digest}");
             }
 
-            trace!("cosign verify --key ./cosign.pub {image_name_tag}");
+            trace!("cosign verify --key {COSIGN_PATH} {image_name_tag}");
 
             if !Command::new("cosign")
                 .arg("verify")
-                .arg("--key=./cosign.pub")
+                .arg(format!("--key={COSIGN_PATH}"))
                 .arg(&image_name_tag)
                 .status()?
                 .success()
@@ -781,7 +781,7 @@ fn check_cosign_files() -> Result<()> {
         (Some(github_event_name), Some(github_ref_name), Some(_))
             if github_event_name != "pull_request"
                 && (github_ref_name == "live" || github_ref_name == "main")
-                && Path::new("cosign.pub").exists() =>
+                && Path::new(COSIGN_PATH).exists() =>
         {
             env::set_var("COSIGN_PASSWORD", "");
             env::set_var("COSIGN_YES", "true");
@@ -801,18 +801,18 @@ fn check_cosign_files() -> Result<()> {
             }
 
             let calculated_pub_key = String::from_utf8(output.stdout)?;
-            let found_pub_key = fs::read_to_string("./cosign.pub")?;
+            let found_pub_key = fs::read_to_string(COSIGN_PATH)?;
             trace!("calculated_pub_key={calculated_pub_key},found_pub_key={found_pub_key}");
 
             if calculated_pub_key.trim() == found_pub_key.trim() {
                 debug!("Cosign files match, continuing build");
                 Ok(())
             } else {
-                bail!("Public key 'cosign.pub' does not match private key")
+                bail!("Public key '{COSIGN_PATH}' does not match private key")
             }
         }
         _ => {
-            debug!("Not building on live branch or cosign.pub doesn't exist, skipping cosign file check");
+            debug!("Not building on live branch or {COSIGN_PATH} doesn't exist, skipping cosign file check");
             Ok(())
         }
     }
