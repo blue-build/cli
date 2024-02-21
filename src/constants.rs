@@ -26,9 +26,9 @@ pub const GITHUB_EVENT_NAME: &str = "GITHUB_EVENT_NAME";
 pub const GITHUB_REF_NAME: &str = "GITHUB_REF_NAME";
 pub const GITHUB_REPOSITORY_OWNER: &str = "GITHUB_REPOSITORY_OWNER";
 pub const GITHUB_SHA: &str = "GITHUB_SHA";
-pub const GITHUB_TOKEN: &str = "GITHUB_TOKEN";
+pub const GITHUB_TOKEN: &str = "GH_TOKEN";
 pub const GITHUB_WORKFLOW_REF: &str = "GITHUB_WORKFLOW_REF";
-pub const PR_EVENT_NUMBER: &str = "PR_EVENT_NUMBER";
+pub const PR_EVENT_NUMBER: &str = "GH_PR_EVENT_NUMBER";
 
 // GitLab CI vars
 pub const CI_COMMIT_REF_NAME: &str = "CI_COMMIT_REF_NAME";
