@@ -1,8 +1,11 @@
+use std::{
+    io::{Read, Seek, SeekFrom, Write},
+    process::Command,
+};
+
 use anyhow::{anyhow, Result};
 use format_serde_error::SerdeError;
 use log::{debug, trace};
-use std::io::{Seek, SeekFrom, Write};
-use std::process::Command;
 
 pub fn check_command_exists(command: &str) -> Result<()> {
     trace!("check_command_exists({command})");
@@ -25,8 +28,6 @@ pub fn check_command_exists(command: &str) -> Result<()> {
 }
 
 pub fn get_last_char(file_path: &str) -> Result<char> {
-    use std::io::Read;
-
     trace!("get_last_char({file_path})");
     debug!("Getting last character of {file_path}");
 
