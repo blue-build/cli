@@ -1,7 +1,8 @@
+use std::{io::Write, process::Command};
+
 use anyhow::{anyhow, Result};
 use format_serde_error::SerdeError;
 use log::{debug, trace};
-use std::process::Command;
 
 pub fn check_command_exists(command: &str) -> Result<()> {
     trace!("check_command_exists({command})");
@@ -21,6 +22,19 @@ pub fn check_command_exists(command: &str) -> Result<()> {
             "Command {command} doesn't exist and is required to build the image"
         ))
     }
+}
+
+pub fn append_to_file(file_path: &str, content: &str) -> Result<()> {
+    trace!("append_to_file({file_path}, {content})");
+    debug!("Appending {content} to {file_path}");
+
+    let mut file = std::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(file_path)?;
+
+    writeln!(file, "\n{content}")?;
+    Ok(())
 }
 
 pub fn serde_yaml_err(contents: &str) -> impl Fn(serde_yaml::Error) -> SerdeError + '_ {
