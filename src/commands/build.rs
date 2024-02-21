@@ -201,7 +201,7 @@ impl BlueBuildCommand for BuildCommand {
                     .build();
 
                 if let Ok(answer) = requestty::prompt_one(question) {
-                    if answer.as_bool().unwrap() {
+                    if answer.as_bool().unwrap_or(false) {
                         ops::append_to_file(constants::GITIGNORE_PATH, &container_path)?;
                     }
                 }
