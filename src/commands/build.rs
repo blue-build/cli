@@ -170,7 +170,7 @@ impl BlueBuildCommand for BuildCommand {
         //           -> If it does => *Ask* to add to .gitignore and remove from git
         //           -> If it doesn't => *Ask* to continue and override the file
 
-        let container_path = format!("./{}", constants::CONTAINER_FILE);
+        let container_path = format!("/{}", constants::CONTAINER_FILE);
         let container_file_path = Path::new(&container_path);
 
         if container_file_path.exists() {
