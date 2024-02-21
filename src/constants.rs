@@ -12,7 +12,6 @@ pub const VAR_RUN_PODMAN_SOCK: &str = "/var/run/podman.sock";
 
 // Labels
 pub const BUILD_ID_LABEL: &str = "org.blue-build.build-id";
-pub const BLUEBUILD_TAG: &str = "BLUEBUILD_DATE";
 
 // Cosign vars
 pub const COSIGN_PRIVATE_KEY: &str = "COSIGN_PRIVATE_KEY";
