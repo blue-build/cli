@@ -9,6 +9,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use clap::Args;
+use colorized::{Color, Colors};
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
@@ -74,6 +75,15 @@ pub struct BuildCommand {
     #[arg(short, long)]
     #[builder(default)]
     push: bool,
+
+    /// Allow `bluebuild` to overwrite an existing
+    /// Containerfile without confirmation.
+    ///
+    /// This is not needed if the Containerfile is in
+    /// .gitignore or has already been built by `bluebuild`.
+    #[arg(short, long)]
+    #[builder(default)]
+    force: bool,
 
     /// Archives the built image into a tarfile
     /// in the specified directory.
@@ -170,10 +180,9 @@ impl BlueBuildCommand for BuildCommand {
         //           -> If it does => *Ask* to add to .gitignore and remove from git
         //           -> If it doesn't => *Ask* to continue and override the file
 
-        let container_path = format!("/{}", constants::CONTAINER_FILE);
-        let container_file_path = Path::new(&container_path);
+        let container_file_path = Path::new(constants::CONTAINER_FILE);
 
-        if container_file_path.exists() {
+        if !self.force && container_file_path.exists() {
             let gitignore = fs::read_to_string(constants::GITIGNORE_PATH)?;
 
             let is_ignored = gitignore
@@ -187,7 +196,6 @@ impl BlueBuildCommand for BuildCommand {
                     line.to_string().trim().starts_with(&label)
                 });
 
-                use colorized::{Color, Colors};
                 let question = requestty::Question::confirm("build")
                     .message(
                         if has_label {
@@ -202,7 +210,10 @@ impl BlueBuildCommand for BuildCommand {
 
                 if let Ok(answer) = requestty::prompt_one(question) {
                     if answer.as_bool().unwrap_or(false) {
-                        ops::append_to_file(constants::GITIGNORE_PATH, &container_path)?;
+                        ops::append_to_file(
+                            constants::GITIGNORE_PATH,
+                            &format!("/{}", constants::CONTAINER_FILE),
+                        )?;
                     }
                 }
             }
