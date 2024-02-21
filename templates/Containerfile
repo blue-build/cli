@@ -12,10 +12,12 @@ FROM scratch as stage-modules
 COPY --from=ghcr.io/ublue-os/bling:latest /modules /modules
 COPY ./modules /modules
 
-# This stage is responsible for collecting all akmods rpms.
-FROM scratch as stage-akmods
-{%- for image in self::get_akmods_image_list(recipe.modules_ext, os_version) %}
-COPY --from=ghcr.io/ublue-os/{{ image }} /rpms /rpms
+{%- for info in self::get_akmods_info_list(recipe.modules_ext, os_version) %}
+FROM scratch as stage-akmods-{{ info.stage_name }}
+COPY --from=ghcr.io/ublue-os/{{ info.images.0 }} /rpms /rpms
+  {%- if let Some(nv_image) = info.images.1 %}
+COPY --from=ghcr.io/ublue-os/{{ nv_image }} /rpms /rpms
+  {%- endif %}
 {%- endfor %}
 
 # This stage is responsible for holding onto
@@ -79,7 +81,7 @@ RUN \
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
       {%- endif %}
       {%- if type == "akmods" %}
-  --mount=type=bind,from=stage-akmods,src=/rpms,dst=/tmp/rpms,rw \
+  --mount=type=bind,from=stage-akmods-{{ self::generate_akmods_info(module, os_version).stage_name }},src=/rpms,dst=/tmp/rpms,rw \
       {%- endif %}
   --mount=type=bind,from=stage-exports,src=/exports.sh,dst=/tmp/exports.sh \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \

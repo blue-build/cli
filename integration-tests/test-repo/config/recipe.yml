@@ -16,6 +16,9 @@ modules:
     install:
       - nvidia
       - openrazer
+  - type: akmods
+    install:
+      - openrgb
   - type: files
     files:
       - usr: /usr # copies config/files/usr into your image's /usr.
