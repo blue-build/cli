@@ -222,3 +222,8 @@ fn get_gitlab_registry_path() -> Option<String> {
         .to_lowercase(),
     )
 }
+
+fn modules_exists() -> bool {
+    let mod_path = Path::new("modules");
+    mod_path.exists() && mod_path.is_dir()
+}
