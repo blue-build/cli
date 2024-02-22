@@ -30,6 +30,15 @@ pub struct LocalCommonArgs {
     #[arg(short, long)]
     #[builder(default)]
     reboot: bool,
+
+    /// Allow `bluebuild` to overwrite an existing
+    /// Containerfile without confirmation.
+    ///
+    /// This is not needed if the Containerfile is in
+    /// .gitignore or has already been built by `bluebuild`.
+    #[arg(short, long)]
+    #[builder(default)]
+    force: bool,
 }
 
 #[derive(Default, Clone, Debug, TypedBuilder, Args)]
@@ -49,6 +58,7 @@ impl BlueBuildCommand for UpgradeCommand {
         let mut build = BuildCommand::builder()
             .recipe(self.common.recipe.clone())
             .archive(LOCAL_BUILD)
+            .force(self.common.force)
             .build();
 
         let image_name = build.generate_full_image_name(&recipe)?;
@@ -96,6 +106,7 @@ impl BlueBuildCommand for RebaseCommand {
         let mut build = BuildCommand::builder()
             .recipe(self.common.recipe.clone())
             .archive(LOCAL_BUILD)
+            .force(self.common.force)
             .build();
 
         let image_name = build.generate_full_image_name(&recipe)?;

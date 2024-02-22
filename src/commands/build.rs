@@ -9,6 +9,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use clap::Args;
+use colorized::{Color, Colors};
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
@@ -34,7 +35,12 @@ use tokio::{
     sync::oneshot::{self, Sender},
 };
 
-use crate::{commands::template::TemplateCommand, constants::*, module_recipe::Recipe, ops};
+use crate::{
+    commands::template::TemplateCommand,
+    constants::{self, *},
+    module_recipe::Recipe,
+    ops,
+};
 
 use super::BlueBuildCommand;
 
@@ -60,6 +66,15 @@ pub struct BuildCommand {
     #[arg(short, long)]
     #[builder(default)]
     push: bool,
+
+    /// Allow `bluebuild` to overwrite an existing
+    /// Containerfile without confirmation.
+    ///
+    /// This is not needed if the Containerfile is in
+    /// .gitignore or has already been built by `bluebuild`.
+    #[arg(short, long)]
+    #[builder(default)]
+    force: bool,
 
     /// Archives the built image into a tarfile
     /// in the specified directory.
@@ -146,8 +161,56 @@ impl BlueBuildCommand for BuildCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
-        let build_id = Uuid::new_v4();
+        // Check if the Containerfile exists
+        //   - If doesn't => *Build*
+        //   - If it does:
+        //     - check entry in .gitignore
+        //       -> If it is => *Build*
+        //       -> If isn't:
+        //         - check if it has the BlueBuild tag (LABEL)
+        //           -> If it does => *Ask* to add to .gitignore and remove from git
+        //           -> If it doesn't => *Ask* to continue and override the file
 
+        let container_file_path = Path::new(constants::CONTAINER_FILE);
+
+        if !self.force && container_file_path.exists() {
+            let gitignore = fs::read_to_string(constants::GITIGNORE_PATH)?;
+
+            let is_ignored = gitignore
+                .lines()
+                .any(|line: &str| line.contains(constants::CONTAINER_FILE));
+
+            if !is_ignored {
+                let containerfile = fs::read_to_string(container_file_path)?;
+                let has_label = containerfile.lines().any(|line| {
+                    let label = format!("LABEL {}", constants::BUILD_ID_LABEL);
+                    line.to_string().trim().starts_with(&label)
+                });
+
+                let question = requestty::Question::confirm("build")
+                    .message(
+                        if has_label {
+                            LABELED_ERROR_MESSAGE
+                        } else {
+                            NO_LABEL_ERROR_MESSAGE
+                        }
+                        .color(Colors::BrightYellowFg),
+                    )
+                    .default(true)
+                    .build();
+
+                if let Ok(answer) = requestty::prompt_one(question) {
+                    if answer.as_bool().unwrap_or(false) {
+                        ops::append_to_file(
+                            constants::GITIGNORE_PATH,
+                            &format!("/{}", constants::CONTAINER_FILE),
+                        )?;
+                    }
+                }
+            }
+        }
+
+        let build_id = Uuid::new_v4();
         if self.push && self.archive.is_some() {
             bail!("You cannot use '--archive' and '--push' at the same time");
         }
@@ -223,8 +286,7 @@ impl BuildCommand {
             image_name.to_string()
         } else {
             tags.first()
-                .map(|t| format!("{image_name}:{t}"))
-                .unwrap_or_else(|| image_name.to_string())
+                .map_or_else(|| image_name.to_string(), |t| format!("{image_name}:{t}"))
         };
         debug!("Full tag is {first_image_name}");
 
@@ -473,8 +535,7 @@ impl BuildCommand {
             image_name.to_string()
         } else {
             tags.first()
-                .map(|t| format!("{image_name}:{t}"))
-                .unwrap_or_else(|| image_name.to_string())
+                .map_or_else(|| image_name.to_string(), |t| format!("{image_name}:{t}"))
         };
 
         info!("Building image {full_image}");
@@ -575,9 +636,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
     env::set_var("COSIGN_YES", "true");
 
     let image_digest = get_image_digest(image_name, tag)?;
-    let image_name_tag = tag
-        .map(|t| format!("{image_name}:{t}"))
-        .unwrap_or_else(|| image_name.to_owned());
+    let image_name_tag = tag.map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));
 
     match (
         env::var(CI_DEFAULT_BRANCH),
