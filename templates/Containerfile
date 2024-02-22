@@ -10,7 +10,9 @@ COPY ./config /config
 # Custom modules overwrite defaults
 FROM scratch as stage-modules
 COPY --from=ghcr.io/ublue-os/bling:latest /modules /modules
+{%- if self::modules_exists() %}
 COPY ./modules /modules
+{%- endif %}
 
 {%- for info in self::get_akmods_info_list(recipe.modules_ext, os_version) %}
 FROM scratch as stage-akmods-{{ info.stage_name }}

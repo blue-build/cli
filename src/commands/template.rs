@@ -224,6 +224,11 @@ fn get_gitlab_registry_path() -> Option<String> {
     )
 }
 
+fn modules_exists() -> bool {
+    let mod_path = Path::new("modules");
+    mod_path.exists() && mod_path.is_dir()
+}
+
 #[derive(Debug, Clone, TypedBuilder, PartialEq, Eq, Hash)]
 struct AkmodsInfo {
     images: (String, Option<String>),
