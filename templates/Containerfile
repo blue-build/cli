@@ -1,3 +1,4 @@
+{%- let os_version = recipe.get_os_version() %}
 # This stage is responsible for holding onto
 # your config without copying it directly into
 # the final image
@@ -12,6 +13,14 @@ COPY --from=ghcr.io/ublue-os/bling:latest /modules /modules
 {%- if self::modules_exists() %}
 COPY ./modules /modules
 {%- endif %}
+
+{%- for info in self::get_akmods_info_list(recipe.modules_ext, os_version) %}
+FROM scratch as stage-akmods-{{ info.stage_name }}
+COPY --from=ghcr.io/ublue-os/{{ info.images.0 }} /rpms /rpms
+  {%- if let Some(nv_image) = info.images.1 %}
+COPY --from=ghcr.io/ublue-os/{{ nv_image }} /rpms /rpms
+  {%- endif %}
+{%- endfor %}
 
 # This stage is responsible for holding onto
 # exports like the exports.sh
@@ -38,16 +47,6 @@ ARG IMAGE_REGISTRY=localhost
 {%- if self::has_cosign_file() %}
 COPY cosign.pub /usr/share/ublue-os/cosign.pub
 {%- endif %}
-
-COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
-COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
-
-COPY --from=ghcr.io/blue-build/cli:
-{%- if let Some(tag) = recipe.blue_build_tag -%}
-{{ tag }}
-{%- else -%}
-latest-installer
-{%- endif %} /out/bluebuild /usr/bin/bluebuild
 
 ARG CONFIG_DIRECTORY="/tmp/config"
 ARG IMAGE_NAME="{{ recipe.name }}"
@@ -76,11 +75,15 @@ COPY {{ src }} {{ dest }}
 RUN \
   --mount=type=tmpfs,target=/tmp \
   --mount=type=tmpfs,target=/var \
+  --mount=type=bind,from=docker.io/mikefarah/yq,src=/usr/bin/yq,dst=/usr/bin/yq \
   --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
       {%- if let Some(source) = module.source %}
   --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
       {%- else %}
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
+      {%- endif %}
+      {%- if type == "akmods" %}
+  --mount=type=bind,from=stage-akmods-{{ self::generate_akmods_info(module, os_version).stage_name }},src=/rpms,dst=/tmp/rpms,rw \
       {%- endif %}
   --mount=type=bind,from=stage-exports,src=/exports.sh,dst=/tmp/exports.sh \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
@@ -89,5 +92,13 @@ RUN \
     {%- endif %}
   {%- endif %}
 {%- endfor %}
+
+COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
+COPY --from=ghcr.io/blue-build/cli:
+{%- if let Some(tag) = recipe.blue_build_tag -%}
+{{ tag }}
+{%- else -%}
+latest-installer
+{%- endif %} /out/bluebuild /usr/bin/bluebuild
 
 RUN ostree container commit

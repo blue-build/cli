@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     env, fs,
     path::{Path, PathBuf},
     process,
@@ -13,7 +14,7 @@ use uuid::Uuid;
 
 use crate::{
     constants::*,
-    module_recipe::{Module, Recipe},
+    module_recipe::{Module, ModuleExt, Recipe},
 };
 
 use super::BlueBuildCommand;
@@ -166,7 +167,7 @@ fn get_containerfile_snippets(module: &Module) -> Option<Vec<String>> {
 
 #[must_use]
 fn print_containerfile(containerfile: &str) -> String {
-    debug!("print_containerfile({containerfile})");
+    trace!("print_containerfile({containerfile})");
     debug!("Loading containerfile contents for {containerfile}");
 
     let path = format!("config/containerfiles/{containerfile}/Containerfile");
@@ -226,4 +227,57 @@ fn get_gitlab_registry_path() -> Option<String> {
 fn modules_exists() -> bool {
     let mod_path = Path::new("modules");
     mod_path.exists() && mod_path.is_dir()
+}
+
+#[derive(Debug, Clone, TypedBuilder, PartialEq, Eq, Hash)]
+struct AkmodsInfo {
+    images: (String, Option<String>),
+    stage_name: String,
+}
+
+fn get_akmods_info_list(module_ext: &ModuleExt, os_version: &str) -> Vec<AkmodsInfo> {
+    trace!("get_akmods_image_list({module_ext:#?}, {os_version})");
+
+    let mut seen = HashSet::new();
+
+    module_ext
+        .modules
+        .iter()
+        .filter(|module| module.module_type.as_ref().is_some_and(|t| t == "akmods"))
+        .map(|module| generate_akmods_info(module, os_version))
+        .filter(|image| seen.insert(image.clone()))
+        .collect()
+}
+
+fn generate_akmods_info(module: &Module, os_version: &str) -> AkmodsInfo {
+    trace!("generate_akmods_base({module:#?}, {os_version})");
+
+    let base = module
+        .config
+        .get("base")
+        .map(|b| b.as_str().unwrap_or_default());
+    let nvidia_version = module
+        .config
+        .get("nvidia-version")
+        .map(|v| v.as_u64().unwrap_or_default());
+
+    AkmodsInfo::builder()
+        .images(match (base, nvidia_version) {
+            (Some(b), Some(nv)) if !b.is_empty() && nv > 0 => (
+                format!("akmods:{b}-{os_version}"),
+                Some(format!("akmods-nvidia:{b}-{os_version}-{nv}")),
+            ),
+            (Some(b), _) if !b.is_empty() => (format!("akmods:{b}-{os_version}"), None),
+            (_, Some(nv)) if nv > 0 => (
+                format!("akmods:main-{os_version}"),
+                Some(format!("akmods-nvidia:main-{os_version}")),
+            ),
+            _ => (format!("akmods:main-{os_version}"), None),
+        })
+        .stage_name(format!(
+            "{}{}",
+            base.unwrap_or("main"),
+            nvidia_version.map_or_else(String::default, |nv| format!("-{nv}"))
+        ))
+        .build()
 }
