@@ -1,9 +1,9 @@
-{%- if let Some(containerfiles) = self::get_containerfile_list(module) %}
+{%- if let Some(containerfiles) = module.get_containerfile_list() %}
   {%- for c in containerfiles %}
 {{ self::print_containerfile(c) }}
   {%- endfor %}
 {%- endif %}
-{%- if let Some(snippets) = self::get_containerfile_snippets(module) %}
+{%- if let Some(snippets) = module.get_containerfile_snippets() %}
   {%- for s in snippets %}
 {{ s }}
   {%- endfor %}
