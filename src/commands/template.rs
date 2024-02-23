@@ -20,7 +20,7 @@ use crate::{
 use super::BlueBuildCommand;
 
 #[derive(Debug, Clone, Template, TypedBuilder)]
-#[template(path = "Containerfile.j2")]
+#[template(path = "Containerfile.j2", escape = "none")]
 pub struct ContainerFileTemplate<'a> {
     recipe: &'a Recipe<'a>,
 
