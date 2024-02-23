@@ -1,0 +1,5 @@
+{%- if let Some(files) = self::get_files_list(module) %}
+  {%- for (src, dest) in files %}
+COPY {{ src }} {{ dest }}
+  {%- endfor %}
+{%- endif %}

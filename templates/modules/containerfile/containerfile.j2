@@ -1,0 +1,10 @@
+{%- if let Some(containerfiles) = self::get_containerfile_list(module) %}
+  {%- for c in containerfiles %}
+{{ self::print_containerfile(c) }}
+  {%- endfor %}
+{%- endif %}
+{%- if let Some(snippets) = self::get_containerfile_snippets(module) %}
+  {%- for s in snippets %}
+{{ s }}
+  {%- endfor %}
+{%- endif %}
