@@ -12,7 +12,6 @@ pub mod completions;
 pub mod init;
 pub mod local;
 pub mod template;
-pub mod utils;
 
 pub trait BlueBuildCommand {
     /// Runs the command and returns a result
