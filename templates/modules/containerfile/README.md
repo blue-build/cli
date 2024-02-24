@@ -29,7 +29,7 @@ The `containerfiles` property allows you to tell the compiler which directory co
 
 You could then store files related to say the `subroutine` `Containerfile` in `./config/containerfiles/subroutine/` to keep it organized and portable for other recipes to use.
 
-:::info
+:::note
 **NOTE:** The instructions you add in your `Containerfile`'s each become a layer unlike other modules which are typically ran as a single `RUN` instruction.
 :::
 
@@ -46,7 +46,7 @@ modules:
 
 This makes it really easy to copy a file or program from another image if it's not available in `rpm-ostree`.
 
-:::info
+:::note
 **NOTE:** Each entry of a snippet will be its own layer in the final `Containerfile`.
 :::
 
