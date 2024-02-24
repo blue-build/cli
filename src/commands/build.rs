@@ -8,6 +8,8 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Result};
+use blue_build_recipe::Recipe;
+use blue_build_utils::constants::*;
 use clap::Args;
 use colorized::{Color, Colors};
 use log::{debug, info, trace, warn};
@@ -35,12 +37,7 @@ use tokio::{
     sync::oneshot::{self, Sender},
 };
 
-use crate::{
-    commands::template::TemplateCommand,
-    constants::{self, *},
-    module_recipe::Recipe,
-    ops,
-};
+use crate::commands::template::TemplateCommand;
 
 use super::BlueBuildCommand;
 
@@ -181,19 +178,19 @@ impl BlueBuildCommand for BuildCommand {
         //           -> If it does => *Ask* to add to .gitignore and remove from git
         //           -> If it doesn't => *Ask* to continue and override the file
 
-        let container_file_path = Path::new(constants::CONTAINER_FILE);
+        let container_file_path = Path::new(CONTAINER_FILE);
 
         if !self.force && container_file_path.exists() {
-            let gitignore = fs::read_to_string(constants::GITIGNORE_PATH)?;
+            let gitignore = fs::read_to_string(GITIGNORE_PATH)?;
 
             let is_ignored = gitignore
                 .lines()
-                .any(|line: &str| line.contains(constants::CONTAINER_FILE));
+                .any(|line: &str| line.contains(CONTAINER_FILE));
 
             if !is_ignored {
                 let containerfile = fs::read_to_string(container_file_path)?;
                 let has_label = containerfile.lines().any(|line| {
-                    let label = format!("LABEL {}", constants::BUILD_ID_LABEL);
+                    let label = format!("LABEL {}", BUILD_ID_LABEL);
                     line.to_string().trim().starts_with(&label)
                 });
 
@@ -211,9 +208,9 @@ impl BlueBuildCommand for BuildCommand {
 
                 if let Ok(answer) = requestty::prompt_one(question) {
                     if answer.as_bool().unwrap_or(false) {
-                        ops::append_to_file(
-                            constants::GITIGNORE_PATH,
-                            &format!("/{}", constants::CONTAINER_FILE),
+                        blue_build_utils::append_to_file(
+                            GITIGNORE_PATH,
+                            &format!("/{}", CONTAINER_FILE),
                         )?;
                     }
                 }
@@ -231,15 +228,15 @@ impl BlueBuildCommand for BuildCommand {
             .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
 
         #[cfg(not(feature = "podman-api"))]
-        if let Err(e1) = ops::check_command_exists("buildah") {
-            ops::check_command_exists("podman").map_err(|e2| {
+        if let Err(e1) = blue_build_utils::check_command_exists("buildah") {
+            blue_build_utils::check_command_exists("podman").map_err(|e2| {
                 anyhow!("Need either 'buildah' or 'podman' commands to proceed: {e1}, {e2}")
             })?;
         }
 
         if self.push {
-            ops::check_command_exists("cosign")?;
-            ops::check_command_exists("skopeo")?;
+            blue_build_utils::check_command_exists("cosign")?;
+            blue_build_utils::check_command_exists("skopeo")?;
             check_cosign_files()?;
         }
 
@@ -420,8 +417,8 @@ impl BuildCommand {
 
         info!("Logging into the registry, {registry}");
         let login_output = match (
-            ops::check_command_exists("buildah"),
-            ops::check_command_exists("podman"),
+            blue_build_utils::check_command_exists("buildah"),
+            blue_build_utils::check_command_exists("podman"),
         ) {
             (Ok(()), _) => {
                 trace!("buildah login -u {username} -p [MASKED] {registry}");
@@ -550,8 +547,8 @@ impl BuildCommand {
 
         info!("Building image {full_image}");
         let status = match (
-            ops::check_command_exists("buildah"),
-            ops::check_command_exists("podman"),
+            blue_build_utils::check_command_exists("buildah"),
+            blue_build_utils::check_command_exists("podman"),
         ) {
             (Ok(()), _) => {
                 trace!("buildah build -t {full_image}");
@@ -588,7 +585,7 @@ impl BuildCommand {
             let retry_count = if retry { self.retry_count } else { 0 };
 
             // Push images with retries (1s delay between retries)
-            ops::retry(retry_count, 1000, || push_images(tags, image_name))?;
+            blue_build_utils::retry(retry_count, 1000, || push_images(tags, image_name))?;
             sign_images(image_name, tags.first().map(String::as_str))?;
         }
 
@@ -963,8 +960,8 @@ fn tag_images(tags: &[String], image_name: &str, full_image: &str) -> Result<()>
         let tag_image = format!("{image_name}:{tag}");
 
         let status = match (
-            ops::check_command_exists("buildah"),
-            ops::check_command_exists("podman"),
+            blue_build_utils::check_command_exists("buildah"),
+            blue_build_utils::check_command_exists("podman"),
         ) {
             (Ok(()), _) => {
                 trace!("buildah tag {full_image} {tag_image}");
@@ -1001,8 +998,8 @@ fn push_images(tags: &[String], image_name: &str) -> Result<()> {
         let tag_image = format!("{image_name}:{tag}");
 
         let status = match (
-            ops::check_command_exists("buildah"),
-            ops::check_command_exists("podman"),
+            blue_build_utils::check_command_exists("buildah"),
+            blue_build_utils::check_command_exists("podman"),
         ) {
             (Ok(()), _) => {
                 trace!("buildah push {tag_image}");

@@ -54,7 +54,7 @@ common:
 	FROM ghcr.io/blue-build/earthly-lib/cargo-builder
 
 	WORKDIR /app
-	COPY --keep-ts --dir src/ templates/ /app
+	COPY --keep-ts --dir src/ template/ recipe/ utils/ /app
 	COPY --keep-ts Cargo.* /app
 	COPY --keep-ts *.md /app
 	COPY --keep-ts LICENSE /app

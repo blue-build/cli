@@ -3,6 +3,8 @@ use log::error;
 use clap::{command, crate_authors, Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 
+use crate::shadow;
+
 pub mod bug_report;
 pub mod build;
 pub mod completions;
@@ -28,8 +30,6 @@ pub trait BlueBuildCommand {
         }
     }
 }
-
-shadow_rs::shadow!(shadow);
 
 #[derive(Parser, Debug)]
 #[clap(

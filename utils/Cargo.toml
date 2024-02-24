@@ -1,0 +1,20 @@
+[package]
+name = "blue-build_utils"
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+repository.workspace = true
+license.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow.workspace = true
+directories.workspace = true
+format_serde_error.workspace = true
+log.workspace = true
+process_control.workspace = true
+serde.workspace = true
+serde_yaml.workspace = true
+serde_json.workspace = true
+which.workspace = true
