@@ -6,14 +6,14 @@ use std::{
     io::{Error, ErrorKind, Result as IoResult, Write},
     path::PathBuf,
     process::{Command, Stdio},
-    time::Instant,
+    thread,
+    time::{Duration, Instant},
 };
 
 use anyhow::{anyhow, Result};
 use format_serde_error::SerdeError;
 use log::{debug, trace};
 use process_control::{ChildExt, Control};
-use std::{thread, time::Duration};
 
 pub fn check_command_exists(command: &str) -> Result<()> {
     trace!("check_command_exists({command})");
