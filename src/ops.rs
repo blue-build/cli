@@ -3,6 +3,7 @@ use std::{io::Write, process::Command};
 use anyhow::{anyhow, Result};
 use format_serde_error::SerdeError;
 use log::{debug, trace};
+use std::{thread, time::Duration};
 
 pub fn check_command_exists(command: &str) -> Result<()> {
     trace!("check_command_exists({command})");
@@ -49,5 +50,21 @@ pub fn serde_yaml_err(contents: &str) -> impl Fn(serde_yaml::Error) -> SerdeErro
                 location.map_or(0, serde_yaml::Location::column).into(),
             ),
         )
+    }
+}
+
+pub fn retry<V, F>(mut attempts: u8, delay: u64, f: F) -> anyhow::Result<V>
+where
+    F: Fn() -> anyhow::Result<V>,
+{
+    loop {
+        match f() {
+            Ok(v) => return Ok(v),
+            Err(e) if attempts == 1 => return Err(e),
+            _ => {
+                attempts -= 1;
+                thread::sleep(Duration::from_secs(delay));
+            }
+        };
     }
 }

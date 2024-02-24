@@ -67,6 +67,16 @@ pub struct BuildCommand {
     #[builder(default)]
     push: bool,
 
+    /// Allow `bluebuild` to retry pushing images if it fails.
+    #[arg(short, long, default_value_t = true)]
+    #[builder(default)]
+    retry_push: bool,
+
+    /// The number of times to retry pushing the image.
+    #[arg(long, default_value_t = 1)]
+    #[builder(default)]
+    retry_count: u8,
+
     /// Allow `bluebuild` to overwrite an existing
     /// Containerfile without confirmation.
     ///
@@ -574,7 +584,11 @@ impl BuildCommand {
         }
 
         if self.push {
-            push_images(tags, image_name)?;
+            let retry = self.retry_push;
+            let retry_count = if retry { self.retry_count } else { 0 };
+
+            // Push images with retries (1s delay between retries)
+            ops::retry(retry_count, 1000, || push_images(tags, image_name))?;
             sign_images(image_name, tags.first().map(String::as_str))?;
         }
 
