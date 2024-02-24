@@ -12,6 +12,7 @@
 
 shadow_rs::shadow!(shadow);
 
+pub mod akmods_info;
 pub mod commands;
 pub mod constants;
 pub mod module_recipe;
