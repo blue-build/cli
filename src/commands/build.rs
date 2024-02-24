@@ -71,6 +71,7 @@ pub struct BuildCommand {
     #[arg(short, long, default_value_t = true)]
     #[builder(default)]
     retry_push: bool,
+
     /// The number of times to retry pushing the image.
     #[arg(long, default_value_t = 1)]
     #[builder(default)]
