@@ -1,5 +1,4 @@
 use std::{
-    collections::HashSet,
     env, fs,
     path::{Path, PathBuf},
     process,
@@ -12,15 +11,12 @@ use log::{debug, error, info, trace};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
-use crate::{
-    constants::*,
-    module_recipe::{Module, ModuleExt, Recipe},
-};
+use crate::{constants::*, module_recipe::Recipe};
 
 use super::BlueBuildCommand;
 
 #[derive(Debug, Clone, Template, TypedBuilder)]
-#[template(path = "Containerfile")]
+#[template(path = "Containerfile.j2", escape = "none")]
 pub struct ContainerFileTemplate<'a> {
     recipe: &'a Recipe<'a>,
 
@@ -37,6 +33,24 @@ pub struct ContainerFileTemplate<'a> {
 #[derive(Debug, Clone, Default, Template)]
 #[template(path = "export.sh", escape = "none")]
 pub struct ExportsTemplate;
+
+impl ExportsTemplate {
+    fn print_script(&self) -> String {
+        trace!("print_script({self})");
+
+        format!(
+            "\"{}\"",
+            self.render()
+                .unwrap_or_else(|e| {
+                    error!("Failed to render export.sh script: {e}");
+                    process::exit(1);
+                })
+                .replace('\n', "\\n")
+                .replace('\"', "\\\"")
+                .replace('$', "\\$")
+        )
+    }
+}
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct TemplateCommand {
@@ -114,55 +128,11 @@ impl TemplateCommand {
 // ========================= Helpers ====================== //
 // ======================================================== //
 
-fn print_script(script_contents: &ExportsTemplate) -> String {
-    trace!("print_script({script_contents})");
-
-    format!(
-        "\"{}\"",
-        script_contents
-            .render()
-            .unwrap_or_else(|e| {
-                error!("Failed to render export.sh script: {e}");
-                process::exit(1);
-            })
-            .replace('\n', "\\n")
-            .replace('\"', "\\\"")
-            .replace('$', "\\$")
-    )
-}
-
 fn has_cosign_file() -> bool {
     trace!("has_cosign_file()");
     std::env::current_dir()
         .map(|p| p.join(COSIGN_PATH).exists())
         .unwrap_or(false)
-}
-
-#[must_use]
-fn get_module_type_list(module: &Module, typ: &str, list_key: &str) -> Option<Vec<String>> {
-    if module.module_type.as_ref()? == typ {
-        Some(
-            module
-                .config
-                .get(list_key)?
-                .as_sequence()?
-                .iter()
-                .filter_map(|t| Some(t.as_str()?.to_owned()))
-                .collect(),
-        )
-    } else {
-        None
-    }
-}
-
-#[must_use]
-fn get_containerfile_list(module: &Module) -> Option<Vec<String>> {
-    get_module_type_list(module, "containerfile", "containerfiles")
-}
-
-#[must_use]
-fn get_containerfile_snippets(module: &Module) -> Option<Vec<String>> {
-    get_module_type_list(module, "containerfile", "snippets")
 }
 
 #[must_use]
@@ -180,32 +150,6 @@ fn print_containerfile(containerfile: &str) -> String {
     debug!("Containerfile contents {path}:\n{file}");
 
     file
-}
-
-fn print_module_context(module: &Module) -> String {
-    serde_json::to_string(module).unwrap_or_else(|e| {
-        error!("Failed to parse module!!!!!: {e}");
-        process::exit(1);
-    })
-}
-
-fn get_files_list(module: &Module) -> Option<Vec<(String, String)>> {
-    Some(
-        module
-            .config
-            .get("files")?
-            .as_sequence()?
-            .iter()
-            .filter_map(|entry| entry.as_mapping())
-            .flatten()
-            .filter_map(|(src, dest)| {
-                Some((
-                    format!("./config/files/{}", src.as_str()?),
-                    dest.as_str()?.to_string(),
-                ))
-            })
-            .collect(),
-    )
 }
 
 fn get_github_repo_owner() -> Option<String> {
@@ -227,57 +171,4 @@ fn get_gitlab_registry_path() -> Option<String> {
 fn modules_exists() -> bool {
     let mod_path = Path::new("modules");
     mod_path.exists() && mod_path.is_dir()
-}
-
-#[derive(Debug, Clone, TypedBuilder, PartialEq, Eq, Hash)]
-struct AkmodsInfo {
-    images: (String, Option<String>),
-    stage_name: String,
-}
-
-fn get_akmods_info_list(module_ext: &ModuleExt, os_version: &str) -> Vec<AkmodsInfo> {
-    trace!("get_akmods_image_list({module_ext:#?}, {os_version})");
-
-    let mut seen = HashSet::new();
-
-    module_ext
-        .modules
-        .iter()
-        .filter(|module| module.module_type.as_ref().is_some_and(|t| t == "akmods"))
-        .map(|module| generate_akmods_info(module, os_version))
-        .filter(|image| seen.insert(image.clone()))
-        .collect()
-}
-
-fn generate_akmods_info(module: &Module, os_version: &str) -> AkmodsInfo {
-    trace!("generate_akmods_base({module:#?}, {os_version})");
-
-    let base = module
-        .config
-        .get("base")
-        .map(|b| b.as_str().unwrap_or_default());
-    let nvidia_version = module
-        .config
-        .get("nvidia-version")
-        .map(|v| v.as_u64().unwrap_or_default());
-
-    AkmodsInfo::builder()
-        .images(match (base, nvidia_version) {
-            (Some(b), Some(nv)) if !b.is_empty() && nv > 0 => (
-                format!("akmods:{b}-{os_version}"),
-                Some(format!("akmods-nvidia:{b}-{os_version}-{nv}")),
-            ),
-            (Some(b), _) if !b.is_empty() => (format!("akmods:{b}-{os_version}"), None),
-            (_, Some(nv)) if nv > 0 => (
-                format!("akmods:main-{os_version}"),
-                Some(format!("akmods-nvidia:main-{os_version}")),
-            ),
-            _ => (format!("akmods:main-{os_version}"), None),
-        })
-        .stage_name(format!(
-            "{}{}",
-            base.unwrap_or("main"),
-            nvidia_version.map_or_else(String::default, |nv| format!("-{nv}"))
-        ))
-        .build()
 }

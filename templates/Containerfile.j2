@@ -1,0 +1,59 @@
+{%- let os_version = recipe.get_os_version() %}
+# This stage is responsible for holding onto
+# your config without copying it directly into
+# the final image
+FROM scratch as stage-config
+COPY ./config /config
+
+# Copy modules
+# The default modules are inside ublue-os/bling
+# Custom modules overwrite defaults
+FROM scratch as stage-modules
+COPY --from=ghcr.io/ublue-os/bling:latest /modules /modules
+{%- if self::modules_exists() %}
+COPY ./modules /modules
+{%- endif %}
+
+{%- include "modules/akmods/akmods.j2" %}
+
+# This stage is responsible for holding onto
+# exports like the exports.sh
+FROM docker.io/alpine as stage-exports
+RUN printf {{ export_script.print_script() }} >> /exports.sh && chmod +x /exports.sh
+
+FROM {{ recipe.base_image }}:{{ recipe.image_version }}
+
+LABEL {{ crate::constants::BUILD_ID_LABEL }}="{{ build_id }}"
+LABEL org.opencontainers.image.title="{{ recipe.name }}"
+LABEL org.opencontainers.image.description="{{ recipe.description }}"
+LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md
+
+ARG RECIPE={{ recipe_path.display() }}
+
+{%- if let Some(repo_owner) = self::get_github_repo_owner() %}
+ARG IMAGE_REGISTRY=ghcr.io/{{ repo_owner }}
+{%- else if let Some(registry) = self::get_gitlab_registry_path() %}
+ARG IMAGE_REGISTRY={{ registry }}
+{%- else %}
+ARG IMAGE_REGISTRY=localhost
+{%- endif %}
+
+{%- if self::has_cosign_file() %}
+COPY cosign.pub /usr/share/ublue-os/cosign.pub
+{%- endif %}
+
+ARG CONFIG_DIRECTORY="/tmp/config"
+ARG IMAGE_NAME="{{ recipe.name }}"
+ARG BASE_IMAGE="{{ recipe.base_image }}"
+
+{%- include "modules/modules.j2" %}
+
+COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
+COPY --from=ghcr.io/blue-build/cli:
+{%- if let Some(tag) = recipe.blue_build_tag -%}
+{{ tag }}
+{%- else -%}
+latest-installer
+{%- endif %} /out/bluebuild /usr/bin/bluebuild
+
+RUN ostree container commit

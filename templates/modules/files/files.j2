@@ -1,0 +1,5 @@
+{%- if let Some(files) = module.get_files_list() %}
+  {%- for (src, dest) in files %}
+COPY {{ src }} {{ dest }}
+  {%- endfor %}
+{%- endif %}
