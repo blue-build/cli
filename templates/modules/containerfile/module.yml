@@ -1,0 +1,10 @@
+name: containerfile
+shortdesc: Add your own Containerfile code either with snippets or a named directory containing a Containerfile.
+readme: https://raw.githubusercontent.com/blue-build/cli/main/templates/modules/containerfile/README.md
+example: |
+  type: containerfile
+  containerfiles:
+    - example
+    - subroutine
+  snippets:
+    - COPY ./config/example-dir/example-file.txt /usr/etc/example/
