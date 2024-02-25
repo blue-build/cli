@@ -64,7 +64,7 @@ fn internal_exec_cmd<T: AsRef<OsStr> + Debug, U: AsRef<OsStr> + Debug>(
     exec_timeout(&mut cmd, time_limit)
 }
 
-pub fn exec_timeout(cmd: &mut Command, time_limit: Duration) -> Option<CommandOutput> {
+fn exec_timeout(cmd: &mut Command, time_limit: Duration) -> Option<CommandOutput> {
     let start = Instant::now();
     let process = match cmd.spawn() {
         Ok(process) => process,
