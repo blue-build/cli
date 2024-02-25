@@ -281,9 +281,9 @@ name = "blue-build"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "blue-build_recipe",
- "blue-build_template",
- "blue-build_utils",
+ "blue-build-recipe",
+ "blue-build-template",
+ "blue-build-utils",
  "clap",
  "clap-verbosity-flag",
  "clap_complete",
@@ -314,11 +314,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "blue-build_recipe"
+name = "blue-build-recipe"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "blue-build_utils",
+ "blue-build-utils",
  "chrono",
  "format_serde_error",
  "indexmap 2.2.3",
@@ -330,12 +330,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "blue-build_template"
+name = "blue-build-template"
 version = "0.8.0"
 dependencies = [
  "askama",
- "blue-build_recipe",
- "blue-build_utils",
+ "blue-build-recipe",
+ "blue-build-utils",
  "log",
  "serde",
  "serde_json",
@@ -345,7 +345,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "blue-build_utils"
+name = "blue-build-utils"
 version = "0.8.0"
 dependencies = [
  "anyhow",

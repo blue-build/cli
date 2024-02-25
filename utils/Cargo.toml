@@ -1,5 +1,5 @@
 [package]
-name = "blue-build_utils"
+name = "blue-build-utils"
 version.workspace = true
 edition.workspace = true
 description.workspace = true

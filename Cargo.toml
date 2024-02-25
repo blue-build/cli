@@ -40,9 +40,9 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-blue-build_utils = { path = "./utils" }
-blue-build_recipe = { path = "./recipe" }
-blue-build_template = { path = "./template" }
+blue-build-recipe = { path = "./recipe" }
+blue-build-template = { path = "./template" }
+blue-build-utils = { path = "./utils" }
 clap = { version = "4", features = ["derive", "cargo", "unicode"] }
 clap-verbosity-flag = "2"
 clap_complete = "4"

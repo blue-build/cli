@@ -1,5 +1,5 @@
 [package]
-name = "blue-build_recipe"
+name = "blue-build-recipe"
 version.workspace = true
 edition.workspace = true
 description.workspace = true
@@ -9,7 +9,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-blue-build_utils = { path = "../utils" }
+blue-build-utils = { path = "../utils" }
 chrono = "0.4"
 indexmap = { version = "2", features = ["serde"] }
 
