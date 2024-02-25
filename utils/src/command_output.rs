@@ -1,19 +1,12 @@
+use std::{
+    ffi::OsStr,
+    fmt::Debug,
+    io::{Error, ErrorKind, Result},
+    process::{Command, Stdio},
+    time::{Duration, Instant},
+};
+
 use process_control::{ChildExt, Control};
-use std::ffi::OsStr;
-use std::fmt::Debug;
-use std::io::{Error, ErrorKind, Result};
-use std::path::PathBuf;
-use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
-
-#[must_use]
-pub fn home_dir() -> Option<PathBuf> {
-    directories::BaseDirs::new().map(|base_dirs| base_dirs.home_dir().to_path_buf())
-}
-
-// ================================================================================================= //
-// CommandOutput
-// ================================================================================================= //
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandOutput {
@@ -27,7 +20,7 @@ pub struct CommandOutput {
 /// #
 /// # Errors
 ///
-pub fn create_command<T: AsRef<OsStr>>(binary_name: T) -> Result<Command> {
+fn create_command<T: AsRef<OsStr>>(binary_name: T) -> Result<Command> {
     let binary_name = binary_name.as_ref();
     log::trace!("Creating Command for binary {:?}", binary_name);
 
@@ -42,7 +35,6 @@ pub fn create_command<T: AsRef<OsStr>>(binary_name: T) -> Result<Command> {
         }
     };
 
-    #[allow(clippy::disallowed_methods)]
     let mut cmd = Command::new(full_path);
     cmd.stderr(Stdio::piped())
         .stdout(Stdio::piped())
@@ -71,7 +63,7 @@ fn internal_exec_cmd<T: AsRef<OsStr> + Debug, U: AsRef<OsStr> + Debug>(
     exec_timeout(&mut cmd, time_limit)
 }
 
-pub fn exec_timeout(cmd: &mut Command, time_limit: Duration) -> Option<CommandOutput> {
+fn exec_timeout(cmd: &mut Command, time_limit: Duration) -> Option<CommandOutput> {
     let start = Instant::now();
     let process = match cmd.spawn() {
         Ok(process) => process,

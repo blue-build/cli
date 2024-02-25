@@ -1,9 +1,13 @@
-use std::{io::Write, process::Command};
+pub mod command_output;
+pub mod constants;
+
+use std::{io::Write, path::PathBuf, process::Command, thread, time::Duration};
 
 use anyhow::{anyhow, Result};
 use format_serde_error::SerdeError;
 use log::{debug, trace};
-use std::{thread, time::Duration};
+
+pub use command_output::*;
 
 pub fn check_command_exists(command: &str) -> Result<()> {
     trace!("check_command_exists({command})");
@@ -67,4 +71,9 @@ where
             }
         };
     }
+}
+
+#[must_use]
+pub fn home_dir() -> Option<PathBuf> {
+    directories::BaseDirs::new().map(|base_dirs| base_dirs.home_dir().to_path_buf())
 }

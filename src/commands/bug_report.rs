@@ -1,17 +1,17 @@
-use askama::Template;
+use blue_build_recipe::Recipe;
+use blue_build_template::{GithubIssueTemplate, Template};
+use blue_build_utils::constants::*;
 use clap::Args;
 use clap_complete::Shell;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use log::{debug, error, trace};
 use requestty::question::{completions, Completions};
-use std::borrow::Cow;
 use std::time::Duration;
 use typed_builder::TypedBuilder;
 
-use super::utils::exec_cmd;
 use super::BlueBuildCommand;
 
-use crate::{constants::*, module_recipe::Recipe, shadow};
+use crate::shadow;
 
 #[derive(Default, Debug, Clone, TypedBuilder, Args)]
 pub struct BugReportRecipe {
@@ -272,7 +272,7 @@ fn get_shell_version(shell: &str) -> String {
             error!("Powershell is not supported.");
             None
         }
-        _ => exec_cmd(shell, &["--version"], time_limit),
+        _ => blue_build_utils::exec_cmd(shell, &["--version"], time_limit),
     }
     .map_or_else(
         || UNKNOWN_VERSION.to_string(),
@@ -283,52 +283,6 @@ fn get_shell_version(shell: &str) -> String {
 // ============================================================================= //
 // Git
 // ============================================================================= //
-
-#[derive(Debug, Clone, Template, TypedBuilder)]
-#[template(path = "github_issue.j2", escape = "md")]
-struct GithubIssueTemplate<'a> {
-    #[builder(setter(into))]
-    bb_version: Cow<'a, str>,
-
-    #[builder(setter(into))]
-    build_rust_channel: Cow<'a, str>,
-
-    #[builder(setter(into))]
-    build_time: Cow<'a, str>,
-
-    #[builder(setter(into))]
-    git_commit_hash: Cow<'a, str>,
-
-    #[builder(setter(into))]
-    os_name: Cow<'a, str>,
-
-    #[builder(setter(into))]
-    os_version: Cow<'a, str>,
-
-    #[builder(setter(into))]
-    pkg_branch_tag: Cow<'a, str>,
-
-    #[builder(setter(into))]
-    recipe: Cow<'a, str>,
-
-    #[builder(setter(into))]
-    rust_channel: Cow<'a, str>,
-
-    #[builder(setter(into))]
-    rust_version: Cow<'a, str>,
-
-    #[builder(setter(into))]
-    shell_name: Cow<'a, str>,
-
-    #[builder(setter(into))]
-    shell_version: Cow<'a, str>,
-
-    #[builder(setter(into))]
-    terminal_name: Cow<'a, str>,
-
-    #[builder(setter(into))]
-    terminal_version: Cow<'a, str>,
-}
 
 fn get_pkg_branch_tag() -> String {
     format!("{} ({})", shadow::BRANCH, shadow::LAST_TAG)

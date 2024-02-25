@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2024-02-25
+
+### Bug Fixes
+
+- Make sure cosign.pub exists before trying to check key validity
+- Check for `GITHUB_TOKEN` instead of `SIGSTORE_ID_TOKEN` for github OIDC (#72)
+- Use REGISTRY_TOKEN for GitHub OIDC signing
+- Switch to using --certificate-identity-regexp for Github Keyless verification
+- Remove trailing newlines from yaml arrays (#73)
+- Use GH_TOKEN as GITHUB_TOKEN is a protected env var
+- Allow empty custom modules dir (#77)
+
+### Documentation
+
+- Add module documentation for 'containerfile' and 'files' (#82)
+
+### Features
+
+- Use GitHub's OIDC for signing images (#62)
+- Use WORKDIR and ENTRYPOINT for cli containers (#63)
+- Clean up working container for SIGINT and SIGTERM (#14)
+- Use tmpfs mount for /tmp and /var (#67)
+- Allow user to use source images (#69)
+- Make use of rpm-ostree cache (#68)
+- Block overriding (#74)
+- Allow use of akmods module (#71)
+- Add retry options to cli build command (#81)
+
+### Miscellaneous Tasks
+
+- Fix build and build-pr not running properly
+- Remove unwanted software so we have enough space to run the build for forked PRs
+- Print out stderr from login attempts if login fails
+- Replace tabs with spaces in Containerfile template
+- Run integration tests on a separate satellite to keep build cache free
+- Add trace log for github cosign verify
+- Fix integration-tests for forks
+- Update default module source (#76)
+
+### Refactor
+
+- Use GITHUB_TOKEN instead of REGISTRY_TOKEN (#75)
+- Move modules into their own directory structure (#80)
+
 ## [0.7.1] - 2024-02-13
 
 ### Bug Fixes
@@ -21,6 +65,7 @@ All notable changes to this project will be documented in this file.
 - Remove nightly flags
 - Rename registry-path arg to registry-namespace but keep previous as alias
 - Add cargo release files
+- Release blue-build version 0.7.1
 
 ### Refactor
 

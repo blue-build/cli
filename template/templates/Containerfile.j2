@@ -6,10 +6,10 @@ FROM scratch as stage-config
 COPY ./config /config
 
 # Copy modules
-# The default modules are inside ublue-os/bling
+# The default modules are inside blue-build/modules
 # Custom modules overwrite defaults
 FROM scratch as stage-modules
-COPY --from=ghcr.io/ublue-os/bling:latest /modules /modules
+COPY --from=ghcr.io/blue-build/modules:latest /modules /modules
 {%- if self::modules_exists() %}
 COPY ./modules /modules
 {%- endif %}
@@ -23,7 +23,7 @@ RUN printf {{ export_script.print_script() }} >> /exports.sh && chmod +x /export
 
 FROM {{ recipe.base_image }}:{{ recipe.image_version }}
 
-LABEL {{ crate::constants::BUILD_ID_LABEL }}="{{ build_id }}"
+LABEL {{ blue_build_utils::constants::BUILD_ID_LABEL }}="{{ build_id }}"
 LABEL org.opencontainers.image.title="{{ recipe.name }}"
 LABEL org.opencontainers.image.description="{{ recipe.description }}"
 LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md

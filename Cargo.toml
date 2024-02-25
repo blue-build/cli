@@ -1,52 +1,81 @@
-[package]
-name = "blue-build"
-version = "0.7.1"
-edition = "2021"
+[workspace]
+members = [ "utils", "recipe","template"]
+
+[workspace.package]
+version = "0.8.0"
 description = "A CLI tool built for creating Containerfile templates based on the Ublue Community Project"
+edition = "2021"
 repository = "https://github.com/blue-build/cli"
 license = "Apache-2.0"
 categories = ["command-line-utilities"]
+
+[workspace.dependencies]
+anyhow = "1"
+format_serde_error = "0.3.0"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9.30"
+typed-builder = "0.18.1"
+uuid = { version = "1.7.0", features = ["v4"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+correctness = "warn"
+suspicious = "warn"
+perf = "warn"
+style = "warn"
+nursery = "warn"
+
+[package]
+name = "blue-build"
 build = "build.rs"
 
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+repository.workspace = true
+license.workspace = true
+
 [dependencies]
-anyhow = "1"
-askama = { version = "0.12", features = ["serde-json", "serde-yaml"] }
-chrono = "0.4"
+blue-build-recipe = { path = "./recipe" }
+blue-build-template = { path = "./template" }
+blue-build-utils = { path = "./utils" }
 clap = { version = "4", features = ["derive", "cargo", "unicode"] }
 clap-verbosity-flag = "2"
 clap_complete = "4"
 clap_complete_nushell = "4"
 colorized = "1"
-derive_builder = "0.13"
-directories = "5"
 env_logger = "0.11"
-format_serde_error = "0.3.0"
-futures-util = { version = "0.3", optional = true }
 fuzzy-matcher = "0.3"
-indexmap = { version = "2", features = ["serde"] }
-log = "0.4"
 open = "5"
-# update os module config and tests when upgrading os_info
-os_info = "3.7"
-podman-api = { version = "0.10.0", optional = true }
-process_control = { version = "4.0.3", features = ["crossbeam-channel"] }
+os_info = "3.7" # update os module config and tests when upgrading os_info
 requestty = { version = "0.5", features = ["macros", "termion"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-serde_yaml = "0.9.30"
+shadow-rs = { version = "0.26" }
+urlencoding = "2.1.3"
+users = "0.11.0"
+
+# Optional Dependencies
+futures-util = { version = "0.3", optional = true }
+podman-api = { version = "0.10.0", optional = true }
 signal-hook = { version = "0.3.17", optional = true }
 signal-hook-tokio = { version = "0.3.1", features = [
   "futures-v0_3",
 ], optional = true }
-shadow-rs = { version = "0.26" }
 sigstore = { version = "0.8.0", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
-typed-builder = "0.18.1"
-urlencoding = "2.1.3"
-users = "0.11.0"
-uuid = { version = "1.7.0", features = ["v4"] }
-which = "6"
-ureq = { version = "2.9.6", features = ["json"] }
+ureq = { version = "2.9.6", features = ["json"], optional = true }
+
+# Workspace dependencies
+anyhow.workspace = true
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+typed-builder.workspace = true
+uuid.workspace = true
 
 [features]
 default = ["init"]
@@ -59,7 +88,7 @@ builtin-podman = [
   "signal-hook",
 ]
 tls = ["podman-api/tls", "builtin-podman"]
-init = []
+init = ["ureq"]
 
 [dev-dependencies]
 rusty-hook = "0.11.2"
@@ -67,6 +96,9 @@ rusty-hook = "0.11.2"
 [build-dependencies]
 shadow-rs = { version = "0.26.1", default-features = false }
 dunce = "1.0.4"
+
+[lints]
+workspace = true
 
 [profile.release]
 lto = true

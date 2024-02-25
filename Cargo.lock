@@ -130,9 +130,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.79"
+version = "1.0.80"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "080e9890a082662b09c1ad45f567faeeb47f22b5fb23895fbe1e651e718e25ca"
+checksum = "5ad32ce52e4161730f7098c077cd2ed6229b5804ccf99e5366be1ab72a98b4e1"
 
 [[package]]
 name = "askama"
@@ -147,7 +147,7 @@ dependencies = [
  "percent-encoding",
  "serde",
  "serde_json",
- "serde_yaml 0.9.31",
+ "serde_yaml 0.9.32",
 ]
 
 [[package]]
@@ -278,34 +278,30 @@ dependencies = [
 
 [[package]]
 name = "blue-build"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "anyhow",
- "askama",
- "chrono",
+ "blue-build-recipe",
+ "blue-build-template",
+ "blue-build-utils",
  "clap",
  "clap-verbosity-flag",
  "clap_complete",
  "clap_complete_nushell",
  "colorized",
- "derive_builder",
- "directories",
  "dunce",
  "env_logger",
- "format_serde_error",
  "futures-util",
  "fuzzy-matcher",
- "indexmap 2.2.3",
  "log",
  "open",
  "os_info",
  "podman-api",
- "process_control",
  "requestty",
  "rusty-hook",
  "serde",
  "serde_json",
- "serde_yaml 0.9.31",
+ "serde_yaml 0.9.32",
  "shadow-rs",
  "signal-hook",
  "signal-hook-tokio",
@@ -316,6 +312,51 @@ dependencies = [
  "urlencoding",
  "users",
  "uuid",
+]
+
+[[package]]
+name = "blue-build-recipe"
+version = "0.8.0"
+dependencies = [
+ "anyhow",
+ "blue-build-utils",
+ "chrono",
+ "format_serde_error",
+ "indexmap 2.2.3",
+ "log",
+ "serde",
+ "serde_json",
+ "serde_yaml 0.9.32",
+ "typed-builder",
+]
+
+[[package]]
+name = "blue-build-template"
+version = "0.8.0"
+dependencies = [
+ "askama",
+ "blue-build-recipe",
+ "blue-build-utils",
+ "log",
+ "serde",
+ "serde_json",
+ "serde_yaml 0.9.32",
+ "typed-builder",
+ "uuid",
+]
+
+[[package]]
+name = "blue-build-utils"
+version = "0.8.0"
+dependencies = [
+ "anyhow",
+ "directories",
+ "format_serde_error",
+ "log",
+ "process_control",
+ "serde",
+ "serde_json",
+ "serde_yaml 0.9.32",
  "which",
 ]
 
@@ -651,21 +692,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crossbeam-channel"
-version = "0.5.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "176dc175b78f56c0f321911d9c8eb2b77a78a4860b9c19db83835fea1a46649b"
-dependencies = [
- "crossbeam-utils",
-]
-
-[[package]]
-name = "crossbeam-utils"
-version = "0.8.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "248e3bacc7dc6baa3b21e405ee045c3047101a49145e7e9eca583ab4c2ca5345"
-
-[[package]]
 name = "crossterm"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -858,37 +884,6 @@ checksum = "b42b6fa04a440b495c8b04d0e71b707c585f83cb9cb28cf8cd0d976c315e31b4"
 dependencies = [
  "powerfmt",
  "serde",
-]
-
-[[package]]
-name = "derive_builder"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f59169f400d8087f238c5c0c7db6a28af18681717f3b623227d92f397e938c7"
-dependencies = [
- "derive_builder_macro",
-]
-
-[[package]]
-name = "derive_builder_core"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4ec317cc3e7ef0928b0ca6e4a634a4d6c001672ae210438cf114a83e56b018d"
-dependencies = [
- "darling 0.14.4",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "derive_builder_macro"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "870368c3fb35b8031abb378861d4460f573b92238ec2152c927a21f77e3e0127"
-dependencies = [
- "derive_builder_core",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -2519,14 +2514,13 @@ dependencies = [
 
 [[package]]
 name = "process_control"
-version = "4.0.3"
+version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32e056a69288d0a211f4c74c48391c6eb86e714fdcb9dc58a9f34302da9c20bf"
+checksum = "4d18334c4a4b2770ee894e63cf466d5a9ea449cf29e321101b0b135a747afb6f"
 dependencies = [
- "crossbeam-channel",
  "libc",
  "signal-hook",
- "windows-sys 0.48.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3088,9 +3082,9 @@ dependencies = [
 
 [[package]]
 name = "serde_yaml"
-version = "0.9.31"
+version = "0.9.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adf8a49373e98a4c5f0ceb5d05aa7c648d75f63774981ed95b7c7443bbd50c6e"
+checksum = "8fd075d994154d4a774f95b51fb96bdc2832b0ea48425c92546073816cda1f2f"
 dependencies = [
  "indexmap 2.2.3",
  "itoa",
