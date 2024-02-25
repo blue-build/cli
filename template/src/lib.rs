@@ -1,11 +1,12 @@
 use std::{borrow::Cow, env, fs, path::Path, process};
 
-pub use askama::Template;
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::*;
 use log::{debug, error, trace};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
+
+pub use askama::Template;
 
 #[derive(Debug, Clone, Template, TypedBuilder)]
 #[template(path = "Containerfile.j2", escape = "none")]

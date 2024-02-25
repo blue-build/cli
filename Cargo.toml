@@ -11,19 +11,23 @@ categories = ["command-line-utilities"]
 
 [workspace.dependencies]
 anyhow = "1"
-askama = { version = "0.12", features = ["serde-json", "serde-yaml"] }
-chrono = "0.4"
-directories = "5"
 format_serde_error = "0.3.0"
-indexmap = { version = "2", features = ["serde"] }
 log = "0.4"
-process_control = { version = "4.0.3", features = ["crossbeam-channel"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9.30"
 typed-builder = "0.18.1"
 uuid = { version = "1.7.0", features = ["v4"] }
-which = "6"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+correctness = "warn"
+suspicious = "warn"
+perf = "warn"
+style = "warn"
+nursery = "warn"
 
 [package]
 name = "blue-build"
@@ -65,7 +69,6 @@ tokio = { version = "1", features = ["full"], optional = true }
 
 # Workspace dependencies
 anyhow.workspace = true
-chrono.workspace = true
 log.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -91,6 +94,9 @@ rusty-hook = "0.11.2"
 [build-dependencies]
 shadow-rs = { version = "0.26.1", default-features = false }
 dunce = "1.0.4"
+
+[lints]
+workspace = true
 
 [profile.release]
 lto = true
