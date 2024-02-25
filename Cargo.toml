@@ -46,9 +46,10 @@ urlencoding = "2.1.3"
 users = "0.11.0"
 uuid = { version = "1.7.0", features = ["v4"] }
 which = "6"
+ureq = { version = "2.9.6", features = ["json"] }
 
 [features]
-default = []
+default = ["init"]
 nightly = ["builtin-podman"]
 builtin-podman = [
   "podman-api",
@@ -58,6 +59,7 @@ builtin-podman = [
   "signal-hook",
 ]
 tls = ["podman-api/tls", "builtin-podman"]
+init = []
 
 [dev-dependencies]
 rusty-hook = "0.11.2"
