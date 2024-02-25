@@ -78,8 +78,11 @@ typed-builder.workspace = true
 uuid.workspace = true
 
 [features]
+# Top level features
 default = ["init"]
 nightly = ["builtin-podman"]
+
+# App Features
 builtin-podman = [
   "podman-api",
   "tokio",
@@ -87,8 +90,8 @@ builtin-podman = [
   "signal-hook-tokio",
   "signal-hook",
 ]
-tls = ["podman-api/tls", "builtin-podman"]
 init = ["ureq"]
+tls = ["podman-api/tls", "builtin-podman"]
 
 [dev-dependencies]
 rusty-hook = "0.11.2"
