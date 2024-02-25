@@ -2,7 +2,7 @@
 members = [ "utils", "recipe","template"]
 
 [workspace.package]
-version = "0.7.1"
+version = "0.8.0"
 description = "A CLI tool built for creating Containerfile templates based on the Ublue Community Project"
 edition = "2021"
 repository = "https://github.com/blue-build/cli"
