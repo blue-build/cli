@@ -4,9 +4,8 @@ use std::{
 };
 
 use anyhow::{bail, Result};
+use blue_build_utils::constants::*;
 use log::trace;
-
-use crate::{constants::*, ops};
 
 #[cfg(feature = "podman-api")]
 #[derive(Debug, Clone, Default)]
@@ -29,8 +28,8 @@ impl BuildStrategy {
                 PathBuf::from(RUN_PODMAN_SOCK),
                 PathBuf::from(VAR_RUN_PODMAN_PODMAN_SOCK),
                 PathBuf::from(VAR_RUN_PODMAN_SOCK),
-                ops::check_command_exists("buildah"),
-                ops::check_command_exists("podman"),
+                blue_build_utils::check_command_exists("buildah"),
+                blue_build_utils::check_command_exists("podman"),
             ) {
                 (Ok(xdg_runtime), _, _, _, _, _)
                     if Path::new(&format!("{xdg_runtime}/podman/podman.sock")).exists() =>

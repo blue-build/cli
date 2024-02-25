@@ -5,17 +5,14 @@ use std::{
 };
 
 use anyhow::{bail, Result};
+use blue_build_recipe::Recipe;
+use blue_build_utils::constants::*;
 use clap::Args;
 use log::{debug, info, trace};
 use typed_builder::TypedBuilder;
 use users::{Users, UsersCache};
 
-use crate::{
-    commands::build::BuildCommand,
-    constants::{ARCHIVE_SUFFIX, LOCAL_BUILD},
-    module_recipe::Recipe,
-    ops,
-};
+use crate::commands::build::BuildCommand;
 
 use super::BlueBuildCommand;
 
@@ -148,7 +145,7 @@ impl BlueBuildCommand for RebaseCommand {
 fn check_can_run() -> Result<()> {
     trace!("check_can_run()");
 
-    ops::check_command_exists("rpm-ostree")?;
+    blue_build_utils::check_command_exists("rpm-ostree")?;
 
     let cache = UsersCache::new();
     if cache.get_current_uid() != 0 {
