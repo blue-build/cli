@@ -91,7 +91,7 @@ pub struct BuildCommand {
 
     /// The connection string used to connect
     /// to a remote podman socket.
-    #[cfg(feature = "podman-api")]
+    #[cfg(feature = "tls")]
     #[arg(short, long)]
     #[builder(default, setter(into, strip_option))]
     connection: Option<String>,
@@ -228,7 +228,12 @@ impl BlueBuildCommand for BuildCommand {
         //     _ => self.build_image(&recipe_path),
         // }
 
-        self.build_image(&recipe_path, &BuildStrategy::determine_strategy(build_id)?)
+        let credentials = self.get_login_creds();
+
+        self.build_image(
+            &recipe_path,
+            &BuildStrategy::determine_strategy(build_id, credentials.as_ref())?,
+        )
     }
 }
 
@@ -267,7 +272,7 @@ impl BuildCommand {
         );
 
         info!("Logging into the registry, {registry}");
-        build_strat.login(&credentials)?;
+        build_strat.login()?;
 
         trace!("cosign login -u {username} -p [MASKED] {registry}");
         let login_output = Command::new("cosign")
@@ -385,9 +390,7 @@ impl BuildCommand {
             for tag in tags {
                 debug!("Tagging {image_name} with {tag}");
 
-                let tag_image = format!("{image_name}:{tag}");
-
-                build_strat.tag(&full_image, &tag_image)?;
+                build_strat.tag(&full_image, image_name, tag)?;
             }
         }
 

@@ -291,7 +291,7 @@ dependencies = [
  "colorized",
  "dunce",
  "env_logger",
- "futures",
+ "futures-util",
  "fuzzy-matcher",
  "log",
  "open",
