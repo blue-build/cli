@@ -1,6 +1,3 @@
-#[cfg(feature = "podman-api")]
-mod build_strategy;
-
 use std::{
     env, fs,
     path::{Path, PathBuf},
@@ -16,28 +13,7 @@ use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
-#[cfg(feature = "builtin-podman")]
-use std::sync::Arc;
-
-#[cfg(feature = "podman-api")]
-use podman_api::{
-    opts::{ImageBuildOpts, ImagePushOpts, RegistryAuth},
-    Podman,
-};
-
-#[cfg(feature = "podman-api")]
-use build_strategy::BuildStrategy;
-
-#[cfg(feature = "signal-hook-tokio")]
-use signal_hook_tokio::Signals;
-
-#[cfg(feature = "tokio")]
-use tokio::{
-    runtime::Runtime,
-    sync::oneshot::{self, Sender},
-};
-
-use crate::commands::template::TemplateCommand;
+use crate::{commands::template::TemplateCommand, strategies::BuildStrategy};
 
 use super::BlueBuildCommand;
 
@@ -227,13 +203,6 @@ impl BlueBuildCommand for BuildCommand {
             .clone()
             .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
 
-        #[cfg(not(feature = "podman-api"))]
-        if let Err(e1) = blue_build_utils::check_command_exists("buildah") {
-            blue_build_utils::check_command_exists("podman").map_err(|e2| {
-                anyhow!("Need either 'buildah' or 'podman' commands to proceed: {e1}, {e2}")
-            })?;
-        }
-
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
             blue_build_utils::check_command_exists("skopeo")?;
@@ -249,140 +218,22 @@ impl BlueBuildCommand for BuildCommand {
 
         info!("Building image for recipe at {}", recipe_path.display());
 
-        #[cfg(feature = "builtin-podman")]
-        match BuildStrategy::determine_strategy()? {
-            BuildStrategy::Socket(socket) => Runtime::new()?.block_on(self.build_image_podman_api(
-                Podman::unix(socket),
-                build_id,
-                &recipe_path,
-            )),
-            _ => self.build_image(&recipe_path),
-        }
+        // #[cfg(feature = "builtin-podman")]
+        // match BuildStrategy::determine_strategy()? {
+        //     BuildStrategy::Socket(socket) => Runtime::new()?.block_on(self.build_image_podman_api(
+        //         Podman::unix(socket),
+        //         build_id,
+        //         &recipe_path,
+        //     )),
+        //     _ => self.build_image(&recipe_path),
+        // }
 
-        #[cfg(not(feature = "builtin-podman"))]
-        self.build_image(&recipe_path)
+        self.build_image(&recipe_path, &BuildStrategy::determine_strategy(build_id)?)
     }
 }
 
 impl BuildCommand {
-    #[cfg(feature = "builtin-podman")]
-    async fn build_image_podman_api(
-        &self,
-        client: Podman,
-        build_id: Uuid,
-        recipe_path: &Path,
-    ) -> Result<()> {
-        use futures_util::StreamExt;
-        use signal_hook::consts::{SIGINT, SIGQUIT, SIGTERM};
-
-        trace!("BuildCommand::build_image({client:#?})");
-
-        let credentials = self.get_login_creds();
-
-        if self.push && credentials.is_none() {
-            bail!("Failed to get credentials");
-        }
-
-        let recipe = Recipe::parse(&recipe_path)?;
-        trace!("recipe: {recipe:#?}");
-
-        // Get values for image
-        let tags = recipe.generate_tags();
-        let image_name = self.generate_full_image_name(&recipe)?;
-        let first_image_name = if self.archive.is_some() {
-            image_name.to_string()
-        } else {
-            tags.first()
-                .map_or_else(|| image_name.to_string(), |t| format!("{image_name}:{t}"))
-        };
-        debug!("Full tag is {first_image_name}");
-
-        // Prepare for the signal trap
-        let client = Arc::new(client);
-
-        let signals = Signals::new([SIGTERM, SIGINT, SIGQUIT])?;
-        let handle = signals.handle();
-
-        let (kill_tx, mut kill_rx) = oneshot::channel::<()>();
-
-        let signals_task = tokio::spawn(handle_signals(signals, kill_tx, build_id, client.clone()));
-
-        // Get podman ready to build
-        let opts = ImageBuildOpts::builder(".")
-            .tag(&first_image_name)
-            .dockerfile("Containerfile")
-            .remove(true)
-            .layers(true)
-            .labels([(BUILD_ID_LABEL, build_id.to_string())])
-            .pull(true)
-            .build();
-        trace!("Build options: {opts:#?}");
-
-        info!("Building image {first_image_name}");
-        match client.images().build(&opts) {
-            Ok(mut build_stream) => loop {
-                tokio::select! {
-                    Some(chunk) = build_stream.next() => {
-                        match chunk {
-                            Ok(chunk) => chunk
-                                .stream
-                                .trim()
-                                .lines()
-                                .map(str::trim)
-                                .filter(|line| !line.is_empty())
-                                .for_each(|line| info!("{line}")),
-                            Err(e) => bail!("{e}"),
-                        }
-                    },
-                    _ = &mut kill_rx => {
-                        break;
-                    }
-                }
-            },
-            Err(e) => bail!("{e}"),
-        };
-        handle.close();
-        signals_task.await??;
-
-        if self.push {
-            debug!("Pushing is enabled");
-
-            let credentials =
-                credentials.ok_or_else(|| anyhow!("Should have checked for creds earlier"))?;
-
-            push_images_podman_api(&tags, &image_name, &first_image_name, &client, &credentials)
-                .await?;
-
-            let (registry, username, password) = (
-                credentials.registry,
-                credentials.username,
-                credentials.password,
-            );
-
-            info!("Logging into registry using cosign");
-            trace!("cosign login -u {username} -p [MASKED] {registry}");
-            if !Command::new("cosign")
-                .arg("login")
-                .arg("-u")
-                .arg(&username)
-                .arg("-p")
-                .arg(&password)
-                .arg(&registry)
-                .output()?
-                .status
-                .success()
-            {
-                bail!("Failed to login for cosign!");
-            }
-            info!("Cosign login success at {registry}");
-
-            sign_images(&image_name, tags.first().map(String::as_str))?;
-        }
-
-        Ok(())
-    }
-
-    fn build_image(&self, recipe_path: &Path) -> Result<()> {
+    fn build_image(&self, recipe_path: &Path, build_strat: &BuildStrategy) -> Result<()> {
         trace!("BuildCommand::build_image()");
 
         let recipe = Recipe::parse(&recipe_path)?;
@@ -392,16 +243,16 @@ impl BuildCommand {
         let image_name = self.generate_full_image_name(&recipe)?;
 
         if self.push {
-            self.login()?;
+            self.login(build_strat)?;
         }
-        self.run_build(&image_name, &tags)?;
+        self.run_build(&image_name, &tags, build_strat)?;
 
         info!("Build complete!");
 
         Ok(())
     }
 
-    fn login(&self) -> Result<()> {
+    fn login(&self, build_strat: &BuildStrategy) -> Result<()> {
         trace!("BuildCommand::login()");
         info!("Attempting to login to the registry");
 
@@ -410,47 +261,22 @@ impl BuildCommand {
             .ok_or_else(|| anyhow!("Unable to get credentials"))?;
 
         let (registry, username, password) = (
-            credentials.registry,
-            credentials.username,
-            credentials.password,
+            &credentials.registry,
+            &credentials.username,
+            &credentials.password,
         );
 
         info!("Logging into the registry, {registry}");
-        let login_output = match (
-            blue_build_utils::check_command_exists("buildah"),
-            blue_build_utils::check_command_exists("podman"),
-        ) {
-            (Ok(()), _) => {
-                trace!("buildah login -u {username} -p [MASKED] {registry}");
-                Command::new("buildah")
-            }
-            (Err(_), Ok(())) => {
-                trace!("podman login -u {username} -p [MASKED] {registry}");
-                Command::new("podman")
-            }
-            _ => bail!("Need 'buildah' or 'podman' to login"),
-        }
-        .arg("login")
-        .arg("-u")
-        .arg(&username)
-        .arg("-p")
-        .arg(&password)
-        .arg(&registry)
-        .output()?;
-
-        if !login_output.status.success() {
-            let err_out = String::from_utf8_lossy(&login_output.stderr);
-            bail!("Failed to login for buildah: {err_out}");
-        }
+        build_strat.login(&credentials)?;
 
         trace!("cosign login -u {username} -p [MASKED] {registry}");
         let login_output = Command::new("cosign")
             .arg("login")
             .arg("-u")
-            .arg(&username)
+            .arg(username)
             .arg("-p")
-            .arg(&password)
-            .arg(&registry)
+            .arg(password)
+            .arg(registry)
             .output()?;
 
         if !login_output.status.success() {
@@ -535,7 +361,12 @@ impl BuildCommand {
     /// # Errors
     ///
     /// Will return `Err` if the build fails.
-    fn run_build(&self, image_name: &str, tags: &[String]) -> Result<()> {
+    fn run_build(
+        &self,
+        image_name: &str,
+        tags: &[String],
+        build_strat: &BuildStrategy,
+    ) -> Result<()> {
         trace!("BuildCommand::run_build({image_name}, {tags:#?})");
 
         let full_image = if self.archive.is_some() {
@@ -546,46 +377,35 @@ impl BuildCommand {
         };
 
         info!("Building image {full_image}");
-        let status = match (
-            blue_build_utils::check_command_exists("buildah"),
-            blue_build_utils::check_command_exists("podman"),
-        ) {
-            (Ok(()), _) => {
-                trace!("buildah build -t {full_image}");
-                Command::new("buildah")
-                    .arg("build")
-                    .arg("-t")
-                    .arg(&full_image)
-                    .status()?
-            }
-            (Err(_), Ok(())) => {
-                trace!("podman build . -t {full_image}");
-                Command::new("podman")
-                    .arg("build")
-                    .arg(".")
-                    .arg("-t")
-                    .arg(&full_image)
-                    .status()?
-            }
-            (Err(e1), Err(e2)) => bail!("Need either 'buildah' or 'podman' to build: {e1}, {e2}"),
-        };
-
-        if status.success() {
-            info!("Successfully built {image_name}");
-        } else {
-            bail!("Failed to build {image_name}");
-        }
+        build_strat.build(&full_image)?;
 
         if tags.len() > 1 && self.archive.is_none() {
-            tag_images(tags, image_name, &full_image)?;
+            debug!("Tagging all images");
+
+            for tag in tags {
+                debug!("Tagging {image_name} with {tag}");
+
+                let tag_image = format!("{image_name}:{tag}");
+
+                build_strat.tag(&full_image, &tag_image)?;
+            }
         }
 
         if self.push {
             let retry = self.retry_push;
             let retry_count = if retry { self.retry_count } else { 0 };
 
-            // Push images with retries (1s delay between retries)
-            blue_build_utils::retry(retry_count, 1000, || push_images(tags, image_name))?;
+            debug!("Pushing all images");
+            for tag in tags {
+                // Push images with retries (1s delay between retries)
+                blue_build_utils::retry(retry_count, 1000, || {
+                    debug!("Pushing image {image_name}:{tag}");
+
+                    let tag_image = format!("{image_name}:{tag}");
+
+                    build_strat.push(&tag_image)
+                })?;
+            }
             sign_images(image_name, tags.first().map(String::as_str))?;
         }
 
@@ -886,193 +706,4 @@ fn check_cosign_files() -> Result<()> {
             Ok(())
         }
     }
-}
-
-#[cfg(feature = "builtin-podman")]
-async fn handle_signals(
-    mut signals: Signals,
-    kill: Sender<()>,
-    build_id: Uuid,
-    client: Arc<Podman>,
-) -> Result<()> {
-    use std::process;
-
-    use futures_util::StreamExt;
-    use podman_api::opts::{
-        ContainerListOpts, ContainerPruneFilter, ContainerPruneOpts, ImagePruneFilter,
-        ImagePruneOpts,
-    };
-    use signal_hook::consts::{SIGHUP, SIGINT};
-    use tokio::time::{self, Duration};
-
-    trace!("handle_signals(signals, {build_id}, {client:#?})");
-
-    while let Some(signal) = signals.next().await {
-        match signal {
-            SIGHUP => (),
-            SIGINT => {
-                kill.send(()).unwrap();
-                info!("Recieved SIGINT, cleaning up build...");
-
-                time::sleep(Duration::from_secs(1)).await;
-
-                let containers = client
-                    .containers()
-                    .list(&ContainerListOpts::builder().sync(true).all(true).build())
-                    .await?;
-
-                trace!("{containers:#?}");
-
-                // Prune containers from this build
-                let container_prune_opts = ContainerPruneOpts::builder()
-                    .filter([ContainerPruneFilter::LabelKeyVal(
-                        BUILD_ID_LABEL.to_string(),
-                        build_id.to_string(),
-                    )])
-                    .build();
-                client.containers().prune(&container_prune_opts).await?;
-                debug!("Pruned containers");
-
-                // Prune images from this build
-                let image_prune_opts = ImagePruneOpts::builder()
-                    .filter([ImagePruneFilter::LabelKeyVal(
-                        BUILD_ID_LABEL.to_string(),
-                        build_id.to_string(),
-                    )])
-                    .build();
-                client.images().prune(&image_prune_opts).await?;
-                debug!("Pruned images");
-                process::exit(2);
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    Ok(())
-}
-
-fn tag_images(tags: &[String], image_name: &str, full_image: &str) -> Result<()> {
-    debug!("Tagging all images");
-
-    for tag in tags {
-        debug!("Tagging {image_name} with {tag}");
-
-        let tag_image = format!("{image_name}:{tag}");
-
-        let status = match (
-            blue_build_utils::check_command_exists("buildah"),
-            blue_build_utils::check_command_exists("podman"),
-        ) {
-            (Ok(()), _) => {
-                trace!("buildah tag {full_image} {tag_image}");
-                Command::new("buildah")
-            }
-            (Err(_), Ok(())) => {
-                trace!("podman tag {full_image} {tag_image}");
-                Command::new("podman")
-            }
-            (Err(e1), Err(e2)) => {
-                bail!("Need either 'buildah' or 'podman' to build: {e1}, {e2}")
-            }
-        }
-        .arg("tag")
-        .arg(full_image)
-        .arg(&tag_image)
-        .status()?;
-
-        if status.success() {
-            info!("Successfully tagged {image_name}:{tag}!");
-        } else {
-            bail!("Failed to tag image {image_name}:{tag}");
-        }
-    }
-
-    Ok(())
-}
-
-fn push_images(tags: &[String], image_name: &str) -> Result<()> {
-    debug!("Pushing all images");
-    for tag in tags {
-        debug!("Pushing image {image_name}:{tag}");
-
-        let tag_image = format!("{image_name}:{tag}");
-
-        let status = match (
-            blue_build_utils::check_command_exists("buildah"),
-            blue_build_utils::check_command_exists("podman"),
-        ) {
-            (Ok(()), _) => {
-                trace!("buildah push {tag_image}");
-                Command::new("buildah")
-            }
-            (Err(_), Ok(())) => {
-                trace!("podman push {tag_image}");
-                Command::new("podman")
-            }
-            (Err(e1), Err(e2)) => {
-                bail!("Need either 'buildah' or 'podman' to build: {e1}, {e2}")
-            }
-        }
-        .arg("push")
-        .arg(&tag_image)
-        .status()?;
-
-        if status.success() {
-            info!("Successfully pushed {image_name}:{tag}!");
-        } else {
-            bail!("Failed to push image {image_name}:{tag}");
-        }
-    }
-
-    Ok(())
-}
-
-#[cfg(feature = "podman-api")]
-async fn push_images_podman_api(
-    tags: &[String],
-    image_name: &str,
-    first_image_name: &str,
-    client: &Podman,
-    credentials: &Credentials,
-) -> Result<()> {
-    use podman_api::opts::ImageTagOpts;
-
-    let first_image = client.images().get(first_image_name);
-    let (registry, username, password) = (
-        &credentials.registry,
-        &credentials.username,
-        &credentials.password,
-    );
-
-    for tag in tags {
-        let full_image_name = format!("{image_name}:{tag}");
-
-        first_image
-            .tag(&ImageTagOpts::builder().repo(image_name).tag(tag).build())
-            .await?;
-        debug!("Tagged image {full_image_name}");
-
-        let new_image = client.images().get(&full_image_name);
-
-        info!("Pushing {full_image_name}");
-        match new_image
-            .push(
-                &ImagePushOpts::builder()
-                    .tls_verify(true)
-                    .auth(
-                        RegistryAuth::builder()
-                            .username(username)
-                            .password(password)
-                            .server_address(registry)
-                            .build(),
-                    )
-                    .build(),
-            )
-            .await
-        {
-            Ok(_) => info!("Pushed {full_image_name} successfully!"),
-            Err(e) => bail!("Failed to push image: {e}"),
-        }
-    }
-    Ok(())
 }
