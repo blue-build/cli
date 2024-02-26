@@ -46,9 +46,11 @@ ARG CONFIG_DIRECTORY="/tmp/config"
 ARG IMAGE_NAME="{{ recipe.name }}"
 ARG BASE_IMAGE="{{ recipe.base_image }}"
 
+COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
+COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
+
 {%- include "modules/modules.j2" %}
 
-COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
 COPY --from=ghcr.io/blue-build/cli:
 {%- if let Some(tag) = recipe.blue_build_tag -%}
 {{ tag }}

@@ -34,7 +34,7 @@ jobs:
         run: |
           earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
-          earthly sat s blue-build
+          earthly sat s blue-build-tag
 
       - name: Set up Python
         uses: actions/setup-python@v5
