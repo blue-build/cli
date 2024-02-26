@@ -218,16 +218,6 @@ impl BlueBuildCommand for BuildCommand {
 
         info!("Building image for recipe at {}", recipe_path.display());
 
-        // #[cfg(feature = "builtin-podman")]
-        // match BuildStrategy::determine_strategy()? {
-        //     BuildStrategy::Socket(socket) => Runtime::new()?.block_on(self.build_image_podman_api(
-        //         Podman::unix(socket),
-        //         build_id,
-        //         &recipe_path,
-        //     )),
-        //     _ => self.build_image(&recipe_path),
-        // }
-
         let credentials = self.get_login_creds();
 
         self.build_image(
