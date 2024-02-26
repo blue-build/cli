@@ -81,6 +81,9 @@ impl<'a> Module<'a> {
     }
 
     pub fn get_files_list(&'a self) -> Option<Vec<(String, String)>> {
+        let config_path = Value::String("./config/files".to_string());
+        let file_path = self.config.get("path").unwrap_or(&config_path).as_str()?;
+
         Some(
             self.config
                 .get("files")?
@@ -90,7 +93,7 @@ impl<'a> Module<'a> {
                 .flatten()
                 .filter_map(|(src, dest)| {
                     Some((
-                        format!("./config/files/{}", src.as_str()?),
+                        format!("{file_path}/{}", src.as_str()?),
                         dest.as_str()?.to_string(),
                     ))
                 })
