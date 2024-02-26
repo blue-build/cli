@@ -8,7 +8,6 @@
 RUN \
   --mount=type=tmpfs,target=/tmp \
   --mount=type=tmpfs,target=/var \
-  --mount=type=bind,from=docker.io/mikefarah/yq,src=/usr/bin/yq,dst=/usr/bin/yq \
   --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
       {%- if let Some(source) = module.source %}
   --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
