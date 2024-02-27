@@ -1,10 +1,15 @@
 # `files`
 
-The `files` module simplifies the process of copying files to the image during the build time. These files are sourced from the `config/files` directory, which is located at `/tmp/config/files` inside the image.
+The `files` module simplifies the process of copying files to the image during the build time. By default, these files are sourced from the `config/files` directory, which is located at `/tmp/config/files` inside the image. If you prefer to specify a different directory, you can do so by setting the `path` variable in your `recipe.yml`.
 
-:::note
-If you want to place any files in `/etc/`, you should place them in `/usr/etc/` instead, which will be used to generate `/etc/` on a booted system. That is the proper directory for "system" configuration templates on atomic Fedora distros, whereas `/etc/` is meant for manual overrides and editing by the machine's admin AFTER installation! See issue https://github.com/blue-build/legacy-template/issues/28.
-:::
+The `files` module streamlines the task of copying files into the image during the build process. By default, files are sourced from the `config/files` directory, which is relative to the root of the project. It's important to note that paths specified should be relative to the root of the project and cannot extend beyond the project's context.
+
+If you need to specify a different directory for sourcing files, you can do so by setting the path variable in the recipe.yml file.
+
+> [!NOTE]  
+> If you want to place any files in `/etc/`, you should place them in `/usr/etc/` instead, which will be used to generate `/etc/` on a booted
+> system. That is the proper directory for "system" configuration templates on atomic Fedora distros, whereas `/etc/` is meant for manual
+> overrides and editing by the machine's admin AFTER installation! See issue https://github.com/blue-build/legacy-template/issues/28.
 
 ## Implementation differences between the legacy template and compiler-based builds
 
