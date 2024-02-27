@@ -115,7 +115,7 @@ impl<'a> Recipe<'a> {
         debug!("Finished generating tags!");
         debug!("Tags: {tags:#?}");
 
-        tags
+        tags.into_iter().map(|t| t.replace('/', "_")).collect()
     }
 
     /// # Parse a recipe file
