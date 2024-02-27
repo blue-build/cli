@@ -2,6 +2,7 @@ use std::{
     env, fs,
     path::{Path, PathBuf},
     process::Command,
+    rc::Rc,
 };
 
 use anyhow::{anyhow, bail, Result};
@@ -13,7 +14,10 @@ use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
-use crate::{commands::template::TemplateCommand, strategies::BuildStrategy};
+use crate::{
+    commands::template::TemplateCommand,
+    strategies::{determine_build_strategy, BuildStrategy},
+};
 
 use super::BlueBuildCommand;
 
@@ -222,13 +226,13 @@ impl BlueBuildCommand for BuildCommand {
 
         self.build_image(
             &recipe_path,
-            &BuildStrategy::determine_strategy(build_id, credentials.as_ref())?,
+            determine_build_strategy(build_id, credentials)?,
         )
     }
 }
 
 impl BuildCommand {
-    fn build_image(&self, recipe_path: &Path, build_strat: &BuildStrategy) -> Result<()> {
+    fn build_image(&self, recipe_path: &Path, build_strat: Rc<dyn BuildStrategy>) -> Result<()> {
         trace!("BuildCommand::build_image()");
 
         let recipe = Recipe::parse(&recipe_path)?;
@@ -238,7 +242,7 @@ impl BuildCommand {
         let image_name = self.generate_full_image_name(&recipe)?;
 
         if self.push {
-            self.login(build_strat)?;
+            self.login(build_strat.clone())?;
         }
         self.run_build(&image_name, &tags, build_strat)?;
 
@@ -247,7 +251,7 @@ impl BuildCommand {
         Ok(())
     }
 
-    fn login(&self, build_strat: &BuildStrategy) -> Result<()> {
+    fn login(&self, build_strat: Rc<dyn BuildStrategy>) -> Result<()> {
         trace!("BuildCommand::login()");
         info!("Attempting to login to the registry");
 
@@ -360,7 +364,7 @@ impl BuildCommand {
         &self,
         image_name: &str,
         tags: &[String],
-        build_strat: &BuildStrategy,
+        build_strat: Rc<dyn BuildStrategy>,
     ) -> Result<()> {
         trace!("BuildCommand::run_build({image_name}, {tags:#?})");
 
