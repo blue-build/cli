@@ -27,7 +27,6 @@ use crate::commands::build::Credentials;
 use super::BuildStrategy;
 
 #[derive(Debug, TypedBuilder)]
-#[allow(dead_code)]
 pub struct PodmanApiStrategy {
     client: Arc<Podman>,
     rt: Runtime,
@@ -143,7 +142,6 @@ impl BuildStrategy for PodmanApiStrategy {
     }
 }
 
-#[cfg(feature = "builtin-podman")]
 async fn handle_signals(
     mut signals: Signals,
     kill: Sender<()>,

@@ -9,7 +9,6 @@ use crate::commands::build::Credentials;
 use super::BuildStrategy;
 
 #[derive(Debug, TypedBuilder)]
-#[allow(dead_code)]
 pub struct PodmanStrategy {
     creds: Option<Credentials>,
 }
