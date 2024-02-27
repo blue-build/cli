@@ -224,7 +224,7 @@ impl BlueBuildCommand for BuildCommand {
 
         let credentials = self.get_login_creds();
 
-        self.build_image(
+        self.start(
             &recipe_path,
             determine_build_strategy(build_id, credentials)?,
         )
@@ -232,7 +232,7 @@ impl BlueBuildCommand for BuildCommand {
 }
 
 impl BuildCommand {
-    fn build_image(&self, recipe_path: &Path, build_strat: Rc<dyn BuildStrategy>) -> Result<()> {
+    fn start(&self, recipe_path: &Path, build_strat: Rc<dyn BuildStrategy>) -> Result<()> {
         trace!("BuildCommand::build_image()");
 
         let recipe = Recipe::parse(&recipe_path)?;
@@ -385,24 +385,25 @@ impl BuildCommand {
                 debug!("Tagging {image_name} with {tag}");
 
                 build_strat.tag(&full_image, image_name, tag)?;
+
+                if self.push {
+                    let retry = self.retry_push;
+                    let retry_count = if retry { self.retry_count } else { 0 };
+
+                    debug!("Pushing all images");
+                    // Push images with retries (1s delay between retries)
+                    blue_build_utils::retry(retry_count, 1000, || {
+                        debug!("Pushing image {image_name}:{tag}");
+
+                        let tag_image = format!("{image_name}:{tag}");
+
+                        build_strat.push(&tag_image)
+                    })?;
+                }
             }
         }
 
         if self.push {
-            let retry = self.retry_push;
-            let retry_count = if retry { self.retry_count } else { 0 };
-
-            debug!("Pushing all images");
-            for tag in tags {
-                // Push images with retries (1s delay between retries)
-                blue_build_utils::retry(retry_count, 1000, || {
-                    debug!("Pushing image {image_name}:{tag}");
-
-                    let tag_image = format!("{image_name}:{tag}");
-
-                    build_strat.push(&tag_image)
-                })?;
-            }
             sign_images(image_name, tags.first().map(String::as_str))?;
         }
 
