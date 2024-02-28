@@ -3,7 +3,7 @@ PROJECT blue-build/cli
 
 all:
 	ARG NIGHTLY=false
-	BUILD +build-template --NIGHTLY=$NIGHTLY
+	BUILD +test-image --NIGHTLY=$NIGHTLY
 	BUILD +build --NIGHTLY=$NIGHTLY
 	BUILD +rebase --NIGHTLY=$NIGHTLY
 	BUILD +upgrade --NIGHTLY=$NIGHTLY
@@ -13,7 +13,16 @@ build-template:
 	FROM DOCKERFILE \
 		-f +template-containerfile/test/Containerfile \
 		+template-containerfile/test/* --NIGHTLY=$NIGHTLY
-	RUN [ -f /usr/test-file ]
+
+test-image:
+	ARG NIGHTLY=false
+	FROM +build-template --NIGHTLY=$NIGHTLY
+	WORKDIR /tmp/test
+	COPY ./test-scripts/*.sh ./
+
+	FOR script IN $(ls *.sh)
+		RUN --no-cache chmod +x $script && ./$script
+	END
 
 template-containerfile:
 	ARG NIGHTLY=false
