@@ -119,7 +119,7 @@ impl<'a> Module<'a> {
                 (Some(b), _) if !b.is_empty() => (format!("akmods:{b}-{os_version}"), None),
                 (_, Some(nv)) if nv > 0 => (
                     format!("akmods:main-{os_version}"),
-                    Some(format!("akmods-nvidia:main-{os_version}")),
+                    Some(format!("akmods-nvidia:main-{os_version}-{nv}")),
                 ),
                 _ => (format!("akmods:main-{os_version}"), None),
             })
