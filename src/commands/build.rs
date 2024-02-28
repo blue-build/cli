@@ -547,22 +547,22 @@ impl BuildCommand {
 
         info!("Building image {full_image}");
         let status = match (
-            blue_build_utils::check_command_exists("buildah"),
             blue_build_utils::check_command_exists("podman"),
+            blue_build_utils::check_command_exists("buildah"),
         ) {
-            (Ok(()), _) => {
-                trace!("buildah build -t {full_image}");
-                Command::new("buildah")
-                    .arg("build")
-                    .arg("-t")
-                    .arg(&full_image)
-                    .status()?
-            }
             (Err(_), Ok(())) => {
                 trace!("podman build . -t {full_image}");
                 Command::new("podman")
                     .arg("build")
                     .arg(".")
+                    .arg("-t")
+                    .arg(&full_image)
+                    .status()?
+            }
+            (Ok(()), _) => {
+                trace!("buildah build -t {full_image}");
+                Command::new("buildah")
+                    .arg("build")
                     .arg("-t")
                     .arg(&full_image)
                     .status()?

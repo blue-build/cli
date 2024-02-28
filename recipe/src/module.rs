@@ -108,10 +108,13 @@ impl<'a> Module<'a> {
             os_version
         };
 
+        // Default to `main` base
         let base = self
             .config
             .get("base")
-            .map(|b| b.as_str().unwrap_or_default());
+            .map(|b| b.as_str().unwrap_or_default())
+            .unwrap_or("main");
+
         let nvidia_version = self
             .config
             .get("nvidia-version")
@@ -119,20 +122,20 @@ impl<'a> Module<'a> {
 
         AkmodsInfo::builder()
             .images(match (base, nvidia_version) {
-                (Some(b), Some(nv)) if !b.is_empty() && nv > 0 => (
+                (b, Some(nv)) if !b.is_empty() && nv > 0 => (
                     format!("akmods:{b}-{os_version}"),
                     Some(format!("akmods-nvidia:{b}-{os_version}-{nv}")),
                 ),
-                (Some(b), _) if !b.is_empty() => (format!("akmods:{b}-{os_version}"), None),
-                (_, Some(nv)) if nv > 0 => (
-                    format!("akmods:main-{os_version}"),
-                    Some(format!("akmods-nvidia:main-{os_version}")),
+                (b, Some(nv)) if nv > 0 => (
+                    format!("akmods:{b}-{os_version}"),
+                    Some(format!("akmods-nvidia:{b}-{os_version}")),
                 ),
+                (b, _) if !b.is_empty() => (format!("akmods:{b}-{os_version}"), None),
                 _ => (format!("akmods:main-{os_version}"), None),
             })
             .stage_name(format!(
                 "{}{}",
-                base.unwrap_or("main"),
+                base,
                 nvidia_version.map_or_else(String::default, |nv| format!("-{nv}"))
             ))
             .build()
