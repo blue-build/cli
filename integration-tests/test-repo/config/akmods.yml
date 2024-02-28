@@ -1,0 +1,20 @@
+# TODO: Add back installs after upstream issues are fixed
+
+modules:
+  # Tests installing rpms from a combo image stage
+  - type: akmods
+    base: surface
+    nvidia-version: 545
+    # install:
+    #   - nvidia
+    #   - openrazer
+
+  # Tests installing from just main image
+  - type: akmods
+    # install:
+    #   - openrgb
+
+  # This tests pulling image for main nvidia only
+  - type: akmods
+    nvidia-version: 545
+
