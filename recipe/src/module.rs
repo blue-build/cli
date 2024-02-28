@@ -101,6 +101,13 @@ impl<'a> Module<'a> {
     pub fn generate_akmods_info(&'a self, os_version: &str) -> AkmodsInfo {
         trace!("generate_akmods_base({self:#?}, {os_version})");
 
+        // Akmods don't support the latest tag.
+        let os_version = if os_version == "latest" {
+            "39"
+        } else {
+            os_version
+        };
+
         let base = self
             .config
             .get("base")
