@@ -65,6 +65,9 @@
             cargo-outdated
             cargo-watch
             rust-analyzer
+            bacon
+            earthly
+            yq
             jq
             nixpkgs-fmt
           ];
