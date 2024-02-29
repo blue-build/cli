@@ -226,7 +226,7 @@ impl BlueBuildCommand for BuildCommand {
 
         self.start(
             &recipe_path,
-            determine_build_strategy(build_id, credentials)?,
+            determine_build_strategy(build_id, credentials, self.archive.is_some())?,
         )
     }
 }
