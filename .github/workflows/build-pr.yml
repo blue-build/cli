@@ -45,3 +45,30 @@ jobs:
         if: github.repository == 'blue-build/cli'
         run: earthly --ci -P ./integration-tests+all
 
+  docker-build:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Maximize build space
+        uses: ublue-os/remove-unwanted-software@v6
+
+      - uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.3
+
+      - name: Earthly login
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN != null
+        run: |
+          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
+          earthly org s blue-build
+          earthly sat s blue-build-integration-tests
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.ref }}
+
+      - name: Run Docker build test
+        run: earthly --ci ./integration-test+build-docker

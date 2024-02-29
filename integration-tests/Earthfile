@@ -28,6 +28,18 @@ build:
 
 	RUN --privileged bluebuild -vv build config/recipe.yml
 
+build-docker:
+	ARG NIGHTLY=false
+	FROM ../+blue-build-cli --NIGHTLY=$NIGHTLY
+
+	WORKDIR /test
+	COPY ./test-repo /test
+	DO +GEN_COSIGN
+
+	WITH DOCKER
+		RUN bluebuild -vv build config/recipe.yml
+	END
+
 rebase:
 	ARG NIGHTLY=false
 	FROM +test-base --NIGHTLY=$NIGHTLY
@@ -50,7 +62,9 @@ test-base:
 
 	WORKDIR /test
 	COPY ./test-repo /test
+	DO +GEN_COSIGN
 
+GEN_COSIGN:
 	# Setup a cosign key pair
 	RUN echo -n "\n\n" | cosign generate-key-pair
 	ENV COSIGN_PRIVATE_KEY=$(cat cosign.key)

@@ -106,11 +106,15 @@ pub fn determine_build_strategy(
                     .creds(creds)
                     .build(),
             ),
-            (_, _, _, _, Ok(()), _, _) if !oci_required => {
+            (_, _, _, _, Ok(_docker), _, _) if !oci_required => {
                 Rc::new(DockerStrategy::builder().creds(creds).build())
             }
-            (_, _, _, _, _, Ok(()), _) => Rc::new(PodmanStrategy::builder().creds(creds).build()),
-            (_, _, _, _, _, _, Ok(())) => Rc::new(BuildahStrategy::builder().creds(creds).build()),
+            (_, _, _, _, _, Ok(_podman), _) => {
+                Rc::new(PodmanStrategy::builder().creds(creds).build())
+            }
+            (_, _, _, _, _, _, Ok(_buildah)) => {
+                Rc::new(BuildahStrategy::builder().creds(creds).build())
+            }
             _ => bail!("Could not determine strategy"),
         },
     )
