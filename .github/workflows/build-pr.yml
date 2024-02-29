@@ -71,4 +71,4 @@ jobs:
           ref: ${{ github.event.pull_request.ref }}
 
       - name: Run Docker build test
-        run: earthly --ci ./integration-test+build-docker
+        run: earthly --ci ./integration-tests+build-docker
