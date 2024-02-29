@@ -48,9 +48,6 @@ ARG BASE_IMAGE="{{ recipe.base_image }}"
 
 COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
 COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
-
-{%- include "modules/modules.j2" %}
-
 COPY --from=ghcr.io/blue-build/cli:
 {%- if let Some(tag) = recipe.blue_build_tag -%}
 {{ tag }}
@@ -58,4 +55,8 @@ COPY --from=ghcr.io/blue-build/cli:
 latest-installer
 {%- endif %} /out/bluebuild /usr/bin/bluebuild
 
-RUN ostree container commit
+{%- include "modules/modules.j2" %}
+
+# Added in case a user adds something else using the
+# 'containerfile' module
+RUN rm -fr /tmp/* /var/* && ostree container commit

@@ -35,6 +35,12 @@ This will install the binary on your system in `/usr/local/bin`. This is only a 
 podman run --rm ghcr.io/blue-build/cli:latest-installer | bash
 ```
 
+### Github Install Script
+
+```bash
+bash <(curl -s https://raw.githubusercontent.com/blue-build/cli/main/install.sh)
+```
+
 ## How to use
 
 ### Templating
