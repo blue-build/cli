@@ -72,6 +72,6 @@ jobs:
 
       - name: Run Docker build test
         run: |
-          earthly --ci +local
+          earthly +local
           cd integration-tests/test-repo
           bluebuild build -vv
