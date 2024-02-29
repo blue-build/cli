@@ -50,12 +50,6 @@ install:
 
 	SAVE ARTIFACT target/$BUILD_TARGET/release/bluebuild
 
-local:
-	LOCALLY
-	ARG NIGHTLY=false
-	ARG BUILD_TARGET="x86_64-unknown-linux-musl"
-	COPY (+install/bluebuild --BUILD_TARGET=$BUILD_TARGET --NIGHTLY=$NIGHTLY) /usr/local/bin/bluebuild
-
 common:
 	FROM ghcr.io/blue-build/earthly-lib/cargo-builder
 

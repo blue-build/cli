@@ -72,6 +72,6 @@ jobs:
 
       - name: Run Docker build test
         run: |
-          earthly +local
+          earthly -a (+install/bluebuild --BUILD_TARGET=x86_64-unknown-linux-musl) /usr/local/bin/bluebuild
           cd integration-tests/test-repo
           bluebuild build -vv
