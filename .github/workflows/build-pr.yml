@@ -64,11 +64,14 @@ jobs:
         run: |
           earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
-          earthly sat s blue-build-integration-tests
+          earthly sat s blue-build
 
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.ref }}
 
       - name: Run Docker build test
-        run: earthly --ci ./integration-tests+build-docker
+        run: |
+          earthly --ci +local
+          cd integration-tests/test-repo
+          bluebuild build -vv

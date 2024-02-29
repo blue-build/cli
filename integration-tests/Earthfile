@@ -65,6 +65,7 @@ test-base:
 	DO +GEN_COSIGN
 
 GEN_COSIGN:
+	FUNCTION
 	# Setup a cosign key pair
 	RUN echo -n "\n\n" | cosign generate-key-pair
 	ENV COSIGN_PRIVATE_KEY=$(cat cosign.key)
