@@ -1,6 +1,6 @@
 {
   
-  description = "Accessible tools for you to create, configure and build custom images of atomic Fedora distributions.";
+  description = "BlueBuild's command line program that builds Containerfiles and custom images";
 
   
   inputs = {
@@ -48,8 +48,8 @@
           cargoSha256 = "sha256-rVU9ZdBr9Z3qGavik4kwtifxJL0U0xaC7J+a+YbiSgA=";
 
           meta = {
-            description = "Accessible tools for you to create, configure and build custom images of atomic Fedora distributions.";
-            homepage = "https://github.com/blue-build/";
+            description = "BlueBuild's command line program that builds Containerfiles and custom images";
+            homepage = "https://github.com/blue-build/cli";
             license = lib.licenses.apsl20;
           };
         };
