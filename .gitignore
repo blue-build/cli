@@ -1,6 +1,8 @@
 /target
 .sccache/
 .vscode/
+result*
+.direnv/
 
 # Local testing for bluebuild recipe files
 /config/*
