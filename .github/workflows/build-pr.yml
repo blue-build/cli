@@ -88,6 +88,7 @@ jobs:
       - name: Run Build
         env:
           BB_BUILDKIT_CACHE_GHA: 1
+          GH_TOKEN: ${{ github.token }}
         run: |
           cd integration-tests/test-repo
           echo -n "\n\n" | cosign generate-key-pair
