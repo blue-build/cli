@@ -27,9 +27,7 @@ impl BuildStrategy for DockerStrategy {
             .arg("Containerfile");
 
         // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
-        if env::var(BB_BUILDKIT_CACHE_GHA)
-            .map_or_else(|_| false, |e| e.parse::<bool>().unwrap_or_default())
-        {
+        if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
             trace!("--cache-from type=gha --cache-to type=gha");
             command
                 .arg("--cache-from")
