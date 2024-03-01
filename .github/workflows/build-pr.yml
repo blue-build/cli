@@ -87,7 +87,7 @@ jobs:
 
       - name: Run Build
         env:
-          BB_BUILDKIT_CACHE_GHA: 1
+          BB_BUILDKIT_CACHE_GHA: "true"
           GH_TOKEN: ${{ github.token }}
         run: |
           cd integration-tests/test-repo
