@@ -44,10 +44,10 @@ pub struct BuildCommand {
     #[builder(default)]
     push: bool,
 
-    /// Allow `bluebuild` to retry pushing images if it fails.
+    /// Block `bluebuild` from retrying to push the image.
     #[arg(short, long, default_value_t = true)]
     #[builder(default)]
-    retry_push: bool,
+    no_retry_push: bool,
 
     /// The number of times to retry pushing the image.
     #[arg(long, default_value_t = 1)]
@@ -387,7 +387,7 @@ impl BuildCommand {
                 build_strat.tag(&full_image, image_name, tag)?;
 
                 if self.push {
-                    let retry = self.retry_push;
+                    let retry = !self.no_retry_push || self.retry_count > 0;
                     let retry_count = if retry { self.retry_count } else { 0 };
 
                     debug!("Pushing all images");
