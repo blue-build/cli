@@ -93,4 +93,4 @@ jobs:
           echo -n "\n\n" | cosign generate-key-pair
           export COSIGN_PRIVATE_KEY=$(cat cosign.key)
           rm cosign.key
-          bluebuild build -vv
+          bluebuild build --push -vv
