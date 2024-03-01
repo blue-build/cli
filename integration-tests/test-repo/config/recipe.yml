@@ -1,4 +1,4 @@
-name: template
+name: cli/test-build
 description: This is my personal OS image.
 base-image: ghcr.io/ublue-os/silverblue-surface
 image-version: 39
