@@ -387,7 +387,7 @@ impl BuildCommand {
                 build_strat.tag(&full_image, image_name, tag)?;
 
                 if self.push {
-                    let retry = !self.no_retry_push || self.retry_count > 0;
+                    let retry = !self.no_retry_push;
                     let retry_count = if retry { self.retry_count } else { 0 };
 
                     debug!("Pushing all images");
