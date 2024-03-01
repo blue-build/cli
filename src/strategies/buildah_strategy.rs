@@ -88,4 +88,24 @@ impl BuildStrategy for BuildahStrategy {
         }
         Ok(())
     }
+
+    fn inspect(&self, image_name: &str, tag: &str) -> Result<Vec<u8>> {
+        let skopeo_url = "docker://quay.io/skopeo/stable:latest".to_string();
+        let url = format!("docker://{image_name}:{tag}");
+
+        trace!("buildah run {url}");
+        let output = Command::new("buildah")
+            .arg("run")
+            .arg(skopeo_url)
+            .arg("inspect")
+            .arg(url.clone())
+            .output()?;
+
+        if output.status.success() {
+            info!("Successfully inspected image {url}!");
+        } else {
+            bail!("Failed to inspect image {url}")
+        }
+        Ok(output.stdout)
+    }
 }

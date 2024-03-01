@@ -36,6 +36,8 @@ pub trait BuildStrategy {
     fn push(&self, image: &str) -> Result<()>;
 
     fn login(&self) -> Result<()>;
+
+    fn inspect(&self, image_name: &str, tag: &str) -> Result<Vec<u8>>;
 }
 
 pub fn determine_build_strategy(

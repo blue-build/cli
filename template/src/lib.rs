@@ -21,6 +21,9 @@ pub struct ContainerFileTemplate<'a> {
 
     #[builder(default)]
     export_script: ExportsTemplate,
+
+    #[builder(default)]
+    os_version: &'a str,
 }
 
 #[derive(Debug, Clone, Default, Template)]

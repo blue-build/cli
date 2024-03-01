@@ -1,16 +1,15 @@
-use std::{borrow::Cow, env, fs, path::Path, process::Command};
+use std::{borrow::Cow, env, fs, path::Path};
 
 use anyhow::Result;
 use blue_build_utils::constants::*;
 use chrono::Local;
-use format_serde_error::SerdeError;
 use indexmap::IndexMap;
-use log::{debug, info, trace, warn};
+use log::{debug, trace, warn};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
 
-use crate::{ImageInspection, Module, ModuleExt};
+use crate::{Module, ModuleExt};
 
 #[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
 pub struct Recipe<'a> {
@@ -42,12 +41,11 @@ pub struct Recipe<'a> {
 
 impl<'a> Recipe<'a> {
     #[must_use]
-    pub fn generate_tags(&self) -> Vec<String> {
+    pub fn generate_tags(&self, image_version: &str) -> Vec<String> {
         trace!("Recipe::generate_tags()");
         trace!("Generating image tags for {}", &self.name);
 
         let mut tags: Vec<String> = Vec::new();
-        let image_version = self.get_os_version();
         let timestamp = Local::now().format("%Y%m%d").to_string();
 
         if let (Ok(commit_branch), Ok(default_branch), Ok(commit_sha), Ok(pipeline_source)) = (
@@ -142,56 +140,5 @@ impl<'a> Recipe<'a> {
         recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules).into();
 
         Ok(recipe)
-    }
-
-    pub fn get_os_version(&self) -> String {
-        trace!("Recipe::get_os_version()");
-
-        if blue_build_utils::check_command_exists("skopeo").is_err() {
-            warn!("The 'skopeo' command doesn't exist, falling back to version defined in recipe");
-            return self.image_version.to_string();
-        }
-
-        let base_image = self.base_image.as_ref();
-        let image_version = self.image_version.as_ref();
-
-        info!("Retrieving information from {base_image}:{image_version}, this will take a bit");
-
-        let output = match Command::new("skopeo")
-            .arg("inspect")
-            .arg(format!("docker://{base_image}:{image_version}"))
-            .output()
-        {
-            Err(_) => {
-                warn!(
-                    "Issue running the 'skopeo' command, falling back to version defined in recipe"
-                );
-                return self.image_version.to_string();
-            }
-            Ok(output) => output,
-        };
-
-        if !output.status.success() {
-            warn!("Failed to get image information for {base_image}:{image_version}, falling back to version defined in recipe");
-            return self.image_version.to_string();
-        }
-
-        let inspection: ImageInspection = match serde_json::from_str(
-            String::from_utf8_lossy(&output.stdout).as_ref(),
-        ) {
-            Err(err) => {
-                let err_msg =
-                    SerdeError::new(String::from_utf8_lossy(&output.stdout).to_string(), err)
-                        .to_string();
-                warn!("Issue deserializing 'skopeo' output, falling back to version defined in recipe. {err_msg}",);
-                return self.image_version.to_string();
-            }
-            Ok(inspection) => inspection,
-        };
-
-        inspection.get_version().unwrap_or_else(|| {
-            warn!("Version label does not exist on image, using version in recipe");
-            image_version.to_string()
-        })
     }
 }

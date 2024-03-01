@@ -10,12 +10,14 @@ use blue_build_recipe::Recipe;
 use blue_build_utils::constants::*;
 use clap::Args;
 use colorized::{Color, Colors};
+use format_serde_error::SerdeError;
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
 use crate::{
     commands::template::TemplateCommand,
+    image_inspection::ImageInspection,
     strategies::{determine_build_strategy, BuildStrategy},
 };
 
@@ -213,18 +215,12 @@ impl BlueBuildCommand for BuildCommand {
             check_cosign_files()?;
         }
 
-        TemplateCommand::builder()
-            .recipe(&recipe_path)
-            .output(PathBuf::from("Containerfile"))
-            .build_id(build_id)
-            .build()
-            .try_run()?;
-
         info!("Building image for recipe at {}", recipe_path.display());
 
         let credentials = self.get_login_creds();
 
         self.start(
+            build_id,
             &recipe_path,
             determine_build_strategy(build_id, credentials, self.archive.is_some())?,
         )
@@ -232,18 +228,35 @@ impl BlueBuildCommand for BuildCommand {
 }
 
 impl BuildCommand {
-    fn start(&self, recipe_path: &Path, build_strat: Rc<dyn BuildStrategy>) -> Result<()> {
+    fn start(
+        &self,
+        build_id: Uuid,
+        recipe_path: &Path,
+        build_strat: Rc<dyn BuildStrategy>,
+    ) -> Result<()> {
         trace!("BuildCommand::build_image()");
 
         let recipe = Recipe::parse(&recipe_path)?;
 
-        let tags = recipe.generate_tags();
+        let os_version = self.get_os_version(build_strat.clone(), &recipe)?;
+        println!("os_version: {os_version}");
+
+        let tags = recipe.generate_tags(&os_version);
 
         let image_name = self.generate_full_image_name(&recipe)?;
 
         if self.push {
             self.login(build_strat.clone())?;
         }
+
+        TemplateCommand::builder()
+            .os_version(os_version)
+            .recipe(recipe_path)
+            .output(PathBuf::from("Containerfile"))
+            .build_id(build_id)
+            .build()
+            .try_run()?;
+
         self.run_build(&image_name, &tags, build_strat)?;
 
         info!("Build complete!");
@@ -451,6 +464,37 @@ impl BuildCommand {
                 .password(password)
                 .build(),
         )
+    }
+
+    fn get_os_version(
+        &self,
+        build_strat: Rc<dyn BuildStrategy>,
+        recipe: &Recipe,
+    ) -> Result<String> {
+        trace!("BuildCommand::get_os_version({recipe:#?})");
+
+        let scopeo_output = build_strat.inspect(&recipe.base_image, &recipe.image_version)?;
+        let inspection: ImageInspection = match serde_json::from_str(
+            String::from_utf8_lossy(&scopeo_output).as_ref(),
+        ) {
+            Err(err) => {
+                let err_msg =
+                    SerdeError::new(String::from_utf8_lossy(&scopeo_output).to_string(), err)
+                        .to_string();
+                warn!("Issue deserializing 'skopeo' output, falling back to version defined in recipe. {err_msg}",);
+                return Ok(recipe.image_version.to_string());
+            }
+
+            Ok(inspection) => inspection,
+        };
+
+        let os_version = inspection.get_version().unwrap_or_else(|| {
+            warn!("Version label does not exist on image, using version in recipe");
+            recipe.image_version.to_string()
+        });
+        trace!("{}", format!("os_version: {os_version}"));
+
+        Ok(os_version)
     }
 }
 

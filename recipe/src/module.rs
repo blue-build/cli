@@ -8,6 +8,8 @@ use typed_builder::TypedBuilder;
 
 use crate::{AkmodsInfo, ModuleExt};
 
+const FEDORA_MAIN_VERSION: &str = "39";
+
 #[derive(Serialize, Deserialize, Debug, Clone, TypedBuilder)]
 pub struct Module<'a> {
     #[builder(default, setter(into, strip_option))]
@@ -103,7 +105,7 @@ impl<'a> Module<'a> {
 
         // `get_os_version` will default to `image_version` which is "latest" in some cases
         let os_version = if os_version == "latest" {
-            "39"
+            FEDORA_MAIN_VERSION
         } else {
             os_version
         };
