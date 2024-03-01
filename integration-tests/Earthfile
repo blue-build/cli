@@ -50,8 +50,11 @@ test-base:
 
 	WORKDIR /test
 	COPY ./test-repo /test
-
-	# Setup a cosign key pair
-	RUN echo -n "\n\n" | cosign generate-key-pair
+	COPY +generate-cosign-key-pair/cosign.* ./
 	ENV COSIGN_PRIVATE_KEY=$(cat cosign.key)
 	RUN rm cosign.key
+
+generate-cosign-key-pair:
+	# Setup a cosign key pair
+	RUN echo -n "\n\n" | cosign generate-key-pair
+	SAVE ARTIFACT cosign.*

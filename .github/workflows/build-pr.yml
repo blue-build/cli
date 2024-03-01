@@ -72,6 +72,7 @@ jobs:
 
       - name: Run Docker build test
         run: |
-          earthly -a (+install/bluebuild --BUILD_TARGET=x86_64-unknown-linux-musl) /usr/local/bin/bluebuild
+          earthly -a +install/bluebuild --BUILD_TARGET=x86_64-unknown-linux-musl /usr/local/bin/bluebuild
+          earthly -a ./integration-tests+generate-cosign-key-pair/cosign.* ./integration-tests/test-repo
           cd integration-tests/test-repo
           bluebuild build -vv
