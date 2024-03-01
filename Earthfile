@@ -68,7 +68,18 @@ blue-build-cli:
 
 	BUILD +install --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY
 
-	RUN dnf install --refresh -y buildah podman skopeo
+	RUN dnf -y install dnf-plugins-core \
+		&& dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo \
+		&& dnf install --refresh -y \
+			jq \
+			docker-ce \
+			docker-ce-cli \
+			containerd.io \
+			docker-buildx-plugin \
+			docker-compose-plugin \
+			buildah \
+			podman \
+			skopeo
 
 	COPY +cosign/cosign /usr/bin/cosign
 

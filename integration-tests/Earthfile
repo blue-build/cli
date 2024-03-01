@@ -46,7 +46,7 @@ rebase:
 upgrade:
 	ARG NIGHTLY=false
 	FROM +test-base --NIGHTLY=$NIGHTLY
-	RUN mkdir -p /etc/bluebuild && touch /etc/bluebuild/template.tar.gz
+	RUN mkdir -p /etc/bluebuild && touch /etc/bluebuild/cli_test.tar.gz
 
 	RUN --privileged bluebuild -vv upgrade config/recipe.yml
 
@@ -64,3 +64,4 @@ test-base:
 	RUN echo -n "\n\n" | cosign generate-key-pair
 	ENV COSIGN_PRIVATE_KEY=$(cat cosign.key)
 	RUN rm cosign.key
+
