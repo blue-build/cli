@@ -1,6 +1,7 @@
-use std::process::Command;
+use std::{env, process::Command};
 
 use anyhow::{anyhow, bail, Result};
+use blue_build_utils::constants::*;
 use log::{info, trace};
 use typed_builder::TypedBuilder;
 
@@ -16,16 +17,28 @@ pub struct DockerStrategy {
 impl BuildStrategy for DockerStrategy {
     fn build(&self, image: &str) -> Result<()> {
         trace!("docker build . -t {image}");
-        let status = Command::new("docker")
+        let mut command = Command::new("docker");
+        command
             .arg("build")
             .arg(".")
             .arg("-t")
             .arg(image)
             .arg("-f")
-            .arg("Containerfile")
-            .status()?;
+            .arg("Containerfile");
 
-        if status.success() {
+        if let Ok(path) = env::var(BLUEBUILD_BUILDKIT_CACHE_FROM) {
+            command
+                .arg("--cache-from")
+                .arg(format!("type=local,src={path}"));
+        }
+
+        if let Ok(path) = env::var(BLUEBUILD_BUILDKIT_CACHE_TO) {
+            command
+                .arg("--cache-to")
+                .arg(format!("type=local,mode=max,dest={path}"));
+        }
+
+        if command.status()?.success() {
             info!("Successfully built {image}");
         } else {
             bail!("Failed to build {image}");

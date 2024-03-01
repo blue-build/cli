@@ -13,6 +13,10 @@ pub const VAR_RUN_PODMAN_SOCK: &str = "/var/run/podman.sock";
 // Labels
 pub const BUILD_ID_LABEL: &str = "org.blue-build.build-id";
 
+// BlueBuild vars
+pub const BLUEBUILD_BUILDKIT_CACHE_FROM: &str = "BLUEBUILD_BUILDKIT_CACHE_FROM";
+pub const BLUEBUILD_BUILDKIT_CACHE_TO: &str = "BLUEBUILD_BUILDKIT_CACHE_TO";
+
 // Cosign vars
 pub const COSIGN_PRIVATE_KEY: &str = "COSIGN_PRIVATE_KEY";
 pub const GITHUB_TOKEN_ISSUER_URL: &str = "https://token.actions.githubusercontent.com";

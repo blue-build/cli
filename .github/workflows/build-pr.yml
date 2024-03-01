@@ -71,7 +71,19 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.ref }}
 
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          # Key is named differently to avoid collision
+          key: ${{ runner.os }}-multi-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-multi-buildx
+
       - name: Run Docker build test
+        env:
+          BLUEBUILD_BUILDKIT_CACHE_FROM: /tmp/.buildx-cache
+          BLUEBUILD_BUILDKIT_CACHE_TO: /tmp/.buildx-cache-new
         run: |
           earthly -a +install/bluebuild --BUILD_TARGET=x86_64-unknown-linux-musl /usr/local/bin/bluebuild
           cd integration-tests/test-repo
@@ -79,3 +91,8 @@ jobs:
           export COSIGN_PRIVATE_KEY=$(cat cosign.key)
           rm cosign.key
           bluebuild build -vv
+
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
