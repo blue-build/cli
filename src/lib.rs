@@ -4,3 +4,4 @@
 shadow_rs::shadow!(shadow);
 
 pub mod commands;
+pub mod strategies;
