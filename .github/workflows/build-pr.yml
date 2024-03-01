@@ -53,6 +53,7 @@ jobs:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@v6
 
+      - uses: sigstore/cosign-installer@v3.3.0
       - uses: earthly/actions-setup@v1
         with:
           version: v0.8.3
@@ -73,6 +74,8 @@ jobs:
       - name: Run Docker build test
         run: |
           earthly -a +install/bluebuild --BUILD_TARGET=x86_64-unknown-linux-musl /usr/local/bin/bluebuild
-          earthly -a ./integration-tests+generate-cosign-key-pair/cosign.* ./integration-tests/test-repo
           cd integration-tests/test-repo
+          echo -n "\n\n" | cosign generate-key-pair
+          export COSIGN_PRIVATE_KEY=$(cat cosign.key)
+          rm cosign.key
           bluebuild build -vv
