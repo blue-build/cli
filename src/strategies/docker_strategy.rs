@@ -26,16 +26,15 @@ impl BuildStrategy for DockerStrategy {
             .arg("-f")
             .arg("Containerfile");
 
-        if let Ok(path) = env::var(BLUEBUILD_BUILDKIT_CACHE_FROM) {
+        // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
+        if env::var(BB_BUILDKIT_CACHE_GHA)
+            .map_or_else(|_| false, |e| e.parse::<bool>().unwrap_or_default())
+        {
             command
                 .arg("--cache-from")
-                .arg(format!("type=local,src={path}"));
-        }
-
-        if let Ok(path) = env::var(BLUEBUILD_BUILDKIT_CACHE_TO) {
-            command
+                .arg("type=gha")
                 .arg("--cache-to")
-                .arg(format!("type=local,mode=max,dest={path}"));
+                .arg("type=gha");
         }
 
         if command.status()?.success() {

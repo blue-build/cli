@@ -14,8 +14,7 @@ pub const VAR_RUN_PODMAN_SOCK: &str = "/var/run/podman.sock";
 pub const BUILD_ID_LABEL: &str = "org.blue-build.build-id";
 
 // BlueBuild vars
-pub const BLUEBUILD_BUILDKIT_CACHE_FROM: &str = "BLUEBUILD_BUILDKIT_CACHE_FROM";
-pub const BLUEBUILD_BUILDKIT_CACHE_TO: &str = "BLUEBUILD_BUILDKIT_CACHE_TO";
+pub const BB_BUILDKIT_CACHE_GHA: &str = "BB_BUILDKIT_CACHE_GHA";
 
 // Cosign vars
 pub const COSIGN_PRIVATE_KEY: &str = "COSIGN_PRIVATE_KEY";
