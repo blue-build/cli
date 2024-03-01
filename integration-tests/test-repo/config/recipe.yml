@@ -33,7 +33,7 @@ modules:
       remove:
         - org.gnome.eog
 
-  - type: signing
+  # - type: signing
 
   - type: test-module
 
