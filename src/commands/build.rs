@@ -297,11 +297,8 @@ impl BuildCommand {
         let image_name = if let Some(archive_dir) = &self.archive {
             format!(
                 "oci-archive:{}/{}.{ARCHIVE_SUFFIX}",
-                archive_dir
-                    .to_string_lossy()
-                    .trim_end_matches('/')
-                    .replace('/', "_"),
-                recipe.name.to_lowercase(),
+                archive_dir.to_string_lossy().trim_end_matches('/'),
+                recipe.name.to_lowercase().replace('/', "_"),
             )
         } else {
             match (
