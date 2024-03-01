@@ -89,6 +89,7 @@ jobs:
         env:
           BB_BUILDKIT_CACHE_GHA: "true"
           GH_TOKEN: ${{ github.token }}
+          GH_PR_EVENT_NUMBER: ${{ github.event.number }}
         run: |
           cd integration-tests/test-repo
           echo -n "\n\n" | cosign generate-key-pair
