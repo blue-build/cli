@@ -55,6 +55,7 @@ test-base:
 	RUN rm cosign.key
 
 generate-cosign-key-pair:
+	FROM gcr.io/projectsigstore/cosign
 	# Setup a cosign key pair
 	RUN echo -n "\n\n" | cosign generate-key-pair
 	SAVE ARTIFACT cosign.*
