@@ -58,6 +58,11 @@ jobs:
         with:
           version: v0.8.3
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          install: true
+
       - name: Earthly login
         env:
           EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
