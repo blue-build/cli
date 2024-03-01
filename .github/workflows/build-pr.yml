@@ -78,7 +78,7 @@ jobs:
 
       - name: Install bluebuild
         env:
-          BB_BUILDKIT_CACHE_GHA: 1
+          BB_BUILDKIT_CACHE_GHA: true
         run: |
           earthly -a +install/bluebuild --BUILD_TARGET=x86_64-unknown-linux-musl /usr/local/bin/bluebuild
 

@@ -30,6 +30,7 @@ impl BuildStrategy for DockerStrategy {
         if env::var(BB_BUILDKIT_CACHE_GHA)
             .map_or_else(|_| false, |e| e.parse::<bool>().unwrap_or_default())
         {
+            trace!("--cache-from type=gha --cache-to type=gha");
             command
                 .arg("--cache-from")
                 .arg("type=gha")
