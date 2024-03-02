@@ -12,7 +12,6 @@ modules:
   - type: script
     scripts:
       - example.sh
-      - disableuserns.sh
 
   - type: rpm-ostree
     repos:
