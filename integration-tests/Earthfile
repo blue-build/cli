@@ -4,21 +4,33 @@ PROJECT blue-build/cli
 all:
 	ARG NIGHTLY=false
 	BUILD +test-image --NIGHTLY=$NIGHTLY
+	BUILD +test-secureblue --NIGHTLY=$NIGHTLY
 	BUILD +build --NIGHTLY=$NIGHTLY
 	BUILD +rebase --NIGHTLY=$NIGHTLY
 	BUILD +upgrade --NIGHTLY=$NIGHTLY
 
 build-template:
 	ARG NIGHTLY=false
+	ARG --required src
 	FROM DOCKERFILE \
-		-f +template-containerfile/test/Containerfile \
-		+template-containerfile/test/* --NIGHTLY=$NIGHTLY
+		-f +$src/test/Containerfile \
+		+$src/test/* --NIGHTLY=$NIGHTLY
 
 test-image:
 	ARG NIGHTLY=false
-	FROM +build-template --NIGHTLY=$NIGHTLY
+	FROM +build-template --NIGHTLY=$NIGHTLY --src=template-containerfile
 	WORKDIR /tmp/test
 	COPY ./test-scripts/*.sh ./
+
+	FOR script IN $(ls *.sh)
+		RUN --no-cache chmod +x $script && ./$script
+	END
+
+test-secureblue:
+	ARG NIGHTLY=false
+	FROM +build-template --NIGHTLY=$NIGHTLY --src=template-secureblue
+	WORKDIR /tmp/test
+	COPY ./test-scripts/secureblue/*.sh ./
 
 	FOR script IN $(ls *.sh)
 		RUN --no-cache chmod +x $script && ./$script
@@ -28,6 +40,13 @@ template-containerfile:
 	ARG NIGHTLY=false
 	FROM +test-base --NIGHTLY=$NIGHTLY
 	RUN bluebuild -vv template config/recipe.yml | tee Containerfile
+
+	SAVE ARTIFACT /test
+
+template-secureblue:
+	ARG NIGHTLY=false
+	FROM +secureblue-base --NIGHTLY=$NIGHTLY
+	RUN bluebuild -vv template -o Containerfile config/recipes/desktop/recipe-silverblue-nvidia.yml
 
 	SAVE ARTIFACT /test
 
@@ -49,6 +68,13 @@ upgrade:
 	RUN mkdir -p /etc/bluebuild && touch /etc/bluebuild/cli_test.tar.gz
 
 	RUN --privileged bluebuild -vv upgrade config/recipe.yml
+
+secureblue-base:
+	ARG NIGHTLY=false
+	FROM +test-base --NIGHTLY=$NIGHTLY
+
+	RUN rm -fr /test
+	GIT CLONE https://github.com/secureblue/secureblue.git /test
 
 test-base:
 	ARG NIGHTLY=false
