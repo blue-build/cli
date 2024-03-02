@@ -101,6 +101,7 @@ jobs:
           earthly -a +install/bluebuild --BUILD_TARGET=x86_64-unknown-linux-musl /usr/local/bin/bluebuild
 
       - name: Create keypair
+        id: cosign
         shell: bash
         run: |
           cd integration-tests/test-repo
@@ -109,7 +110,7 @@ jobs:
             echo 'COSIGN_PRIVATE_KEY<<EOF'
             cat cosign.key
             echo 'EOF'
-          } >> $GITHUB_ENV
+          } >> $GITHUB_OUTPUT
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@v3
@@ -119,6 +120,7 @@ jobs:
           BB_BUILDKIT_CACHE_GHA: "true"
           GH_TOKEN: ${{ github.token }}
           GH_PR_EVENT_NUMBER: ${{ github.event.number }}
+          COSIGN_PRIVATE_KEY: ${{ steps.cosign.outputs.COSIGN_PRIVATE_KEY }}
         run: |
           cd integration-tests/test-repo
           bluebuild build --push -vv
