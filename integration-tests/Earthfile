@@ -9,22 +9,13 @@ all:
 	BUILD +rebase --NIGHTLY=$NIGHTLY
 	BUILD +upgrade --NIGHTLY=$NIGHTLY
 
-build-template:
-	ARG NIGHTLY=false
-	ARG --required src
-	FROM DOCKERFILE \
-		-f +$src/test/Containerfile \
-		+$src/test/* --NIGHTLY=$NIGHTLY
-
 test-image:
 	ARG NIGHTLY=false
 	FROM +build-template --NIGHTLY=$NIGHTLY --src=template-containerfile
 	WORKDIR /tmp/test
 	COPY ./test-scripts/*.sh ./
 
-	FOR script IN $(ls *.sh)
-		RUN --no-cache chmod +x $script && ./$script
-	END
+	DO +RUN_TESTS
 
 test-secureblue:
 	ARG NIGHTLY=false
@@ -32,9 +23,14 @@ test-secureblue:
 	WORKDIR /tmp/test
 	COPY ./test-scripts/secureblue/*.sh ./
 
-	FOR script IN $(ls *.sh)
-		RUN --no-cache chmod +x $script && ./$script
-	END
+	DO +RUN_TESTS
+
+build-template:
+	ARG NIGHTLY=false
+	ARG --required src
+	FROM DOCKERFILE \
+		-f +$src/test/Containerfile \
+		+$src/test/* --NIGHTLY=$NIGHTLY
 
 template-containerfile:
 	ARG NIGHTLY=false
@@ -90,4 +86,12 @@ test-base:
 	RUN echo -n "\n\n" | cosign generate-key-pair
 	ENV COSIGN_PRIVATE_KEY=$(cat cosign.key)
 	RUN rm cosign.key
+
+RUN_TESTS:
+	FUNCTION
+	FOR script IN $(ls *.sh)
+		RUN --no-cache chmod +x $script \
+			&& echo "Running test $script" \
+			&& ./$script
+	END
 
