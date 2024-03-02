@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.1] - 2024-02-26
+
+### Bug Fixes
+
+- COPY yq into final image for modules
+
 ## [0.8.0] - 2024-02-25
 
 ### Bug Fixes
@@ -40,6 +46,7 @@ All notable changes to this project will be documented in this file.
 - Add trace log for github cosign verify
 - Fix integration-tests for forks
 - Update default module source (#76)
+- Release blue-build version 0.8.0
 
 ### Refactor
 
