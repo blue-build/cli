@@ -35,6 +35,49 @@ This will install the binary on your system in `/usr/local/bin`. This is only a 
 podman run --rm ghcr.io/blue-build/cli:latest-installer | bash
 ```
 
+### Nix Flake
+
+You can install this CLI through the Nix flake on [Flakehub](https://flakehub.com/)
+
+#### Non-nixos
+
+You can install BlueBuild to your global package environment on non-nixos systems by running
+
+```shell
+# you can replace "*" with a specific tag
+nix profile install https://flakehub.com/f/bluebuild/cli/*.tar.gz#bluebuild
+```
+
+#### NixOS
+
+If you are using a dedicated flake to manage your dependencies, you can add BlueBuild as a flake input throught the [fh](https://github.com/DeterminateSystems/fh) cli (that can be installed through nixpkgs) and add `bluebuild` to it.
+```nix
+{pkgs,inputs,...}: {
+    ...
+    environment.SystemPackages = [
+        inputs.bluebuild.packages.${pkgs.system}.bluebuild # change bluebuild with the fh added input name 
+    ];
+    ...
+}
+```
+
+If you are not using a dedicated nix flake, you can add the BlueBuild flake as a variable inside your `/etc/nixos/*.nix` configuration, though this requires you to run `nixos-rebuild` with the `--impure` variable, it is not advisable to do so.
+
+```nix
+{pkgs,...}:
+let
+    bluebuild = builtins.fetchTarball "https://flakehub.com/f/bluebuild/cli/*.tar.gz";
+in {
+    ...
+    environment.SystemPackages = [
+        bluebuild.packages.${pkgs.system}.bluebuild
+    ];
+    ...
+}
+```
+
+You can also use `nix develop .#` in this repos directory to run a nix shell with development dependencies and some helful utilities for building BlueBuild! 
+
 ### Github Install Script
 
 ```bash
