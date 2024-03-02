@@ -105,7 +105,11 @@ jobs:
         run: |
           cd integration-tests/test-repo
           echo -n "\n\n" | cosign generate-key-pair
-          echo "COSIGN_PRIVATE_KEY='$(cat cosign.key)'" >> $GITHUB_ENV
+          {
+            echo 'COSIGN_PRIVATE_KEY<<EOF'
+            cat cosign.key
+            echo 'EOF'
+          } >> $GITHUB_ENV
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@v3
