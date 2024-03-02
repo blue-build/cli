@@ -98,5 +98,4 @@ jobs:
           cd integration-tests/test-repo
           echo -n "\n\n" | cosign generate-key-pair
           export COSIGN_PRIVATE_KEY=$(cat cosign.key)
-          rm cosign.key
           bluebuild build --push -vv
