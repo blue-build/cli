@@ -1,4 +1,4 @@
-name: template
+name: cli/test
 description: This is my personal OS image.
 base-image: ghcr.io/ublue-os/silverblue-surface
 image-version: 39
@@ -33,7 +33,8 @@ modules:
       remove:
         - org.gnome.eog
 
-  - type: signing
+  # Needs a bug to be fixed to allow / in image name
+  # - type: signing
 
   - type: test-module
 
