@@ -106,4 +106,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_PR_EVENT_NUMBER: ${{ github.event.number }}
         run: |
+          cd integration-tests/test-repo
           bluebuild build --push -vv
