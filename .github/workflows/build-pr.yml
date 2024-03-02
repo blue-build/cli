@@ -97,4 +97,8 @@ jobs:
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
         run: |
           cd integration-tests/test-repo
-          bluebuild build --push -vv
+          if [ -n "$GH_TOKEN" ] && [ -n "$COSIGN_PRIVATE_KEY" ]; then
+            bluebuild build --push -vv
+          else
+            bluebuild build -vv
+          fi
