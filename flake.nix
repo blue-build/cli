@@ -65,6 +65,8 @@
             cargo-outdated
             cargo-watch
             rust-analyzer
+            cargo
+            rustc
             bacon
             earthly
             yq
