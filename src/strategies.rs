@@ -1,8 +1,10 @@
-use std::{env, path::PathBuf, rc::Rc};
+use std::{env, path::PathBuf, rc::Rc, sync::Arc};
 
 use anyhow::{bail, Result};
 use blue_build_utils::constants::*;
+use lazy_static::lazy_static;
 use log::trace;
+use once_cell::sync::Lazy;
 use uuid::Uuid;
 
 #[cfg(feature = "podman-api")]
@@ -28,7 +30,41 @@ mod docker_strategy;
 mod podman_api_strategy;
 mod podman_strategy;
 
-pub trait BuildStrategy {
+static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
+    let registry = match (env::var(CI_REGISTRY).ok(), env::var(CI_REGISTRY).ok()) {
+        (Some(ci_registry), None) => ci_registry,
+        (None, Some(_)) => "ghcr.io".to_string(),
+        _ => return None,
+    };
+
+    let username = match (env::var(CI_REGISTRY_USER).ok(), env::var(GITHUB_ACTOR).ok()) {
+        (Some(ci_registry_user), None) => ci_registry_user,
+        (None, Some(github_actor)) => github_actor,
+        _ => return None,
+    };
+
+    let password = match (
+        env::var(CI_REGISTRY_PASSWORD).ok(),
+        env::var(GITHUB_TOKEN).ok(),
+    ) {
+        (Some(ci_registry_password), None) => ci_registry_password,
+        (None, Some(registry_token)) => registry_token,
+        _ => return None,
+    };
+
+    Some(
+        Credentials::builder()
+            .registry(registry)
+            .username(username)
+            .password(password)
+            .build(),
+    )
+});
+
+static ER: Lazy<Box<Rc<dyn BuildStrategy>>> =
+    Lazy::new(|| Box::new(determine_build_strategy().unwrap()));
+
+pub trait BuildStrategy: Sync + Send {
     fn build(&self, image: &str) -> Result<()>;
 
     fn tag(&self, src_image: &str, image_name: &str, tag: &str) -> Result<()>;
@@ -40,12 +76,11 @@ pub trait BuildStrategy {
     fn inspect(&self, image_name: &str, tag: &str) -> Result<Vec<u8>>;
 }
 
-pub fn determine_build_strategy(
-    uuid: Uuid,
-    creds: Option<Credentials>,
-    oci_required: bool,
-) -> Result<Rc<dyn BuildStrategy>> {
-    trace!("BuildStrategy::determine_strategy({uuid})");
+pub fn determine_build_strategy() -> Result<Rc<dyn BuildStrategy>> {
+    let build_id = Uuid::new_v4();
+    let creds = ENV_CREDENTIALS.to_owned();
+
+    trace!("BuildStrategy::determine_strategy({build_id})");
 
     Ok(
         match (
@@ -70,7 +105,7 @@ pub fn determine_build_strategy(
                             .into(),
                         )
                         .rt(Runtime::new()?)
-                        .uuid(uuid)
+                        .uuid(build_id)
                         .creds(creds)
                         .build(),
                 )
@@ -81,7 +116,7 @@ pub fn determine_build_strategy(
                     PodmanApiStrategy::builder()
                         .client(Podman::unix(run_podman_podman_sock).into())
                         .rt(Runtime::new()?)
-                        .uuid(uuid)
+                        .uuid(build_id)
                         .creds(creds)
                         .build(),
                 )
@@ -94,7 +129,7 @@ pub fn determine_build_strategy(
                     PodmanApiStrategy::builder()
                         .client(Podman::unix(var_run_podman_podman_sock).into())
                         .rt(Runtime::new()?)
-                        .uuid(uuid)
+                        .uuid(build_id)
                         .creds(creds)
                         .build(),
                 )
@@ -104,11 +139,12 @@ pub fn determine_build_strategy(
                 PodmanApiStrategy::builder()
                     .client(Podman::unix(var_run_podman_sock).into())
                     .rt(Runtime::new()?)
-                    .uuid(uuid)
+                    .uuid(build_id)
                     .creds(creds)
                     .build(),
             ),
-            (_, _, _, _, Ok(_docker), _, _) if !oci_required => {
+            // (_, _, _, _, Ok(_docker), _, _) if !oci_required => {
+            (_, _, _, _, Ok(_docker), _, _) => {
                 Rc::new(DockerStrategy::builder().creds(creds).build())
             }
             (_, _, _, _, _, Ok(_podman), _) => {

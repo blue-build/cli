@@ -29,7 +29,7 @@ pub struct TemplateCommand {
 
     #[clap(skip)]
     #[builder(default)]
-    os_version: String,
+    os_version: Option<String>,
 }
 
 impl BlueBuildCommand for TemplateCommand {
@@ -56,6 +56,11 @@ impl TemplateCommand {
             .recipe
             .clone()
             .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
+
+        let os_version = self
+            .os_version
+            .clone()
+            .unwrap_or(DEFAULT_OS_VERSION.to_string());
 
         debug!("Deserializing recipe");
         let recipe_de = Recipe::parse(&recipe_path)?;

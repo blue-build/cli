@@ -219,11 +219,7 @@ impl BlueBuildCommand for BuildCommand {
 
         let credentials = self.get_login_creds();
 
-        self.start(
-            build_id,
-            &recipe_path,
-            determine_build_strategy(build_id, credentials, self.archive.is_some())?,
-        )
+        self.start(build_id, &recipe_path, determine_build_strategy()?)
     }
 }
 
@@ -237,12 +233,8 @@ impl BuildCommand {
         trace!("BuildCommand::build_image()");
 
         let recipe = Recipe::parse(&recipe_path)?;
-
         let os_version = self.get_os_version(build_strat.clone(), &recipe)?;
-        println!("os_version: {os_version}");
-
         let tags = recipe.generate_tags(&os_version);
-
         let image_name = self.generate_full_image_name(&recipe)?;
 
         if self.push {
@@ -250,7 +242,7 @@ impl BuildCommand {
         }
 
         TemplateCommand::builder()
-            .os_version(os_version)
+            .os_version(Some(os_version))
             .recipe(recipe_path)
             .output(PathBuf::from("Containerfile"))
             .build_id(build_id)
@@ -400,7 +392,11 @@ impl BuildCommand {
                 build_strat.tag(&full_image, image_name, tag)?;
 
                 if self.push {
-                    let retry_count = if !self.no_retry_push { self.retry_count } else { 0 };
+                    let retry_count = if !self.no_retry_push {
+                        self.retry_count
+                    } else {
+                        0
+                    };
 
                     debug!("Pushing all images");
                     // Push images with retries (1s delay between retries)
