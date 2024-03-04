@@ -26,6 +26,9 @@ FROM {{ recipe.base_image }}:{{ recipe.image_version }}
 LABEL {{ blue_build_utils::constants::BUILD_ID_LABEL }}="{{ build_id }}"
 LABEL org.opencontainers.image.title="{{ recipe.name }}"
 LABEL org.opencontainers.image.description="{{ recipe.description }}"
+{%- if let Some(repo) = self::get_repo_url() %}
+LABEL org.opencontainers.image.source="{{ repo }}"
+{%- endif %}
 LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md
 
 ARG RECIPE={{ recipe_path.display() }}
