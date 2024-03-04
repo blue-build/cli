@@ -34,18 +34,12 @@
 
       packages = forEachSupportedSystem ({ pkgs, lib }: rec {
         default = bluebuild;
-        bluebuild = pkgs.rustPlatform.buildRustPackage rec {
+        bluebuild = pkgs.rustPlatform.buildRustPackage {
           pname = "bluebuild";
           version = "v0.8.1";
 
-          src = pkgs.fetchFromGitHub {
-            owner = "blue-build";
-            repo = "cli";
-            rev = version;
-            sha256 = "07mw9d8xn6gxcar793mw9jwchq4fxh7c3739ybb9myasqq0279mk";
-          };
-
-          cargoSha256 = "sha256-rVU9ZdBr9Z3qGavik4kwtifxJL0U0xaC7J+a+YbiSgA=";
+          src = pkgs.lib.cleanSource ./.;
+          cargoLock.lockFile = ./Cargo.lock;
 
           meta = {
             description = "BlueBuild's command line program that builds Containerfiles and custom images";
