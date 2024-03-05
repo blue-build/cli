@@ -1,6 +1,8 @@
 /target
 .sccache/
 .vscode/
+result*
+.direnv/
 
 cosign.key
 
