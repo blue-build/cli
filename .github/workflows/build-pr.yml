@@ -94,9 +94,11 @@ jobs:
           BB_BUILDKIT_CACHE_GHA: "true"
           GH_TOKEN: ${{ github.token }}
           GH_PR_EVENT_NUMBER: ${{ github.event.number }}
+          COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
         run: |
           cd integration-tests/test-repo
-          echo -n "\n\n" | cosign generate-key-pair
-          export COSIGN_PRIVATE_KEY=$(cat cosign.key)
-          rm cosign.key
-          bluebuild build --push -vv
+          if [ -n "$GH_TOKEN" ] && [ -n "$COSIGN_PRIVATE_KEY" ]; then
+            bluebuild build --push -vv
+          else
+            bluebuild build -vv
+          fi

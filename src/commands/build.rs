@@ -471,21 +471,53 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
     let image_name_tag = tag.map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));
 
     match (
+        // GitLab specific vars
         env::var(CI_DEFAULT_BRANCH),
-        env::var(CI_COMMIT_REF_NAME),
         env::var(CI_PROJECT_URL),
         env::var(CI_SERVER_PROTOCOL),
         env::var(CI_SERVER_HOST),
         env::var(SIGSTORE_ID_TOKEN),
+        // GitHub specific vars
         env::var(GITHUB_TOKEN),
-        env::var(GITHUB_EVENT_NAME),
-        env::var(GITHUB_REF_NAME),
         env::var(GITHUB_WORKFLOW_REF),
+        // Cosign public/private key pair
         env::var(COSIGN_PRIVATE_KEY),
     ) {
+        // Cosign public/private key pair
+        (_, _, _, _, _, _, _, Ok(cosign_private_key))
+            if !cosign_private_key.is_empty() && Path::new(COSIGN_PATH).exists() =>
+        {
+            info!("Signing image: {image_digest}");
+
+            trace!("cosign sign --key=env://COSIGN_PRIVATE_KEY {image_digest}");
+
+            if Command::new("cosign")
+                .arg("sign")
+                .arg("--key=env://COSIGN_PRIVATE_KEY")
+                .arg(&image_digest)
+                .status()?
+                .success()
+            {
+                info!("Successfully signed image!");
+            } else {
+                bail!("Failed to sign image: {image_digest}");
+            }
+
+            trace!("cosign verify --key {COSIGN_PATH} {image_name_tag}");
+
+            if !Command::new("cosign")
+                .arg("verify")
+                .arg(format!("--key={COSIGN_PATH}"))
+                .arg(&image_name_tag)
+                .status()?
+                .success()
+            {
+                bail!("Failed to verify image!");
+            }
+        }
+        // Gitlab keyless
         (
             Ok(ci_default_branch),
-            Ok(ci_commit_ref),
             Ok(ci_project_url),
             Ok(ci_server_protocol),
             Ok(ci_server_host),
@@ -493,12 +525,8 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
             _,
             _,
             _,
-            _,
-            _,
-        ) if ci_default_branch == ci_commit_ref => {
-            trace!("CI_PROJECT_URL={ci_project_url}, CI_DEFAULT_BRANCH={ci_default_branch}, CI_COMMIT_REF_NAME={ci_commit_ref}, CI_SERVER_PROTOCOL={ci_server_protocol}, CI_SERVER_HOST={ci_server_host}");
-
-            debug!("On default branch");
+        ) => {
+            trace!("CI_PROJECT_URL={ci_project_url}, CI_DEFAULT_BRANCH={ci_default_branch}, CI_SERVER_PROTOCOL={ci_server_protocol}, CI_SERVER_HOST={ci_server_host}");
 
             info!("Signing image: {image_digest}");
 
@@ -535,73 +563,9 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
                 bail!("Failed to verify image!");
             }
         }
-        (
-            _,
-            _,
-            _,
-            _,
-            _,
-            _,
-            _,
-            Ok(github_event_name),
-            Ok(github_ref_name),
-            _,
-            Ok(cosign_private_key),
-        ) if github_event_name != "pull_request"
-            && (github_ref_name == "live" || github_ref_name == "main")
-            && !cosign_private_key.is_empty()
-            && Path::new(COSIGN_PATH).exists() =>
-        {
-            trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}");
-
-            debug!("On live branch");
-
-            info!("Signing image: {image_digest}");
-
-            trace!("cosign sign --key=env://COSIGN_PRIVATE_KEY {image_digest}");
-
-            if Command::new("cosign")
-                .arg("sign")
-                .arg("--key=env://COSIGN_PRIVATE_KEY")
-                .arg(&image_digest)
-                .status()?
-                .success()
-            {
-                info!("Successfully signed image!");
-            } else {
-                bail!("Failed to sign image: {image_digest}");
-            }
-
-            trace!("cosign verify --key {COSIGN_PATH} {image_name_tag}");
-
-            if !Command::new("cosign")
-                .arg("verify")
-                .arg(format!("--key={COSIGN_PATH}"))
-                .arg(&image_name_tag)
-                .status()?
-                .success()
-            {
-                bail!("Failed to verify image!");
-            }
-        }
-        (
-            _,
-            _,
-            _,
-            _,
-            _,
-            _,
-            Ok(_),
-            Ok(github_event_name),
-            Ok(github_ref_name),
-            Ok(github_worflow_ref),
-            _,
-        ) if github_event_name != "pull_request"
-            && (github_ref_name == "live" || github_ref_name == "main") =>
-        {
-            trace!("GITHUB_EVENT_NAME={github_event_name}, GITHUB_REF_NAME={github_ref_name}, GITHUB_WORKFLOW_REF={github_worflow_ref}");
-
-            debug!("On {github_ref_name} branch");
+        // GitHub keyless
+        (_, _, _, _, _, Ok(_), Ok(github_worflow_ref), _) => {
+            trace!("GITHUB_WORKFLOW_REF={github_worflow_ref}");
 
             info!("Signing image {image_digest}");
 
@@ -631,7 +595,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
                 bail!("Failed to verify image!");
             }
         }
-        _ => debug!("Not running in CI with cosign variables, not signing"),
+        _ => warn!("Not running in CI with cosign variables, not signing"),
     }
 
     Ok(())
@@ -664,20 +628,11 @@ fn get_image_digest(image_name: &str, tag: Option<&str>) -> Result<String> {
 fn check_cosign_files() -> Result<()> {
     trace!("check_for_cosign_files()");
 
-    match (
-        env::var(GITHUB_EVENT_NAME).ok(),
-        env::var(GITHUB_REF_NAME).ok(),
-        env::var(COSIGN_PRIVATE_KEY).ok(),
-    ) {
-        (Some(github_event_name), Some(github_ref_name), Some(_))
-            if github_event_name != "pull_request"
-                && (github_ref_name == "live" || github_ref_name == "main")
-                && Path::new(COSIGN_PATH).exists() =>
-        {
+    match env::var(COSIGN_PRIVATE_KEY).ok() {
+        Some(cosign_priv_key) if !cosign_priv_key.is_empty() && Path::new(COSIGN_PATH).exists() => {
             env::set_var("COSIGN_PASSWORD", "");
             env::set_var("COSIGN_YES", "true");
 
-            debug!("Building on live branch, checking cosign files");
             trace!("cosign public-key --key env://COSIGN_PRIVATE_KEY");
             let output = Command::new("cosign")
                 .arg("public-key")
@@ -703,7 +658,7 @@ fn check_cosign_files() -> Result<()> {
             }
         }
         _ => {
-            debug!("Not building on live branch or {COSIGN_PATH} doesn't exist, skipping cosign file check");
+            warn!("{COSIGN_PATH} doesn't exist, skipping cosign file check");
             Ok(())
         }
     }
