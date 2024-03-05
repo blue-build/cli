@@ -134,6 +134,38 @@ fn get_gitlab_registry_path() -> Option<String> {
     )
 }
 
+fn get_repo_url() -> Option<String> {
+    Some(
+        match (
+            // GitHub vars
+            env::var(GITHUB_SERVER_URL),
+            env::var(GITHUB_RESPOSITORY),
+            // GitLab vars
+            env::var(CI_SERVER_PROTOCOL),
+            env::var(CI_SERVER_HOST),
+            env::var(CI_PROJECT_NAMESPACE),
+            env::var(CI_PROJECT_NAME),
+        ) {
+            (Ok(github_server), Ok(github_repo), _, _, _, _) => {
+                format!("{github_server}/{github_repo}")
+            }
+            (
+                _,
+                _,
+                Ok(ci_server_protocol),
+                Ok(ci_server_host),
+                Ok(ci_project_namespace),
+                Ok(ci_project_name),
+            ) => {
+                format!(
+                    "{ci_server_protocol}://{ci_server_host}/{ci_project_namespace}/{ci_project_name}"
+                )
+            }
+            _ => return None,
+        },
+    )
+}
+
 fn modules_exists() -> bool {
     let mod_path = Path::new("modules");
     mod_path.exists() && mod_path.is_dir()

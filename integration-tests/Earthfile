@@ -3,22 +3,46 @@ PROJECT blue-build/cli
 
 all:
 	ARG NIGHTLY=false
-	BUILD +build-template --NIGHTLY=$NIGHTLY
+	BUILD +test-image --NIGHTLY=$NIGHTLY
+	BUILD +test-secureblue --NIGHTLY=$NIGHTLY
 	BUILD +build --NIGHTLY=$NIGHTLY
 	BUILD +rebase --NIGHTLY=$NIGHTLY
 	BUILD +upgrade --NIGHTLY=$NIGHTLY
 
+test-image:
+	ARG NIGHTLY=false
+	FROM +build-template --NIGHTLY=$NIGHTLY --src=template-containerfile
+	WORKDIR /tmp/test
+	COPY ./test-scripts/*.sh ./
+
+	DO +RUN_TESTS
+
+test-secureblue:
+	ARG NIGHTLY=false
+	FROM +build-template --NIGHTLY=$NIGHTLY --src=template-secureblue
+	WORKDIR /tmp/test
+	COPY ./test-scripts/secureblue/*.sh ./
+
+	DO +RUN_TESTS
+
 build-template:
 	ARG NIGHTLY=false
+	ARG --required src
 	FROM DOCKERFILE \
-		-f +template-containerfile/test/Containerfile \
-		+template-containerfile/test/* --NIGHTLY=$NIGHTLY
-	RUN [ -f /usr/test-file ]
+		-f +$src/test/Containerfile \
+		+$src/test/* --NIGHTLY=$NIGHTLY
 
 template-containerfile:
 	ARG NIGHTLY=false
 	FROM +test-base --NIGHTLY=$NIGHTLY
 	RUN bluebuild -vv template config/recipe.yml | tee Containerfile
+
+	SAVE ARTIFACT /test
+
+template-secureblue:
+	ARG NIGHTLY=false
+	FROM +secureblue-base --NIGHTLY=$NIGHTLY
+	RUN bluebuild -vv template -o Containerfile config/recipes/desktop/recipe-silverblue-nvidia.yml
 
 	SAVE ARTIFACT /test
 
@@ -41,6 +65,15 @@ upgrade:
 
 	RUN --privileged bluebuild -vv upgrade config/recipe.yml
 
+secureblue-base:
+	ARG NIGHTLY=false
+	FROM +test-base --NIGHTLY=$NIGHTLY
+
+	RUN rm -fr /test
+	GIT CLONE https://github.com/secureblue/secureblue.git /test
+
+	DO +GEN_KEYPAIR
+
 test-base:
 	ARG NIGHTLY=false
 
@@ -51,8 +84,20 @@ test-base:
 	WORKDIR /test
 	COPY ./test-repo /test
 
+	DO +GEN_KEYPAIR
+
+GEN_KEYPAIR:
+	FUNCTION
 	# Setup a cosign key pair
 	RUN echo -n "\n\n" | cosign generate-key-pair
 	ENV COSIGN_PRIVATE_KEY=$(cat cosign.key)
 	RUN rm cosign.key
+
+RUN_TESTS:
+	FUNCTION
+	FOR script IN $(ls *.sh)
+		RUN --no-cache chmod +x $script \
+			&& echo "Running test $script" \
+			&& ./$script
+	END
 

@@ -1,6 +1,10 @@
 /target
 .sccache/
 .vscode/
+result*
+.direnv/
+
+cosign.key
 
 # Local testing for bluebuild recipe files
 /config/*
