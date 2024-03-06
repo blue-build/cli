@@ -2,7 +2,6 @@ use std::{
     env, fs,
     path::{Path, PathBuf},
     process::Command,
-    rc::Rc,
 };
 
 use anyhow::{anyhow, bail, Result};
@@ -18,17 +17,10 @@ use uuid::Uuid;
 use crate::{
     commands::template::TemplateCommand,
     image_inspection::ImageInspection,
-    strategies::{determine_build_strategy, BuildStrategy},
+    strategies::{Credentials, BUILD_STRATEGY},
 };
 
 use super::BlueBuildCommand;
-
-#[derive(Debug, Default, Clone, TypedBuilder)]
-pub struct Credentials {
-    pub registry: String,
-    pub username: String,
-    pub password: String,
-}
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BuildCommand {
@@ -219,26 +211,21 @@ impl BlueBuildCommand for BuildCommand {
 
         let credentials = self.get_login_creds();
 
-        self.start(build_id, &recipe_path, determine_build_strategy()?)
+        self.start(build_id, &recipe_path)
     }
 }
 
 impl BuildCommand {
-    fn start(
-        &self,
-        build_id: Uuid,
-        recipe_path: &Path,
-        build_strat: Rc<dyn BuildStrategy>,
-    ) -> Result<()> {
+    fn start(&self, build_id: Uuid, recipe_path: &Path) -> Result<()> {
         trace!("BuildCommand::build_image()");
 
         let recipe = Recipe::parse(&recipe_path)?;
-        let os_version = self.get_os_version(build_strat.clone(), &recipe)?;
+        let os_version = self.get_os_version(&recipe)?;
         let tags = recipe.generate_tags(&os_version);
         let image_name = self.generate_full_image_name(&recipe)?;
 
         if self.push {
-            self.login(build_strat.clone())?;
+            self.login()?;
         }
 
         TemplateCommand::builder()
@@ -249,14 +236,14 @@ impl BuildCommand {
             .build()
             .try_run()?;
 
-        self.run_build(&image_name, &tags, build_strat)?;
+        self.run_build(&image_name, &tags)?;
 
         info!("Build complete!");
 
         Ok(())
     }
 
-    fn login(&self, build_strat: Rc<dyn BuildStrategy>) -> Result<()> {
+    fn login(&self) -> Result<()> {
         trace!("BuildCommand::login()");
         info!("Attempting to login to the registry");
 
@@ -271,7 +258,7 @@ impl BuildCommand {
         );
 
         info!("Logging into the registry, {registry}");
-        build_strat.login()?;
+        BUILD_STRATEGY.login()?;
 
         trace!("cosign login -u {username} -p [MASKED] {registry}");
         let login_output = Command::new("cosign")
@@ -365,12 +352,7 @@ impl BuildCommand {
     /// # Errors
     ///
     /// Will return `Err` if the build fails.
-    fn run_build(
-        &self,
-        image_name: &str,
-        tags: &[String],
-        build_strat: Rc<dyn BuildStrategy>,
-    ) -> Result<()> {
+    fn run_build(&self, image_name: &str, tags: &[String]) -> Result<()> {
         trace!("BuildCommand::run_build({image_name}, {tags:#?})");
 
         let full_image = if self.archive.is_some() {
@@ -381,7 +363,7 @@ impl BuildCommand {
         };
 
         info!("Building image {full_image}");
-        build_strat.build(&full_image)?;
+        BUILD_STRATEGY.build(&full_image)?;
 
         if tags.len() > 1 && self.archive.is_none() {
             debug!("Tagging all images");
@@ -389,7 +371,7 @@ impl BuildCommand {
             for tag in tags {
                 debug!("Tagging {image_name} with {tag}");
 
-                build_strat.tag(&full_image, image_name, tag)?;
+                BUILD_STRATEGY.tag(&full_image, image_name, tag)?;
 
                 if self.push {
                     let retry_count = if !self.no_retry_push {
@@ -405,7 +387,7 @@ impl BuildCommand {
 
                         let tag_image = format!("{image_name}:{tag}");
 
-                        build_strat.push(&tag_image)
+                        BUILD_STRATEGY.push(&tag_image)
                     })?;
                 }
             }
@@ -461,14 +443,10 @@ impl BuildCommand {
         )
     }
 
-    fn get_os_version(
-        &self,
-        build_strat: Rc<dyn BuildStrategy>,
-        recipe: &Recipe,
-    ) -> Result<String> {
+    fn get_os_version(&self, recipe: &Recipe) -> Result<String> {
         trace!("BuildCommand::get_os_version({recipe:#?})");
 
-        let scopeo_output = build_strat.inspect(&recipe.base_image, &recipe.image_version)?;
+        let scopeo_output = BUILD_STRATEGY.inspect(&recipe.base_image, &recipe.image_version)?;
         let inspection: ImageInspection = match serde_json::from_str(
             String::from_utf8_lossy(&scopeo_output).as_ref(),
         ) {

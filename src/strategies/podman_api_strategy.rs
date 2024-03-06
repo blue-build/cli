@@ -22,9 +22,7 @@ use tokio::{
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
-use crate::commands::build::Credentials;
-
-use super::BuildStrategy;
+use super::{BuildStrategy, Credentials};
 
 #[derive(Debug, TypedBuilder)]
 pub struct PodmanApiStrategy {
@@ -139,6 +137,10 @@ impl BuildStrategy for PodmanApiStrategy {
     fn login(&self) -> Result<()> {
         debug!("No login step for Socket based building, skipping...");
         Ok(())
+    }
+
+    fn inspect(&self, image_name: &str, tag: &str) -> Result<Vec<u8>> {
+        todo!()
     }
 }
 

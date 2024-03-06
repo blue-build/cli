@@ -1,10 +1,10 @@
-use std::{env, path::PathBuf, rc::Rc, sync::Arc};
+use std::{env, path::PathBuf, process, sync::Arc};
 
 use anyhow::{bail, Result};
 use blue_build_utils::constants::*;
 use lazy_static::lazy_static;
-use log::trace;
-use once_cell::sync::Lazy;
+use log::{error, trace};
+use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
 #[cfg(feature = "podman-api")]
@@ -13,12 +13,9 @@ use podman_api::Podman;
 #[cfg(feature = "tokio")]
 use tokio::runtime::Runtime;
 
-use crate::{
-    commands::build::Credentials,
-    strategies::{
-        buildah_strategy::BuildahStrategy, docker_strategy::DockerStrategy,
-        podman_strategy::PodmanStrategy,
-    },
+use crate::strategies::{
+    buildah_strategy::BuildahStrategy, docker_strategy::DockerStrategy,
+    podman_strategy::PodmanStrategy,
 };
 
 #[cfg(feature = "builtin-podman")]
@@ -30,39 +27,54 @@ mod docker_strategy;
 mod podman_api_strategy;
 mod podman_strategy;
 
-static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
-    let registry = match (env::var(CI_REGISTRY).ok(), env::var(CI_REGISTRY).ok()) {
-        (Some(ci_registry), None) => ci_registry,
-        (None, Some(_)) => "ghcr.io".to_string(),
-        _ => return None,
-    };
+#[derive(Debug, Default, Clone, TypedBuilder)]
+pub struct Credentials {
+    pub registry: String,
+    pub username: String,
+    pub password: String,
+}
 
-    let username = match (env::var(CI_REGISTRY_USER).ok(), env::var(GITHUB_ACTOR).ok()) {
-        (Some(ci_registry_user), None) => ci_registry_user,
-        (None, Some(github_actor)) => github_actor,
-        _ => return None,
-    };
+lazy_static! {
+    pub static ref ENV_CREDENTIALS: Option<Credentials> = (|| {
+        let registry = match (env::var(CI_REGISTRY).ok(), env::var(CI_REGISTRY).ok()) {
+            (Some(ci_registry), None) => ci_registry,
+            (None, Some(_)) => "ghcr.io".to_string(),
+            _ => return None,
+        };
 
-    let password = match (
-        env::var(CI_REGISTRY_PASSWORD).ok(),
-        env::var(GITHUB_TOKEN).ok(),
-    ) {
-        (Some(ci_registry_password), None) => ci_registry_password,
-        (None, Some(registry_token)) => registry_token,
-        _ => return None,
-    };
+        let username = match (env::var(CI_REGISTRY_USER).ok(), env::var(GITHUB_ACTOR).ok()) {
+            (Some(ci_registry_user), None) => ci_registry_user,
+            (None, Some(github_actor)) => github_actor,
+            _ => return None,
+        };
 
-    Some(
-        Credentials::builder()
-            .registry(registry)
-            .username(username)
-            .password(password)
-            .build(),
-    )
-});
+        let password = match (
+            env::var(CI_REGISTRY_PASSWORD).ok(),
+            env::var(GITHUB_TOKEN).ok(),
+        ) {
+            (Some(ci_registry_password), None) => ci_registry_password,
+            (None, Some(registry_token)) => registry_token,
+            _ => return None,
+        };
 
-static ER: Lazy<Box<Rc<dyn BuildStrategy>>> =
-    Lazy::new(|| Box::new(determine_build_strategy().unwrap()));
+        Some(
+            Credentials::builder()
+                .registry(registry)
+                .username(username)
+                .password(password)
+                .build(),
+        )
+    })();
+    pub static ref BUILD_STRATEGY: Arc<dyn BuildStrategy> = (|| {
+        match determine_build_strategy() {
+            Err(e) => {
+                error!("{e}");
+                process::exit(1);
+            }
+            Ok(strat) => strat,
+        }
+    })();
+}
 
 pub trait BuildStrategy: Sync + Send {
     fn build(&self, image: &str) -> Result<()>;
@@ -76,7 +88,7 @@ pub trait BuildStrategy: Sync + Send {
     fn inspect(&self, image_name: &str, tag: &str) -> Result<Vec<u8>>;
 }
 
-pub fn determine_build_strategy() -> Result<Rc<dyn BuildStrategy>> {
+pub fn determine_build_strategy() -> Result<Arc<dyn BuildStrategy>> {
     let build_id = Uuid::new_v4();
     let creds = ENV_CREDENTIALS.to_owned();
 
@@ -96,7 +108,7 @@ pub fn determine_build_strategy() -> Result<Rc<dyn BuildStrategy>> {
             (Ok(xdg_runtime), _, _, _, _, _, _)
                 if PathBuf::from(format!("{xdg_runtime}/podman/podman.sock")).exists() =>
             {
-                Rc::new(
+                Arc::new(
                     PodmanApiStrategy::builder()
                         .client(
                             Podman::unix(PathBuf::from(format!(
@@ -112,7 +124,7 @@ pub fn determine_build_strategy() -> Result<Rc<dyn BuildStrategy>> {
             }
             #[cfg(feature = "builtin-podman")]
             (_, run_podman_podman_sock, _, _, _, _, _) if run_podman_podman_sock.exists() => {
-                Rc::new(
+                Arc::new(
                     PodmanApiStrategy::builder()
                         .client(Podman::unix(run_podman_podman_sock).into())
                         .rt(Runtime::new()?)
@@ -125,7 +137,7 @@ pub fn determine_build_strategy() -> Result<Rc<dyn BuildStrategy>> {
             (_, _, var_run_podman_podman_sock, _, _, _, _)
                 if var_run_podman_podman_sock.exists() =>
             {
-                Rc::new(
+                Arc::new(
                     PodmanApiStrategy::builder()
                         .client(Podman::unix(var_run_podman_podman_sock).into())
                         .rt(Runtime::new()?)
@@ -135,7 +147,7 @@ pub fn determine_build_strategy() -> Result<Rc<dyn BuildStrategy>> {
                 )
             }
             #[cfg(feature = "builtin-podman")]
-            (_, _, _, var_run_podman_sock, _, _, _) if var_run_podman_sock.exists() => Rc::new(
+            (_, _, _, var_run_podman_sock, _, _, _) if var_run_podman_sock.exists() => Arc::new(
                 PodmanApiStrategy::builder()
                     .client(Podman::unix(var_run_podman_sock).into())
                     .rt(Runtime::new()?)
@@ -145,15 +157,17 @@ pub fn determine_build_strategy() -> Result<Rc<dyn BuildStrategy>> {
             ),
             // (_, _, _, _, Ok(_docker), _, _) if !oci_required => {
             (_, _, _, _, Ok(_docker), _, _) => {
-                Rc::new(DockerStrategy::builder().creds(creds).build())
+                Arc::new(DockerStrategy::builder().creds(creds).build())
             }
             (_, _, _, _, _, Ok(_podman), _) => {
-                Rc::new(PodmanStrategy::builder().creds(creds).build())
+                Arc::new(PodmanStrategy::builder().creds(creds).build())
             }
             (_, _, _, _, _, _, Ok(_buildah)) => {
-                Rc::new(BuildahStrategy::builder().creds(creds).build())
+                Arc::new(BuildahStrategy::builder().creds(creds).build())
             }
-            _ => bail!("Could not determine strategy"),
+            _ => bail!(
+                "Could not determine strategy, need either docker, podman, or buildah to continue"
+            ),
         },
     )
 }

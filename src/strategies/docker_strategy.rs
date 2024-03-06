@@ -5,9 +5,7 @@ use blue_build_utils::constants::*;
 use log::{info, trace};
 use typed_builder::TypedBuilder;
 
-use crate::commands::build::Credentials;
-
-use super::BuildStrategy;
+use super::{BuildStrategy, Credentials};
 
 #[derive(Debug, TypedBuilder)]
 pub struct DockerStrategy {

@@ -57,11 +57,6 @@ impl TemplateCommand {
             .clone()
             .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
 
-        let os_version = self
-            .os_version
-            .clone()
-            .unwrap_or(DEFAULT_OS_VERSION.to_string());
-
         debug!("Deserializing recipe");
         let recipe_de = Recipe::parse(&recipe_path)?;
         trace!("recipe_de: {recipe_de:#?}");
