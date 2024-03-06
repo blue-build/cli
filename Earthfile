@@ -15,10 +15,8 @@ build:
 
 default:
 	ARG NIGHTLY=false
-	WAIT
-		BUILD +lint --NIGHTLY=$NIGHTLY
-		BUILD +test --NIGHTLY=$NIGHTLY
-	END
+	BUILD +lint --NIGHTLY=$NIGHTLY
+	BUILD +test --NIGHTLY=$NIGHTLY
 	BUILD +blue-build-cli --NIGHTLY=$NIGHTLY
 	BUILD +blue-build-cli-alpine --NIGHTLY=$NIGHTLY
 	BUILD +installer --NIGHTLY=$NIGHTLY
@@ -118,16 +116,14 @@ installer:
 	FROM alpine
 	ARG NIGHTLY=false
 
-	BUILD +install --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY
-	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY) /out/bluebuild
+	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-musl" --NIGHTLY=$NIGHTLY) /out/bluebuild
 	COPY install.sh /install.sh
 
 	CMD ["cat", "/install.sh"]
 
 	ARG TAG
 	ARG LATEST=false
-	ARG INSTALLER=true
-	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY --INSTALLER=$INSTALLER
+	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY --INSTALLER=true
 
 cosign:
 	FROM gcr.io/projectsigstore/cosign
