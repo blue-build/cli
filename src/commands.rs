@@ -56,7 +56,7 @@ pub enum CommandArgs {
     Template(template::TemplateCommand),
 
     /// Upgrade your current OS with the
-    /// local image saved at `/etc/blue-build/`.
+    /// local image saved at `/etc/bluebuild/`.
     ///
     /// This requires having rebased already onto
     /// a local archive already by using the `rebase`
@@ -72,7 +72,7 @@ pub enum CommandArgs {
     /// being built.
     ///
     /// This will create a tarball of your image at
-    /// `/etc/blue-build/` and invoke `rpm-ostree` to
+    /// `/etc/bluebuild/` and invoke `rpm-ostree` to
     /// rebase onto the image using `oci-archive`.
     ///
     /// NOTE: This can only be used if you have `rpm-ostree`
