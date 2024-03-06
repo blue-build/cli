@@ -1,4 +1,3 @@
-#![allow(clippy::redundant_closure_call)]
 use std::{
     env,
     path::PathBuf,
