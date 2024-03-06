@@ -139,7 +139,7 @@ impl BuildStrategy for PodmanApiStrategy {
         Ok(())
     }
 
-    fn inspect(&self, image_name: &str, tag: &str) -> Result<Vec<u8>> {
+    fn inspect(&self, _image_name: &str, _tag: &str) -> Result<Vec<u8>> {
         todo!()
     }
 }

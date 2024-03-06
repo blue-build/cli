@@ -15,9 +15,8 @@ use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
 use crate::{
-    commands::template::TemplateCommand,
-    image_inspection::ImageInspection,
-    strategies::{Credentials, BUILD_STRATEGY},
+    commands::template::TemplateCommand, globals::BUILD_STRATEGY,
+    image_inspection::ImageInspection, strategies::Credentials,
 };
 
 use super::BlueBuildCommand;
@@ -209,8 +208,6 @@ impl BlueBuildCommand for BuildCommand {
 
         info!("Building image for recipe at {}", recipe_path.display());
 
-        let credentials = self.get_login_creds();
-
         self.start(build_id, &recipe_path)
     }
 }
@@ -229,7 +226,6 @@ impl BuildCommand {
         }
 
         TemplateCommand::builder()
-            .os_version(Some(os_version))
             .recipe(recipe_path)
             .output(PathBuf::from("Containerfile"))
             .build_id(build_id)

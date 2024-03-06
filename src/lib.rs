@@ -4,5 +4,6 @@
 shadow_rs::shadow!(shadow);
 
 pub mod commands;
+pub mod globals;
 pub mod image_inspection;
 pub mod strategies;
