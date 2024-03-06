@@ -110,7 +110,7 @@ This will template out the file and build with `buildah` or `podman`.
 
 ##### Rebase
 
-If you want to test your changes, you can do so by using the `rebase` command. This will create an image as a `.tar.gz` file, store it in `/etc/blue-build`, an run `rpm-ostree rebase` on that newly built file.
+If you want to test your changes, you can do so by using the `rebase` command. This will create an image as a `.tar.gz` file, store it in `/etc/bluebuild`, an run `rpm-ostree rebase` on that newly built file.
 
 ```bash
 sudo bluebuild rebase config/recipe.yml
