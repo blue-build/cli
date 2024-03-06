@@ -12,7 +12,7 @@ use uuid::Uuid;
 use super::BlueBuildCommand;
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
-pub struct TemplateCommand {
+pub struct GenerateCommand {
     /// The recipe file to create a template from
     #[arg()]
     #[builder(default, setter(into, strip_option))]
@@ -28,7 +28,7 @@ pub struct TemplateCommand {
     build_id: Option<Uuid>,
 }
 
-impl BlueBuildCommand for TemplateCommand {
+impl BlueBuildCommand for GenerateCommand {
     fn try_run(&mut self) -> Result<()> {
         info!(
             "Templating for recipe at {}",
@@ -44,7 +44,7 @@ impl BlueBuildCommand for TemplateCommand {
     }
 }
 
-impl TemplateCommand {
+impl GenerateCommand {
     fn template_file(&self) -> Result<()> {
         trace!("TemplateCommand::template_file()");
 

@@ -15,7 +15,7 @@ use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
 use crate::{
-    commands::template::TemplateCommand,
+    commands::generate::GenerateCommand,
     strategies::{determine_build_strategy, BuildStrategy},
 };
 
@@ -68,6 +68,24 @@ pub struct BuildCommand {
     #[arg(short, long)]
     #[builder(default, setter(into, strip_option))]
     archive: Option<PathBuf>,
+
+    /// Builds an `oci-archive` of your image
+    /// and runs `rpm-ostree` to switch to it.
+    ///
+    /// `bluebuild` will automatically determine
+    /// whether to rebase or upgrade your image.
+    #[arg(short, long)]
+    #[builder(default)]
+    switch: bool,
+
+    /// Can be used with `--switch` to reboot
+    /// your system when the build and switch
+    /// is finished.
+    ///
+    /// Arg is ignored unless `--switch` is used.
+    #[arg(short, long)]
+    #[builder(default)]
+    reboot: bool,
 
     /// The registry's domain name.
     #[arg(long)]
@@ -148,6 +166,12 @@ impl BlueBuildCommand for BuildCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
+        if (self.switch || self.archive.is_some()) && self.push
+            || self.archive.is_some() && self.switch
+        {
+            bail!("You cannot use '--archive', '--switch', or '--push' at the same time");
+        }
+
         // Check if the Containerfile exists
         //   - If doesn't => *Build*
         //   - If it does:
@@ -198,10 +222,6 @@ impl BlueBuildCommand for BuildCommand {
         }
 
         let build_id = Uuid::new_v4();
-        if self.push && self.archive.is_some() {
-            bail!("You cannot use '--archive' and '--push' at the same time");
-        }
-
         let recipe_path = self
             .recipe
             .clone()
@@ -213,7 +233,7 @@ impl BlueBuildCommand for BuildCommand {
             check_cosign_files()?;
         }
 
-        TemplateCommand::builder()
+        GenerateCommand::builder()
             .recipe(&recipe_path)
             .output(PathBuf::from("Containerfile"))
             .build_id(build_id)
@@ -245,6 +265,14 @@ impl BuildCommand {
             self.login(build_strat.clone())?;
         }
         self.run_build(&image_name, &tags, build_strat)?;
+
+        if self.push {
+            sign_images(&image_name, tags.first().map(String::as_str))?;
+        }
+
+        if self.switch {
+            todo!()
+        }
 
         info!("Build complete!");
 
@@ -298,6 +326,11 @@ impl BuildCommand {
             format!(
                 "oci-archive:{}/{}.{ARCHIVE_SUFFIX}",
                 archive_dir.to_string_lossy().trim_end_matches('/'),
+                recipe.name.to_lowercase().replace('/', "_"),
+            )
+        } else if self.switch {
+            format!(
+                "oci-archive:{LOCAL_BUILD}/{}.{ARCHIVE_SUFFIX}",
                 recipe.name.to_lowercase().replace('/', "_"),
             )
         } else {
@@ -404,10 +437,6 @@ impl BuildCommand {
                     })?;
                 }
             }
-        }
-
-        if self.push {
-            sign_images(image_name, tags.first().map(String::as_str))?;
         }
 
         Ok(())
