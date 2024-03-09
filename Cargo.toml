@@ -45,9 +45,9 @@ pre-release-replacements = [
 ]
 
 [dependencies]
-blue-build-recipe = { path = "./recipe" }
-blue-build-template = { path = "./template" }
-blue-build-utils = { path = "./utils" }
+blue-build-recipe = { version = "=0.8.2", path = "./recipe" }
+blue-build-template = { version = "=0.8.2", path = "./template" }
+blue-build-utils = { version = "=0.8.2", path = "./utils" }
 clap = { version = "4", features = ["derive", "cargo", "unicode"] }
 clap-verbosity-flag = "2"
 clap_complete = "4"
