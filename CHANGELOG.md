@@ -2,11 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.2] - 2024-03-09
+
+### Bug Fixes
+
+- Filter out `/` in tag names (#94)
+- Run `ostree container commit` at the end of each module run (#103)
+- Add Nvidia Version to main base case (#107)
+- Retry flag (#111)
+- Add `org.opencontainers.image.source` LABEL for CI images (#113)
+- Remove check for specific branches for signing (#114)
+- Update path in comments and README (#115)
+
+### Documentation
+
+- Add install script from github option (#102)
+
+### Features
+
+- Add flakehub entry + nix flake (#109)
+
+### Miscellaneous Tasks
+
+- Add integration test for `disableuserns.sh` (#104)
+- Update builds to use different satellites and have integration tests on their own job
+- Move cargo release settings to root Cargo.toml
+- Update crates to have their own versions starting at CLI version
+
+### Refactor
+
+- Update build command to use BuildStrategy (#88)
+
 ## [0.8.1] - 2024-02-26
 
 ### Bug Fixes
 
+- COPY yq for final image for modules to work
 - COPY yq into final image for modules
+
+### Miscellaneous Tasks
+
+- Update modules.json to reflect change in dir layout
+- Release blue-build version 0.8.1
+
+### Refactor
+
+- Move templates to their own crate (#83)
 
 ## [0.8.0] - 2024-02-25
 
