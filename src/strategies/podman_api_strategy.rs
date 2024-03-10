@@ -1,5 +1,5 @@
 use anyhow::Context;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use blue_build_utils::constants::*;
 use futures_util::StreamExt;
 use log::{debug, error};
@@ -21,9 +21,10 @@ use tokio::{
 };
 use typed_builder::TypedBuilder;
 
+use crate::credentials;
 use crate::strategies::BUILD_ID;
 
-use super::{BuildStrategy, ENV_CREDENTIALS};
+use super::BuildStrategy;
 
 #[derive(Debug, TypedBuilder)]
 pub struct PodmanApiStrategy {
@@ -101,10 +102,11 @@ impl BuildStrategy for PodmanApiStrategy {
     }
 
     fn push(&self, image: &str) -> Result<()> {
-        let (username, password, registry) = ENV_CREDENTIALS
-            .as_ref()
-            .map(|c| (&c.username, &c.password, &c.registry))
-            .ok_or_else(|| anyhow!("No credentials provided, unable to push"))?;
+        trace!("PodmanApiStrategy::push({image})");
+
+        let (username, password, registry) =
+            credentials::get_credentials().map(|c| (&c.username, &c.password, &c.registry))?;
+        trace!("Retrieved creds for user {username} on registry {registry}");
 
         self.rt.block_on(async {
             let new_image = self.client.images().get(image);
@@ -132,6 +134,7 @@ impl BuildStrategy for PodmanApiStrategy {
     }
 
     fn login(&self) -> Result<()> {
+        trace!("PodmanApiStrategy::login()");
         debug!("No login step for Socket based building, skipping...");
         Ok(())
     }

@@ -1,9 +1,9 @@
 use std::process::{Command, Stdio};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use log::{info, trace};
 
-use crate::strategies::ENV_CREDENTIALS;
+use crate::credentials;
 
 use super::{BuildStrategy, InspectStrategy};
 
@@ -57,16 +57,13 @@ impl BuildStrategy for BuildahStrategy {
     }
 
     fn login(&self) -> Result<()> {
-        let (registry, username, password) = ENV_CREDENTIALS
-            .as_ref()
-            .map(|credentials| {
-                (
-                    &credentials.registry,
-                    &credentials.username,
-                    &credentials.password,
-                )
-            })
-            .ok_or_else(|| anyhow!("Unable to login, missing credentials!"))?;
+        let (registry, username, password) = credentials::get_credentials().map(|credentials| {
+            (
+                &credentials.registry,
+                &credentials.username,
+                &credentials.password,
+            )
+        })?;
 
         trace!("buildah login -u {username} -p [MASKED] {registry}");
         let output = Command::new("buildah")

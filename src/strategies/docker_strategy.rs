@@ -3,11 +3,11 @@ use std::{
     process::{Command, Stdio},
 };
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use blue_build_utils::constants::*;
 use log::{info, trace};
 
-use crate::{image_inspection::ImageInspection, strategies::ENV_CREDENTIALS};
+use crate::{credentials, image_inspection::ImageInspection};
 
 use super::{BuildStrategy, InspectStrategy};
 
@@ -91,16 +91,13 @@ impl BuildStrategy for DockerStrategy {
     }
 
     fn login(&self) -> Result<()> {
-        let (registry, username, password) = ENV_CREDENTIALS
-            .as_ref()
-            .map(|credentials| {
-                (
-                    &credentials.registry,
-                    &credentials.username,
-                    &credentials.password,
-                )
-            })
-            .ok_or_else(|| anyhow!("Unable to login, missing credentials!"))?;
+        let (registry, username, password) = credentials::get_credentials().map(|credentials| {
+            (
+                &credentials.registry,
+                &credentials.username,
+                &credentials.password,
+            )
+        })?;
 
         trace!("docker login -u {username} -p [MASKED] {registry}");
         let output = Command::new("docker")

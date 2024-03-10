@@ -4,7 +4,7 @@ use std::{
     process::Command,
 };
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::*;
 use clap::Args;
@@ -12,10 +12,7 @@ use colorized::{Color, Colors};
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 
-use crate::{
-    commands::template::TemplateCommand,
-    strategies::{self, Credentials, BUILD_STRATEGY},
-};
+use crate::{commands::template::TemplateCommand, credentials, strategies};
 
 use super::BlueBuildCommand;
 
@@ -198,7 +195,7 @@ impl BlueBuildCommand for BuildCommand {
             .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
 
         if self.push {
-            strategies::set_user_creds(
+            credentials::set_user_creds(
                 self.username.as_ref(),
                 self.password.as_ref(),
                 self.registry.as_ref(),
@@ -244,9 +241,7 @@ impl BuildCommand {
         trace!("BuildCommand::login()");
         info!("Attempting to login to the registry");
 
-        let credentials = self
-            .get_login_creds()
-            .ok_or_else(|| anyhow!("Unable to get credentials"))?;
+        let credentials = credentials::get_credentials()?;
 
         let (registry, username, password) = (
             &credentials.registry,
@@ -255,7 +250,7 @@ impl BuildCommand {
         );
 
         info!("Logging into the registry, {registry}");
-        BUILD_STRATEGY.login()?;
+        strategies::get_build_strategy().login()?;
 
         trace!("cosign login -u {username} -p [MASKED] {registry}");
         let login_output = Command::new("cosign")
@@ -352,6 +347,8 @@ impl BuildCommand {
     fn run_build(&self, image_name: &str, tags: &[String]) -> Result<()> {
         trace!("BuildCommand::run_build({image_name}, {tags:#?})");
 
+        let strat = strategies::get_build_strategy();
+
         let full_image = if self.archive.is_some() {
             image_name.to_string()
         } else {
@@ -360,7 +357,7 @@ impl BuildCommand {
         };
 
         info!("Building image {full_image}");
-        BUILD_STRATEGY.build(&full_image)?;
+        strat.build(&full_image)?;
 
         if tags.len() > 1 && self.archive.is_none() {
             debug!("Tagging all images");
@@ -368,7 +365,7 @@ impl BuildCommand {
             for tag in tags {
                 debug!("Tagging {image_name} with {tag}");
 
-                BUILD_STRATEGY.tag(&full_image, image_name, tag)?;
+                strat.tag(&full_image, image_name, tag)?;
 
                 if self.push {
                     let retry_count = if !self.no_retry_push {
@@ -384,7 +381,7 @@ impl BuildCommand {
 
                         let tag_image = format!("{image_name}:{tag}");
 
-                        BUILD_STRATEGY.push(&tag_image)
+                        strat.push(&tag_image)
                     })?;
                 }
             }
@@ -395,49 +392,6 @@ impl BuildCommand {
         }
 
         Ok(())
-    }
-
-    fn get_login_creds(&self) -> Option<Credentials> {
-        let registry = match (
-            self.registry.as_ref(),
-            env::var(CI_REGISTRY).ok(),
-            env::var(GITHUB_ACTIONS).ok(),
-        ) {
-            (Some(registry), _, _) => registry.to_owned(),
-            (None, Some(ci_registry), None) => ci_registry,
-            (None, None, Some(_)) => "ghcr.io".to_string(),
-            _ => return None,
-        };
-
-        let username = match (
-            self.username.as_ref(),
-            env::var(CI_REGISTRY_USER).ok(),
-            env::var(GITHUB_ACTOR).ok(),
-        ) {
-            (Some(username), _, _) => username.to_owned(),
-            (None, Some(ci_registry_user), None) => ci_registry_user,
-            (None, None, Some(github_actor)) => github_actor,
-            _ => return None,
-        };
-
-        let password = match (
-            self.password.as_ref(),
-            env::var(CI_REGISTRY_PASSWORD).ok(),
-            env::var(GITHUB_TOKEN).ok(),
-        ) {
-            (Some(password), _, _) => password.to_owned(),
-            (None, Some(ci_registry_password), None) => ci_registry_password,
-            (None, None, Some(registry_token)) => registry_token,
-            _ => return None,
-        };
-
-        Some(
-            Credentials::builder()
-                .registry(registry)
-                .username(username)
-                .password(password)
-                .build(),
-        )
     }
 }
 

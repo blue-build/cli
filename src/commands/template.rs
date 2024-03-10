@@ -8,7 +8,7 @@ use clap::Args;
 use log::{debug, info, trace};
 use typed_builder::TypedBuilder;
 
-use crate::strategies::{self, BUILD_ID};
+use crate::strategies;
 
 use super::BlueBuildCommand;
 
@@ -54,7 +54,7 @@ impl TemplateCommand {
 
         let template = ContainerFileTemplate::builder()
             .os_version(strategies::get_os_version(&recipe_de)?)
-            .build_id(*BUILD_ID)
+            .build_id(strategies::get_build_id())
             .recipe(&recipe_de)
             .recipe_path(recipe_path.as_path())
             .build();

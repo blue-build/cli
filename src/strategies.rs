@@ -17,7 +17,6 @@ use blue_build_recipe::Recipe;
 use blue_build_utils::constants::*;
 use lazy_static::lazy_static;
 use log::{debug, error, trace, warn};
-use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
 #[cfg(feature = "podman-api")]
@@ -44,66 +43,6 @@ mod podman_strategy;
 mod skopeo_strategy;
 
 lazy_static! {
-    /// Stores the global env credentials.
-    ///
-    /// This on load will determine the credentials based off of
-    /// `USER_CREDS` and env vars from CI systems. Once this is called
-    /// the value is stored and cannot change.
-    ///
-    /// If you have user
-    /// provided credentials, make sure you update `USER_CREDS`
-    /// before trying to access this reference.
-    static ref ENV_CREDENTIALS: Option<Credentials> = {
-        let (username, password, registry) = {
-            USER_CREDS.lock().map_or((None, None, None), |creds| (
-                creds.username.clone(),
-                creds.password.clone(),
-                creds.registry.clone(),
-            ))
-        };
-
-        let registry = match (
-            registry.as_ref(),
-            env::var(CI_REGISTRY).ok(),
-            env::var(GITHUB_ACTIONS).ok(),
-        ) {
-            (Some(registry), _, _) => registry.to_owned(),
-            (None, Some(ci_registry), None) => ci_registry,
-            (None, None, Some(_)) => "ghcr.io".to_string(),
-            _ => return None,
-        };
-
-        let username = match (
-            username.as_ref(),
-            env::var(CI_REGISTRY_USER).ok(),
-            env::var(GITHUB_ACTOR).ok(),
-        ) {
-            (Some(username), _, _) => username.to_owned(),
-            (None, Some(ci_registry_user), None) => ci_registry_user,
-            (None, None, Some(github_actor)) => github_actor,
-            _ => return None,
-        };
-
-        let password = match (
-            password.as_ref(),
-            env::var(CI_REGISTRY_PASSWORD).ok(),
-            env::var(GITHUB_TOKEN).ok(),
-        ) {
-            (Some(password), _, _) => password.to_owned(),
-            (None, Some(ci_registry_password), None) => ci_registry_password,
-            (None, None, Some(registry_token)) => registry_token,
-            _ => return None,
-        };
-
-        Some(
-            Credentials::builder()
-                .registry(registry)
-                .username(username)
-                .password(password)
-                .build(),
-        )
-    };
-
     /// Stores the build strategy.
     ///
     /// This will, on load, find the best way to build in the
@@ -115,7 +54,7 @@ lazy_static! {
     ///
     /// This will cause the program to exit if a build strategy could
     /// not be determined.
-    pub static ref BUILD_STRATEGY: Arc<dyn BuildStrategy> = {
+    static ref BUILD_STRATEGY: Arc<dyn BuildStrategy> = {
         match determine_build_strategy() {
             Err(e) => {
                 error!("{e}");
@@ -136,7 +75,7 @@ lazy_static! {
     ///
     /// This will cause the program to exit if a build strategy could
     /// not be determined.
-    pub static ref INSPECT_STRATEGY: Arc<dyn InspectStrategy> = {
+    static ref INSPECT_STRATEGY: Arc<dyn InspectStrategy> = {
         match determine_inspect_strategy() {
             Err(e) => {
                 error!("{e}");
@@ -146,35 +85,11 @@ lazy_static! {
         }
     };
 
-    pub static ref BUILD_ID: Uuid = Uuid::new_v4();
+    /// UUID used to mark the current builds
+    static ref BUILD_ID: Uuid = Uuid::new_v4();
 
     /// The cached os versions
     static ref OS_VERSION: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
-}
-
-/// Stored user creds.
-///
-/// This is a special handoff static ref that is consumed
-/// by the `ENV_CREDENTIALS` static ref. This can be set
-/// at the beginning of a command for future calls for
-/// creds to source from.
-static USER_CREDS: Mutex<UserCreds> = Mutex::new(UserCreds {
-    username: None,
-    password: None,
-    registry: None,
-});
-
-#[derive(Debug, Default, Clone, TypedBuilder)]
-pub struct Credentials {
-    pub registry: String,
-    pub username: String,
-    pub password: String,
-}
-
-struct UserCreds {
-    pub username: Option<String>,
-    pub password: Option<String>,
-    pub registry: Option<String>,
 }
 
 /// Allows agnostic building, tagging
@@ -192,6 +107,21 @@ pub trait BuildStrategy: Sync + Send {
 /// Allows agnostic inspection of images.
 pub trait InspectStrategy: Sync + Send {
     fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection>;
+}
+
+/// Gets the current build's UUID
+pub fn get_build_id() -> Uuid {
+    *BUILD_ID
+}
+
+/// Gets the current run's build strategy
+pub fn get_build_strategy() -> Arc<dyn BuildStrategy> {
+    BUILD_STRATEGY.clone()
+}
+
+/// Gets the current run's inspectioin strategy
+pub fn get_inspection_strategy() -> Arc<dyn InspectStrategy> {
+    INSPECT_STRATEGY.clone()
 }
 
 /// Retrieve the `os_version` for an image.
@@ -233,27 +163,6 @@ pub fn get_os_version(recipe: &Recipe) -> Result<String> {
     }
     drop(os_version_lock);
     Ok(os_version)
-}
-
-/// Set the users credentials for
-/// the current set of actions.
-///
-/// Be sure to call this before trying to use
-/// any strategy that requires credentials as
-/// the environment credentials are lazy allocated.
-pub fn set_user_creds(
-    username: Option<&String>,
-    password: Option<&String>,
-    registry: Option<&String>,
-) -> Result<()> {
-    let mut creds_lock = USER_CREDS
-        .lock()
-        .map_err(|e| anyhow!("Failed to set credentials: {e}"))?;
-    creds_lock.username = username.map(|u| u.to_owned());
-    creds_lock.password = password.map(|p| p.to_owned());
-    creds_lock.registry = registry.map(|r| r.to_owned());
-    drop(creds_lock);
-    Ok(())
 }
 
 fn determine_inspect_strategy() -> Result<Arc<dyn InspectStrategy>> {
