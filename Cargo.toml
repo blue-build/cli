@@ -2,7 +2,6 @@
 members = ["utils", "recipe", "template"]
 
 [workspace.package]
-version = "0.8.1"
 description = "A CLI tool built for creating Containerfile templates based on the Ublue Community Project"
 edition = "2021"
 repository = "https://github.com/blue-build/cli"
@@ -32,17 +31,23 @@ nursery = "warn"
 [package]
 name = "blue-build"
 build = "build.rs"
+version = "0.8.2"
 
-version.workspace = true
 edition.workspace = true
 description.workspace = true
 repository.workspace = true
 license.workspace = true
 
+[package.metadata.release]
+pre-release-hook = ["git", "cliff", "-o", "CHANGELOG.md", "--tag", "{{version}}"]
+pre-release-replacements = [
+  { file = "install.sh", search="VERSION=v\\d+\\.\\d+\\.\\d+", replace = "VERSION=v{{version}}" }
+]
+
 [dependencies]
-blue-build-recipe = { path = "./recipe" }
-blue-build-template = { path = "./template" }
-blue-build-utils = { path = "./utils" }
+blue-build-recipe = { version = "=0.8.2", path = "./recipe" }
+blue-build-template = { version = "=0.8.2", path = "./template" }
+blue-build-utils = { version = "=0.8.2", path = "./utils" }
 clap = { version = "4", features = ["derive", "cargo", "unicode"] }
 clap-verbosity-flag = "2"
 clap_complete = "4"
