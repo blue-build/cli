@@ -61,7 +61,6 @@ requestty = { version = "0.5", features = ["macros", "termion"] }
 shadow-rs = { version = "0.26" }
 urlencoding = "2.1.3"
 users = "0.11.0"
-once_cell = "1"
 lazy_static = "1.4.0"
 
 # Optional Dependencies
@@ -82,7 +81,6 @@ serde_json.workspace = true
 serde_yaml.workspace = true
 typed-builder.workspace = true
 uuid.workspace = true
-format_serde_error.workspace = true
 
 [features]
 default = []

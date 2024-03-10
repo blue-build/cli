@@ -1,11 +1,11 @@
-use std::process::{Command, Stdio};
+use std::process::Command;
 
 use anyhow::{bail, Result};
 use log::{info, trace};
 
 use crate::credentials;
 
-use super::{BuildStrategy, InspectStrategy};
+use super::BuildStrategy;
 
 #[derive(Debug)]
 pub struct BuildahStrategy;
@@ -80,33 +80,5 @@ impl BuildStrategy for BuildahStrategy {
             bail!("Failed to login for buildah: {err_out}");
         }
         Ok(())
-    }
-}
-
-impl InspectStrategy for BuildahStrategy {
-    fn get_labels(
-        &self,
-        image_name: &str,
-        tag: &str,
-    ) -> Result<crate::image_inspection::ImageInspection> {
-        let skopeo_url = "docker://quay.io/skopeo/stable:latest".to_string();
-        let url = format!("docker://{image_name}:{tag}");
-
-        trace!("buildah run {skopeo_url} inspect {url}");
-        let output = Command::new("buildah")
-            .arg("run")
-            .arg(skopeo_url)
-            .arg("inspect")
-            .arg(&url)
-            .stderr(Stdio::inherit())
-            .output()?;
-
-        if output.status.success() {
-            info!("Successfully inspected image {url}!");
-        } else {
-            bail!("Failed to inspect image {url}")
-        }
-
-        Ok(serde_json::from_slice(&output.stdout)?)
     }
 }

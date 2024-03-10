@@ -171,12 +171,10 @@ fn determine_inspect_strategy() -> Result<Arc<dyn InspectStrategy>> {
             blue_build_utils::check_command_exists("skopeo"),
             blue_build_utils::check_command_exists("docker"),
             blue_build_utils::check_command_exists("podman"),
-            blue_build_utils::check_command_exists("buildah"),
         ) {
-            (Ok(_skopeo), _, _, _) => Arc::new(SkopeoStrategy),
-            (_, Ok(_docker), _, _) => Arc::new(DockerStrategy),
-            (_, _, Ok(_podman), _) => Arc::new(PodmanStrategy),
-            (_, _, _, Ok(_buildah)) => Arc::new(BuildahStrategy),
+            (Ok(_skopeo), _, _) => Arc::new(SkopeoStrategy),
+            (_, Ok(_docker), _) => Arc::new(DockerStrategy),
+            (_, _, Ok(_podman)) => Arc::new(PodmanStrategy),
             _ => bail!("Could not determine inspection strategy. You need eiterh skopeo, docker, podman, or buildah"),
         }
     )

@@ -41,7 +41,7 @@ pub struct Recipe<'a> {
 
 impl<'a> Recipe<'a> {
     #[must_use]
-    pub fn generate_tags(&self, image_version: &str) -> Vec<String> {
+    pub fn generate_tags(&self, os_version: &str) -> Vec<String> {
         trace!("Recipe::generate_tags()");
         trace!("Generating image tags for {}", &self.name);
 
@@ -61,22 +61,22 @@ impl<'a> Recipe<'a> {
                 trace!("CI_MERGE_REQUEST_IID={mr_iid}");
                 if pipeline_source == "merge_request_event" {
                     debug!("Running in a MR");
-                    tags.push(format!("mr-{mr_iid}-{image_version}"));
+                    tags.push(format!("mr-{mr_iid}-{os_version}"));
                 }
             }
 
             if default_branch == commit_branch {
                 debug!("Running on the default branch");
-                tags.push(image_version.to_string());
-                tags.push(format!("{timestamp}-{image_version}"));
+                tags.push(os_version.to_string());
+                tags.push(format!("{timestamp}-{os_version}"));
                 tags.push("latest".into());
                 tags.push(timestamp);
             } else {
                 debug!("Running on branch {commit_branch}");
-                tags.push(format!("br-{commit_branch}-{image_version}"));
+                tags.push(format!("br-{commit_branch}-{os_version}"));
             }
 
-            tags.push(format!("{commit_sha}-{image_version}"));
+            tags.push(format!("{commit_sha}-{os_version}"));
         } else if let (
             Ok(github_event_name),
             Ok(github_event_number),
@@ -96,19 +96,19 @@ impl<'a> Recipe<'a> {
 
             if github_event_name == "pull_request" {
                 debug!("Running in a PR");
-                tags.push(format!("pr-{github_event_number}-{image_version}"));
+                tags.push(format!("pr-{github_event_number}-{os_version}"));
             } else if github_ref_name == "live" || github_ref_name == "main" {
-                tags.push(image_version.to_string());
-                tags.push(format!("{timestamp}-{image_version}"));
+                tags.push(os_version.to_string());
+                tags.push(format!("{timestamp}-{os_version}"));
                 tags.push("latest".into());
                 tags.push(timestamp);
             } else {
-                tags.push(format!("br-{github_ref_name}-{image_version}"));
+                tags.push(format!("br-{github_ref_name}-{os_version}"));
             }
-            tags.push(format!("{short_sha}-{image_version}"));
+            tags.push(format!("{short_sha}-{os_version}"));
         } else {
             warn!("Running locally");
-            tags.push(format!("local-{image_version}"));
+            tags.push(format!("local-{os_version}"));
         }
         debug!("Finished generating tags!");
         debug!("Tags: {tags:#?}");

@@ -119,13 +119,12 @@ impl BuildStrategy for DockerStrategy {
 
 impl InspectStrategy for DockerStrategy {
     fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection> {
-        let skopeo_url = "quay.io/skopeo/stable:latest".to_string();
         let url = format!("docker://{image_name}:{tag}");
 
-        trace!("docker run {skopeo_url} inspect {url}");
+        trace!("docker run {SKOPEO_IMAGE} inspect {url}");
         let output = Command::new("docker")
             .arg("run")
-            .arg(skopeo_url)
+            .arg(SKOPEO_IMAGE)
             .arg("inspect")
             .arg(&url)
             .stderr(Stdio::inherit())

@@ -1,6 +1,7 @@
 use std::process::{Command, Stdio};
 
 use anyhow::{bail, Result};
+use blue_build_utils::constants::SKOPEO_IMAGE;
 use log::{debug, info, trace};
 
 use crate::{credentials, image_inspection::ImageInspection};
@@ -87,13 +88,12 @@ impl BuildStrategy for PodmanStrategy {
 
 impl InspectStrategy for PodmanStrategy {
     fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection> {
-        let skopeo_url = "docker://quay.io/skopeo/stable:latest".to_string();
         let url = format!("docker://{image_name}:{tag}");
 
-        trace!("podman run {skopeo_url} inspect {url}");
+        trace!("podman run {SKOPEO_IMAGE} inspect {url}");
         let output = Command::new("podman")
             .arg("run")
-            .arg(&skopeo_url)
+            .arg(SKOPEO_IMAGE)
             .arg("inspect")
             .arg(&url)
             .stderr(Stdio::inherit())

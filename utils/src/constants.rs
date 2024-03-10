@@ -57,6 +57,7 @@ pub const LC_TERMINAL_VERSION: &str = "LC_TERMINAL_VERSION";
 pub const XDG_RUNTIME_DIR: &str = "XDG_RUNTIME_DIR";
 
 // Misc
+pub const SKOPEO_IMAGE: &str = "quay.io/skopeo/stable:latest";
 pub const UNKNOWN_SHELL: &str = "<unknown shell>";
 pub const UNKNOWN_VERSION: &str = "<unknown version>";
 pub const UNKNOWN_TERMINAL: &str = "<unknown terminal>";
