@@ -1,15 +1,14 @@
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use anyhow::{anyhow, bail, Result};
-use log::{info, trace};
-use typed_builder::TypedBuilder;
+use log::{debug, info, trace};
 
-use super::{BuildStrategy, Credentials};
+use crate::{image_inspection::ImageInspection, strategies::ENV_CREDENTIALS};
 
-#[derive(Debug, TypedBuilder)]
-pub struct PodmanStrategy {
-    creds: Option<Credentials>,
-}
+use super::{BuildStrategy, InspectStrategy};
+
+#[derive(Debug)]
+pub struct PodmanStrategy;
 
 impl BuildStrategy for PodmanStrategy {
     fn build(&self, image: &str) -> Result<()> {
@@ -60,8 +59,7 @@ impl BuildStrategy for PodmanStrategy {
     }
 
     fn login(&self) -> Result<()> {
-        let (registry, username, password) = self
-            .creds
+        let (registry, username, password) = ENV_CREDENTIALS
             .as_ref()
             .map(|credentials| {
                 (
@@ -88,24 +86,27 @@ impl BuildStrategy for PodmanStrategy {
         }
         Ok(())
     }
+}
 
-    fn inspect(&self, image_name: &str, tag: &str) -> Result<Vec<u8>> {
+impl InspectStrategy for PodmanStrategy {
+    fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection> {
         let skopeo_url = "docker://quay.io/skopeo/stable:latest".to_string();
         let url = format!("docker://{image_name}:{tag}");
 
-        trace!("podman run {url}");
+        trace!("podman run {skopeo_url} inspect {url}");
         let output = Command::new("podman")
             .arg("run")
-            .arg(skopeo_url)
+            .arg(&skopeo_url)
             .arg("inspect")
-            .arg(url.clone())
+            .arg(&url)
+            .stderr(Stdio::inherit())
             .output()?;
 
         if output.status.success() {
-            info!("Successfully inspected image {url}!");
+            debug!("Successfully inspected image {url}!");
         } else {
             bail!("Failed to inspect image {url}")
         }
-        Ok(output.stdout)
+        Ok(serde_json::from_slice(&output.stdout)?)
     }
 }

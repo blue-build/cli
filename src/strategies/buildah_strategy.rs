@@ -1,15 +1,14 @@
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use anyhow::{anyhow, bail, Result};
 use log::{info, trace};
-use typed_builder::TypedBuilder;
 
-use super::{BuildStrategy, Credentials};
+use crate::strategies::ENV_CREDENTIALS;
 
-#[derive(Debug, TypedBuilder)]
-pub struct BuildahStrategy {
-    creds: Option<Credentials>,
-}
+use super::{BuildStrategy, InspectStrategy};
+
+#[derive(Debug)]
+pub struct BuildahStrategy;
 
 impl BuildStrategy for BuildahStrategy {
     fn build(&self, image: &str) -> Result<()> {
@@ -58,8 +57,7 @@ impl BuildStrategy for BuildahStrategy {
     }
 
     fn login(&self) -> Result<()> {
-        let (registry, username, password) = self
-            .creds
+        let (registry, username, password) = ENV_CREDENTIALS
             .as_ref()
             .map(|credentials| {
                 (
@@ -86,17 +84,24 @@ impl BuildStrategy for BuildahStrategy {
         }
         Ok(())
     }
+}
 
-    fn inspect(&self, image_name: &str, tag: &str) -> Result<Vec<u8>> {
+impl InspectStrategy for BuildahStrategy {
+    fn get_labels(
+        &self,
+        image_name: &str,
+        tag: &str,
+    ) -> Result<crate::image_inspection::ImageInspection> {
         let skopeo_url = "docker://quay.io/skopeo/stable:latest".to_string();
         let url = format!("docker://{image_name}:{tag}");
 
-        trace!("buildah run {url}");
+        trace!("buildah run {skopeo_url} inspect {url}");
         let output = Command::new("buildah")
             .arg("run")
             .arg(skopeo_url)
             .arg("inspect")
-            .arg(url.clone())
+            .arg(&url)
+            .stderr(Stdio::inherit())
             .output()?;
 
         if output.status.success() {
@@ -104,6 +109,7 @@ impl BuildStrategy for BuildahStrategy {
         } else {
             bail!("Failed to inspect image {url}")
         }
-        Ok(output.stdout)
+
+        Ok(serde_json::from_slice(&output.stdout)?)
     }
 }

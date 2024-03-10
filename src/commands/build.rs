@@ -9,14 +9,12 @@ use blue_build_recipe::Recipe;
 use blue_build_utils::constants::*;
 use clap::Args;
 use colorized::{Color, Colors};
-use format_serde_error::SerdeError;
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
-use uuid::Uuid;
 
 use crate::{
-    commands::template::TemplateCommand, globals::BUILD_STRATEGY,
-    image_inspection::ImageInspection, strategies::Credentials,
+    commands::template::TemplateCommand,
+    strategies::{self, Credentials, BUILD_STRATEGY},
 };
 
 use super::BlueBuildCommand;
@@ -190,7 +188,6 @@ impl BlueBuildCommand for BuildCommand {
             }
         }
 
-        let build_id = Uuid::new_v4();
         if self.push && self.archive.is_some() {
             bail!("You cannot use '--archive' and '--push' at the same time");
         }
@@ -201,6 +198,11 @@ impl BlueBuildCommand for BuildCommand {
             .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
 
         if self.push {
+            strategies::set_user_creds(
+                self.username.as_ref(),
+                self.password.as_ref(),
+                self.registry.as_ref(),
+            )?;
             blue_build_utils::check_command_exists("cosign")?;
             blue_build_utils::check_command_exists("skopeo")?;
             check_cosign_files()?;
@@ -208,16 +210,16 @@ impl BlueBuildCommand for BuildCommand {
 
         info!("Building image for recipe at {}", recipe_path.display());
 
-        self.start(build_id, &recipe_path)
+        self.start(&recipe_path)
     }
 }
 
 impl BuildCommand {
-    fn start(&self, build_id: Uuid, recipe_path: &Path) -> Result<()> {
+    fn start(&self, recipe_path: &Path) -> Result<()> {
         trace!("BuildCommand::build_image()");
 
         let recipe = Recipe::parse(&recipe_path)?;
-        let os_version = self.get_os_version(&recipe)?;
+        let os_version = strategies::get_os_version(&recipe)?;
         let tags = recipe.generate_tags(&os_version);
         let image_name = self.generate_full_image_name(&recipe)?;
 
@@ -228,7 +230,6 @@ impl BuildCommand {
         TemplateCommand::builder()
             .recipe(recipe_path)
             .output(PathBuf::from("Containerfile"))
-            .build_id(build_id)
             .build()
             .try_run()?;
 
@@ -437,33 +438,6 @@ impl BuildCommand {
                 .password(password)
                 .build(),
         )
-    }
-
-    fn get_os_version(&self, recipe: &Recipe) -> Result<String> {
-        trace!("BuildCommand::get_os_version({recipe:#?})");
-
-        let scopeo_output = BUILD_STRATEGY.inspect(&recipe.base_image, &recipe.image_version)?;
-        let inspection: ImageInspection = match serde_json::from_str(
-            String::from_utf8_lossy(&scopeo_output).as_ref(),
-        ) {
-            Err(err) => {
-                let err_msg =
-                    SerdeError::new(String::from_utf8_lossy(&scopeo_output).to_string(), err)
-                        .to_string();
-                warn!("Issue deserializing 'skopeo' output, falling back to version defined in recipe. {err_msg}",);
-                return Ok(recipe.image_version.to_string());
-            }
-
-            Ok(inspection) => inspection,
-        };
-
-        let os_version = inspection.get_version().unwrap_or_else(|| {
-            warn!("Version label does not exist on image, using version in recipe");
-            recipe.image_version.to_string()
-        });
-        trace!("{}", format!("os_version: {os_version}"));
-
-        Ok(os_version)
     }
 }
 

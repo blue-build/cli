@@ -1,16 +1,18 @@
-use std::{env, process::Command};
+use std::{
+    env,
+    process::{Command, Stdio},
+};
 
 use anyhow::{anyhow, bail, Result};
 use blue_build_utils::constants::*;
 use log::{info, trace};
-use typed_builder::TypedBuilder;
 
-use super::{BuildStrategy, Credentials};
+use crate::{image_inspection::ImageInspection, strategies::ENV_CREDENTIALS};
 
-#[derive(Debug, TypedBuilder)]
-pub struct DockerStrategy {
-    creds: Option<Credentials>,
-}
+use super::{BuildStrategy, InspectStrategy};
+
+#[derive(Debug)]
+pub struct DockerStrategy;
 
 impl BuildStrategy for DockerStrategy {
     fn build(&self, image: &str) -> Result<()> {
@@ -89,8 +91,7 @@ impl BuildStrategy for DockerStrategy {
     }
 
     fn login(&self) -> Result<()> {
-        let (registry, username, password) = self
-            .creds
+        let (registry, username, password) = ENV_CREDENTIALS
             .as_ref()
             .map(|credentials| {
                 (
@@ -117,17 +118,20 @@ impl BuildStrategy for DockerStrategy {
         }
         Ok(())
     }
+}
 
-    fn inspect(&self, image_name: &str, tag: &str) -> Result<Vec<u8>> {
+impl InspectStrategy for DockerStrategy {
+    fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection> {
         let skopeo_url = "quay.io/skopeo/stable:latest".to_string();
         let url = format!("docker://{image_name}:{tag}");
 
-        trace!("docker run {url}");
+        trace!("docker run {skopeo_url} inspect {url}");
         let output = Command::new("docker")
             .arg("run")
             .arg(skopeo_url)
             .arg("inspect")
-            .arg(url.clone())
+            .arg(&url)
+            .stderr(Stdio::inherit())
             .output()?;
 
         if output.status.success() {
@@ -136,6 +140,6 @@ impl BuildStrategy for DockerStrategy {
             bail!("Failed to inspect image {url}")
         }
 
-        Ok(output.stdout)
+        Ok(serde_json::from_slice(&output.stdout)?)
     }
 }

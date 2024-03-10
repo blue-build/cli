@@ -20,32 +20,29 @@ use tokio::{
     time::{self, Duration},
 };
 use typed_builder::TypedBuilder;
-use uuid::Uuid;
 
-use super::{BuildStrategy, Credentials};
+use crate::strategies::BUILD_ID;
+
+use super::{BuildStrategy, ENV_CREDENTIALS};
 
 #[derive(Debug, TypedBuilder)]
 pub struct PodmanApiStrategy {
     client: Arc<Podman>,
     rt: Runtime,
-    uuid: Uuid,
-    creds: Option<Credentials>,
 }
 
 impl BuildStrategy for PodmanApiStrategy {
     fn build(&self, image: &str) -> Result<()> {
+        trace!("PodmanApiStrategy::build({image})");
+
         self.rt.block_on(async {
+            trace!("Setting up signal listeners");
             let signals = Signals::new([SIGTERM, SIGINT, SIGQUIT])?;
             let handle = signals.handle();
 
             let (kill_tx, mut kill_rx) = oneshot::channel::<()>();
 
-            let signals_task = tokio::spawn(handle_signals(
-                signals,
-                kill_tx,
-                self.uuid,
-                self.client.clone(),
-            ));
+            let signals_task = tokio::spawn(handle_signals(signals, kill_tx, self.client.clone()));
 
             // Get podman ready to build
             let opts = ImageBuildOpts::builder(".")
@@ -53,7 +50,7 @@ impl BuildStrategy for PodmanApiStrategy {
                 .dockerfile("Containerfile")
                 .remove(true)
                 .layers(true)
-                .labels([(BUILD_ID_LABEL, self.uuid.to_string())])
+                .labels([(BUILD_ID_LABEL, BUILD_ID.to_string())])
                 .pull(true)
                 .build();
             trace!("Build options: {opts:#?}");
@@ -91,6 +88,7 @@ impl BuildStrategy for PodmanApiStrategy {
     }
 
     fn tag(&self, src_image: &str, image_name: &str, tag: &str) -> Result<()> {
+        trace!("PodmanApiStrategy::tag({src_image}, {image_name}, {tag})");
         let first_image = self.client.images().get(src_image);
         self.rt.block_on(async {
             first_image
@@ -103,8 +101,7 @@ impl BuildStrategy for PodmanApiStrategy {
     }
 
     fn push(&self, image: &str) -> Result<()> {
-        let (username, password, registry) = self
-            .creds
+        let (username, password, registry) = ENV_CREDENTIALS
             .as_ref()
             .map(|c| (&c.username, &c.password, &c.registry))
             .ok_or_else(|| anyhow!("No credentials provided, unable to push"))?;
@@ -138,21 +135,12 @@ impl BuildStrategy for PodmanApiStrategy {
         debug!("No login step for Socket based building, skipping...");
         Ok(())
     }
-
-    fn inspect(&self, _image_name: &str, _tag: &str) -> Result<Vec<u8>> {
-        todo!()
-    }
 }
 
-async fn handle_signals(
-    mut signals: Signals,
-    kill: Sender<()>,
-    build_id: Uuid,
-    client: Arc<Podman>,
-) {
+async fn handle_signals(mut signals: Signals, kill: Sender<()>, client: Arc<Podman>) {
     use std::process;
 
-    trace!("handle_signals(signals, {build_id}, {client:#?})");
+    trace!("handle_signals(signals, {client:#?})");
 
     while let Some(signal) = signals.next().await {
         match signal {
@@ -181,7 +169,7 @@ async fn handle_signals(
                 let container_prune_opts = ContainerPruneOpts::builder()
                     .filter([ContainerPruneFilter::LabelKeyVal(
                         BUILD_ID_LABEL.to_string(),
-                        build_id.to_string(),
+                        BUILD_ID.to_string(),
                     )])
                     .build();
                 if let Err(e) = client.containers().prune(&container_prune_opts).await {
@@ -194,7 +182,7 @@ async fn handle_signals(
                 let image_prune_opts = ImagePruneOpts::builder()
                     .filter([ImagePruneFilter::LabelKeyVal(
                         BUILD_ID_LABEL.to_string(),
-                        build_id.to_string(),
+                        BUILD_ID.to_string(),
                     )])
                     .build();
                 if let Err(e) = client.images().prune(&image_prune_opts).await {
