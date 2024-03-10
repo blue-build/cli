@@ -8,8 +8,6 @@ use typed_builder::TypedBuilder;
 
 use crate::{AkmodsInfo, ModuleExt};
 
-const FEDORA_MAIN_VERSION: &str = "39";
-
 #[derive(Serialize, Deserialize, Debug, Clone, TypedBuilder)]
 pub struct Module<'a> {
     #[builder(default, setter(into, strip_option))]
@@ -102,13 +100,6 @@ impl<'a> Module<'a> {
 
     pub fn generate_akmods_info(&'a self, os_version: &str) -> AkmodsInfo {
         trace!("generate_akmods_base({self:#?}, {os_version})");
-
-        // `get_os_version` will default to `image_version` which is "latest" in some cases
-        let os_version = if os_version == "latest" {
-            FEDORA_MAIN_VERSION
-        } else {
-            os_version
-        };
 
         let base = self
             .config
