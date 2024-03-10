@@ -16,32 +16,23 @@ pub struct DockerStrategy;
 
 impl BuildStrategy for DockerStrategy {
     fn build(&self, image: &str) -> Result<()> {
-        let docker_help = Command::new("docker")
-            .arg("build")
-            .arg("--help")
-            .output()?
-            .stdout;
-        let docker_help = String::from_utf8_lossy(&docker_help);
-
         trace!("docker");
         let mut command = Command::new("docker");
 
-        if docker_help.lines().filter(|l| l.contains("buildx")).count() > 0 {
-            trace!("buildx build --load");
-            command.arg("buildx").arg("build").arg("--load");
-        } else {
-            trace!("build");
-            command.arg("build");
-        }
-
         // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
         if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
-            trace!("--cache-from type=gha --cache-to type=gha");
+            trace!("buildx build --load --cache-from type=gha --cache-to type=gha");
             command
+                .arg("buildx")
+                .arg("build")
+                .arg("--load")
                 .arg("--cache-from")
                 .arg("type=gha")
                 .arg("--cache-to")
                 .arg("type=gha");
+        } else {
+            trace!("build");
+            command.arg("build");
         }
 
         trace!("-t {image} -f Containerfile .");

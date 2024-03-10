@@ -175,7 +175,7 @@ fn determine_inspect_strategy() -> Result<Arc<dyn InspectStrategy>> {
             (Ok(_skopeo), _, _) => Arc::new(SkopeoStrategy),
             (_, Ok(_docker), _) => Arc::new(DockerStrategy),
             (_, _, Ok(_podman)) => Arc::new(PodmanStrategy),
-            _ => bail!("Could not determine inspection strategy. You need eiterh skopeo, docker, or podman"),
+            _ => bail!("Could not determine inspection strategy. You need either skopeo, docker, or podman"),
         }
     )
 }
