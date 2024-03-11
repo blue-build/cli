@@ -1,17 +1,12 @@
 use std::process::Command;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use log::{info, trace};
-use typed_builder::TypedBuilder;
 
-use crate::commands::build::Credentials;
+use super::{credentials, BuildStrategy};
 
-use super::BuildStrategy;
-
-#[derive(Debug, TypedBuilder)]
-pub struct BuildahStrategy {
-    creds: Option<Credentials>,
-}
+#[derive(Debug)]
+pub struct BuildahStrategy;
 
 impl BuildStrategy for BuildahStrategy {
     fn build(&self, image: &str) -> Result<()> {
@@ -60,17 +55,8 @@ impl BuildStrategy for BuildahStrategy {
     }
 
     fn login(&self) -> Result<()> {
-        let (registry, username, password) = self
-            .creds
-            .as_ref()
-            .map(|credentials| {
-                (
-                    &credentials.registry,
-                    &credentials.username,
-                    &credentials.password,
-                )
-            })
-            .ok_or_else(|| anyhow!("Unable to login, missing credentials!"))?;
+        let (registry, username, password) =
+            credentials::get_credentials().map(|c| (&c.registry, &c.username, &c.password))?;
 
         trace!("buildah login -u {username} -p [MASKED] {registry}");
         let output = Command::new("buildah")

@@ -42,7 +42,7 @@ template-containerfile:
 template-secureblue:
 	ARG NIGHTLY=false
 	FROM +secureblue-base --NIGHTLY=$NIGHTLY
-	RUN bluebuild -vv template -o Containerfile config/recipes/desktop/recipe-silverblue-nvidia.yml
+	RUN bluebuild -vv template -o Containerfile config/recipes/general/recipe-silverblue-nvidia.yml
 
 	SAVE ARTIFACT /test
 

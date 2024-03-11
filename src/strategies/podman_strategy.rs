@@ -1,17 +1,15 @@
-use std::process::Command;
+use std::process::{Command, Stdio};
 
-use anyhow::{anyhow, bail, Result};
-use log::{info, trace};
-use typed_builder::TypedBuilder;
+use anyhow::{bail, Result};
+use blue_build_utils::constants::SKOPEO_IMAGE;
+use log::{debug, info, trace};
 
-use crate::commands::build::Credentials;
+use crate::image_inspection::ImageInspection;
 
-use super::BuildStrategy;
+use super::{credentials, BuildStrategy, InspectStrategy};
 
-#[derive(Debug, TypedBuilder)]
-pub struct PodmanStrategy {
-    creds: Option<Credentials>,
-}
+#[derive(Debug)]
+pub struct PodmanStrategy;
 
 impl BuildStrategy for PodmanStrategy {
     fn build(&self, image: &str) -> Result<()> {
@@ -62,17 +60,8 @@ impl BuildStrategy for PodmanStrategy {
     }
 
     fn login(&self) -> Result<()> {
-        let (registry, username, password) = self
-            .creds
-            .as_ref()
-            .map(|credentials| {
-                (
-                    &credentials.registry,
-                    &credentials.username,
-                    &credentials.password,
-                )
-            })
-            .ok_or_else(|| anyhow!("Unable to login, missing credentials!"))?;
+        let (registry, username, password) =
+            credentials::get_credentials().map(|c| (&c.registry, &c.username, &c.password))?;
 
         trace!("podman login -u {username} -p [MASKED] {registry}");
         let output = Command::new("podman")
@@ -89,5 +78,27 @@ impl BuildStrategy for PodmanStrategy {
             bail!("Failed to login for buildah: {err_out}");
         }
         Ok(())
+    }
+}
+
+impl InspectStrategy for PodmanStrategy {
+    fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection> {
+        let url = format!("docker://{image_name}:{tag}");
+
+        trace!("podman run {SKOPEO_IMAGE} inspect {url}");
+        let output = Command::new("podman")
+            .arg("run")
+            .arg(SKOPEO_IMAGE)
+            .arg("inspect")
+            .arg(&url)
+            .stderr(Stdio::inherit())
+            .output()?;
+
+        if output.status.success() {
+            debug!("Successfully inspected image {url}!");
+        } else {
+            bail!("Failed to inspect image {url}")
+        }
+        Ok(serde_json::from_slice(&output.stdout)?)
     }
 }
