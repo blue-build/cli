@@ -12,7 +12,7 @@ use colorized::{Color, Colors};
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 
-use crate::{commands::template::TemplateCommand, strategies::Strategy};
+use crate::{commands::generate::GenerateCommand, strategies::Strategy};
 
 use super::BlueBuildCommand;
 
@@ -56,6 +56,24 @@ pub struct BuildCommand {
     #[arg(short, long)]
     #[builder(default, setter(into, strip_option))]
     archive: Option<PathBuf>,
+
+    /// Builds an `oci-archive` of your image
+    /// and runs `rpm-ostree` to switch to it.
+    ///
+    /// `bluebuild` will automatically determine
+    /// whether to rebase or upgrade your image.
+    #[arg(short, long)]
+    #[builder(default)]
+    switch: bool,
+
+    /// Can be used with `--switch` to reboot
+    /// your system when the build and switch
+    /// is finished.
+    ///
+    /// Arg is ignored unless `--switch` is used.
+    #[arg(short, long)]
+    #[builder(default)]
+    reboot: bool,
 
     /// The registry's domain name.
     #[arg(long)]
@@ -143,6 +161,12 @@ impl BlueBuildCommand for BuildCommand {
             .build()
             .init()?;
 
+        if (self.switch || self.archive.is_some()) && self.push
+            || self.archive.is_some() && self.switch
+        {
+            bail!("You cannot use '--archive', '--switch', or '--push' at the same time");
+        }
+
         // Check if the Containerfile exists
         //   - If doesn't => *Build*
         //   - If it does:
@@ -192,26 +216,22 @@ impl BlueBuildCommand for BuildCommand {
             }
         }
 
-        if self.push && self.archive.is_some() {
-            bail!("You cannot use '--archive' and '--push' at the same time");
-        }
-
         let recipe_path = self
             .recipe
             .clone()
             .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
-
-        TemplateCommand::builder()
-            .recipe(&recipe_path)
-            .output(PathBuf::from("Containerfile"))
-            .build()
-            .try_run()?;
 
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
             blue_build_utils::check_command_exists("skopeo")?;
             check_cosign_files()?;
         }
+
+        GenerateCommand::builder()
+            .recipe(&recipe_path)
+            .output(PathBuf::from("Containerfile"))
+            .build()
+            .try_run()?;
 
         info!("Building image for recipe at {}", recipe_path.display());
 
@@ -233,6 +253,14 @@ impl BuildCommand {
         }
 
         self.run_build(&image_name, &tags)?;
+
+        if self.push {
+            sign_images(&image_name, tags.first().map(String::as_str))?;
+        }
+
+        if self.switch {
+            todo!()
+        }
 
         info!("Build complete!");
 
@@ -284,6 +312,11 @@ impl BuildCommand {
             format!(
                 "oci-archive:{}/{}.{ARCHIVE_SUFFIX}",
                 archive_dir.to_string_lossy().trim_end_matches('/'),
+                recipe.name.to_lowercase().replace('/', "_"),
+            )
+        } else if self.switch {
+            format!(
+                "oci-archive:{LOCAL_BUILD}/{}.{ARCHIVE_SUFFIX}",
                 recipe.name.to_lowercase().replace('/', "_"),
             )
         } else {
@@ -387,10 +420,6 @@ impl BuildCommand {
                     })?;
                 }
             }
-        }
-
-        if self.push {
-            sign_images(image_name, tags.first().map(String::as_str))?;
         }
 
         Ok(())

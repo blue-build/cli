@@ -19,9 +19,7 @@ fn main() {
         #[cfg(feature = "init")]
         CommandArgs::New(mut command) => command.run(),
         CommandArgs::Build(mut command) => command.run(),
-        CommandArgs::Rebase(mut command) => command.run(),
-        CommandArgs::Upgrade(mut command) => command.run(),
-        CommandArgs::Template(mut command) => command.run(),
+        CommandArgs::Generate(mut command) => command.run(),
         CommandArgs::BugReport(mut command) => command.run(),
         CommandArgs::Completions(mut command) => command.run(),
     }
