@@ -65,7 +65,7 @@ jobs:
       # Setup repo and add caching
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event.pull_request.ref }}
 
       - name: Run integration tests
         if: github.repository == 'blue-build/cli'
