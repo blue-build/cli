@@ -201,6 +201,12 @@ impl BlueBuildCommand for BuildCommand {
             .clone()
             .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
 
+        TemplateCommand::builder()
+            .recipe(&recipe_path)
+            .output(PathBuf::from("Containerfile"))
+            .build()
+            .try_run()?;
+
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
             blue_build_utils::check_command_exists("skopeo")?;
@@ -225,12 +231,6 @@ impl BuildCommand {
         if self.push {
             self.login()?;
         }
-
-        TemplateCommand::builder()
-            .recipe(recipe_path)
-            .output(PathBuf::from("Containerfile"))
-            .build()
-            .try_run()?;
 
         self.run_build(&image_name, &tags)?;
 
