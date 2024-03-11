@@ -1,47 +1,38 @@
-use std::{env, process::Command};
+use std::{
+    env,
+    process::{Command, Stdio},
+};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use blue_build_utils::constants::*;
 use log::{info, trace};
-use typed_builder::TypedBuilder;
 
-use crate::commands::build::Credentials;
+use crate::image_inspection::ImageInspection;
 
-use super::BuildStrategy;
+use super::{credentials, BuildStrategy, InspectStrategy};
 
-#[derive(Debug, TypedBuilder)]
-pub struct DockerStrategy {
-    creds: Option<Credentials>,
-}
+#[derive(Debug)]
+pub struct DockerStrategy;
 
 impl BuildStrategy for DockerStrategy {
     fn build(&self, image: &str) -> Result<()> {
-        let docker_help = Command::new("docker")
-            .arg("build")
-            .arg("--help")
-            .output()?
-            .stdout;
-        let docker_help = String::from_utf8_lossy(&docker_help);
-
         trace!("docker");
         let mut command = Command::new("docker");
 
-        if docker_help.lines().filter(|l| l.contains("buildx")).count() > 0 {
-            trace!("buildx build --load");
-            command.arg("buildx").arg("build").arg("--load");
-        } else {
-            trace!("build");
-            command.arg("build");
-        }
-
         // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
         if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
-            trace!("--cache-from type=gha --cache-to type=gha");
+            trace!("buildx build --load --cache-from type=gha --cache-to type=gha");
             command
+                .arg("buildx")
+                .arg("build")
+                .arg("--load")
                 .arg("--cache-from")
                 .arg("type=gha")
                 .arg("--cache-to")
                 .arg("type=gha");
+        } else {
+            trace!("build");
+            command.arg("build");
         }
 
         trace!("-t {image} -f Containerfile .");
@@ -91,17 +82,8 @@ impl BuildStrategy for DockerStrategy {
     }
 
     fn login(&self) -> Result<()> {
-        let (registry, username, password) = self
-            .creds
-            .as_ref()
-            .map(|credentials| {
-                (
-                    &credentials.registry,
-                    &credentials.username,
-                    &credentials.password,
-                )
-            })
-            .ok_or_else(|| anyhow!("Unable to login, missing credentials!"))?;
+        let (registry, username, password) =
+            credentials::get_credentials().map(|c| (&c.registry, &c.username, &c.password))?;
 
         trace!("docker login -u {username} -p [MASKED] {registry}");
         let output = Command::new("docker")
@@ -118,5 +100,28 @@ impl BuildStrategy for DockerStrategy {
             bail!("Failed to login for buildah: {err_out}");
         }
         Ok(())
+    }
+}
+
+impl InspectStrategy for DockerStrategy {
+    fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection> {
+        let url = format!("docker://{image_name}:{tag}");
+
+        trace!("docker run {SKOPEO_IMAGE} inspect {url}");
+        let output = Command::new("docker")
+            .arg("run")
+            .arg(SKOPEO_IMAGE)
+            .arg("inspect")
+            .arg(&url)
+            .stderr(Stdio::inherit())
+            .output()?;
+
+        if output.status.success() {
+            info!("Successfully inspected image {url}!");
+        } else {
+            bail!("Failed to inspect image {url}")
+        }
+
+        Ok(serde_json::from_slice(&output.stdout)?)
     }
 }

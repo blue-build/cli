@@ -12,6 +12,7 @@ pub const VAR_RUN_PODMAN_SOCK: &str = "/var/run/podman.sock";
 
 // Labels
 pub const BUILD_ID_LABEL: &str = "org.blue-build.build-id";
+pub const IMAGE_VERSION_LABEL: &str = "org.opencontainers.image.version";
 
 // BlueBuild vars
 pub const BB_BUILDKIT_CACHE_GHA: &str = "BB_BUILDKIT_CACHE_GHA";
@@ -57,6 +58,7 @@ pub const LC_TERMINAL_VERSION: &str = "LC_TERMINAL_VERSION";
 pub const XDG_RUNTIME_DIR: &str = "XDG_RUNTIME_DIR";
 
 // Misc
+pub const SKOPEO_IMAGE: &str = "quay.io/skopeo/stable:latest";
 pub const UNKNOWN_SHELL: &str = "<unknown shell>";
 pub const UNKNOWN_VERSION: &str = "<unknown version>";
 pub const UNKNOWN_TERMINAL: &str = "<unknown terminal>";

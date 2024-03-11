@@ -2,31 +2,19 @@ use std::{
     env, fs,
     path::{Path, PathBuf},
     process::Command,
-    rc::Rc,
 };
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::*;
 use clap::Args;
 use colorized::{Color, Colors};
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
-use uuid::Uuid;
 
-use crate::{
-    commands::template::TemplateCommand,
-    strategies::{determine_build_strategy, BuildStrategy},
-};
+use crate::{commands::template::TemplateCommand, strategies::Strategy};
 
 use super::BlueBuildCommand;
-
-#[derive(Debug, Default, Clone, TypedBuilder)]
-pub struct Credentials {
-    pub registry: String,
-    pub username: String,
-    pub password: String,
-}
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BuildCommand {
@@ -148,6 +136,13 @@ impl BlueBuildCommand for BuildCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
+        Strategy::builder()
+            .username(self.username.as_ref())
+            .password(self.password.as_ref())
+            .registry(self.registry.as_ref())
+            .build()
+            .init()?;
+
         // Check if the Containerfile exists
         //   - If doesn't => *Build*
         //   - If it does:
@@ -197,7 +192,6 @@ impl BlueBuildCommand for BuildCommand {
             }
         }
 
-        let build_id = Uuid::new_v4();
         if self.push && self.archive.is_some() {
             bail!("You cannot use '--archive' and '--push' at the same time");
         }
@@ -207,57 +201,49 @@ impl BlueBuildCommand for BuildCommand {
             .clone()
             .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
 
+        TemplateCommand::builder()
+            .recipe(&recipe_path)
+            .output(PathBuf::from("Containerfile"))
+            .build()
+            .try_run()?;
+
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
             blue_build_utils::check_command_exists("skopeo")?;
             check_cosign_files()?;
         }
 
-        TemplateCommand::builder()
-            .recipe(&recipe_path)
-            .output(PathBuf::from("Containerfile"))
-            .build_id(build_id)
-            .build()
-            .try_run()?;
-
         info!("Building image for recipe at {}", recipe_path.display());
 
-        let credentials = self.get_login_creds();
-
-        self.start(
-            &recipe_path,
-            determine_build_strategy(build_id, credentials, self.archive.is_some())?,
-        )
+        self.start(&recipe_path)
     }
 }
 
 impl BuildCommand {
-    fn start(&self, recipe_path: &Path, build_strat: Rc<dyn BuildStrategy>) -> Result<()> {
+    fn start(&self, recipe_path: &Path) -> Result<()> {
         trace!("BuildCommand::build_image()");
 
         let recipe = Recipe::parse(&recipe_path)?;
-
-        let tags = recipe.generate_tags();
-
+        let os_version = Strategy::get_os_version(&recipe)?;
+        let tags = recipe.generate_tags(&os_version);
         let image_name = self.generate_full_image_name(&recipe)?;
 
         if self.push {
-            self.login(build_strat.clone())?;
+            self.login()?;
         }
-        self.run_build(&image_name, &tags, build_strat)?;
+
+        self.run_build(&image_name, &tags)?;
 
         info!("Build complete!");
 
         Ok(())
     }
 
-    fn login(&self, build_strat: Rc<dyn BuildStrategy>) -> Result<()> {
+    fn login(&self) -> Result<()> {
         trace!("BuildCommand::login()");
         info!("Attempting to login to the registry");
 
-        let credentials = self
-            .get_login_creds()
-            .ok_or_else(|| anyhow!("Unable to get credentials"))?;
+        let credentials = Strategy::get_credentials()?;
 
         let (registry, username, password) = (
             &credentials.registry,
@@ -266,7 +252,7 @@ impl BuildCommand {
         );
 
         info!("Logging into the registry, {registry}");
-        build_strat.login()?;
+        Strategy::get_build_strategy().login()?;
 
         trace!("cosign login -u {username} -p [MASKED] {registry}");
         let login_output = Command::new("cosign")
@@ -360,13 +346,10 @@ impl BuildCommand {
     /// # Errors
     ///
     /// Will return `Err` if the build fails.
-    fn run_build(
-        &self,
-        image_name: &str,
-        tags: &[String],
-        build_strat: Rc<dyn BuildStrategy>,
-    ) -> Result<()> {
+    fn run_build(&self, image_name: &str, tags: &[String]) -> Result<()> {
         trace!("BuildCommand::run_build({image_name}, {tags:#?})");
+
+        let strat = Strategy::get_build_strategy();
 
         let full_image = if self.archive.is_some() {
             image_name.to_string()
@@ -376,7 +359,7 @@ impl BuildCommand {
         };
 
         info!("Building image {full_image}");
-        build_strat.build(&full_image)?;
+        strat.build(&full_image)?;
 
         if tags.len() > 1 && self.archive.is_none() {
             debug!("Tagging all images");
@@ -384,7 +367,7 @@ impl BuildCommand {
             for tag in tags {
                 debug!("Tagging {image_name} with {tag}");
 
-                build_strat.tag(&full_image, image_name, tag)?;
+                strat.tag(&full_image, image_name, tag)?;
 
                 if self.push {
                     let retry_count = if !self.no_retry_push {
@@ -400,7 +383,7 @@ impl BuildCommand {
 
                         let tag_image = format!("{image_name}:{tag}");
 
-                        build_strat.push(&tag_image)
+                        strat.push(&tag_image)
                     })?;
                 }
             }
@@ -411,49 +394,6 @@ impl BuildCommand {
         }
 
         Ok(())
-    }
-
-    fn get_login_creds(&self) -> Option<Credentials> {
-        let registry = match (
-            self.registry.as_ref(),
-            env::var(CI_REGISTRY).ok(),
-            env::var(GITHUB_ACTIONS).ok(),
-        ) {
-            (Some(registry), _, _) => registry.to_owned(),
-            (None, Some(ci_registry), None) => ci_registry,
-            (None, None, Some(_)) => "ghcr.io".to_string(),
-            _ => return None,
-        };
-
-        let username = match (
-            self.username.as_ref(),
-            env::var(CI_REGISTRY_USER).ok(),
-            env::var(GITHUB_ACTOR).ok(),
-        ) {
-            (Some(username), _, _) => username.to_owned(),
-            (None, Some(ci_registry_user), None) => ci_registry_user,
-            (None, None, Some(github_actor)) => github_actor,
-            _ => return None,
-        };
-
-        let password = match (
-            self.password.as_ref(),
-            env::var(CI_REGISTRY_PASSWORD).ok(),
-            env::var(GITHUB_TOKEN).ok(),
-        ) {
-            (Some(password), _, _) => password.to_owned(),
-            (None, Some(ci_registry_password), None) => ci_registry_password,
-            (None, None, Some(registry_token)) => registry_token,
-            _ => return None,
-        };
-
-        Some(
-            Credentials::builder()
-                .registry(registry)
-                .username(username)
-                .password(password)
-                .build(),
-        )
     }
 }
 
