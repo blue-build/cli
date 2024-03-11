@@ -17,8 +17,8 @@ use anyhow::{anyhow, bail, Result};
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::*;
 pub use credentials::Credentials;
-use lazy_static::lazy_static;
 use log::{debug, error, info, trace};
+use once_cell::sync::Lazy;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
@@ -46,55 +46,51 @@ mod podman_api_strategy;
 mod podman_strategy;
 mod skopeo_strategy;
 
-lazy_static! {
-    /// Stores the build strategy.
-    ///
-    /// This will, on load, find the best way to build in the
-    /// current environment. Once that strategy is determined,
-    /// it will be available for any part of the program to call
-    /// on to perform builds.
-    ///
-    /// # Exits
-    ///
-    /// This will cause the program to exit if a build strategy could
-    /// not be determined.
-    static ref BUILD_STRATEGY: Arc<dyn BuildStrategy> = {
-        match Strategy::determine_build_strategy() {
-            Err(e) => {
-                error!("{e}");
-                process::exit(1);
-            }
-            Ok(strat) => strat,
+/// Stores the build strategy.
+///
+/// This will, on load, find the best way to build in the
+/// current environment. Once that strategy is determined,
+/// it will be available for any part of the program to call
+/// on to perform builds.
+///
+/// # Exits
+///
+/// This will cause the program to exit if a build strategy could
+/// not be determined.
+static BUILD_STRATEGY: Lazy<Arc<dyn BuildStrategy>> =
+    Lazy::new(|| match Strategy::determine_build_strategy() {
+        Err(e) => {
+            error!("{e}");
+            process::exit(1);
         }
-    };
+        Ok(strat) => strat,
+    });
 
-    /// Stores the inspection strategy.
-    ///
-    /// This will, on load, find the best way to inspect images in the
-    /// current environment. Once that strategy is determined,
-    /// it will be available for any part of the program to call
-    /// on to perform inspections.
-    ///
-    /// # Exits
-    ///
-    /// This will cause the program to exit if a build strategy could
-    /// not be determined.
-    static ref INSPECT_STRATEGY: Arc<dyn InspectStrategy> = {
-        match Strategy::determine_inspect_strategy() {
-            Err(e) => {
-                error!("{e}");
-                process::exit(1);
-            }
-            Ok(strat) => strat,
+/// Stores the inspection strategy.
+///
+/// This will, on load, find the best way to inspect images in the
+/// current environment. Once that strategy is determined,
+/// it will be available for any part of the program to call
+/// on to perform inspections.
+///
+/// # Exits
+///
+/// This will cause the program to exit if a build strategy could
+/// not be determined.
+static INSPECT_STRATEGY: Lazy<Arc<dyn InspectStrategy>> =
+    Lazy::new(|| match Strategy::determine_inspect_strategy() {
+        Err(e) => {
+            error!("{e}");
+            process::exit(1);
         }
-    };
+        Ok(strat) => strat,
+    });
 
-    /// UUID used to mark the current builds
-    static ref BUILD_ID: Uuid = Uuid::new_v4();
+/// UUID used to mark the current builds
+static BUILD_ID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
 
-    /// The cached os versions
-    static ref OS_VERSION: Mutex<HashMap<String, String>> = Mutex::new(HashMap::new());
-}
+/// The cached os versions
+static OS_VERSION: Lazy<Mutex<HashMap<String, String>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 
 /// Allows agnostic building, tagging
 /// pushing, and login.

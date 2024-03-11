@@ -2,7 +2,7 @@ use std::{borrow::Cow, env, sync::Mutex};
 
 use anyhow::{anyhow, Result};
 use blue_build_utils::constants::*;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use typed_builder::TypedBuilder;
 
 /// Stored user creds.
@@ -31,67 +31,67 @@ struct UserCreds {
     pub registry: Option<String>,
 }
 
-lazy_static! {
-    /// Stores the global env credentials.
-    ///
-    /// This on load will determine the credentials based off of
-    /// `USER_CREDS` and env vars from CI systems. Once this is called
-    /// the value is stored and cannot change.
-    ///
-    /// If you have user
-    /// provided credentials, make sure you update `USER_CREDS`
-    /// before trying to access this reference.
-    static ref ENV_CREDENTIALS: Option<Credentials> = {
-        let (username, password, registry) = {
-            USER_CREDS.lock().map_or((None, None, None), |creds| (
+/// Stores the global env credentials.
+///
+/// This on load will determine the credentials based off of
+/// `USER_CREDS` and env vars from CI systems. Once this is called
+/// the value is stored and cannot change.
+///
+/// If you have user
+/// provided credentials, make sure you update `USER_CREDS`
+/// before trying to access this reference.
+static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
+    let (username, password, registry) = {
+        USER_CREDS.lock().map_or((None, None, None), |creds| {
+            (
                 creds.username.as_ref().map(|s| s.to_string()),
                 creds.password.as_ref().map(|s| s.to_string()),
                 creds.registry.as_ref().map(|s| s.to_string()),
-            ))
-        };
-
-        let registry = match (
-            registry.as_ref(),
-            env::var(CI_REGISTRY).ok(),
-            env::var(GITHUB_ACTIONS).ok(),
-        ) {
-            (Some(registry), _, _) => registry.to_owned(),
-            (None, Some(ci_registry), None) => ci_registry,
-            (None, None, Some(_)) => "ghcr.io".to_string(),
-            _ => return None,
-        };
-
-        let username = match (
-            username.as_ref(),
-            env::var(CI_REGISTRY_USER).ok(),
-            env::var(GITHUB_ACTOR).ok(),
-        ) {
-            (Some(username), _, _) => username.to_owned(),
-            (None, Some(ci_registry_user), None) => ci_registry_user,
-            (None, None, Some(github_actor)) => github_actor,
-            _ => return None,
-        };
-
-        let password = match (
-            password.as_ref(),
-            env::var(CI_REGISTRY_PASSWORD).ok(),
-            env::var(GITHUB_TOKEN).ok(),
-        ) {
-            (Some(password), _, _) => password.to_owned(),
-            (None, Some(ci_registry_password), None) => ci_registry_password,
-            (None, None, Some(registry_token)) => registry_token,
-            _ => return None,
-        };
-
-        Some(
-            Credentials::builder()
-                .registry(registry)
-                .username(username)
-                .password(password)
-                .build(),
-        )
+            )
+        })
     };
-}
+
+    let registry = match (
+        registry.as_ref(),
+        env::var(CI_REGISTRY).ok(),
+        env::var(GITHUB_ACTIONS).ok(),
+    ) {
+        (Some(registry), _, _) => registry.to_owned(),
+        (None, Some(ci_registry), None) => ci_registry,
+        (None, None, Some(_)) => "ghcr.io".to_string(),
+        _ => return None,
+    };
+
+    let username = match (
+        username.as_ref(),
+        env::var(CI_REGISTRY_USER).ok(),
+        env::var(GITHUB_ACTOR).ok(),
+    ) {
+        (Some(username), _, _) => username.to_owned(),
+        (None, Some(ci_registry_user), None) => ci_registry_user,
+        (None, None, Some(github_actor)) => github_actor,
+        _ => return None,
+    };
+
+    let password = match (
+        password.as_ref(),
+        env::var(CI_REGISTRY_PASSWORD).ok(),
+        env::var(GITHUB_TOKEN).ok(),
+    ) {
+        (Some(password), _, _) => password.to_owned(),
+        (None, Some(ci_registry_password), None) => ci_registry_password,
+        (None, None, Some(registry_token)) => registry_token,
+        _ => return None,
+    };
+
+    Some(
+        Credentials::builder()
+            .registry(registry)
+            .username(username)
+            .password(password)
+            .build(),
+    )
+});
 
 /// Set the users credentials for
 /// the current set of actions.
