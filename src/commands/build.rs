@@ -137,9 +137,9 @@ impl BlueBuildCommand for BuildCommand {
         trace!("BuildCommand::try_run()");
 
         Strategy::builder()
-            .username(self.username.as_ref().map(|s| s.into()))
-            .password(self.password.as_ref().map(|s| s.into()))
-            .registry(self.registry.as_ref().map(|s| s.into()))
+            .username(self.username.as_ref())
+            .password(self.password.as_ref())
+            .registry(self.registry.as_ref())
             .build()
             .init()?;
 

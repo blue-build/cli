@@ -5,7 +5,6 @@
 //! labels for an image.
 
 use std::{
-    borrow::Cow,
     collections::{hash_map::Entry, HashMap},
     env,
     path::PathBuf,
@@ -112,13 +111,13 @@ pub trait InspectStrategy: Sync + Send {
 #[derive(Debug, TypedBuilder)]
 pub struct Strategy<'a> {
     #[builder(default)]
-    username: Option<Cow<'a, str>>,
+    username: Option<&'a String>,
 
     #[builder(default)]
-    password: Option<Cow<'a, str>>,
+    password: Option<&'a String>,
 
     #[builder(default)]
-    registry: Option<Cow<'a, str>>,
+    registry: Option<&'a String>,
 }
 
 impl<'a> Strategy<'a> {

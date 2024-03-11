@@ -1,4 +1,4 @@
-use std::{borrow::Cow, env, sync::Mutex};
+use std::{env, sync::Mutex};
 
 use anyhow::{anyhow, Result};
 use blue_build_utils::constants::*;
@@ -44,41 +44,41 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
     let (username, password, registry) = {
         USER_CREDS.lock().map_or((None, None, None), |creds| {
             (
-                creds.username.as_ref().map(|s| s.to_string()),
-                creds.password.as_ref().map(|s| s.to_string()),
-                creds.registry.as_ref().map(|s| s.to_string()),
+                creds.username.as_ref().map(|s| s.to_owned()),
+                creds.password.as_ref().map(|s| s.to_owned()),
+                creds.registry.as_ref().map(|s| s.to_owned()),
             )
         })
     };
 
     let registry = match (
-        registry.as_ref(),
+        registry,
         env::var(CI_REGISTRY).ok(),
         env::var(GITHUB_ACTIONS).ok(),
     ) {
-        (Some(registry), _, _) => registry.to_owned(),
+        (Some(registry), _, _) => registry,
         (None, Some(ci_registry), None) => ci_registry,
         (None, None, Some(_)) => "ghcr.io".to_string(),
         _ => return None,
     };
 
     let username = match (
-        username.as_ref(),
+        username,
         env::var(CI_REGISTRY_USER).ok(),
         env::var(GITHUB_ACTOR).ok(),
     ) {
-        (Some(username), _, _) => username.to_owned(),
+        (Some(username), _, _) => username,
         (None, Some(ci_registry_user), None) => ci_registry_user,
         (None, None, Some(github_actor)) => github_actor,
         _ => return None,
     };
 
     let password = match (
-        password.as_ref(),
+        password,
         env::var(CI_REGISTRY_PASSWORD).ok(),
         env::var(GITHUB_TOKEN).ok(),
     ) {
-        (Some(password), _, _) => password.to_owned(),
+        (Some(password), _, _) => password,
         (None, Some(ci_registry_password), None) => ci_registry_password,
         (None, None, Some(registry_token)) => registry_token,
         _ => return None,
@@ -99,17 +99,17 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
 /// Be sure to call this before trying to use
 /// any strategy that requires credentials as
 /// the environment credentials are lazy allocated.
-pub fn set_user_creds<'a>(
-    username: Option<Cow<'a, str>>,
-    password: Option<Cow<'a, str>>,
-    registry: Option<Cow<'a, str>>,
+pub fn set_user_creds(
+    username: Option<&String>,
+    password: Option<&String>,
+    registry: Option<&String>,
 ) -> Result<()> {
     let mut creds_lock = USER_CREDS
         .lock()
         .map_err(|e| anyhow!("Failed to set credentials: {e}"))?;
-    creds_lock.username = username.map(|s| s.to_string());
-    creds_lock.password = password.map(|s| s.to_string());
-    creds_lock.registry = registry.map(|s| s.to_string());
+    creds_lock.username = username.map(|s| s.to_owned());
+    creds_lock.password = password.map(|s| s.to_owned());
+    creds_lock.registry = registry.map(|s| s.to_owned());
     drop(creds_lock);
     Ok(())
 }
