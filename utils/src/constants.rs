@@ -12,6 +12,7 @@ pub const VAR_RUN_PODMAN_SOCK: &str = "/var/run/podman.sock";
 
 // Labels
 pub const BUILD_ID_LABEL: &str = "org.blue-build.build-id";
+pub const IMAGE_VERSION_LABEL: &str = "org.opencontainers.image.version";
 
 // BlueBuild vars
 pub const BB_BUILDKIT_CACHE_GHA: &str = "BB_BUILDKIT_CACHE_GHA";

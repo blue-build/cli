@@ -21,10 +21,9 @@ use tokio::{
 };
 use typed_builder::TypedBuilder;
 
-use crate::credentials;
 use crate::strategies::BUILD_ID;
 
-use super::BuildStrategy;
+use super::{credentials, BuildStrategy};
 
 #[derive(Debug, TypedBuilder)]
 pub struct PodmanApiStrategy {

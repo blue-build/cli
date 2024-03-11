@@ -7,9 +7,9 @@ use anyhow::{bail, Result};
 use blue_build_utils::constants::*;
 use log::{info, trace};
 
-use crate::{credentials, image_inspection::ImageInspection};
+use crate::image_inspection::ImageInspection;
 
-use super::{BuildStrategy, InspectStrategy};
+use super::{credentials, BuildStrategy, InspectStrategy};
 
 #[derive(Debug)]
 pub struct DockerStrategy;
@@ -82,13 +82,8 @@ impl BuildStrategy for DockerStrategy {
     }
 
     fn login(&self) -> Result<()> {
-        let (registry, username, password) = credentials::get_credentials().map(|credentials| {
-            (
-                &credentials.registry,
-                &credentials.username,
-                &credentials.password,
-            )
-        })?;
+        let (registry, username, password) =
+            credentials::get_credentials().map(|c| (&c.registry, &c.username, &c.password))?;
 
         trace!("docker login -u {username} -p [MASKED] {registry}");
         let output = Command::new("docker")

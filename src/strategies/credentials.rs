@@ -1,4 +1,4 @@
-use std::{env, sync::Mutex};
+use std::{borrow::Cow, env, sync::Mutex};
 
 use anyhow::{anyhow, Result};
 use blue_build_utils::constants::*;
@@ -44,9 +44,9 @@ lazy_static! {
     static ref ENV_CREDENTIALS: Option<Credentials> = {
         let (username, password, registry) = {
             USER_CREDS.lock().map_or((None, None, None), |creds| (
-                creds.username.clone(),
-                creds.password.clone(),
-                creds.registry.clone(),
+                creds.username.as_ref().map(|s| s.to_string()),
+                creds.password.as_ref().map(|s| s.to_string()),
+                creds.registry.as_ref().map(|s| s.to_string()),
             ))
         };
 
@@ -99,17 +99,17 @@ lazy_static! {
 /// Be sure to call this before trying to use
 /// any strategy that requires credentials as
 /// the environment credentials are lazy allocated.
-pub fn set_user_creds(
-    username: Option<&String>,
-    password: Option<&String>,
-    registry: Option<&String>,
+pub fn set_user_creds<'a>(
+    username: Option<Cow<'a, str>>,
+    password: Option<Cow<'a, str>>,
+    registry: Option<Cow<'a, str>>,
 ) -> Result<()> {
     let mut creds_lock = USER_CREDS
         .lock()
         .map_err(|e| anyhow!("Failed to set credentials: {e}"))?;
-    creds_lock.username = username.map(|u| u.to_owned());
-    creds_lock.password = password.map(|p| p.to_owned());
-    creds_lock.registry = registry.map(|r| r.to_owned());
+    creds_lock.username = username.map(|s| s.to_string());
+    creds_lock.password = password.map(|s| s.to_string());
+    creds_lock.registry = registry.map(|s| s.to_string());
     drop(creds_lock);
     Ok(())
 }
