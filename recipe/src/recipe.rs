@@ -1,7 +1,10 @@
 use std::{borrow::Cow, env, fs, path::Path};
 
 use anyhow::Result;
-use blue_build_utils::constants::*;
+use blue_build_utils::constants::{
+    CI_COMMIT_REF_NAME, CI_COMMIT_SHORT_SHA, CI_DEFAULT_BRANCH, CI_MERGE_REQUEST_IID,
+    CI_PIPELINE_SOURCE, GITHUB_EVENT_NAME, GITHUB_REF_NAME, GITHUB_SHA, PR_EVENT_NUMBER,
+};
 use chrono::Local;
 use indexmap::IndexMap;
 use log::{debug, trace, warn};

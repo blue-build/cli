@@ -14,7 +14,10 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::*;
+use blue_build_utils::constants::{
+    IMAGE_VERSION_LABEL, RUN_PODMAN_SOCK, VAR_RUN_PODMAN_PODMAN_SOCK, VAR_RUN_PODMAN_SOCK,
+    XDG_RUNTIME_DIR,
+};
 pub use credentials::Credentials;
 use log::{debug, error, info, trace};
 use once_cell::sync::Lazy;
@@ -94,17 +97,37 @@ static OS_VERSION: Lazy<Mutex<HashMap<String, String>>> = Lazy::new(|| Mutex::ne
 /// Allows agnostic building, tagging
 /// pushing, and login.
 pub trait BuildStrategy: Sync + Send {
+    /// Runs the build logic for the strategy.
+    ///
+    /// # Errors
+    /// Will error if the build fails.
     fn build(&self, image: &str) -> Result<()>;
 
+    /// Runs the tag logic for the strategy.
+    ///
+    /// # Errors
+    /// Will error if the tagging fails.
     fn tag(&self, src_image: &str, image_name: &str, tag: &str) -> Result<()>;
 
+    /// Runs the push logic for the strategy
+    ///
+    /// # Errors
+    /// Will error if the push fails.
     fn push(&self, image: &str) -> Result<()>;
 
+    /// Runs the login logic for the strategy.
+    ///
+    /// # Errors
+    /// Will error if login fails.
     fn login(&self) -> Result<()>;
 }
 
 /// Allows agnostic inspection of images.
 pub trait InspectStrategy: Sync + Send {
+    /// Gets the labels on an image tag.
+    ///
+    /// # Errors
+    /// Will error if it is unable to get the labels.
     fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection>;
 }
 
@@ -121,12 +144,21 @@ pub struct Strategy<'a> {
 }
 
 impl<'a> Strategy<'a> {
+    /// Initializes the Strategy with user provided credentials.
+    ///
+    /// If you want to take advantage of a user's credentials,
+    /// you will want to run init before trying to use any of
+    /// the strategies.
+    ///
+    /// # Errors
+    /// Will error if it is unable to set the user credentials.
     pub fn init(self) -> Result<()> {
         credentials::set_user_creds(self.username, self.password, self.registry)?;
         Ok(())
     }
 
     /// Gets the current build's UUID
+    #[must_use]
     pub fn get_build_id() -> Uuid {
         *BUILD_ID
     }
@@ -141,14 +173,22 @@ impl<'a> Strategy<'a> {
         INSPECT_STRATEGY.clone()
     }
 
+    /// Get the current environment credentials.
+    ///
+    /// # Errors
+    /// Will error if credentials don't exist.
     pub fn get_credentials() -> Result<&'static Credentials> {
-        credentials::get_credentials()
+        credentials::get()
     }
 
     /// Retrieve the `os_version` for an image.
     ///
     /// This gets cached for faster resolution if it's required
     /// in another part of the program.
+    ///
+    /// # Errors
+    /// Will error if the image doesn't have OS version info
+    /// or we are unable to lock a mutex.
     pub fn get_os_version(recipe: &Recipe) -> Result<String> {
         trace!("get_os_version({recipe:#?})");
         let image = format!("{}:{}", &recipe.base_image, &recipe.image_version);

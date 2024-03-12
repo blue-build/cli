@@ -27,6 +27,8 @@ suspicious = "warn"
 perf = "warn"
 style = "warn"
 nursery = "warn"
+pedantic = "warn"
+module_name_repetitions = "allow"
 
 [package]
 name = "blue-build"

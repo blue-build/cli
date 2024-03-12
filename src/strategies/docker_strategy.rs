@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{bail, Result};
-use blue_build_utils::constants::*;
+use blue_build_utils::constants::{BB_BUILDKIT_CACHE_GHA, SKOPEO_IMAGE};
 use log::{info, trace};
 
 use crate::image_inspection::ImageInspection;
@@ -83,7 +83,7 @@ impl BuildStrategy for DockerStrategy {
 
     fn login(&self) -> Result<()> {
         let (registry, username, password) =
-            credentials::get_credentials().map(|c| (&c.registry, &c.username, &c.password))?;
+            credentials::get().map(|c| (&c.registry, &c.username, &c.password))?;
 
         trace!("docker login -u {username} -p [MASKED] {registry}");
         let output = Command::new("docker")

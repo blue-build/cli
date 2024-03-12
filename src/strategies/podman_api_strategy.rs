@@ -1,6 +1,6 @@
 use anyhow::Context;
 use anyhow::{bail, Result};
-use blue_build_utils::constants::*;
+use blue_build_utils::constants::BUILD_ID_LABEL;
 use futures_util::StreamExt;
 use log::{debug, error};
 use log::{info, trace};
@@ -104,7 +104,7 @@ impl BuildStrategy for PodmanApiStrategy {
         trace!("PodmanApiStrategy::push({image})");
 
         let (username, password, registry) =
-            credentials::get_credentials().map(|c| (&c.username, &c.password, &c.registry))?;
+            credentials::get().map(|c| (&c.username, &c.password, &c.registry))?;
         trace!("Retrieved creds for user {username} on registry {registry}");
 
         self.rt.block_on(async {

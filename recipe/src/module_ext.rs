@@ -39,6 +39,7 @@ impl ModuleExt<'_> {
         )
     }
 
+    #[must_use]
     pub fn get_akmods_info_list(&self, os_version: &str) -> Vec<AkmodsInfo> {
         trace!("get_akmods_image_list({self:#?}, {os_version})");
 

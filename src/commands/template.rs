@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
-use blue_build_utils::constants::*;
+use blue_build_utils::constants::RECIPE_PATH;
 use clap::Args;
 use log::{debug, info, trace};
 use typed_builder::TypedBuilder;

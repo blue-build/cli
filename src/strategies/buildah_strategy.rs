@@ -56,7 +56,7 @@ impl BuildStrategy for BuildahStrategy {
 
     fn login(&self) -> Result<()> {
         let (registry, username, password) =
-            credentials::get_credentials().map(|c| (&c.registry, &c.username, &c.password))?;
+            credentials::get().map(|c| (&c.registry, &c.username, &c.password))?;
 
         trace!("buildah login -u {username} -p [MASKED] {registry}");
         let output = Command::new("buildah")

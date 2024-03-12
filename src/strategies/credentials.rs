@@ -1,7 +1,9 @@
 use std::{env, sync::Mutex};
 
 use anyhow::{anyhow, Result};
-use blue_build_utils::constants::*;
+use blue_build_utils::constants::{
+    CI_REGISTRY, CI_REGISTRY_PASSWORD, CI_REGISTRY_USER, GITHUB_ACTIONS, GITHUB_ACTOR, GITHUB_TOKEN,
+};
 use once_cell::sync::Lazy;
 use typed_builder::TypedBuilder;
 
@@ -44,9 +46,9 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
     let (username, password, registry) = {
         USER_CREDS.lock().map_or((None, None, None), |creds| {
             (
-                creds.username.as_ref().map(|s| s.to_owned()),
-                creds.password.as_ref().map(|s| s.to_owned()),
-                creds.registry.as_ref().map(|s| s.to_owned()),
+                creds.username.as_ref().map(std::borrow::ToOwned::to_owned),
+                creds.password.as_ref().map(std::borrow::ToOwned::to_owned),
+                creds.registry.as_ref().map(std::borrow::ToOwned::to_owned),
             )
         })
     };
@@ -107,9 +109,9 @@ pub fn set_user_creds(
     let mut creds_lock = USER_CREDS
         .lock()
         .map_err(|e| anyhow!("Failed to set credentials: {e}"))?;
-    creds_lock.username = username.map(|s| s.to_owned());
-    creds_lock.password = password.map(|s| s.to_owned());
-    creds_lock.registry = registry.map(|s| s.to_owned());
+    creds_lock.username = username.map(std::borrow::ToOwned::to_owned);
+    creds_lock.password = password.map(std::borrow::ToOwned::to_owned);
+    creds_lock.registry = registry.map(std::borrow::ToOwned::to_owned);
     drop(creds_lock);
     Ok(())
 }
@@ -118,7 +120,7 @@ pub fn set_user_creds(
 ///
 /// # Errors
 /// Will error if there aren't any credentials available.
-pub fn get_credentials() -> Result<&'static Credentials> {
+pub fn get() -> Result<&'static Credentials> {
     ENV_CREDENTIALS
         .as_ref()
         .ok_or_else(|| anyhow!("No credentials available"))

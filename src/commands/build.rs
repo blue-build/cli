@@ -6,7 +6,13 @@ use std::{
 
 use anyhow::{bail, Result};
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::*;
+use blue_build_utils::constants::{
+    ARCHIVE_SUFFIX, BUILD_ID_LABEL, CI_DEFAULT_BRANCH, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE,
+    CI_PROJECT_URL, CI_REGISTRY, CI_SERVER_HOST, CI_SERVER_PROTOCOL, CONTAINER_FILE, COSIGN_PATH,
+    COSIGN_PRIVATE_KEY, GITHUB_REPOSITORY_OWNER, GITHUB_TOKEN, GITHUB_TOKEN_ISSUER_URL,
+    GITHUB_WORKFLOW_REF, GITIGNORE_PATH, LABELED_ERROR_MESSAGE, NO_LABEL_ERROR_MESSAGE,
+    RECIPE_PATH, SIGSTORE_ID_TOKEN,
+};
 use clap::Args;
 use colorized::{Color, Colors};
 use log::{debug, info, trace, warn};
@@ -165,7 +171,7 @@ impl BlueBuildCommand for BuildCommand {
             if !is_ignored {
                 let containerfile = fs::read_to_string(container_file_path)?;
                 let has_label = containerfile.lines().any(|line| {
-                    let label = format!("LABEL {}", BUILD_ID_LABEL);
+                    let label = format!("LABEL {BUILD_ID_LABEL}");
                     line.to_string().trim().starts_with(&label)
                 });
 
@@ -184,8 +190,8 @@ impl BlueBuildCommand for BuildCommand {
                 if let Ok(answer) = requestty::prompt_one(question) {
                     if answer.as_bool().unwrap_or(false) {
                         blue_build_utils::append_to_file(
-                            GITIGNORE_PATH,
-                            &format!("/{}", CONTAINER_FILE),
+                            &GITIGNORE_PATH,
+                            &format!("/{CONTAINER_FILE}"),
                         )?;
                     }
                 }
@@ -229,7 +235,7 @@ impl BuildCommand {
         let image_name = self.generate_full_image_name(&recipe)?;
 
         if self.push {
-            self.login()?;
+            Self::login()?;
         }
 
         self.run_build(&image_name, &tags)?;
@@ -239,7 +245,7 @@ impl BuildCommand {
         Ok(())
     }
 
-    fn login(&self) -> Result<()> {
+    fn login() -> Result<()> {
         trace!("BuildCommand::login()");
         info!("Attempting to login to the registry");
 
@@ -370,10 +376,10 @@ impl BuildCommand {
                 strat.tag(&full_image, image_name, tag)?;
 
                 if self.push {
-                    let retry_count = if !self.no_retry_push {
-                        self.retry_count
-                    } else {
+                    let retry_count = if self.no_retry_push {
                         0
+                    } else {
+                        self.retry_count
                     };
 
                     debug!("Pushing all images");
@@ -427,33 +433,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         (_, _, _, _, _, _, _, Ok(cosign_private_key))
             if !cosign_private_key.is_empty() && Path::new(COSIGN_PATH).exists() =>
         {
-            info!("Signing image: {image_digest}");
-
-            trace!("cosign sign --key=env://COSIGN_PRIVATE_KEY {image_digest}");
-
-            if Command::new("cosign")
-                .arg("sign")
-                .arg("--key=env://COSIGN_PRIVATE_KEY")
-                .arg(&image_digest)
-                .status()?
-                .success()
-            {
-                info!("Successfully signed image!");
-            } else {
-                bail!("Failed to sign image: {image_digest}");
-            }
-
-            trace!("cosign verify --key {COSIGN_PATH} {image_name_tag}");
-
-            if !Command::new("cosign")
-                .arg("verify")
-                .arg(format!("--key={COSIGN_PATH}"))
-                .arg(&image_name_tag)
-                .status()?
-                .success()
-            {
-                bail!("Failed to verify image!");
-            }
+            sign_priv_public_pair(&image_digest, &image_name_tag)?;
         }
         // Gitlab keyless
         (
@@ -536,6 +516,38 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
             }
         }
         _ => warn!("Not running in CI with cosign variables, not signing"),
+    }
+
+    Ok(())
+}
+
+fn sign_priv_public_pair(image_digest: &str, image_name_tag: &str) -> Result<()> {
+    info!("Signing image: {image_digest}");
+
+    trace!("cosign sign --key=env://{COSIGN_PRIVATE_KEY} {image_digest}");
+
+    if Command::new("cosign")
+        .arg("sign")
+        .arg("--key=env://COSIGN_PRIVATE_KEY")
+        .arg(image_digest)
+        .status()?
+        .success()
+    {
+        info!("Successfully signed image!");
+    } else {
+        bail!("Failed to sign image: {image_digest}");
+    }
+
+    trace!("cosign verify --key {COSIGN_PATH} {image_name_tag}");
+
+    if !Command::new("cosign")
+        .arg("verify")
+        .arg(format!("--key={COSIGN_PATH}"))
+        .arg(image_name_tag)
+        .status()?
+        .success()
+    {
+        bail!("Failed to verify image!");
     }
 
     Ok(())
