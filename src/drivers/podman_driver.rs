@@ -3,13 +3,45 @@ use std::process::{Command, Stdio};
 use anyhow::{bail, Result};
 use blue_build_utils::constants::SKOPEO_IMAGE;
 use log::{debug, info, trace};
+use semver::Version;
+use serde::Deserialize;
 
 use crate::image_inspection::ImageInspection;
 
-use super::{credentials, BuildDriver, InspectDriver};
+use super::{credentials, BuildDriver, DriverVersion, InspectDriver};
+
+#[derive(Debug, Deserialize)]
+struct PodmanVersionJsonClient {
+    #[serde(alias = "Version")]
+    pub version: Version,
+}
+
+#[derive(Debug, Deserialize)]
+struct PodmanVersionJson {
+    #[serde(alias = "Client")]
+    pub client: PodmanVersionJsonClient,
+}
 
 #[derive(Debug)]
 pub struct PodmanDriver;
+
+impl DriverVersion for PodmanDriver {
+    // First podman version to use buildah v1.24
+    // https://github.com/containers/podman/blob/main/RELEASE_NOTES.md#400
+    const VERSION_REQ: &'static str = ">=4";
+
+    fn version() -> Result<Version> {
+        let output = Command::new("podman")
+            .arg("version")
+            .arg("-f")
+            .arg("json")
+            .output()?;
+
+        let version_json: PodmanVersionJson = serde_json::from_slice(&output.stdout)?;
+
+        Ok(version_json.client.version)
+    }
+}
 
 impl BuildDriver for PodmanDriver {
     fn build(&self, image: &str) -> Result<()> {

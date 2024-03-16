@@ -6,13 +6,45 @@ use std::{
 use anyhow::{bail, Result};
 use blue_build_utils::constants::{BB_BUILDKIT_CACHE_GHA, SKOPEO_IMAGE};
 use log::{info, trace};
+use semver::Version;
+use serde::Deserialize;
 
 use crate::image_inspection::ImageInspection;
 
-use super::{credentials, BuildDriver, InspectDriver};
+use super::{credentials, BuildDriver, DriverVersion, InspectDriver};
+
+#[derive(Debug, Deserialize)]
+struct DockerVerisonJsonClient {
+    #[serde(alias = "Version")]
+    pub version: Version,
+}
+
+#[derive(Debug, Deserialize)]
+struct DockerVersionJson {
+    #[serde(alias = "Client")]
+    pub client: DockerVerisonJsonClient,
+}
 
 #[derive(Debug)]
 pub struct DockerDriver;
+
+impl DriverVersion for DockerDriver {
+    // First docker verison to use buildkit
+    // https://docs.docker.com/build/buildkit/
+    const VERSION_REQ: &'static str = ">=23";
+
+    fn version() -> Result<Version> {
+        let output = Command::new("docker")
+            .arg("version")
+            .arg("-f")
+            .arg("json")
+            .output()?;
+
+        let version_json: DockerVersionJson = serde_json::from_slice(&output.stdout)?;
+
+        Ok(version_json.client.version)
+    }
+}
 
 impl BuildDriver for DockerDriver {
     fn build(&self, image: &str) -> Result<()> {

@@ -8,6 +8,14 @@
 
 BlueBuild's command line program that builds Containerfiles and custom images based on your recipe.yml.
 
+## Requirements
+
+The `bluebuild` tool takes advantage of newer build features. Specifically bind, cache, and tmpfs mounts on the `RUN` instructions. We support using the following tools and their versions:
+
+- Docker - v23 and above
+- Podman - v4 and above
+- Buildah - v1.24 and above
+
 ## Installation
 
 ### Distrobox
