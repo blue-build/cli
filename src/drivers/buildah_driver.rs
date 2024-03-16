@@ -3,12 +3,14 @@ use std::process::Command;
 use anyhow::{bail, Result};
 use log::{info, trace};
 
-use super::{credentials, BuildStrategy};
+use crate::credentials;
+
+use super::BuildDriver;
 
 #[derive(Debug)]
-pub struct BuildahStrategy;
+pub struct BuildahDriver;
 
-impl BuildStrategy for BuildahStrategy {
+impl BuildDriver for BuildahDriver {
     fn build(&self, image: &str) -> Result<()> {
         trace!("buildah build -t {image}");
         let status = Command::new("buildah")

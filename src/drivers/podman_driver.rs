@@ -1,49 +1,27 @@
-use std::{
-    env,
-    process::{Command, Stdio},
-};
+use std::process::{Command, Stdio};
 
 use anyhow::{bail, Result};
-use blue_build_utils::constants::{BB_BUILDKIT_CACHE_GHA, SKOPEO_IMAGE};
-use log::{info, trace};
+use blue_build_utils::constants::SKOPEO_IMAGE;
+use log::{debug, info, trace};
 
 use crate::image_inspection::ImageInspection;
 
-use super::{credentials, BuildStrategy, InspectStrategy};
+use super::{credentials, BuildDriver, InspectDriver};
 
 #[derive(Debug)]
-pub struct DockerStrategy;
+pub struct PodmanDriver;
 
-impl BuildStrategy for DockerStrategy {
+impl BuildDriver for PodmanDriver {
     fn build(&self, image: &str) -> Result<()> {
-        trace!("docker");
-        let mut command = Command::new("docker");
-
-        // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
-        if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
-            trace!("buildx build --load --cache-from type=gha --cache-to type=gha");
-            command
-                .arg("buildx")
-                .arg("build")
-                .arg("--load")
-                .arg("--cache-from")
-                .arg("type=gha")
-                .arg("--cache-to")
-                .arg("type=gha");
-        } else {
-            trace!("build");
-            command.arg("build");
-        }
-
-        trace!("-t {image} -f Containerfile .");
-        command
+        trace!("podman build . -t {image}");
+        let status = Command::new("podman")
+            .arg("build")
+            .arg(".")
             .arg("-t")
             .arg(image)
-            .arg("-f")
-            .arg("Containerfile")
-            .arg(".");
+            .status()?;
 
-        if command.status()?.success() {
+        if status.success() {
             info!("Successfully built {image}");
         } else {
             bail!("Failed to build {image}");
@@ -54,8 +32,8 @@ impl BuildStrategy for DockerStrategy {
     fn tag(&self, src_image: &str, image_name: &str, tag: &str) -> Result<()> {
         let dest_image = format!("{image_name}:{tag}");
 
-        trace!("docker tag {src_image} {dest_image}");
-        let status = Command::new("docker")
+        trace!("podman tag {src_image} {dest_image}");
+        let status = Command::new("podman")
             .arg("tag")
             .arg(src_image)
             .arg(&dest_image)
@@ -70,8 +48,8 @@ impl BuildStrategy for DockerStrategy {
     }
 
     fn push(&self, image: &str) -> Result<()> {
-        trace!("docker push {image}");
-        let status = Command::new("docker").arg("push").arg(image).status()?;
+        trace!("podman push {image}");
+        let status = Command::new("podman").arg("push").arg(image).status()?;
 
         if status.success() {
             info!("Successfully pushed {image}!");
@@ -85,8 +63,8 @@ impl BuildStrategy for DockerStrategy {
         let (registry, username, password) =
             credentials::get().map(|c| (&c.registry, &c.username, &c.password))?;
 
-        trace!("docker login -u {username} -p [MASKED] {registry}");
-        let output = Command::new("docker")
+        trace!("podman login -u {username} -p [MASKED] {registry}");
+        let output = Command::new("podman")
             .arg("login")
             .arg("-u")
             .arg(username)
@@ -103,12 +81,12 @@ impl BuildStrategy for DockerStrategy {
     }
 }
 
-impl InspectStrategy for DockerStrategy {
+impl InspectDriver for PodmanDriver {
     fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection> {
         let url = format!("docker://{image_name}:{tag}");
 
-        trace!("docker run {SKOPEO_IMAGE} inspect {url}");
-        let output = Command::new("docker")
+        trace!("podman run {SKOPEO_IMAGE} inspect {url}");
+        let output = Command::new("podman")
             .arg("run")
             .arg(SKOPEO_IMAGE)
             .arg("inspect")
@@ -117,11 +95,10 @@ impl InspectStrategy for DockerStrategy {
             .output()?;
 
         if output.status.success() {
-            info!("Successfully inspected image {url}!");
+            debug!("Successfully inspected image {url}!");
         } else {
             bail!("Failed to inspect image {url}")
         }
-
         Ok(serde_json::from_slice(&output.stdout)?)
     }
 }

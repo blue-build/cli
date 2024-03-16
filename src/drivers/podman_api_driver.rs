@@ -21,17 +21,17 @@ use tokio::{
 };
 use typed_builder::TypedBuilder;
 
-use crate::strategies::BUILD_ID;
+use crate::drivers::BUILD_ID;
 
-use super::{credentials, BuildStrategy};
+use super::{credentials, BuildDriver};
 
 #[derive(Debug, TypedBuilder)]
-pub struct PodmanApiStrategy {
+pub struct PodmanApiDriver {
     client: Arc<Podman>,
     rt: Runtime,
 }
 
-impl BuildStrategy for PodmanApiStrategy {
+impl BuildDriver for PodmanApiDriver {
     fn build(&self, image: &str) -> Result<()> {
         trace!("PodmanApiStrategy::build({image})");
 

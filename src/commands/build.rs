@@ -18,7 +18,7 @@ use colorized::{Color, Colors};
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 
-use crate::{commands::template::TemplateCommand, strategies::Strategy};
+use crate::{commands::template::TemplateCommand, credentials, drivers::Driver};
 
 use super::BlueBuildCommand;
 
@@ -142,7 +142,7 @@ impl BlueBuildCommand for BuildCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
-        Strategy::builder()
+        Driver::builder()
             .username(self.username.as_ref())
             .password(self.password.as_ref())
             .registry(self.registry.as_ref())
@@ -230,7 +230,7 @@ impl BuildCommand {
         trace!("BuildCommand::build_image()");
 
         let recipe = Recipe::parse(&recipe_path)?;
-        let os_version = Strategy::get_os_version(&recipe)?;
+        let os_version = Driver::get_os_version(&recipe)?;
         let tags = recipe.generate_tags(&os_version);
         let image_name = self.generate_full_image_name(&recipe)?;
 
@@ -249,7 +249,7 @@ impl BuildCommand {
         trace!("BuildCommand::login()");
         info!("Attempting to login to the registry");
 
-        let credentials = Strategy::get_credentials()?;
+        let credentials = credentials::get()?;
 
         let (registry, username, password) = (
             &credentials.registry,
@@ -258,7 +258,7 @@ impl BuildCommand {
         );
 
         info!("Logging into the registry, {registry}");
-        Strategy::get_build_strategy().login()?;
+        Driver::get_build_driver().login()?;
 
         trace!("cosign login -u {username} -p [MASKED] {registry}");
         let login_output = Command::new("cosign")
@@ -355,7 +355,7 @@ impl BuildCommand {
     fn run_build(&self, image_name: &str, tags: &[String]) -> Result<()> {
         trace!("BuildCommand::run_build({image_name}, {tags:#?})");
 
-        let strat = Strategy::get_build_strategy();
+        let strat = Driver::get_build_driver();
 
         let full_image = if self.archive.is_some() {
             image_name.to_string()

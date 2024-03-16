@@ -18,7 +18,6 @@ use blue_build_utils::constants::{
     IMAGE_VERSION_LABEL, RUN_PODMAN_SOCK, VAR_RUN_PODMAN_PODMAN_SOCK, VAR_RUN_PODMAN_SOCK,
     XDG_RUNTIME_DIR,
 };
-pub use credentials::Credentials;
 use log::{debug, error, info, trace};
 use once_cell::sync::Lazy;
 use typed_builder::TypedBuilder;
@@ -31,22 +30,21 @@ use podman_api::Podman;
 use tokio::runtime::Runtime;
 
 #[cfg(feature = "builtin-podman")]
-use crate::strategies::podman_api_strategy::PodmanApiStrategy;
+use podman_api_driver::PodmanApiDriver;
 
-use crate::image_inspection::ImageInspection;
+use crate::{credentials, image_inspection::ImageInspection};
 
 use self::{
-    buildah_strategy::BuildahStrategy, docker_strategy::DockerStrategy,
-    podman_strategy::PodmanStrategy, skopeo_strategy::SkopeoStrategy,
+    buildah_driver::BuildahDriver, docker_driver::DockerDriver, podman_driver::PodmanDriver,
+    skopeo_driver::SkopeoDriver,
 };
 
-mod buildah_strategy;
-mod credentials;
-mod docker_strategy;
+mod buildah_driver;
+mod docker_driver;
 #[cfg(feature = "builtin-podman")]
-mod podman_api_strategy;
-mod podman_strategy;
-mod skopeo_strategy;
+mod podman_api_driver;
+mod podman_driver;
+mod skopeo_driver;
 
 /// Stores the build strategy.
 ///
@@ -59,8 +57,8 @@ mod skopeo_strategy;
 ///
 /// This will cause the program to exit if a build strategy could
 /// not be determined.
-static BUILD_STRATEGY: Lazy<Arc<dyn BuildStrategy>> =
-    Lazy::new(|| match Strategy::determine_build_strategy() {
+static BUILD_STRATEGY: Lazy<Arc<dyn BuildDriver>> =
+    Lazy::new(|| match Driver::determine_build_driver() {
         Err(e) => {
             error!("{e}");
             process::exit(1);
@@ -79,8 +77,8 @@ static BUILD_STRATEGY: Lazy<Arc<dyn BuildStrategy>> =
 ///
 /// This will cause the program to exit if a build strategy could
 /// not be determined.
-static INSPECT_STRATEGY: Lazy<Arc<dyn InspectStrategy>> =
-    Lazy::new(|| match Strategy::determine_inspect_strategy() {
+static INSPECT_STRATEGY: Lazy<Arc<dyn InspectDriver>> =
+    Lazy::new(|| match Driver::determine_inspect_driver() {
         Err(e) => {
             error!("{e}");
             process::exit(1);
@@ -96,7 +94,7 @@ static OS_VERSION: Lazy<Mutex<HashMap<String, String>>> = Lazy::new(|| Mutex::ne
 
 /// Allows agnostic building, tagging
 /// pushing, and login.
-pub trait BuildStrategy: Sync + Send {
+pub trait BuildDriver: Sync + Send {
     /// Runs the build logic for the strategy.
     ///
     /// # Errors
@@ -123,7 +121,7 @@ pub trait BuildStrategy: Sync + Send {
 }
 
 /// Allows agnostic inspection of images.
-pub trait InspectStrategy: Sync + Send {
+pub trait InspectDriver: Sync + Send {
     /// Gets the labels on an image tag.
     ///
     /// # Errors
@@ -132,7 +130,7 @@ pub trait InspectStrategy: Sync + Send {
 }
 
 #[derive(Debug, TypedBuilder)]
-pub struct Strategy<'a> {
+pub struct Driver<'a> {
     #[builder(default)]
     username: Option<&'a String>,
 
@@ -143,7 +141,7 @@ pub struct Strategy<'a> {
     registry: Option<&'a String>,
 }
 
-impl<'a> Strategy<'a> {
+impl Driver<'_> {
     /// Initializes the Strategy with user provided credentials.
     ///
     /// If you want to take advantage of a user's credentials,
@@ -164,21 +162,13 @@ impl<'a> Strategy<'a> {
     }
 
     /// Gets the current run's build strategy
-    pub fn get_build_strategy() -> Arc<dyn BuildStrategy> {
+    pub fn get_build_driver() -> Arc<dyn BuildDriver> {
         BUILD_STRATEGY.clone()
     }
 
     /// Gets the current run's inspectioin strategy
-    pub fn get_inspection_strategy() -> Arc<dyn InspectStrategy> {
+    pub fn get_inspection_driver() -> Arc<dyn InspectDriver> {
         INSPECT_STRATEGY.clone()
-    }
-
-    /// Get the current environment credentials.
-    ///
-    /// # Errors
-    /// Will error if credentials don't exist.
-    pub fn get_credentials() -> Result<&'static Credentials> {
-        credentials::get()
     }
 
     /// Retrieve the `os_version` for an image.
@@ -228,7 +218,7 @@ impl<'a> Strategy<'a> {
         Ok(os_version)
     }
 
-    fn determine_inspect_strategy() -> Result<Arc<dyn InspectStrategy>> {
+    fn determine_inspect_driver() -> Result<Arc<dyn InspectDriver>> {
         trace!("Strategy::determine_inspect_strategy()");
 
         Ok(
@@ -237,15 +227,15 @@ impl<'a> Strategy<'a> {
                 blue_build_utils::check_command_exists("docker"),
                 blue_build_utils::check_command_exists("podman"),
             ) {
-                (Ok(_skopeo), _, _) => Arc::new(SkopeoStrategy),
-                (_, Ok(_docker), _) => Arc::new(DockerStrategy),
-                (_, _, Ok(_podman)) => Arc::new(PodmanStrategy),
+                (Ok(_skopeo), _, _) => Arc::new(SkopeoDriver),
+                (_, Ok(_docker), _) => Arc::new(DockerDriver),
+                (_, _, Ok(_podman)) => Arc::new(PodmanDriver),
                 _ => bail!("Could not determine inspection strategy. You need either skopeo, docker, or podman"),
             }
         )
     }
 
-    fn determine_build_strategy() -> Result<Arc<dyn BuildStrategy>> {
+    fn determine_build_driver() -> Result<Arc<dyn BuildDriver>> {
         trace!("Strategy::determine_build_strategy()");
 
         Ok(
@@ -263,7 +253,7 @@ impl<'a> Strategy<'a> {
                     if PathBuf::from(format!("{xdg_runtime}/podman/podman.sock")).exists() =>
                 {
                     Arc::new(
-                        PodmanApiStrategy::builder()
+                        PodmanApiDriver::builder()
                             .client(
                                 Podman::unix(PathBuf::from(format!(
                                     "{xdg_runtime}/podman/podman.sock"
@@ -277,7 +267,7 @@ impl<'a> Strategy<'a> {
                 #[cfg(feature = "builtin-podman")]
                 (_, run_podman_podman_sock, _, _, _, _, _) if run_podman_podman_sock.exists() => {
                     Arc::new(
-                        PodmanApiStrategy::builder()
+                        PodmanApiDriver::builder()
                             .client(Podman::unix(run_podman_podman_sock).into())
                             .rt(Runtime::new()?)
                             .build(),
@@ -288,7 +278,7 @@ impl<'a> Strategy<'a> {
                     if var_run_podman_podman_sock.exists() =>
                 {
                     Arc::new(
-                        PodmanApiStrategy::builder()
+                        PodmanApiDriver::builder()
                             .client(Podman::unix(var_run_podman_podman_sock).into())
                             .rt(Runtime::new()?)
                             .build(),
@@ -297,16 +287,16 @@ impl<'a> Strategy<'a> {
                 #[cfg(feature = "builtin-podman")]
                 (_, _, _, var_run_podman_sock, _, _, _) if var_run_podman_sock.exists() => {
                     Arc::new(
-                        PodmanApiStrategy::builder()
+                        PodmanApiDriver::builder()
                             .client(Podman::unix(var_run_podman_sock).into())
                             .rt(Runtime::new()?)
                             .build(),
                     )
                 }
                 // (_, _, _, _, Ok(_docker), _, _) if !oci_required => {
-                (_, _, _, _, Ok(_docker), _, _) => Arc::new(DockerStrategy),
-                (_, _, _, _, _, Ok(_podman), _) => Arc::new(PodmanStrategy),
-                (_, _, _, _, _, _, Ok(_buildah)) => Arc::new(BuildahStrategy),
+                (_, _, _, _, Ok(_docker), _, _) => Arc::new(DockerDriver),
+                (_, _, _, _, _, Ok(_podman), _) => Arc::new(PodmanDriver),
+                (_, _, _, _, _, _, Ok(_buildah)) => Arc::new(BuildahDriver),
                 _ => bail!(
                     "Could not determine strategy, need either docker, podman, or buildah to continue"
                 ),

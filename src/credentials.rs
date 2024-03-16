@@ -101,6 +101,9 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
 /// Be sure to call this before trying to use
 /// any strategy that requires credentials as
 /// the environment credentials are lazy allocated.
+///
+/// # Errors
+/// Will error if it can't lock the mutex.
 pub fn set_user_creds(
     username: Option<&String>,
     password: Option<&String>,

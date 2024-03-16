@@ -5,12 +5,12 @@ use log::{debug, trace};
 
 use crate::image_inspection::ImageInspection;
 
-use super::InspectStrategy;
+use super::InspectDriver;
 
 #[derive(Debug)]
-pub struct SkopeoStrategy;
+pub struct SkopeoDriver;
 
-impl InspectStrategy for SkopeoStrategy {
+impl InspectDriver for SkopeoDriver {
     fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection> {
         let url = format!("docker://{image_name}:{tag}");
 
