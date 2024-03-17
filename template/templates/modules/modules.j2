@@ -6,7 +6,7 @@
       {%- include "modules/files/files.j2" %}
     {%- else %}
 RUN \
-  --mount=type=tmpfs,target=/var/cache \
+  --mount=type=tmpfs,target=/var \
   --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
       {%- if let Some(source) = module.source %}
   --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
@@ -20,8 +20,6 @@ RUN \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
   chmod +x /tmp/modules/{{ type }}/{{ type }}.sh \
   && source /tmp/exports.sh && /tmp/modules/{{ type }}/{{ type }}.sh '{{ module.print_module_context() }}' \
-  && rmex /var/ /var/cache \
-  && ls -lR /var/ \
   && ostree container commit
     {%- endif %}
   {%- endif %}
