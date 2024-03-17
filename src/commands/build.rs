@@ -18,7 +18,11 @@ use colorized::{Color, Colors};
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 
-use crate::{commands::template::TemplateCommand, credentials, drivers::Driver};
+use crate::{
+    commands::template::TemplateCommand,
+    credentials,
+    drivers::{opts::BuildTagPushOpts, Driver},
+};
 
 use super::BlueBuildCommand;
 
@@ -238,7 +242,28 @@ impl BuildCommand {
             Self::login()?;
         }
 
-        self.run_build(&image_name, &tags)?;
+        let opts = if let Some(archive_dir) = self.archive.as_ref() {
+            BuildTagPushOpts::builder()
+                .archive_path(format!(
+                    "{}/{}.{ARCHIVE_SUFFIX}",
+                    archive_dir.to_string_lossy().trim_end_matches('/'),
+                    recipe.name.to_lowercase().replace('/', "_"),
+                ))
+                .build()
+        } else {
+            BuildTagPushOpts::builder()
+                .image(&image_name)
+                .push(self.push)
+                .no_retry_push(self.no_retry_push)
+                .retry_count(self.retry_count)
+                .build()
+        };
+
+        Driver::get_build_driver().build_tag_push(&opts)?;
+
+        if self.push {
+            sign_images(&image_name, tags.first().map(String::as_str))?;
+        }
 
         info!("Build complete!");
 
@@ -288,7 +313,7 @@ impl BuildCommand {
 
         let image_name = if let Some(archive_dir) = &self.archive {
             format!(
-                "oci-archive:{}/{}.{ARCHIVE_SUFFIX}",
+                "{}/{}.{ARCHIVE_SUFFIX}",
                 archive_dir.to_string_lossy().trim_end_matches('/'),
                 recipe.name.to_lowercase().replace('/', "_"),
             )
@@ -347,59 +372,6 @@ impl BuildCommand {
         debug!("Using image name '{image_name}'");
 
         Ok(image_name)
-    }
-
-    /// # Errors
-    ///
-    /// Will return `Err` if the build fails.
-    fn run_build(&self, image_name: &str, tags: &[String]) -> Result<()> {
-        trace!("BuildCommand::run_build({image_name}, {tags:#?})");
-
-        let strat = Driver::get_build_driver();
-
-        let full_image = if self.archive.is_some() {
-            image_name.to_string()
-        } else {
-            tags.first()
-                .map_or_else(|| image_name.to_string(), |t| format!("{image_name}:{t}"))
-        };
-
-        info!("Building image {full_image}");
-        strat.build(&full_image)?;
-
-        if tags.len() > 1 && self.archive.is_none() {
-            debug!("Tagging all images");
-
-            for tag in tags {
-                debug!("Tagging {image_name} with {tag}");
-
-                strat.tag(&full_image, image_name, tag)?;
-
-                if self.push {
-                    let retry_count = if self.no_retry_push {
-                        0
-                    } else {
-                        self.retry_count
-                    };
-
-                    debug!("Pushing all images");
-                    // Push images with retries (1s delay between retries)
-                    blue_build_utils::retry(retry_count, 1000, || {
-                        debug!("Pushing image {image_name}:{tag}");
-
-                        let tag_image = format!("{image_name}:{tag}");
-
-                        strat.push(&tag_image)
-                    })?;
-                }
-            }
-        }
-
-        if self.push {
-            sign_images(image_name, tags.first().map(String::as_str))?;
-        }
-
-        Ok(())
     }
 }
 
