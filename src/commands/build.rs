@@ -534,14 +534,22 @@ fn get_image_digest(image_name: &str, tag: Option<&str>) -> Result<String> {
     );
 
     trace!("skopeo inspect --format='{{.Digest}}' {image_url}");
-    let image_digest = String::from_utf8(
-        Command::new("skopeo")
-            .arg("inspect")
-            .arg("--format='{{.Digest}}'")
-            .arg(&image_url)
-            .output()?
-            .stdout,
-    )?;
+    let output = Command::new("skopeo")
+        .arg("inspect")
+        .arg("--format='{{.Digest}}'")
+        .arg(&image_url)
+        .output()?;
+
+    if !output.status.success() {
+        bail!(
+            "Failed to retrieve image digest: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    let image_digest = String::from_utf8(output.stdout)?;
+
+    debug!("Image digest is {image_digest}");
 
     Ok(format!(
         "{image_name}@{}",
