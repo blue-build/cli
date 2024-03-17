@@ -18,7 +18,7 @@ COPY ./modules /modules
 # This stage is responsible for holding onto
 # exports like the exports.sh
 FROM docker.io/alpine as stage-exports
-RUN printf {{ export_script.print_script() }} >> /exports.sh && chmod +x /exports.sh
+RUN printf {{ self::print_export_script() }} >> /exports.sh && chmod +x /exports.sh
 
 FROM {{ recipe.base_image }}:{{ recipe.image_version }}
 
