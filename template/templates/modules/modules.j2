@@ -2,11 +2,8 @@
   {%- if let Some(type) = module.module_type %}
     {%- if type == "containerfile" %}
       {%- include "modules/containerfile/containerfile.j2" %}
-    {%- else if type == "files" %}
-      {%- include "modules/files/files.j2" %}
     {%- else %}
 RUN \
-  --mount=type=tmpfs,target=/tmp \
   --mount=type=tmpfs,target=/var \
   --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
       {%- if let Some(source) = module.source %}
