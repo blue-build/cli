@@ -57,9 +57,11 @@ clap_complete_nushell = "4"
 colorized = "1"
 env_logger = "0.11"
 fuzzy-matcher = "0.3"
+once_cell = "1.19.0"
 open = "5"
 os_info = "3.7"                                                     # update os module config and tests when upgrading os_info
 requestty = { version = "0.5", features = ["macros", "termion"] }
+semver = { version = "1.0.22", features = ["serde"] }
 shadow-rs = { version = "0.26" }
 urlencoding = "2.1.3"
 users = "0.11.0"
@@ -82,7 +84,6 @@ serde_json.workspace = true
 serde_yaml.workspace = true
 typed-builder.workspace = true
 uuid.workspace = true
-once_cell = "1.19.0"
 
 [features]
 default = []

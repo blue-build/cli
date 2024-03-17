@@ -2,13 +2,37 @@ use std::process::Command;
 
 use anyhow::{bail, Result};
 use log::{info, trace};
+use semver::Version;
+use serde::Deserialize;
 
 use crate::credentials;
 
-use super::BuildDriver;
+use super::{BuildDriver, DriverVersion};
+
+#[derive(Debug, Deserialize)]
+struct BuildahVersionJson {
+    pub version: Version,
+}
 
 #[derive(Debug)]
 pub struct BuildahDriver;
+
+impl DriverVersion for BuildahDriver {
+    // RUN mounts for bind, cache, and tmpfs first supported in 1.24.0
+    // https://buildah.io/releases/#changes-for-v1240
+    const VERSION_REQ: &'static str = ">=1.24";
+
+    fn version() -> Result<Version> {
+        let output = Command::new("buildah")
+            .arg("version")
+            .arg("--json")
+            .output()?;
+
+        let version_json: BuildahVersionJson = serde_json::from_slice(&output.stdout)?;
+
+        Ok(version_json.version)
+    }
+}
 
 impl BuildDriver for BuildahDriver {
     fn build(&self, image: &str) -> Result<()> {
