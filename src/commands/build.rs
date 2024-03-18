@@ -253,6 +253,7 @@ impl BuildCommand {
         } else {
             BuildTagPushOpts::builder()
                 .image(&image_name)
+                .tags(tags.iter().map(String::as_str).collect::<Vec<_>>())
                 .push(self.push)
                 .no_retry_push(self.no_retry_push)
                 .retry_count(self.retry_count)
