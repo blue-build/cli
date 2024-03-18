@@ -107,7 +107,7 @@ impl BuildDriver for PodmanDriver {
 
         if !output.status.success() {
             let err_out = String::from_utf8_lossy(&output.stderr);
-            bail!("Failed to login for buildah: {err_out}");
+            bail!("Failed to login for podman: {err_out}");
         }
         Ok(())
     }
