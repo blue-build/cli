@@ -380,6 +380,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
     let image_digest = Driver::get_inspection_driver()
         .get_metadata(image_name, tag.map_or_else(|| "latest", |t| t))?
         .digest;
+    let image_name_digest = format!("{image_name}@{image_digest}");
     let image_name_tag = tag.map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));
 
     match (
@@ -399,7 +400,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         (_, _, _, _, _, _, _, Ok(cosign_private_key))
             if !cosign_private_key.is_empty() && Path::new(COSIGN_PATH).exists() =>
         {
-            sign_priv_public_pair(&image_digest, &image_name_tag)?;
+            sign_priv_public_pair(&image_name_digest, &image_name_tag)?;
         }
         // Gitlab keyless
         (
@@ -414,19 +415,19 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         ) => {
             trace!("CI_PROJECT_URL={ci_project_url}, CI_DEFAULT_BRANCH={ci_default_branch}, CI_SERVER_PROTOCOL={ci_server_protocol}, CI_SERVER_HOST={ci_server_host}");
 
-            info!("Signing image: {image_digest}");
+            info!("Signing image: {image_name_digest}");
 
-            trace!("cosign sign {image_digest}");
+            trace!("cosign sign {image_name_digest}");
 
             if Command::new("cosign")
                 .arg("sign")
-                .arg(&image_digest)
+                .arg(&image_name_digest)
                 .status()?
                 .success()
             {
                 info!("Successfully signed image!");
             } else {
-                bail!("Failed to sign image: {image_digest}");
+                bail!("Failed to sign image: {image_name_digest}");
             }
 
             let cert_ident =
@@ -453,18 +454,18 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         (_, _, _, _, _, Ok(_), Ok(github_worflow_ref), _) => {
             trace!("GITHUB_WORKFLOW_REF={github_worflow_ref}");
 
-            info!("Signing image {image_digest}");
+            info!("Signing image {image_name_digest}");
 
-            trace!("cosign sign {image_digest}");
+            trace!("cosign sign {image_name_digest}");
             if Command::new("cosign")
                 .arg("sign")
-                .arg(&image_digest)
+                .arg(&image_name_digest)
                 .status()?
                 .success()
             {
                 info!("Successfully signed image!");
             } else {
-                bail!("Failed to sign image: {image_digest}");
+                bail!("Failed to sign image: {image_name_digest}");
             }
 
             trace!("cosign verify --certificate-identity-regexp {github_worflow_ref} --certificate-oidc-issuer {GITHUB_TOKEN_ISSUER_URL} {image_name_tag}");
