@@ -312,61 +312,53 @@ impl BuildCommand {
         trace!("BuildCommand::generate_full_image_name({recipe:#?})");
         info!("Generating full image name");
 
-        let image_name = if let Some(archive_dir) = &self.archive {
-            format!(
-                "{}/{}.{ARCHIVE_SUFFIX}",
-                archive_dir.to_string_lossy().trim_end_matches('/'),
-                recipe.name.to_lowercase().replace('/', "_"),
-            )
-        } else {
-            match (
-                env::var(CI_REGISTRY).ok().map(|s| s.to_lowercase()),
-                env::var(CI_PROJECT_NAMESPACE)
-                    .ok()
-                    .map(|s| s.to_lowercase()),
-                env::var(CI_PROJECT_NAME).ok().map(|s| s.to_lowercase()),
-                env::var(GITHUB_REPOSITORY_OWNER)
-                    .ok()
-                    .map(|s| s.to_lowercase()),
-                self.registry.as_ref().map(|s| s.to_lowercase()),
-                self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
-            ) {
-                (_, _, _, _, Some(registry), Some(registry_path)) => {
-                    trace!("registry={registry}, registry_path={registry_path}");
-                    format!(
-                        "{}/{}/{}",
-                        registry.trim().trim_matches('/'),
-                        registry_path.trim().trim_matches('/'),
-                        recipe.name.trim(),
-                    )
-                }
-                (
-                    Some(ci_registry),
-                    Some(ci_project_namespace),
-                    Some(ci_project_name),
-                    None,
-                    None,
-                    None,
-                ) => {
-                    trace!("CI_REGISTRY={ci_registry}, CI_PROJECT_NAMESPACE={ci_project_namespace}, CI_PROJECT_NAME={ci_project_name}");
-                    warn!("Generating Gitlab Registry image");
-                    format!(
-                        "{ci_registry}/{ci_project_namespace}/{ci_project_name}/{}",
-                        recipe.name.trim().to_lowercase()
-                    )
-                }
-                (None, None, None, Some(github_repository_owner), None, None) => {
-                    trace!("GITHUB_REPOSITORY_OWNER={github_repository_owner}");
-                    warn!("Generating Github Registry image");
-                    format!("ghcr.io/{github_repository_owner}/{}", &recipe.name)
-                }
-                _ => {
-                    trace!("Nothing to indicate an image name with a registry");
-                    if self.push {
-                        bail!("Need '--registry' and '--registry-path' in order to push image");
-                    }
+        let image_name = match (
+            env::var(CI_REGISTRY).ok().map(|s| s.to_lowercase()),
+            env::var(CI_PROJECT_NAMESPACE)
+                .ok()
+                .map(|s| s.to_lowercase()),
+            env::var(CI_PROJECT_NAME).ok().map(|s| s.to_lowercase()),
+            env::var(GITHUB_REPOSITORY_OWNER)
+                .ok()
+                .map(|s| s.to_lowercase()),
+            self.registry.as_ref().map(|s| s.to_lowercase()),
+            self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
+        ) {
+            (_, _, _, _, Some(registry), Some(registry_path)) => {
+                trace!("registry={registry}, registry_path={registry_path}");
+                format!(
+                    "{}/{}/{}",
+                    registry.trim().trim_matches('/'),
+                    registry_path.trim().trim_matches('/'),
+                    recipe.name.trim(),
+                )
+            }
+            (
+                Some(ci_registry),
+                Some(ci_project_namespace),
+                Some(ci_project_name),
+                None,
+                None,
+                None,
+            ) => {
+                trace!("CI_REGISTRY={ci_registry}, CI_PROJECT_NAMESPACE={ci_project_namespace}, CI_PROJECT_NAME={ci_project_name}");
+                warn!("Generating Gitlab Registry image");
+                format!(
+                    "{ci_registry}/{ci_project_namespace}/{ci_project_name}/{}",
                     recipe.name.trim().to_lowercase()
+                )
+            }
+            (None, None, None, Some(github_repository_owner), None, None) => {
+                trace!("GITHUB_REPOSITORY_OWNER={github_repository_owner}");
+                warn!("Generating Github Registry image");
+                format!("ghcr.io/{github_repository_owner}/{}", &recipe.name)
+            }
+            _ => {
+                trace!("Nothing to indicate an image name with a registry");
+                if self.push {
+                    bail!("Need '--registry' and '--registry-path' in order to push image");
                 }
+                recipe.name.trim().to_lowercase()
             }
         };
 
@@ -386,7 +378,9 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
     env::set_var("COSIGN_PASSWORD", "");
     env::set_var("COSIGN_YES", "true");
 
-    let image_digest = get_image_digest(image_name, tag)?;
+    let image_digest = Driver::get_inspection_driver()
+        .get_metadata(image_name, tag.map_or_else(|| "latest", |t| t))?
+        .digest;
     let image_name_tag = tag.map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));
 
     match (
@@ -524,38 +518,6 @@ fn sign_priv_public_pair(image_digest: &str, image_name_tag: &str) -> Result<()>
     }
 
     Ok(())
-}
-
-fn get_image_digest(image_name: &str, tag: Option<&str>) -> Result<String> {
-    trace!("get_image_digest({image_name}, {tag:?})");
-
-    let image_url = tag.map_or_else(
-        || format!("docker://{image_name}"),
-        |tag| format!("docker://{image_name}:{tag}"),
-    );
-
-    trace!("skopeo inspect --format='{{.Digest}}' {image_url}");
-    let output = Command::new("skopeo")
-        .arg("inspect")
-        .arg("--format='{{.Digest}}'")
-        .arg(&image_url)
-        .output()?;
-
-    if !output.status.success() {
-        bail!(
-            "Failed to retrieve image digest: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
-
-    let image_digest = String::from_utf8(output.stdout)?;
-
-    debug!("Image digest is {image_digest}");
-
-    Ok(format!(
-        "{image_name}@{}",
-        image_digest.trim().trim_matches('\'')
-    ))
 }
 
 fn check_cosign_files() -> Result<()> {

@@ -9,7 +9,7 @@ use log::{info, trace};
 use semver::Version;
 use serde::Deserialize;
 
-use crate::image_inspection::ImageInspection;
+use crate::image_metadata::ImageMetadata;
 
 use super::{credentials, opts::BuildTagPushOpts, BuildDriver, DriverVersion, InspectDriver};
 
@@ -48,13 +48,15 @@ impl DriverVersion for DockerDriver {
 
 impl BuildDriver for DockerDriver {
     fn build(&self, image: &str) -> Result<()> {
-        trace!("docker");
+        trace!("DockerDriver::build({image})");
+
+        trace!("docker build -t {image} -f {CONTAINER_FILE} .");
         let status = Command::new("docker")
             .arg("build")
             .arg("-t")
             .arg(image)
             .arg("-f")
-            .arg("Containerfile")
+            .arg(CONTAINER_FILE)
             .arg(".")
             .status()?;
 
@@ -67,6 +69,8 @@ impl BuildDriver for DockerDriver {
     }
 
     fn tag(&self, src_image: &str, image_name: &str, tag: &str) -> Result<()> {
+        trace!("DockerDriver::tag({src_image}, {image_name}, {tag})");
+
         let dest_image = format!("{image_name}:{tag}");
 
         trace!("docker tag {src_image} {dest_image}");
@@ -85,6 +89,8 @@ impl BuildDriver for DockerDriver {
     }
 
     fn push(&self, image: &str) -> Result<()> {
+        trace!("DockerDriver::push({image})");
+
         trace!("docker push {image}");
         let status = Command::new("docker").arg("push").arg(image).status()?;
 
@@ -97,6 +103,8 @@ impl BuildDriver for DockerDriver {
     }
 
     fn login(&self) -> Result<()> {
+        trace!("DockerDriver::login()");
+
         let (registry, username, password) =
             credentials::get().map(|c| (&c.registry, &c.username, &c.password))?;
 
@@ -188,7 +196,9 @@ impl BuildDriver for DockerDriver {
 }
 
 impl InspectDriver for DockerDriver {
-    fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection> {
+    fn get_metadata(&self, image_name: &str, tag: &str) -> Result<ImageMetadata> {
+        trace!("DockerDriver::get_labels({image_name}, {tag})");
+
         let url = format!("docker://{image_name}:{tag}");
 
         trace!("docker run {SKOPEO_IMAGE} inspect {url}");

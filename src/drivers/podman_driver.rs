@@ -6,7 +6,7 @@ use log::{debug, info, trace};
 use semver::Version;
 use serde::Deserialize;
 
-use crate::image_inspection::ImageInspection;
+use crate::image_metadata::ImageMetadata;
 
 use super::{credentials, BuildDriver, DriverVersion, InspectDriver};
 
@@ -114,7 +114,7 @@ impl BuildDriver for PodmanDriver {
 }
 
 impl InspectDriver for PodmanDriver {
-    fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection> {
+    fn get_metadata(&self, image_name: &str, tag: &str) -> Result<ImageMetadata> {
         let url = format!("docker://{image_name}:{tag}");
 
         trace!("podman run {SKOPEO_IMAGE} inspect {url}");

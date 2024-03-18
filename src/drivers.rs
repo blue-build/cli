@@ -33,7 +33,7 @@ use tokio::runtime::Runtime;
 #[cfg(feature = "builtin-podman")]
 use podman_api_driver::PodmanApiDriver;
 
-use crate::{credentials, image_inspection::ImageInspection};
+use crate::{credentials, image_metadata::ImageMetadata};
 
 use self::{
     buildah_driver::BuildahDriver, docker_driver::DockerDriver, opts::BuildTagPushOpts,
@@ -201,11 +201,11 @@ pub trait BuildDriver: Sync + Send {
 
 /// Allows agnostic inspection of images.
 pub trait InspectDriver: Sync + Send {
-    /// Gets the labels on an image tag.
+    /// Gets the metadata on an image tag.
     ///
     /// # Errors
     /// Will error if it is unable to get the labels.
-    fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection>;
+    fn get_metadata(&self, image_name: &str, tag: &str) -> Result<ImageMetadata>;
 }
 
 #[derive(Debug, TypedBuilder)]
@@ -230,6 +230,7 @@ impl Driver<'_> {
     /// # Errors
     /// Will error if it is unable to set the user credentials.
     pub fn init(self) -> Result<()> {
+        trace!("Driver::init()");
         credentials::set_user_creds(self.username, self.password, self.registry)?;
         Ok(())
     }
@@ -237,16 +238,19 @@ impl Driver<'_> {
     /// Gets the current build's UUID
     #[must_use]
     pub fn get_build_id() -> Uuid {
+        trace!("Driver::get_build_id()");
         *BUILD_ID
     }
 
     /// Gets the current run's build strategy
     pub fn get_build_driver() -> Arc<dyn BuildDriver> {
+        trace!("Driver::get_build_driver()");
         BUILD_STRATEGY.clone()
     }
 
     /// Gets the current run's inspectioin strategy
     pub fn get_inspection_driver() -> Arc<dyn InspectDriver> {
+        trace!("Driver::get_inspection_driver()");
         INSPECT_STRATEGY.clone()
     }
 
@@ -259,7 +263,7 @@ impl Driver<'_> {
     /// Will error if the image doesn't have OS version info
     /// or we are unable to lock a mutex.
     pub fn get_os_version(recipe: &Recipe) -> Result<String> {
-        trace!("get_os_version({recipe:#?})");
+        trace!("Driver::get_os_version({recipe:#?})");
         let image = format!("{}:{}", &recipe.base_image, &recipe.image_version);
 
         let mut os_version_lock = OS_VERSION
@@ -272,7 +276,7 @@ impl Driver<'_> {
             None => {
                 info!("Retrieving OS version from {image}. This might take a bit");
                 let inspection =
-                    INSPECT_STRATEGY.get_labels(&recipe.base_image, &recipe.image_version)?;
+                    INSPECT_STRATEGY.get_metadata(&recipe.base_image, &recipe.image_version)?;
 
                 let os_version = inspection.get_version().ok_or_else(|| {
                     anyhow!(
@@ -298,7 +302,7 @@ impl Driver<'_> {
     }
 
     fn determine_inspect_driver() -> Result<Arc<dyn InspectDriver>> {
-        trace!("Strategy::determine_inspect_strategy()");
+        trace!("Driver::determine_inspect_strategy()");
 
         let driver: Arc<dyn InspectDriver> = match (
             blue_build_utils::check_command_exists("skopeo"),
@@ -315,7 +319,7 @@ impl Driver<'_> {
     }
 
     fn determine_build_driver() -> Result<Arc<dyn BuildDriver>> {
-        trace!("Strategy::determine_build_strategy()");
+        trace!("Driver::determine_build_strategy()");
 
         let driver: Arc<dyn BuildDriver> = match (
             env::var(XDG_RUNTIME_DIR),
