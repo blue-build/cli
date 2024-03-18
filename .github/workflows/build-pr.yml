@@ -91,7 +91,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
-          driver: docker
           install: true
 
       - name: Earthly login
@@ -119,6 +118,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_PR_EVENT_NUMBER: ${{ github.event.number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
+          BB_BUILDKIT_CACHE_GHA: true
         run: |
           cd integration-tests/test-repo
           if [ -n "$GH_TOKEN" ] && [ -n "$COSIGN_PRIVATE_KEY" ]; then
