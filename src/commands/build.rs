@@ -219,7 +219,6 @@ impl BlueBuildCommand for BuildCommand {
 
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
-            blue_build_utils::check_command_exists("skopeo")?;
             check_cosign_files()?;
         }
 
