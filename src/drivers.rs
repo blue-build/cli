@@ -302,7 +302,7 @@ impl Driver<'_> {
     }
 
     fn determine_inspect_driver() -> Result<Arc<dyn InspectDriver>> {
-        trace!("Driver::determine_inspect_strategy()");
+        trace!("Driver::determine_inspect_driver()");
 
         let driver: Arc<dyn InspectDriver> = match (
             blue_build_utils::check_command_exists("skopeo"),
@@ -319,7 +319,7 @@ impl Driver<'_> {
     }
 
     fn determine_build_driver() -> Result<Arc<dyn BuildDriver>> {
-        trace!("Driver::determine_build_strategy()");
+        trace!("Driver::determine_build_driver()");
 
         let driver: Arc<dyn BuildDriver> = match (
             env::var(XDG_RUNTIME_DIR),

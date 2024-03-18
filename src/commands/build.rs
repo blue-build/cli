@@ -356,7 +356,7 @@ impl BuildCommand {
             _ => {
                 trace!("Nothing to indicate an image name with a registry");
                 if self.push {
-                    bail!("Need '--registry' and '--registry-path' in order to push image");
+                    bail!("Need '--registry' and '--registry-namespace' in order to push image");
                 }
                 recipe.name.trim().to_lowercase()
             }
