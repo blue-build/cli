@@ -18,7 +18,11 @@ use colorized::{Color, Colors};
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 
-use crate::{commands::template::TemplateCommand, credentials, drivers::Driver};
+use crate::{
+    commands::template::TemplateCommand,
+    credentials,
+    drivers::{opts::BuildTagPushOpts, Driver},
+};
 
 use super::BlueBuildCommand;
 
@@ -215,7 +219,6 @@ impl BlueBuildCommand for BuildCommand {
 
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
-            blue_build_utils::check_command_exists("skopeo")?;
             check_cosign_files()?;
         }
 
@@ -238,7 +241,29 @@ impl BuildCommand {
             Self::login()?;
         }
 
-        self.run_build(&image_name, &tags)?;
+        let opts = if let Some(archive_dir) = self.archive.as_ref() {
+            BuildTagPushOpts::builder()
+                .archive_path(format!(
+                    "{}/{}.{ARCHIVE_SUFFIX}",
+                    archive_dir.to_string_lossy().trim_end_matches('/'),
+                    recipe.name.to_lowercase().replace('/', "_"),
+                ))
+                .build()
+        } else {
+            BuildTagPushOpts::builder()
+                .image(&image_name)
+                .tags(tags.iter().map(String::as_str).collect::<Vec<_>>())
+                .push(self.push)
+                .no_retry_push(self.no_retry_push)
+                .retry_count(self.retry_count)
+                .build()
+        };
+
+        Driver::get_build_driver().build_tag_push(&opts)?;
+
+        if self.push {
+            sign_images(&image_name, tags.first().map(String::as_str))?;
+        }
 
         info!("Build complete!");
 
@@ -286,120 +311,59 @@ impl BuildCommand {
         trace!("BuildCommand::generate_full_image_name({recipe:#?})");
         info!("Generating full image name");
 
-        let image_name = if let Some(archive_dir) = &self.archive {
-            format!(
-                "oci-archive:{}/{}.{ARCHIVE_SUFFIX}",
-                archive_dir.to_string_lossy().trim_end_matches('/'),
-                recipe.name.to_lowercase().replace('/', "_"),
-            )
-        } else {
-            match (
-                env::var(CI_REGISTRY).ok().map(|s| s.to_lowercase()),
-                env::var(CI_PROJECT_NAMESPACE)
-                    .ok()
-                    .map(|s| s.to_lowercase()),
-                env::var(CI_PROJECT_NAME).ok().map(|s| s.to_lowercase()),
-                env::var(GITHUB_REPOSITORY_OWNER)
-                    .ok()
-                    .map(|s| s.to_lowercase()),
-                self.registry.as_ref().map(|s| s.to_lowercase()),
-                self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
-            ) {
-                (_, _, _, _, Some(registry), Some(registry_path)) => {
-                    trace!("registry={registry}, registry_path={registry_path}");
-                    format!(
-                        "{}/{}/{}",
-                        registry.trim().trim_matches('/'),
-                        registry_path.trim().trim_matches('/'),
-                        recipe.name.trim(),
-                    )
-                }
-                (
-                    Some(ci_registry),
-                    Some(ci_project_namespace),
-                    Some(ci_project_name),
-                    None,
-                    None,
-                    None,
-                ) => {
-                    trace!("CI_REGISTRY={ci_registry}, CI_PROJECT_NAMESPACE={ci_project_namespace}, CI_PROJECT_NAME={ci_project_name}");
-                    warn!("Generating Gitlab Registry image");
-                    format!(
-                        "{ci_registry}/{ci_project_namespace}/{ci_project_name}/{}",
-                        recipe.name.trim().to_lowercase()
-                    )
-                }
-                (None, None, None, Some(github_repository_owner), None, None) => {
-                    trace!("GITHUB_REPOSITORY_OWNER={github_repository_owner}");
-                    warn!("Generating Github Registry image");
-                    format!("ghcr.io/{github_repository_owner}/{}", &recipe.name)
-                }
-                _ => {
-                    trace!("Nothing to indicate an image name with a registry");
-                    if self.push {
-                        bail!("Need '--registry' and '--registry-path' in order to push image");
-                    }
+        let image_name = match (
+            env::var(CI_REGISTRY).ok().map(|s| s.to_lowercase()),
+            env::var(CI_PROJECT_NAMESPACE)
+                .ok()
+                .map(|s| s.to_lowercase()),
+            env::var(CI_PROJECT_NAME).ok().map(|s| s.to_lowercase()),
+            env::var(GITHUB_REPOSITORY_OWNER)
+                .ok()
+                .map(|s| s.to_lowercase()),
+            self.registry.as_ref().map(|s| s.to_lowercase()),
+            self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
+        ) {
+            (_, _, _, _, Some(registry), Some(registry_path)) => {
+                trace!("registry={registry}, registry_path={registry_path}");
+                format!(
+                    "{}/{}/{}",
+                    registry.trim().trim_matches('/'),
+                    registry_path.trim().trim_matches('/'),
+                    recipe.name.trim(),
+                )
+            }
+            (
+                Some(ci_registry),
+                Some(ci_project_namespace),
+                Some(ci_project_name),
+                None,
+                None,
+                None,
+            ) => {
+                trace!("CI_REGISTRY={ci_registry}, CI_PROJECT_NAMESPACE={ci_project_namespace}, CI_PROJECT_NAME={ci_project_name}");
+                warn!("Generating Gitlab Registry image");
+                format!(
+                    "{ci_registry}/{ci_project_namespace}/{ci_project_name}/{}",
                     recipe.name.trim().to_lowercase()
+                )
+            }
+            (None, None, None, Some(github_repository_owner), None, None) => {
+                trace!("GITHUB_REPOSITORY_OWNER={github_repository_owner}");
+                warn!("Generating Github Registry image");
+                format!("ghcr.io/{github_repository_owner}/{}", &recipe.name)
+            }
+            _ => {
+                trace!("Nothing to indicate an image name with a registry");
+                if self.push {
+                    bail!("Need '--registry' and '--registry-namespace' in order to push image");
                 }
+                recipe.name.trim().to_lowercase()
             }
         };
 
         debug!("Using image name '{image_name}'");
 
         Ok(image_name)
-    }
-
-    /// # Errors
-    ///
-    /// Will return `Err` if the build fails.
-    fn run_build(&self, image_name: &str, tags: &[String]) -> Result<()> {
-        trace!("BuildCommand::run_build({image_name}, {tags:#?})");
-
-        let strat = Driver::get_build_driver();
-
-        let full_image = if self.archive.is_some() {
-            image_name.to_string()
-        } else {
-            tags.first()
-                .map_or_else(|| image_name.to_string(), |t| format!("{image_name}:{t}"))
-        };
-
-        info!("Building image {full_image}");
-        strat.build(&full_image)?;
-
-        if tags.len() > 1 && self.archive.is_none() {
-            debug!("Tagging all images");
-
-            for tag in tags {
-                debug!("Tagging {image_name} with {tag}");
-
-                strat.tag(&full_image, image_name, tag)?;
-
-                if self.push {
-                    let retry_count = if self.no_retry_push {
-                        0
-                    } else {
-                        self.retry_count
-                    };
-
-                    debug!("Pushing all images");
-                    // Push images with retries (1s delay between retries)
-                    blue_build_utils::retry(retry_count, 1000, || {
-                        debug!("Pushing image {image_name}:{tag}");
-
-                        let tag_image = format!("{image_name}:{tag}");
-
-                        strat.push(&tag_image)
-                    })?;
-                }
-            }
-        }
-
-        if self.push {
-            sign_images(image_name, tags.first().map(String::as_str))?;
-        }
-
-        Ok(())
     }
 }
 
@@ -413,7 +377,10 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
     env::set_var("COSIGN_PASSWORD", "");
     env::set_var("COSIGN_YES", "true");
 
-    let image_digest = get_image_digest(image_name, tag)?;
+    let image_digest = Driver::get_inspection_driver()
+        .get_metadata(image_name, tag.map_or_else(|| "latest", |t| t))?
+        .digest;
+    let image_name_digest = format!("{image_name}@{image_digest}");
     let image_name_tag = tag.map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));
 
     match (
@@ -433,7 +400,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         (_, _, _, _, _, _, _, Ok(cosign_private_key))
             if !cosign_private_key.is_empty() && Path::new(COSIGN_PATH).exists() =>
         {
-            sign_priv_public_pair(&image_digest, &image_name_tag)?;
+            sign_priv_public_pair(&image_name_digest, &image_name_tag)?;
         }
         // Gitlab keyless
         (
@@ -448,19 +415,19 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         ) => {
             trace!("CI_PROJECT_URL={ci_project_url}, CI_DEFAULT_BRANCH={ci_default_branch}, CI_SERVER_PROTOCOL={ci_server_protocol}, CI_SERVER_HOST={ci_server_host}");
 
-            info!("Signing image: {image_digest}");
+            info!("Signing image: {image_name_digest}");
 
-            trace!("cosign sign {image_digest}");
+            trace!("cosign sign {image_name_digest}");
 
             if Command::new("cosign")
                 .arg("sign")
-                .arg(&image_digest)
+                .arg(&image_name_digest)
                 .status()?
                 .success()
             {
                 info!("Successfully signed image!");
             } else {
-                bail!("Failed to sign image: {image_digest}");
+                bail!("Failed to sign image: {image_name_digest}");
             }
 
             let cert_ident =
@@ -487,18 +454,18 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         (_, _, _, _, _, Ok(_), Ok(github_worflow_ref), _) => {
             trace!("GITHUB_WORKFLOW_REF={github_worflow_ref}");
 
-            info!("Signing image {image_digest}");
+            info!("Signing image {image_name_digest}");
 
-            trace!("cosign sign {image_digest}");
+            trace!("cosign sign {image_name_digest}");
             if Command::new("cosign")
                 .arg("sign")
-                .arg(&image_digest)
+                .arg(&image_name_digest)
                 .status()?
                 .success()
             {
                 info!("Successfully signed image!");
             } else {
-                bail!("Failed to sign image: {image_digest}");
+                bail!("Failed to sign image: {image_name_digest}");
             }
 
             trace!("cosign verify --certificate-identity-regexp {github_worflow_ref} --certificate-oidc-issuer {GITHUB_TOKEN_ISSUER_URL} {image_name_tag}");
@@ -551,30 +518,6 @@ fn sign_priv_public_pair(image_digest: &str, image_name_tag: &str) -> Result<()>
     }
 
     Ok(())
-}
-
-fn get_image_digest(image_name: &str, tag: Option<&str>) -> Result<String> {
-    trace!("get_image_digest({image_name}, {tag:?})");
-
-    let image_url = tag.map_or_else(
-        || format!("docker://{image_name}"),
-        |tag| format!("docker://{image_name}:{tag}"),
-    );
-
-    trace!("skopeo inspect --format='{{.Digest}}' {image_url}");
-    let image_digest = String::from_utf8(
-        Command::new("skopeo")
-            .arg("inspect")
-            .arg("--format='{{.Digest}}'")
-            .arg(&image_url)
-            .output()?
-            .stdout,
-    )?;
-
-    Ok(format!(
-        "{image_name}@{}",
-        image_digest.trim().trim_matches('\'')
-    ))
 }
 
 fn check_cosign_files() -> Result<()> {
