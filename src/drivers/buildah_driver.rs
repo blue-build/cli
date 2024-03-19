@@ -1,19 +1,40 @@
 use std::process::Command;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use log::{info, trace};
-use typed_builder::TypedBuilder;
+use semver::Version;
+use serde::Deserialize;
 
-use crate::commands::build::Credentials;
+use crate::credentials;
 
-use super::BuildStrategy;
+use super::{BuildDriver, DriverVersion};
 
-#[derive(Debug, TypedBuilder)]
-pub struct BuildahStrategy {
-    creds: Option<Credentials>,
+#[derive(Debug, Deserialize)]
+struct BuildahVersionJson {
+    pub version: Version,
 }
 
-impl BuildStrategy for BuildahStrategy {
+#[derive(Debug)]
+pub struct BuildahDriver;
+
+impl DriverVersion for BuildahDriver {
+    // RUN mounts for bind, cache, and tmpfs first supported in 1.24.0
+    // https://buildah.io/releases/#changes-for-v1240
+    const VERSION_REQ: &'static str = ">=1.24";
+
+    fn version() -> Result<Version> {
+        let output = Command::new("buildah")
+            .arg("version")
+            .arg("--json")
+            .output()?;
+
+        let version_json: BuildahVersionJson = serde_json::from_slice(&output.stdout)?;
+
+        Ok(version_json.version)
+    }
+}
+
+impl BuildDriver for BuildahDriver {
     fn build(&self, image: &str) -> Result<()> {
         trace!("buildah build -t {image}");
         let status = Command::new("buildah")
@@ -60,17 +81,8 @@ impl BuildStrategy for BuildahStrategy {
     }
 
     fn login(&self) -> Result<()> {
-        let (registry, username, password) = self
-            .creds
-            .as_ref()
-            .map(|credentials| {
-                (
-                    &credentials.registry,
-                    &credentials.username,
-                    &credentials.password,
-                )
-            })
-            .ok_or_else(|| anyhow!("Unable to login, missing credentials!"))?;
+        let (registry, username, password) =
+            credentials::get().map(|c| (&c.registry, &c.username, &c.password))?;
 
         trace!("buildah login -u {username} -p [MASKED] {registry}");
         let output = Command::new("buildah")

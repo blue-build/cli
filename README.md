@@ -8,6 +8,14 @@
 
 BlueBuild's command line program that builds Containerfiles and custom images based on your recipe.yml.
 
+## Requirements
+
+The `bluebuild` tool takes advantage of newer build features. Specifically bind, cache, and tmpfs mounts on the `RUN` instructions. We support using the following tools and their versions:
+
+- Docker - v23 and above
+- Podman - v4 and above
+- Buildah - v1.24 and above
+
 ## Installation
 
 ### Distrobox
@@ -110,7 +118,7 @@ This will template out the file and build with `buildah` or `podman`.
 
 ##### Rebase
 
-If you want to test your changes, you can do so by using the `rebase` command. This will create an image as a `.tar.gz` file, store it in `/etc/blue-build`, an run `rpm-ostree rebase` on that newly built file.
+If you want to test your changes, you can do so by using the `rebase` command. This will create an image as a `.tar.gz` file, store it in `/etc/bluebuild`, an run `rpm-ostree rebase` on that newly built file.
 
 ```bash
 sudo bluebuild rebase config/recipe.yml

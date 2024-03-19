@@ -1,3 +1,16 @@
 #!/bin/sh
 
-echo 'Running podman'
+print_version_json() {
+  local version="4.0.0"
+  printf '{"Client":{"Version": "%s"}}\n' "$version"
+}
+
+main() {
+  if [[ "$1" == "version" && "$2" == "-f" && "$3" == "json" ]]; then
+    print_version_json
+  else
+    echo 'Running podman'
+  fi
+}
+
+main "$@"

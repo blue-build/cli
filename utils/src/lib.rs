@@ -1,7 +1,7 @@
 pub mod command_output;
 pub mod constants;
 
-use std::{io::Write, path::PathBuf, process::Command, thread, time::Duration};
+use std::{ffi::OsStr, io::Write, path::PathBuf, process::Command, thread, time::Duration};
 
 use anyhow::{anyhow, Result};
 use format_serde_error::SerdeError;
@@ -9,6 +9,10 @@ use log::{debug, trace};
 
 pub use command_output::*;
 
+/// Checks for the existance of a given command.
+///
+/// # Errors
+/// Will error if the command doesn't exist.
 pub fn check_command_exists(command: &str) -> Result<()> {
     trace!("check_command_exists({command})");
     debug!("Checking if {command} exists");
@@ -29,9 +33,14 @@ pub fn check_command_exists(command: &str) -> Result<()> {
     }
 }
 
-pub fn append_to_file(file_path: &str, content: &str) -> Result<()> {
-    trace!("append_to_file({file_path}, {content})");
-    debug!("Appending {content} to {file_path}");
+/// Appends a string to a file.
+///
+/// # Errors
+/// Will error if it fails to append to a file.
+pub fn append_to_file<T: Into<PathBuf> + AsRef<OsStr>>(file_path: &T, content: &str) -> Result<()> {
+    let file_path: PathBuf = file_path.into();
+    trace!("append_to_file({}, {content})", file_path.display());
+    debug!("Appending {content} to {}", file_path.display());
 
     let mut file = std::fs::OpenOptions::new()
         .append(true)
@@ -42,6 +51,8 @@ pub fn append_to_file(file_path: &str, content: &str) -> Result<()> {
     Ok(())
 }
 
+/// Creates a serde error for displaying the file
+/// and where the error occurred.
 pub fn serde_yaml_err(contents: &str) -> impl Fn(serde_yaml::Error) -> SerdeError + '_ {
     |err: serde_yaml::Error| {
         let location = err.location();
@@ -57,10 +68,15 @@ pub fn serde_yaml_err(contents: &str) -> impl Fn(serde_yaml::Error) -> SerdeErro
     }
 }
 
-pub fn retry<V, F>(mut attempts: u8, delay: u64, f: F) -> anyhow::Result<V>
+/// Performs a retry on a given closure with a given nubmer of attempts and delay.
+///
+/// # Errors
+/// Will error when retries have been expended.
+pub fn retry<V, F>(attempts: u8, delay: u64, f: F) -> anyhow::Result<V>
 where
     F: Fn() -> anyhow::Result<V>,
 {
+    let mut attempts = attempts;
     loop {
         match f() {
             Ok(v) => return Ok(v),

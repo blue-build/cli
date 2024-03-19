@@ -1,7 +1,10 @@
 use std::{borrow::Cow, env, fs, path::Path, process};
 
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::*;
+use blue_build_utils::constants::{
+    CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CI_SERVER_HOST, CI_SERVER_PROTOCOL,
+    COSIGN_PATH, GITHUB_REPOSITORY_OWNER, GITHUB_RESPOSITORY, GITHUB_SERVER_URL,
+};
 use log::{debug, error, trace};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
@@ -21,6 +24,9 @@ pub struct ContainerFileTemplate<'a> {
 
     #[builder(default)]
     export_script: ExportsTemplate,
+
+    #[builder(setter(into))]
+    os_version: Cow<'a, str>,
 }
 
 #[derive(Debug, Clone, Default, Template)]

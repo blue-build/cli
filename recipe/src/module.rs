@@ -73,6 +73,7 @@ impl<'a> Module<'a> {
         self.get_module_type_list("containerfile", "snippets")
     }
 
+    #[must_use]
     pub fn print_module_context(&'a self) -> String {
         serde_json::to_string(self).unwrap_or_else(|e| {
             error!("Failed to parse module!!!!!: {e}");
@@ -80,6 +81,7 @@ impl<'a> Module<'a> {
         })
     }
 
+    #[must_use]
     pub fn get_files_list(&'a self) -> Option<Vec<(String, String)>> {
         Some(
             self.config

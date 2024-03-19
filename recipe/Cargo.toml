@@ -1,6 +1,6 @@
 [package]
 name = "blue-build-recipe"
-version.workspace = true
+version = "0.8.2"
 edition.workspace = true
 description.workspace = true
 repository.workspace = true
@@ -9,12 +9,11 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-blue-build-utils = { path = "../utils" }
+blue-build-utils = { version = "=0.8.2", path = "../utils" }
 chrono = "0.4"
 indexmap = { version = "2", features = ["serde"] }
 
 anyhow.workspace = true
-format_serde_error.workspace = true
 log.workspace = true
 serde.workspace = true
 serde_yaml.workspace = true
@@ -23,4 +22,3 @@ typed-builder.workspace = true
 
 [lints]
 workspace = true
-

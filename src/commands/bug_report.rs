@@ -1,6 +1,9 @@
 use blue_build_recipe::Recipe;
 use blue_build_template::{GithubIssueTemplate, Template};
-use blue_build_utils::constants::*;
+use blue_build_utils::constants::{
+    BUG_REPORT_WARNING_MESSAGE, GITHUB_CHAR_LIMIT, LC_TERMINAL, LC_TERMINAL_VERSION, TERM_PROGRAM,
+    TERM_PROGRAM_VERSION, UNKNOWN_SHELL, UNKNOWN_TERMINAL, UNKNOWN_VERSION,
+};
 use clap::Args;
 use clap_complete::Shell;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
@@ -82,7 +85,6 @@ impl BugReportCommand {
                 .color(Colors::BrightWhiteFg)
         );
 
-        const WARNING_MESSAGE: &str = "Please copy the above report and open an issue manually.";
         let question = requestty::Question::confirm("anonymous")
             .message(
                 "Forward the pre-filled report above to GitHub in your browser?"
@@ -103,11 +105,11 @@ impl BugReportCommand {
                         return Err(e.into());
                     }
                 } else {
-                    println!("{WARNING_MESSAGE}");
+                    println!("{BUG_REPORT_WARNING_MESSAGE}");
                 }
             }
             Err(_) => {
-                println!("Will not open an issue in your browser! {WARNING_MESSAGE}");
+                println!("Will not open an issue in your browser! {BUG_REPORT_WARNING_MESSAGE}");
             }
         }
 
