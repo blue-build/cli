@@ -4,14 +4,14 @@ use std::{
 };
 
 use anyhow::{bail, Result};
-use blue_build_utils::constants::{BB_BUILDKIT_CACHE_GHA, SKOPEO_IMAGE};
+use blue_build_utils::constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, SKOPEO_IMAGE};
 use log::{info, trace};
 use semver::Version;
 use serde::Deserialize;
 
-use crate::image_inspection::ImageInspection;
+use crate::image_metadata::ImageMetadata;
 
-use super::{credentials, BuildDriver, DriverVersion, InspectDriver};
+use super::{credentials, opts::BuildTagPushOpts, BuildDriver, DriverVersion, InspectDriver};
 
 #[derive(Debug, Deserialize)]
 struct DockerVerisonJsonClient {
@@ -48,34 +48,19 @@ impl DriverVersion for DockerDriver {
 
 impl BuildDriver for DockerDriver {
     fn build(&self, image: &str) -> Result<()> {
-        trace!("docker");
-        let mut command = Command::new("docker");
+        trace!("DockerDriver::build({image})");
 
-        // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
-        if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
-            trace!("buildx build --load --cache-from type=gha --cache-to type=gha");
-            command
-                .arg("buildx")
-                .arg("build")
-                .arg("--load")
-                .arg("--cache-from")
-                .arg("type=gha")
-                .arg("--cache-to")
-                .arg("type=gha");
-        } else {
-            trace!("build");
-            command.arg("build");
-        }
-
-        trace!("-t {image} -f Containerfile .");
-        command
+        trace!("docker build -t {image} -f {CONTAINER_FILE} .");
+        let status = Command::new("docker")
+            .arg("build")
             .arg("-t")
             .arg(image)
             .arg("-f")
-            .arg("Containerfile")
-            .arg(".");
+            .arg(CONTAINER_FILE)
+            .arg(".")
+            .status()?;
 
-        if command.status()?.success() {
+        if status.success() {
             info!("Successfully built {image}");
         } else {
             bail!("Failed to build {image}");
@@ -84,6 +69,8 @@ impl BuildDriver for DockerDriver {
     }
 
     fn tag(&self, src_image: &str, image_name: &str, tag: &str) -> Result<()> {
+        trace!("DockerDriver::tag({src_image}, {image_name}, {tag})");
+
         let dest_image = format!("{image_name}:{tag}");
 
         trace!("docker tag {src_image} {dest_image}");
@@ -102,6 +89,8 @@ impl BuildDriver for DockerDriver {
     }
 
     fn push(&self, image: &str) -> Result<()> {
+        trace!("DockerDriver::push({image})");
+
         trace!("docker push {image}");
         let status = Command::new("docker").arg("push").arg(image).status()?;
 
@@ -114,6 +103,8 @@ impl BuildDriver for DockerDriver {
     }
 
     fn login(&self) -> Result<()> {
+        trace!("DockerDriver::login()");
+
         let (registry, username, password) =
             credentials::get().map(|c| (&c.registry, &c.username, &c.password))?;
 
@@ -129,14 +120,85 @@ impl BuildDriver for DockerDriver {
 
         if !output.status.success() {
             let err_out = String::from_utf8_lossy(&output.stderr);
-            bail!("Failed to login for buildah: {err_out}");
+            bail!("Failed to login for docker: {err_out}");
+        }
+        Ok(())
+    }
+
+    fn build_tag_push(&self, opts: &BuildTagPushOpts) -> Result<()> {
+        trace!("DockerDriver::build_tag_push({opts:#?})");
+
+        let mut command = Command::new("docker");
+
+        trace!("docker buildx build -f {CONTAINER_FILE}");
+        command
+            .arg("buildx")
+            .arg("build")
+            .arg("-f")
+            .arg(CONTAINER_FILE);
+
+        // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
+        if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
+            trace!("--cache-from type=gha --cache-to type=gha");
+            command
+                .arg("--cache-from")
+                .arg("type=gha")
+                .arg("--cache-to")
+                .arg("type=gha");
+        }
+
+        match (opts.image.as_ref(), opts.archive_path.as_ref()) {
+            (Some(image), None) => {
+                if opts.tags.is_empty() {
+                    trace!("-t {image}");
+                    command.arg("-t").arg(image.as_ref());
+                } else {
+                    for tag in opts.tags.as_ref() {
+                        let full_image = format!("{image}:{tag}");
+
+                        trace!("-t {full_image}");
+                        command.arg("-t").arg(full_image);
+                    }
+                }
+
+                if opts.push {
+                    trace!("--push");
+                    command.arg("--push");
+                } else {
+                    trace!("--builder default");
+                    command.arg("--builder").arg("default");
+                }
+            }
+            (None, Some(archive_path)) => {
+                trace!("--output type=oci,dest={archive_path}");
+                command
+                    .arg("--output")
+                    .arg(format!("type=oci,dest={archive_path}"));
+            }
+            (Some(_), Some(_)) => bail!("Cannot use both image and archive path"),
+            (None, None) => bail!("Need either the image or archive path set"),
+        }
+
+        trace!(".");
+        command.arg(".");
+
+        if command.status()?.success() {
+            if opts.push {
+                info!("Successfully built and pushed image");
+            } else {
+                info!("Successfully built image");
+            }
+        } else {
+            bail!("Failed to build image");
         }
         Ok(())
     }
 }
 
 impl InspectDriver for DockerDriver {
-    fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection> {
+    fn get_metadata(&self, image_name: &str, tag: &str) -> Result<ImageMetadata> {
+        trace!("DockerDriver::get_labels({image_name}, {tag})");
+
         let url = format!("docker://{image_name}:{tag}");
 
         trace!("docker run {SKOPEO_IMAGE} inspect {url}");

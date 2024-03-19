@@ -58,7 +58,8 @@ impl BlueBuildCommand for UpgradeCommand {
             .force(self.common.force)
             .build();
 
-        let image_name = build.generate_full_image_name(&recipe)?;
+        let image_name = recipe.name.to_lowercase().replace('/', "_");
+
         clean_local_build_dir(&image_name, false)?;
         debug!("Image name is {image_name}");
 
@@ -106,7 +107,7 @@ impl BlueBuildCommand for RebaseCommand {
             .force(self.common.force)
             .build();
 
-        let image_name = build.generate_full_image_name(&recipe)?;
+        let image_name = recipe.name.to_lowercase().replace('/', "_");
         clean_local_build_dir(&image_name, true)?;
         debug!("Image name is {image_name}");
 
@@ -158,7 +159,7 @@ fn clean_local_build_dir(image_name: &str, rebase: bool) -> Result<()> {
     trace!("clean_local_build_dir()");
 
     let local_build_path = Path::new(LOCAL_BUILD);
-    let image_file_path = local_build_path.join(image_name.trim_start_matches("oci-archive:"));
+    let image_file_path = local_build_path.join(format!("{image_name}.{ARCHIVE_SUFFIX}"));
 
     if !image_file_path.exists() && !rebase {
         bail!(

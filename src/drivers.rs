@@ -33,15 +33,16 @@ use tokio::runtime::Runtime;
 #[cfg(feature = "builtin-podman")]
 use podman_api_driver::PodmanApiDriver;
 
-use crate::{credentials, image_inspection::ImageInspection};
+use crate::{credentials, image_metadata::ImageMetadata};
 
 use self::{
-    buildah_driver::BuildahDriver, docker_driver::DockerDriver, podman_driver::PodmanDriver,
-    skopeo_driver::SkopeoDriver,
+    buildah_driver::BuildahDriver, docker_driver::DockerDriver, opts::BuildTagPushOpts,
+    podman_driver::PodmanDriver, skopeo_driver::SkopeoDriver,
 };
 
 mod buildah_driver;
 mod docker_driver;
+pub mod opts;
 #[cfg(feature = "builtin-podman")]
 mod podman_api_driver;
 mod podman_driver;
@@ -139,15 +140,72 @@ pub trait BuildDriver: Sync + Send {
     /// # Errors
     /// Will error if login fails.
     fn login(&self) -> Result<()>;
+
+    /// Runs the logic for building, tagging, and pushing an image.
+    ///
+    /// # Errors
+    /// Will error if building, tagging, or pusing fails.
+    fn build_tag_push(&self, opts: &BuildTagPushOpts) -> Result<()> {
+        trace!("BuildDriver::build_tag_push({opts:#?})");
+
+        let full_image = match (opts.archive_path.as_ref(), opts.image.as_ref()) {
+            (Some(archive_path), None) => {
+                format!("oci-archive:{archive_path}")
+            }
+            (None, Some(image)) => opts
+                .tags
+                .first()
+                .map_or_else(|| image.to_string(), |tag| format!("{image}:{tag}")),
+            (Some(_), Some(_)) => bail!("Cannot use both image and archive path"),
+            (None, None) => bail!("Need either the image or archive path set"),
+        };
+
+        info!("Building image {full_image}");
+        self.build(&full_image)?;
+
+        if !opts.tags.is_empty() && opts.archive_path.is_none() {
+            let image = opts
+                .image
+                .as_ref()
+                .ok_or_else(|| anyhow!("Image is required in order to tag"))?;
+            debug!("Tagging all images");
+
+            for tag in opts.tags.as_ref() {
+                debug!("Tagging {} with {tag}", &full_image);
+
+                self.tag(&full_image, image.as_ref(), tag)?;
+
+                if opts.push {
+                    let retry_count = if opts.no_retry_push {
+                        0
+                    } else {
+                        opts.retry_count
+                    };
+
+                    debug!("Pushing all images");
+                    // Push images with retries (1s delay between retries)
+                    blue_build_utils::retry(retry_count, 1000, || {
+                        let tag_image = format!("{image}:{tag}");
+
+                        debug!("Pushing image {tag_image}");
+
+                        self.push(&tag_image)
+                    })?;
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Allows agnostic inspection of images.
 pub trait InspectDriver: Sync + Send {
-    /// Gets the labels on an image tag.
+    /// Gets the metadata on an image tag.
     ///
     /// # Errors
     /// Will error if it is unable to get the labels.
-    fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection>;
+    fn get_metadata(&self, image_name: &str, tag: &str) -> Result<ImageMetadata>;
 }
 
 #[derive(Debug, TypedBuilder)]
@@ -172,6 +230,7 @@ impl Driver<'_> {
     /// # Errors
     /// Will error if it is unable to set the user credentials.
     pub fn init(self) -> Result<()> {
+        trace!("Driver::init()");
         credentials::set_user_creds(self.username, self.password, self.registry)?;
         Ok(())
     }
@@ -179,16 +238,19 @@ impl Driver<'_> {
     /// Gets the current build's UUID
     #[must_use]
     pub fn get_build_id() -> Uuid {
+        trace!("Driver::get_build_id()");
         *BUILD_ID
     }
 
     /// Gets the current run's build strategy
     pub fn get_build_driver() -> Arc<dyn BuildDriver> {
+        trace!("Driver::get_build_driver()");
         BUILD_STRATEGY.clone()
     }
 
     /// Gets the current run's inspectioin strategy
     pub fn get_inspection_driver() -> Arc<dyn InspectDriver> {
+        trace!("Driver::get_inspection_driver()");
         INSPECT_STRATEGY.clone()
     }
 
@@ -201,7 +263,7 @@ impl Driver<'_> {
     /// Will error if the image doesn't have OS version info
     /// or we are unable to lock a mutex.
     pub fn get_os_version(recipe: &Recipe) -> Result<String> {
-        trace!("get_os_version({recipe:#?})");
+        trace!("Driver::get_os_version({recipe:#?})");
         let image = format!("{}:{}", &recipe.base_image, &recipe.image_version);
 
         let mut os_version_lock = OS_VERSION
@@ -214,7 +276,7 @@ impl Driver<'_> {
             None => {
                 info!("Retrieving OS version from {image}. This might take a bit");
                 let inspection =
-                    INSPECT_STRATEGY.get_labels(&recipe.base_image, &recipe.image_version)?;
+                    INSPECT_STRATEGY.get_metadata(&recipe.base_image, &recipe.image_version)?;
 
                 let os_version = inspection.get_version().ok_or_else(|| {
                     anyhow!(
@@ -240,7 +302,7 @@ impl Driver<'_> {
     }
 
     fn determine_inspect_driver() -> Result<Arc<dyn InspectDriver>> {
-        trace!("Strategy::determine_inspect_strategy()");
+        trace!("Driver::determine_inspect_driver()");
 
         let driver: Arc<dyn InspectDriver> = match (
             blue_build_utils::check_command_exists("skopeo"),
@@ -257,7 +319,7 @@ impl Driver<'_> {
     }
 
     fn determine_build_driver() -> Result<Arc<dyn BuildDriver>> {
-        trace!("Strategy::determine_build_strategy()");
+        trace!("Driver::determine_build_driver()");
 
         let driver: Arc<dyn BuildDriver> = match (
             env::var(XDG_RUNTIME_DIR),

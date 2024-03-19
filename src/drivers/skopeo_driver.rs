@@ -3,7 +3,7 @@ use std::process::{Command, Stdio};
 use anyhow::{bail, Result};
 use log::{debug, trace};
 
-use crate::image_inspection::ImageInspection;
+use crate::image_metadata::ImageMetadata;
 
 use super::InspectDriver;
 
@@ -11,7 +11,7 @@ use super::InspectDriver;
 pub struct SkopeoDriver;
 
 impl InspectDriver for SkopeoDriver {
-    fn get_labels(&self, image_name: &str, tag: &str) -> Result<ImageInspection> {
+    fn get_metadata(&self, image_name: &str, tag: &str) -> Result<ImageMetadata> {
         let url = format!("docker://{image_name}:{tag}");
 
         trace!("skopeo inspect {url}");
