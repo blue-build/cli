@@ -11,11 +11,11 @@ get_yaml_array() {
   local module_config=$3
 
   if [[ -z $jq_query || -z $module_config ]]; then
-    printf "Usage: get_yaml_array VARIABLE_TO_STORE_RESULTS JQ_QUERY MODULE_CONFIG\n" >&2
+    echo "Usage: get_yaml_array VARIABLE_TO_STORE_RESULTS JQ_QUERY MODULE_CONFIG" >&2
     return 1
   fi
 
-  readarray -t arr < <(echo "$module_config" | yq -r "$jq_query")
+  readarray -t arr < <(echo "$module_config" | yq -I=0 "$jq_query")
 }
 
 # Parse OS version and export it
