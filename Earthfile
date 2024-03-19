@@ -11,7 +11,7 @@ all:
 
 build:
 	BUILD +default
-	BUILD +nightly
+	# BUILD +nightly
 
 default:
 	ARG NIGHTLY=false
