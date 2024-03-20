@@ -7,13 +7,10 @@ ARG --global IMAGE=ghcr.io/blue-build/cli
 
 all:
 	BUILD +build
-	BUILD ./integration-tests+all --NIGHTLY=true --NIGHTLY=false
-
-build:
-	BUILD +default
+	BUILD ./integration-tests+all
 	BUILD +nightly
 
-default:
+build:
 	ARG NIGHTLY=false
 	BUILD +lint --NIGHTLY=$NIGHTLY
 	BUILD +test --NIGHTLY=$NIGHTLY
@@ -22,7 +19,8 @@ default:
 	BUILD +installer --NIGHTLY=$NIGHTLY
 
 nightly:
-	BUILD +default --NIGHTLY=true
+	BUILD +build --NIGHTLY=true
+	BUILD ./integration-tests+all --NIGHTLY=true
 
 lint:
 	FROM +common
