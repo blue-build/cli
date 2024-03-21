@@ -22,33 +22,8 @@ pub struct ContainerFileTemplate<'a> {
     #[builder(setter(into))]
     build_id: Uuid,
 
-    #[builder(default)]
-    export_script: ExportsTemplate,
-
     #[builder(setter(into))]
     os_version: Cow<'a, str>,
-}
-
-#[derive(Debug, Clone, Default, Template)]
-#[template(path = "export.sh", escape = "none")]
-pub struct ExportsTemplate;
-
-impl ExportsTemplate {
-    fn print_script(&self) -> String {
-        trace!("print_script({self})");
-
-        format!(
-            "\"{}\"",
-            self.render()
-                .unwrap_or_else(|e| {
-                    error!("Failed to render export.sh script: {e}");
-                    process::exit(1);
-                })
-                .replace('\n', "\\n")
-                .replace('\"', "\\\"")
-                .replace('$', "\\$")
-        )
-    }
 }
 
 #[derive(Debug, Clone, Template, TypedBuilder)]
@@ -95,6 +70,12 @@ pub struct GithubIssueTemplate<'a> {
 
     #[builder(setter(into))]
     terminal_version: Cow<'a, str>,
+}
+
+fn print_export_script() -> String {
+    trace!("print_export_script()");
+
+    include_str!("../templates/export.sh").replace('$', r"\$")
 }
 
 fn has_cosign_file() -> bool {
