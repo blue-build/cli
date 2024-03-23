@@ -1,4 +1,4 @@
-name: cli-test
+name: cli/test
 description: This is my personal OS image.
 base-image: ghcr.io/ublue-os/silverblue-surface
 image-version: 39
