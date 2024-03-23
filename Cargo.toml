@@ -75,6 +75,7 @@ signal-hook-tokio = { version = "0.3.1", features = [
 ], optional = true }
 sigstore = { version = "0.8.0", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
+ureq = { version = "2.9.6", features = ["json"], optional = true }
 
 # Workspace dependencies
 anyhow.workspace = true
@@ -86,8 +87,11 @@ typed-builder.workspace = true
 uuid.workspace = true
 
 [features]
-default = []
+# Top level features
+default = ["init"]
 nightly = ["builtin-podman"]
+
+# App Features
 builtin-podman = [
   "podman-api",
   "tokio",
@@ -95,6 +99,7 @@ builtin-podman = [
   "signal-hook-tokio",
   "signal-hook",
 ]
+init = ["ureq"]
 tls = ["podman-api/tls", "builtin-podman"]
 
 [dev-dependencies]
