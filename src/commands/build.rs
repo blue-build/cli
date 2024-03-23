@@ -90,55 +90,6 @@ pub struct BuildCommand {
     #[arg(short = 'P', long)]
     #[builder(default, setter(into, strip_option))]
     password: Option<String>,
-
-    /// The connection string used to connect
-    /// to a remote podman socket.
-    #[cfg(feature = "tls")]
-    #[arg(short, long)]
-    #[builder(default, setter(into, strip_option))]
-    connection: Option<String>,
-
-    /// The path to the `cert.pem`, `key.pem`,
-    /// and `ca.pem` files needed to connect to
-    /// a remote podman build socket.
-    #[cfg(feature = "tls")]
-    #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
-    tls_path: Option<PathBuf>,
-
-    /// Whether to sign the image.
-    #[cfg(feature = "sigstore")]
-    #[arg(short, long)]
-    #[builder(default)]
-    sign: bool,
-
-    /// Path to the public key used to sign the image.
-    ///
-    /// If the contents of the key are in an environment
-    /// variable, you can use `env://` to sepcify which
-    /// variable to read from.
-    ///
-    /// For example:
-    ///
-    /// bluebuild build --public-key env://PUBLIC_KEY ...
-    #[cfg(feature = "sigstore")]
-    #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
-    public_key: Option<String>,
-
-    /// Path to the private key used to sign the image.
-    ///
-    /// If the contents of the key are in an environment
-    /// variable, you can use `env://` to sepcify which
-    /// variable to read from.
-    ///
-    /// For example:
-    ///
-    /// bluebuild build --private-key env://PRIVATE_KEY ...
-    #[cfg(feature = "sigstore")]
-    #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
-    private_key: Option<String>,
 }
 
 impl BlueBuildCommand for BuildCommand {

@@ -66,16 +66,6 @@ shadow-rs = { version = "0.26" }
 urlencoding = "2.1.3"
 users = "0.11.0"
 
-# Optional Dependencies
-futures-util = { version = "0.3", optional = true }
-podman-api = { version = "0.10.0", optional = true }
-signal-hook = { version = "0.3.17", optional = true }
-signal-hook-tokio = { version = "0.3.1", features = [
-  "futures-v0_3",
-], optional = true }
-sigstore = { version = "0.8.0", optional = true }
-tokio = { version = "1", features = ["full"], optional = true }
-
 # Workspace dependencies
 anyhow.workspace = true
 log.workspace = true
@@ -87,15 +77,6 @@ uuid.workspace = true
 
 [features]
 default = []
-nightly = ["builtin-podman"]
-builtin-podman = [
-  "podman-api",
-  "tokio",
-  "futures-util",
-  "signal-hook-tokio",
-  "signal-hook",
-]
-tls = ["podman-api/tls", "builtin-podman"]
 
 [dev-dependencies]
 rusty-hook = "0.11.2"
