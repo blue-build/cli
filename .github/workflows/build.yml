@@ -133,6 +133,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_PR_EVENT_NUMBER: ${{ github.event.number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
+          BB_BUILDKIT_CACHE_GHA: true
         run: |
           cd integration-tests/test-repo
           bluebuild build --push -vv
