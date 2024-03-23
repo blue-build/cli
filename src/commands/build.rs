@@ -21,7 +21,10 @@ use typed_builder::TypedBuilder;
 use crate::{
     commands::template::TemplateCommand,
     credentials,
-    drivers::{opts::BuildTagPushOpts, Driver},
+    drivers::{
+        opts::{BuildTagPushOpts, CompressionType},
+        Driver,
+    },
 };
 
 use super::BlueBuildCommand;
@@ -41,6 +44,12 @@ pub struct BuildCommand {
     #[arg(short, long)]
     #[builder(default)]
     push: bool,
+
+    /// The compression format the images
+    /// will be pushed in.
+    #[arg(short, long, default_value_t = CompressionType::Zstd)]
+    #[builder(default)]
+    compression_format: CompressionType,
 
     /// Block `bluebuild` from retrying to push the image.
     #[arg(short, long, default_value_t = true)]
@@ -207,6 +216,7 @@ impl BuildCommand {
                 .push(self.push)
                 .no_retry_push(self.no_retry_push)
                 .retry_count(self.retry_count)
+                .compression(self.compression_format)
                 .build()
         };
 
