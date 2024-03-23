@@ -38,7 +38,7 @@ latest-installer
 FROM scratch as stage-keys
 
 {%- if self::has_cosign_file() %}
-COPY cosign.pub /keys/{{ recipe.name }}.pub
+COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
 {%- endif %}
 
 {%- include "modules/akmods/akmods.j2" %}
