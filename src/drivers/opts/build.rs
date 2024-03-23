@@ -1,6 +1,23 @@
 use std::borrow::Cow;
 
+use clap::ValueEnum;
 use typed_builder::TypedBuilder;
+
+#[derive(Debug, Copy, Clone, Default, ValueEnum)]
+pub enum CompressionType {
+    #[default]
+    Zstd,
+    Gzip,
+}
+
+impl std::fmt::Display for CompressionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Zstd => "zstd",
+            Self::Gzip => "gzip",
+        })
+    }
+}
 
 /// Options for building, tagging, and pusing images.
 #[derive(Debug, Clone, TypedBuilder)]
@@ -34,4 +51,7 @@ pub struct BuildTagPushOpts<'a> {
     /// Defaults to 1.
     #[builder(default = 1)]
     pub retry_count: u8,
+
+    #[builder(default)]
+    pub compression: CompressionType,
 }

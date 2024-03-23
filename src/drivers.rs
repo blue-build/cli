@@ -6,45 +6,32 @@
 
 use std::{
     collections::{hash_map::Entry, HashMap},
-    env,
-    path::PathBuf,
     process,
     sync::{Arc, Mutex},
 };
 
 use anyhow::{anyhow, bail, Result};
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::{
-    IMAGE_VERSION_LABEL, RUN_PODMAN_SOCK, VAR_RUN_PODMAN_PODMAN_SOCK, VAR_RUN_PODMAN_SOCK,
-    XDG_RUNTIME_DIR,
-};
+use blue_build_utils::constants::IMAGE_VERSION_LABEL;
 use log::{debug, error, info, trace};
 use once_cell::sync::Lazy;
 use semver::{Version, VersionReq};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
-#[cfg(feature = "podman-api")]
-use podman_api::Podman;
-
-#[cfg(feature = "tokio")]
-use tokio::runtime::Runtime;
-
-#[cfg(feature = "builtin-podman")]
-use podman_api_driver::PodmanApiDriver;
-
 use crate::{credentials, image_metadata::ImageMetadata};
 
 use self::{
-    buildah_driver::BuildahDriver, docker_driver::DockerDriver, opts::BuildTagPushOpts,
-    podman_driver::PodmanDriver, skopeo_driver::SkopeoDriver,
+    buildah_driver::BuildahDriver,
+    docker_driver::DockerDriver,
+    opts::{BuildTagPushOpts, CompressionType},
+    podman_driver::PodmanDriver,
+    skopeo_driver::SkopeoDriver,
 };
 
 mod buildah_driver;
 mod docker_driver;
 pub mod opts;
-#[cfg(feature = "builtin-podman")]
-mod podman_api_driver;
 mod podman_driver;
 mod skopeo_driver;
 
@@ -133,7 +120,7 @@ pub trait BuildDriver: Sync + Send {
     ///
     /// # Errors
     /// Will error if the push fails.
-    fn push(&self, image: &str) -> Result<()>;
+    fn push(&self, image: &str, compression: CompressionType) -> Result<()>;
 
     /// Runs the login logic for the strategy.
     ///
@@ -189,7 +176,7 @@ pub trait BuildDriver: Sync + Send {
 
                         debug!("Pushing image {tag_image}");
 
-                        self.push(&tag_image)
+                        self.push(&tag_image, opts.compression)
                     })?;
                 }
             }
@@ -322,64 +309,17 @@ impl Driver<'_> {
         trace!("Driver::determine_build_driver()");
 
         let driver: Arc<dyn BuildDriver> = match (
-            env::var(XDG_RUNTIME_DIR),
-            PathBuf::from(RUN_PODMAN_SOCK),
-            PathBuf::from(VAR_RUN_PODMAN_PODMAN_SOCK),
-            PathBuf::from(VAR_RUN_PODMAN_SOCK),
             blue_build_utils::check_command_exists("docker"),
             blue_build_utils::check_command_exists("podman"),
             blue_build_utils::check_command_exists("buildah"),
         ) {
-            #[cfg(feature = "builtin-podman")]
-            (Ok(xdg_runtime), _, _, _, _, _, _)
-                if PathBuf::from(format!("{xdg_runtime}/podman/podman.sock")).exists() =>
-            {
-                Arc::new(
-                    PodmanApiDriver::builder()
-                        .client(
-                            Podman::unix(PathBuf::from(format!(
-                                "{xdg_runtime}/podman/podman.sock"
-                            )))
-                            .into(),
-                        )
-                        .rt(Runtime::new()?)
-                        .build(),
-                )
-            }
-            #[cfg(feature = "builtin-podman")]
-            (_, run_podman_podman_sock, _, _, _, _, _) if run_podman_podman_sock.exists() => {
-                Arc::new(
-                    PodmanApiDriver::builder()
-                        .client(Podman::unix(run_podman_podman_sock).into())
-                        .rt(Runtime::new()?)
-                        .build(),
-                )
-            }
-            #[cfg(feature = "builtin-podman")]
-            (_, _, var_run_podman_podman_sock, _, _, _, _)
-                if var_run_podman_podman_sock.exists() =>
-            {
-                Arc::new(
-                    PodmanApiDriver::builder()
-                        .client(Podman::unix(var_run_podman_podman_sock).into())
-                        .rt(Runtime::new()?)
-                        .build(),
-                )
-            }
-            #[cfg(feature = "builtin-podman")]
-            (_, _, _, var_run_podman_sock, _, _, _) if var_run_podman_sock.exists() => Arc::new(
-                PodmanApiDriver::builder()
-                    .client(Podman::unix(var_run_podman_sock).into())
-                    .rt(Runtime::new()?)
-                    .build(),
-            ),
-            (_, _, _, _, Ok(_docker), _, _) if DockerDriver::is_supported_version() => {
+            (Ok(_docker), _, _) if DockerDriver::is_supported_version() => {
                 Arc::new(DockerDriver)
             }
-            (_, _, _, _, _, Ok(_podman), _) if PodmanDriver::is_supported_version() => {
+            (_, Ok(_podman), _) if PodmanDriver::is_supported_version() => {
                 Arc::new(PodmanDriver)
             }
-            (_, _, _, _, _, _, Ok(_buildah)) if BuildahDriver::is_supported_version() => {
+            (_, _, Ok(_buildah)) if BuildahDriver::is_supported_version() => {
                 Arc::new(BuildahDriver)
             }
             _ => bail!(
