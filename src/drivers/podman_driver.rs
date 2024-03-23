@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::image_metadata::ImageMetadata;
 
-use super::{credentials, BuildDriver, DriverVersion, InspectDriver};
+use super::{credentials, opts::CompressionType, BuildDriver, DriverVersion, InspectDriver};
 
 #[derive(Debug, Deserialize)]
 struct PodmanVersionJsonClient {
@@ -79,9 +79,13 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
-    fn push(&self, image: &str) -> Result<()> {
+    fn push(&self, image: &str, compression: CompressionType) -> Result<()> {
         trace!("podman push {image}");
-        let status = Command::new("podman").arg("push").arg(image).status()?;
+        let status = Command::new("podman")
+            .arg("push")
+            .arg(format!("--compression-format={compression}"))
+            .arg(image)
+            .status()?;
 
         if status.success() {
             info!("Successfully pushed {image}!");

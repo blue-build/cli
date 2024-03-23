@@ -11,7 +11,11 @@ use serde::Deserialize;
 
 use crate::image_metadata::ImageMetadata;
 
-use super::{credentials, opts::BuildTagPushOpts, BuildDriver, DriverVersion, InspectDriver};
+use super::{
+    credentials,
+    opts::{BuildTagPushOpts, CompressionType},
+    BuildDriver, DriverVersion, InspectDriver,
+};
 
 #[derive(Debug, Deserialize)]
 struct DockerVerisonJsonClient {
@@ -88,7 +92,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn push(&self, image: &str) -> Result<()> {
+    fn push(&self, image: &str, _: CompressionType) -> Result<()> {
         trace!("DockerDriver::push({image})");
 
         trace!("docker push {image}");
@@ -162,8 +166,11 @@ impl BuildDriver for DockerDriver {
                 }
 
                 if opts.push {
-                    trace!("--push");
-                    command.arg("--push");
+                    trace!("--output type=image,name={image},push=true,compression={},oci-mediatypes=true", opts.compression);
+                    command.arg("--output").arg(format!(
+                        "type=image,name={image},push=true,compression={},oci-mediatypes=true",
+                        opts.compression
+                    ));
                 } else {
                     trace!("--builder default");
                     command.arg("--builder").arg("default");

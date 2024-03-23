@@ -22,8 +22,11 @@ use uuid::Uuid;
 use crate::{credentials, image_metadata::ImageMetadata};
 
 use self::{
-    buildah_driver::BuildahDriver, docker_driver::DockerDriver, opts::BuildTagPushOpts,
-    podman_driver::PodmanDriver, skopeo_driver::SkopeoDriver,
+    buildah_driver::BuildahDriver,
+    docker_driver::DockerDriver,
+    opts::{BuildTagPushOpts, CompressionType},
+    podman_driver::PodmanDriver,
+    skopeo_driver::SkopeoDriver,
 };
 
 mod buildah_driver;
@@ -117,7 +120,7 @@ pub trait BuildDriver: Sync + Send {
     ///
     /// # Errors
     /// Will error if the push fails.
-    fn push(&self, image: &str) -> Result<()>;
+    fn push(&self, image: &str, compression: CompressionType) -> Result<()>;
 
     /// Runs the login logic for the strategy.
     ///
@@ -173,7 +176,7 @@ pub trait BuildDriver: Sync + Send {
 
                         debug!("Pushing image {tag_image}");
 
-                        self.push(&tag_image)
+                        self.push(&tag_image, opts.compression)
                     })?;
                 }
             }

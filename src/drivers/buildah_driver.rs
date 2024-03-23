@@ -7,7 +7,7 @@ use serde::Deserialize;
 
 use crate::credentials;
 
-use super::{BuildDriver, DriverVersion};
+use super::{opts::CompressionType, BuildDriver, DriverVersion};
 
 #[derive(Debug, Deserialize)]
 struct BuildahVersionJson {
@@ -68,9 +68,13 @@ impl BuildDriver for BuildahDriver {
         Ok(())
     }
 
-    fn push(&self, image: &str) -> Result<()> {
+    fn push(&self, image: &str, compression: CompressionType) -> Result<()> {
         trace!("buildah push {image}");
-        let status = Command::new("buildah").arg("push").arg(image).status()?;
+        let status = Command::new("buildah")
+            .arg("push")
+            .arg(format!("--compression-format={compression}"))
+            .arg(image)
+            .status()?;
 
         if status.success() {
             info!("Successfully pushed {image}!");
