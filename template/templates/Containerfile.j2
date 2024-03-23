@@ -34,14 +34,7 @@ LABEL org.opencontainers.image.source="{{ repo }}"
 LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md
 
 ARG RECIPE={{ recipe_path.display() }}
-
-{%- if let Some(repo_owner) = self::get_github_repo_owner() %}
-ARG IMAGE_REGISTRY=ghcr.io/{{ repo_owner }}
-{%- else if let Some(registry) = self::get_gitlab_registry_path() %}
 ARG IMAGE_REGISTRY={{ registry }}
-{%- else %}
-ARG IMAGE_REGISTRY=localhost
-{%- endif %}
 
 {%- if self::has_cosign_file() %}
 COPY cosign.pub /usr/share/ublue-os/cosign.pub

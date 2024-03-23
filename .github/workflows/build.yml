@@ -135,4 +135,5 @@ jobs:
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
         run: |
           cd integration-tests/test-repo
+          bluebuild template -vv
           bluebuild build --push -vv

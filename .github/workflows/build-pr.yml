@@ -121,6 +121,7 @@ jobs:
           BB_BUILDKIT_CACHE_GHA: true
         run: |
           cd integration-tests/test-repo
+          bluebuild template -vv
           if [ -n "$GH_TOKEN" ] && [ -n "$COSIGN_PRIVATE_KEY" ]; then
             bluebuild build --push -vv
           else

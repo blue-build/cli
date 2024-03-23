@@ -1,9 +1,11 @@
-use std::path::PathBuf;
+use std::{env, path::PathBuf};
 
 use anyhow::Result;
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
-use blue_build_utils::constants::RECIPE_PATH;
+use blue_build_utils::constants::{
+    CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, GITHUB_REPOSITORY_OWNER, RECIPE_PATH,
+};
 use clap::Args;
 use log::{debug, info, trace};
 use typed_builder::TypedBuilder;
@@ -23,6 +25,22 @@ pub struct TemplateCommand {
     #[arg(short, long)]
     #[builder(default, setter(into, strip_option))]
     output: Option<PathBuf>,
+
+    /// The registry domain the image will be published to.
+    ///
+    /// This is used for modules that need to know where
+    /// the image is being published (i.e. the signing module).
+    #[arg(long)]
+    #[builder(default, setter(into, strip_option))]
+    registry: Option<String>,
+
+    /// The registry namespace the image will be published to.
+    ///
+    /// This is used for modules that need to know where
+    /// the image is being published (i.e. the signing module).
+    #[arg(long)]
+    #[builder(default, setter(into, strip_option))]
+    registry_namespace: Option<String>,
 }
 
 impl BlueBuildCommand for TemplateCommand {
@@ -57,6 +75,7 @@ impl TemplateCommand {
             .build_id(Driver::get_build_id())
             .recipe(&recipe_de)
             .recipe_path(recipe_path.as_path())
+            .registry(self.get_registry())
             .build();
 
         let output_str = template.render()?;
@@ -72,6 +91,37 @@ impl TemplateCommand {
 
         info!("Finished templating Containerfile");
         Ok(())
+    }
+
+    fn get_registry(&self) -> String {
+        match (
+            self.registry.as_ref(),
+            self.registry_namespace.as_ref(),
+            Self::get_github_repo_owner(),
+            Self::get_gitlab_registry_path(),
+        ) {
+            (Some(r), Some(rn), _, _) => format!("{r}/{rn}"),
+            (Some(r), None, _, _) => r.to_string(),
+            (None, None, Some(gh_repo_owner), None) => format!("ghcr.io/{gh_repo_owner}"),
+            (None, None, None, Some(gl_reg_path)) => gl_reg_path,
+            _ => "localhost".to_string(),
+        }
+    }
+
+    fn get_github_repo_owner() -> Option<String> {
+        Some(env::var(GITHUB_REPOSITORY_OWNER).ok()?.to_lowercase())
+    }
+
+    fn get_gitlab_registry_path() -> Option<String> {
+        Some(
+            format!(
+                "{}/{}/{}",
+                env::var(CI_REGISTRY).ok()?,
+                env::var(CI_PROJECT_NAMESPACE).ok()?,
+                env::var(CI_PROJECT_NAME).ok()?,
+            )
+            .to_lowercase(),
+        )
     }
 }
 
