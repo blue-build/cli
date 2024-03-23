@@ -34,7 +34,6 @@ modules:
         - org.gnome.eog
 
   - type: signing
-    source: ghcr.io/blue-build/modules:new-key-location
 
   - type: test-module
 

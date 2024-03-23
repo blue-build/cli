@@ -61,7 +61,7 @@ rebase:
 upgrade:
 	ARG NIGHTLY=false
 	FROM +test-base --NIGHTLY=$NIGHTLY
-	RUN mkdir -p /etc/bluebuild && touch /etc/bluebuild/cli-test.tar.gz
+	RUN mkdir -p /etc/bluebuild && touch /etc/bluebuild/cli_test.tar.gz
 
 	RUN --privileged bluebuild -vv upgrade config/recipe.yml
 
