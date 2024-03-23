@@ -1,8 +1,9 @@
 use std::borrow::Cow;
 
+use clap::ValueEnum;
 use typed_builder::TypedBuilder;
 
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, ValueEnum)]
 pub enum CompressionType {
     #[default]
     Zstd,
