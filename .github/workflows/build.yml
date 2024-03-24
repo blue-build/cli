@@ -135,5 +135,6 @@ jobs:
           BB_BUILDKIT_CACHE_GHA: true
         run: |
           cd integration-tests/test-repo
-          bluebuild template -vv
+          bluebuild template -vv | tee Containerfile
+          grep -q 'ARG IMAGE_REGISTRY=ghcr.io/blue-build/cli' Containerfile || exit 1
           bluebuild build --push -vv
