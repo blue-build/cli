@@ -1,3 +1,14 @@
+# Key RUN
+RUN --mount=type=bind,from=stage-keys,src=/keys,dst=/tmp/keys \
+  cp /tmp/keys/* /usr/etc/pki/containers/ \
+  && ostree container commit
+
+# Bin RUN
+RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
+  cp /tmp/bins/* /usr/bin/ \
+  && ostree container commit
+
+# Module RUNs
 {%- for module in recipe.modules_ext.modules %}
   {%- if let Some(type) = module.module_type %}
     {%- if type == "containerfile" %}

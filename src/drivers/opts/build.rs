@@ -6,8 +6,8 @@ use typed_builder::TypedBuilder;
 #[derive(Debug, Copy, Clone, Default, ValueEnum)]
 pub enum CompressionType {
     #[default]
-    Zstd,
     Gzip,
+    Zstd,
 }
 
 impl std::fmt::Display for CompressionType {

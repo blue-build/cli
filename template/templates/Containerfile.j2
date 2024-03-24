@@ -1,27 +1,4 @@
-# This stage is responsible for holding onto
-# your config without copying it directly into
-# the final image
-FROM scratch as stage-config
-COPY ./config /config
-
-# Copy modules
-# The default modules are inside blue-build/modules
-# Custom modules overwrite defaults
-FROM scratch as stage-modules
-COPY --from=ghcr.io/blue-build/modules:latest /modules /modules
-{%- if self::modules_exists() %}
-COPY ./modules /modules
-{%- endif %}
-
-{%- include "modules/akmods/akmods.j2" %}
-
-# This stage is responsible for holding onto
-# exports like the exports.sh
-FROM docker.io/alpine as stage-exports
-COPY <<EOF /exports.sh
-{{ self::print_export_script() }}
-EOF
-RUN chmod +x /exports.sh
+{%- include "stages.j2" %}
 
 FROM {{ recipe.base_image }}:{{ recipe.image_version }}
 
@@ -36,27 +13,10 @@ LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-b
 ARG RECIPE={{ recipe_path.display() }}
 ARG IMAGE_REGISTRY={{ registry }}
 
-{%- if self::has_cosign_file() %}
-COPY cosign.pub /usr/share/ublue-os/cosign.pub
-{%- endif %}
-
 ARG CONFIG_DIRECTORY="/tmp/config"
 ARG IMAGE_NAME="{{ recipe.name }}"
 ARG BASE_IMAGE="{{ recipe.base_image }}"
 
-COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
-COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
-COPY --from=ghcr.io/blue-build/cli:
-{%- if let Some(tag) = recipe.blue_build_tag -%}
-{{ tag }}
-{%- else -%}
-latest-installer
-{%- endif %} /out/bluebuild /usr/bin/bluebuild
-
 SHELL ["bash", "-c"]
 
-{%- include "modules/modules.j2" %}
-
-# Added in case a user adds something else using the
-# 'containerfile' module
-RUN rm -fr /tmp/* /var/* && ostree container commit
+{% include "modules/modules.j2" %}

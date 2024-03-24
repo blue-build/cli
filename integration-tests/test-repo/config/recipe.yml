@@ -33,8 +33,7 @@ modules:
       remove:
         - org.gnome.eog
 
-  # Needs a bug to be fixed to allow / in image name
-  # - type: signing
+  - type: signing
 
   - type: test-module
 

@@ -47,7 +47,7 @@ pub struct BuildCommand {
 
     /// The compression format the images
     /// will be pushed in.
-    #[arg(short, long, default_value_t = CompressionType::Zstd)]
+    #[arg(short, long, default_value_t = CompressionType::Gzip)]
     #[builder(default)]
     compression_format: CompressionType,
 
