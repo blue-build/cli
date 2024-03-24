@@ -156,7 +156,7 @@ on:
 jobs:
   bluebuild:
     name: Build Custom Image
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -180,7 +180,7 @@ jobs:
 
 ##### Gitlab
 
-If you're running in Gitlab CI, it will automatically sign your image using Gitlab's own OIDC service. Here's an example of a `.gitlab-ci.yaml`:
+We also support GitLab CI! Fun fact, this project started out as a way to build these images in GitLab. You will want to make use of GitLab's [Secure Files](https://docs.gitlab.com/ee/ci/secure_files/index.html) feature for using your cosign private key for signing. Here's an example of a `.gitlab-ci.yml`:
 
 ```yaml
 workflow:
@@ -192,35 +192,42 @@ workflow:
     - if: "$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS"
       when: never
     - if: "$CI_COMMIT_BRANCH"
+
 stages:
   - build
-variables:
-  ACTION:
-    description: "Action to perform for the pipeline."
-    value: "build-image"
-    options:
-      - "build-image"
+
 build-image:
   stage: build
-  image: ghcr.io/blue-build/cli:latest-alpine
-  retry: 2
-  rules:
-    - if: $ACTION == "build-image"
+  image: 
+    name: ghcr.io/blue-build/cli:main
+    entrypoint: [""]
+  services:
+    - docker:dind
   parallel:
     matrix:
       - RECIPE:
+          # Add your recipe files here
           - recipe.yml
-  id_tokens:
-    SIGSTORE_ID_TOKEN:
-      aud: sigstore
+  variables:
+    # Setup a secure connection with docker-in-docker service
+    # https://docs.gitlab.com/ee/ci/docker/using_docker_build.html
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: /certs
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: $DOCKER_TLS_CERTDIR/client
+  before_script:
+    # Pulls secure files into the build
+    - curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/main/installer" | bash
+    - export COSIGN_PRIVATE_KEY=$(cat .secure_files/cosign.key)
   script:
+    - sleep 5 # Wait a bit for the docker-in-docker service to start
     - bluebuild build --push ./config/$RECIPE
 ```
 
 ## Future Features
 
-- [x] Update to the most recent stable style of the [starting point](https://github.com/ublue-os/startingpoint/tree/template) template
-- [x] Setup pipeline automation for publishing
-- [ ] Create an init command to create a repo for you to start out
-- [ ] Setup the project to allow installing with `binstall`
-- [x] Create an install script for easy install for users without `cargo`
+- Stages for parallel building (useful for compiling programs for your image)
+- Automatic download and management of image keys for seemless signed image rebasing
+- Module command for easy 3rd party plugin management
+- Create an init command to create a repo for you to start out
+- Setup the project to allow installing with `cargo-binstall`
