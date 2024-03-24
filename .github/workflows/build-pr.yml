@@ -121,7 +121,7 @@ jobs:
           BB_BUILDKIT_CACHE_GHA: true
         run: |
           cd integration-tests/test-repo
-          bluebuild template -vv
+          bluebuild template -vv | tee Containerfile
           grep -q 'ARG IMAGE_REGISTRY=ghcr.io/blue-build' Containerfile || exit 1
           if [ -n "$GH_TOKEN" ] && [ -n "$COSIGN_PRIVATE_KEY" ]; then
             bluebuild build --push -vv
