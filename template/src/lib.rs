@@ -154,3 +154,10 @@ fn modules_exists() -> bool {
     let mod_path = Path::new("modules");
     mod_path.exists() && mod_path.is_dir()
 }
+
+mod filters {
+    #[allow(clippy::unnecessary_wraps)]
+    pub fn replace<T: std::fmt::Display>(input: T, from: char, to: &str) -> askama::Result<String> {
+        Ok(format!("{input}").replace(from, to))
+    }
+}
