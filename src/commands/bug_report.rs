@@ -6,6 +6,7 @@ use blue_build_utils::constants::{
 };
 use clap::Args;
 use clap_complete::Shell;
+use colored::Colorize;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use log::{debug, error, trace};
 use requestty::question::{completions, Completions};
@@ -54,8 +55,6 @@ impl BugReportCommand {
     ///
     /// This function will panic if it fails to get the current shell or terminal version.
     pub fn create_bugreport(&self) -> anyhow::Result<()> {
-        use colorized::{Color, Colors};
-
         let os_info = os_info::get();
         let recipe = self.get_recipe();
 
@@ -69,31 +68,27 @@ impl BugReportCommand {
         let issue_body = match generate_github_issue(&environment, &recipe) {
             Ok(body) => body,
             Err(e) => {
-                println!(
-                    "{}: {e}",
-                    "Failed to generate bug report".color(Colors::BrightRedFg)
-                );
+                println!("{}: {e}", "Failed to generate bug report".bright_red());
                 return Err(e);
             }
         };
 
         println!(
             "\n{}\n{}\n",
-            "Generated bug report:".color(Colors::BrightGreenFg),
-            issue_body
-                .color(Colors::BrightBlackBg)
-                .color(Colors::BrightWhiteFg)
+            "Generated bug report:".bright_green(),
+            issue_body.on_bright_black().bright_white()
         );
 
         let question = requestty::Question::confirm("anonymous")
             .message(
                 "Forward the pre-filled report above to GitHub in your browser?"
-                    .color(Colors::BrightYellowFg),
+                    .bright_yellow()
+                    .to_string(),
             )
             .default(true)
             .build();
 
-        println!("{} To avoid any sensitive data from being exposed, please review the included information before proceeding.", "Warning:".color(Colors::BrightRedBg).color(Colors::BrightWhiteFg));
+        println!("{} To avoid any sensitive data from being exposed, please review the included information before proceeding.", "Warning:".on_bright_red().bright_white());
         println!("Data forwarded to GitHub is subject to GitHub's privacy policy. For more information, see https://docs.github.com/en/github/site-policy/github-privacy-statement.\n");
         match requestty::prompt_one(question) {
             Ok(answer) => {
@@ -115,7 +110,7 @@ impl BugReportCommand {
 
         println!(
             "\n{}",
-            "Thanks for using the BlueBuild bug report tool!".color(Colors::BrightCyanFg)
+            "Thanks for using the BlueBuild bug report tool!".bright_cyan()
         );
 
         Ok(())

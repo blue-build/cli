@@ -14,7 +14,7 @@ use blue_build_utils::constants::{
     RECIPE_PATH, SIGSTORE_ID_TOKEN,
 };
 use clap::Args;
-use colorized::{Color, Colors};
+use colored::Colorize;
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 
@@ -146,7 +146,8 @@ impl BlueBuildCommand for BuildCommand {
                         } else {
                             NO_LABEL_ERROR_MESSAGE
                         }
-                        .color(Colors::BrightYellowFg),
+                        .bright_yellow()
+                        .to_string(),
                     )
                     .default(true)
                     .build();

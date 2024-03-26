@@ -29,8 +29,10 @@ RUN \
       {%- endif %}
   --mount=type=bind,from=stage-exports,src=/exports.sh,dst=/tmp/exports.sh \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
-  chmod +x /tmp/modules/{{ type }}/{{ type }}.sh \
+  echo "========== Start {{ type|capitalize }} module ==========" \
+  && chmod +x /tmp/modules/{{ type }}/{{ type }}.sh \
   && source /tmp/exports.sh && /tmp/modules/{{ type }}/{{ type }}.sh '{{ module.print_module_context() }}' \
+  && echo "========== End {{ type|capitalize }} module ==========" \
   && ostree container commit
     {%- endif %}
   {%- endif %}
