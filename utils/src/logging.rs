@@ -7,11 +7,11 @@ use log::{Level, LevelFilter, Record};
 
 fn colored_level(level: Level) -> ColoredString {
     match level {
-        Level::Error => Level::Error.as_str().red(),
+        Level::Error => Level::Error.as_str().bright_red(),
         Level::Warn => Level::Warn.as_str().yellow(),
-        Level::Info => Level::Info.as_str().green(),
+        Level::Info => Level::Info.as_str().bright_green(),
         Level::Debug => Level::Debug.as_str().blue(),
-        Level::Trace => Level::Trace.as_str().cyan(),
+        Level::Trace => Level::Trace.as_str().bright_cyan(),
     }
 }
 
@@ -33,14 +33,14 @@ pub fn format_log(
         LevelFilter::Debug => writeln!(
             buf,
             "[{} {}] => {}",
-            Local::now().format("%H:%M:%S").to_string().white(),
+            Local::now().format("%H:%M:%S"),
             colored_level(record.level()),
             record.args(),
         ),
         LevelFilter::Trace => writeln!(
             buf,
             "[{} {} {}:{}] => {}",
-            Local::now().format("%H:%M:%S").to_string().white(),
+            Local::now().format("%H:%M:%S"),
             colored_level(record.level()),
             record
                 .module_path()
