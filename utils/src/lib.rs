@@ -1,5 +1,6 @@
 pub mod command_output;
 pub mod constants;
+pub mod logging;
 
 use std::{ffi::OsStr, io::Write, path::PathBuf, process::Command, thread, time::Duration};
 
