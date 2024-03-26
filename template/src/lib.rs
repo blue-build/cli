@@ -2,8 +2,8 @@ use std::{borrow::Cow, env, fs, path::Path, process};
 
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::{
-    CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CI_SERVER_HOST, CI_SERVER_PROTOCOL,
-    COSIGN_PATH, GITHUB_REPOSITORY_OWNER, GITHUB_RESPOSITORY, GITHUB_SERVER_URL,
+    CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_SERVER_HOST, CI_SERVER_PROTOCOL, COSIGN_PATH,
+    GITHUB_RESPOSITORY, GITHUB_SERVER_URL,
 };
 use log::{debug, error, trace};
 use typed_builder::TypedBuilder;
@@ -24,6 +24,9 @@ pub struct ContainerFileTemplate<'a> {
 
     #[builder(setter(into))]
     os_version: Cow<'a, str>,
+
+    #[builder(setter(into))]
+    registry: Cow<'a, str>,
 }
 
 #[derive(Debug, Clone, Template, TypedBuilder)]
@@ -100,22 +103,6 @@ fn print_containerfile(containerfile: &str) -> String {
     debug!("Containerfile contents {path}:\n{file}");
 
     file
-}
-
-fn get_github_repo_owner() -> Option<String> {
-    Some(env::var(GITHUB_REPOSITORY_OWNER).ok()?.to_lowercase())
-}
-
-fn get_gitlab_registry_path() -> Option<String> {
-    Some(
-        format!(
-            "{}/{}/{}",
-            env::var(CI_REGISTRY).ok()?,
-            env::var(CI_PROJECT_NAMESPACE).ok()?,
-            env::var(CI_PROJECT_NAME).ok()?,
-        )
-        .to_lowercase(),
-    )
 }
 
 fn get_repo_url() -> Option<String> {
