@@ -25,21 +25,23 @@ pub fn format_log(
         LevelFilter::Error | LevelFilter::Warn | LevelFilter::Info => {
             writeln!(
                 buf,
-                "{} => {}",
+                "{:width$} => {}",
                 colored_level(record.level()),
-                record.args()
+                record.args(),
+                width = 5,
             )
         }
         LevelFilter::Debug => writeln!(
             buf,
-            "[{} {}] => {}",
+            "[{} {:>width$}] => {}",
             Local::now().format("%H:%M:%S"),
             colored_level(record.level()),
             record.args(),
+            width = 5,
         ),
         LevelFilter::Trace => writeln!(
             buf,
-            "[{} {} {}:{}] => {}",
+            "[{} {:width$} {}:{}] => {}",
             Local::now().format("%H:%M:%S"),
             colored_level(record.level()),
             record
@@ -51,6 +53,7 @@ pub fn format_log(
                 .map_or_else(String::new, |l| l.to_string())
                 .bright_green(),
             record.args(),
+            width = 5,
         ),
         LevelFilter::Off => Ok(()),
     }
