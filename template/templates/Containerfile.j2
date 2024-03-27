@@ -17,6 +17,4 @@ ARG CONFIG_DIRECTORY="/tmp/config"
 ARG IMAGE_NAME="{{ recipe.name }}"
 ARG BASE_IMAGE="{{ recipe.base_image }}"
 
-SHELL ["bash", "-c"]
-
 {% include "modules/modules.j2" %}
