@@ -38,6 +38,7 @@ install:
 
 exports-script:
 	FROM alpine
+	LABEL org.opencontainers.image.source="https://github.com/blue-build/cli"
 	COPY exports.sh /
 	RUN chmod +x exports.sh
 	SAVE IMAGE --push ghcr.io/blue-build/cli/exports
