@@ -36,7 +36,7 @@ module_name_repetitions = "allow"
 [package]
 name = "blue-build"
 build = "build.rs"
-version = "0.8.2"
+version = "0.8.3"
 
 edition.workspace = true
 description.workspace = true
@@ -50,9 +50,9 @@ pre-release-replacements = [
 ]
 
 [dependencies]
-blue-build-recipe = { version = "=0.8.2", path = "./recipe" }
-blue-build-template = { version = "=0.8.2", path = "./template" }
-blue-build-utils = { version = "=0.8.2", path = "./utils" }
+blue-build-recipe = { version = "=0.8.3", path = "./recipe" }
+blue-build-template = { version = "=0.8.3", path = "./template" }
+blue-build-utils = { version = "=0.8.3", path = "./utils" }
 clap = { version = "4", features = ["derive", "cargo", "unicode"] }
 clap-verbosity-flag = "2"
 clap_complete = "4"
