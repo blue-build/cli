@@ -18,6 +18,9 @@ jobs:
     steps:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@v6
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN == null
 
       - uses: earthly/actions-setup@v1
         with:
