@@ -41,7 +41,7 @@ exports-script:
 	LABEL org.opencontainers.image.source="https://github.com/blue-build/cli"
 	COPY exports.sh /
 	RUN chmod +x exports.sh
-	SAVE IMAGE --push ghcr.io/blue-build/cli/exports
+	SAVE IMAGE --push $IMAGE:exports
 
 common:
 	FROM ghcr.io/blue-build/earthly-lib/cargo-builder
