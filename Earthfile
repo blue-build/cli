@@ -10,6 +10,9 @@ all:
 	BUILD ./integration-tests+all
 
 build:
+	WAIT
+		BUILD +exports-script
+	END
 	BUILD +lint
 	BUILD +test
 	BUILD +blue-build-cli
@@ -32,6 +35,12 @@ install:
 	DO cargo+BUILD_RELEASE --BUILD_TARGET=$BUILD_TARGET
 
 	SAVE ARTIFACT target/$BUILD_TARGET/release/bluebuild
+
+exports-script:
+	FROM alpine
+	COPY exports.sh /
+	RUN chmod +x exports.sh
+	SAVE IMAGE --push ghcr.io/blue-build/cli/exports
 
 common:
 	FROM ghcr.io/blue-build/earthly-lib/cargo-builder

@@ -75,12 +75,10 @@ impl<'a> Module<'a> {
 
     #[must_use]
     pub fn print_module_context(&'a self) -> String {
-        serde_json::to_string(self)
-            .unwrap_or_else(|e| {
-                error!("Failed to parse module!!!!!: {e}");
-                process::exit(1);
-            })
-            .replace('"', r#"\""#)
+        serde_json::to_string(self).unwrap_or_else(|e| {
+            error!("Failed to parse module!!!!!: {e}");
+            process::exit(1);
+        })
     }
 
     #[must_use]

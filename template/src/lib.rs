@@ -75,12 +75,6 @@ pub struct GithubIssueTemplate<'a> {
     terminal_version: Cow<'a, str>,
 }
 
-fn print_export_script() -> String {
-    trace!("print_export_script()");
-
-    include_str!("../templates/export.sh").replace('$', r"\$")
-}
-
 fn has_cosign_file() -> bool {
     trace!("has_cosign_file()");
     std::env::current_dir()

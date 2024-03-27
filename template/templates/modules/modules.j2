@@ -27,15 +27,14 @@ RUN \
       {%- if type == "akmods" %}
   --mount=type=bind,from=stage-akmods-{{ module.generate_akmods_info(os_version).stage_name }},src=/rpms,dst=/tmp/rpms,rw \
       {%- endif %}
-  --mount=type=bind,from=stage-exports,src=/exports.sh,dst=/tmp/exports.sh \
+  --mount=type=bind,from=ghcr.io/blue-build/cli/exports,src=/exports.sh,dst=/tmp/exports.sh \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
-  /bin/bash -c " \
-    echo '========== Start {{ type|capitalize }} module ==========' \
-    && chmod +x /tmp/modules/{{ type }}/{{ type }}.sh \
-    && source /tmp/exports.sh \
-    && /tmp/modules/{{ type }}/{{ type }}.sh '{{ module.print_module_context() }}' \
-    && echo '========== End {{ type|capitalize }} module ==========' \
-    && ostree container commit"
+  echo "========== Start {{ type|capitalize }} module ==========" \
+  && chmod +x /tmp/modules/{{ type }}/{{ type }}.sh \
+  && source /tmp/exports.sh \
+  && /tmp/modules/{{ type }}/{{ type }}.sh '{{ module.print_module_context() }}' \
+  && echo "========== End {{ type|capitalize }} module ==========" \
+  && ostree container commit
     {%- endif %}
   {%- endif %}
 {%- endfor %}

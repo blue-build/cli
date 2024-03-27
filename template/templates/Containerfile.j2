@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 {%- include "stages.j2" %}
 
 FROM {{ recipe.base_image }}:{{ recipe.image_version }}

@@ -58,6 +58,8 @@ jobs:
       packages: write
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    needs:
+      - build
 
     steps:
       - name: Maximize build space
@@ -92,6 +94,8 @@ jobs:
       contents: read
       packages: write
       id-token: write
+    needs:
+      - build
 
     steps:
       - name: Maximize build space
