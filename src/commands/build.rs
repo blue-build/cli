@@ -383,6 +383,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
 
             if Command::new("cosign")
                 .arg("sign")
+                .arg("--recursive")
                 .arg(&image_name_digest)
                 .status()?
                 .success()
@@ -421,6 +422,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
             trace!("cosign sign {image_name_digest}");
             if Command::new("cosign")
                 .arg("sign")
+                .arg("--recursive")
                 .arg(&image_name_digest)
                 .status()?
                 .success()
@@ -458,6 +460,7 @@ fn sign_priv_public_pair(image_digest: &str, image_name_tag: &str) -> Result<()>
     if Command::new("cosign")
         .arg("sign")
         .arg("--key=env://COSIGN_PRIVATE_KEY")
+        .arg("--recursive")
         .arg(image_digest)
         .status()?
         .success()
