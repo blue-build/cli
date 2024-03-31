@@ -25,8 +25,10 @@ The `bluebuild` tool takes advantage of newer build features. Specifically bind,
 We package a `fedora-toolbox` and `alpine` image with all the tools needed to run `bluebuild`. You can use `distrobox` to run the application without needing to install it on your machine.
 
 ```bash
+# fedora-toolbox
 distrobox create blue-build --image ghcr.io/blue-build/cli
-distrobox enter blue-build
+# alpine
+distrobox create blue-build --image ghcr.io/blue-build/cli:latest-alpine
 ```
 
 By default, the bluebuild commands will not be visible outside of the distrobox itself. You will need to **enter** the distrobox, and either run the commands from inside the distrobox, or **export** the distrobox commands for use outside the distrobox.
@@ -140,6 +142,28 @@ bluebuild build ./config/recipe.yaml
 ```
 
 This will template out the file and build with `buildah` or `podman`.
+
+### Completions
+
+The `bluebuild completions` command generates shell completions, printed to stdout. These completions can be stored for integration in your shell environment. For example, on a system with [bash-completion](https://github.com/scop/bash-completion/) installed:
+
+```bash
+# user completions
+$ bluebuild completions bash > ~/.local/share/bash-completion/completions/bluebuild
+# system-wide completions
+$ bluebuild completions bash | sudo tee /usr/share/bash-completion/completions/bluebuild
+```
+
+Subsequent invocations of `bluebuild` will respond to `<Tab>` autocompletions:
+
+```bash
+$ bluebuild # press <Tab>
+-v           -V           --help       template     bug-report
+-q           --verbose    --version    upgrade      completions
+-h           --quiet      build        rebase       help
+```
+
+Currently, bluebuild completions are available for `bash`, `zsh`, `fish`, `powershell`, and `elvish` shell environments.
 
 #### Local Builds
 
