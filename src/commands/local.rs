@@ -68,6 +68,7 @@ impl BlueBuildCommand for UpgradeCommand {
         let status = if self.common.reboot {
             info!("Upgrading image {image_name} and rebooting");
 
+            trace!("rpm-ostree upgrade --reboot");
             Command::new("rpm-ostree")
                 .arg("upgrade")
                 .arg("--reboot")
@@ -75,6 +76,7 @@ impl BlueBuildCommand for UpgradeCommand {
         } else {
             info!("Upgrading image {image_name}");
 
+            trace!("rpm-ostree upgrade");
             Command::new("rpm-ostree").arg("upgrade").status()?
         };
 
@@ -112,21 +114,26 @@ impl BlueBuildCommand for RebaseCommand {
         debug!("Image name is {image_name}");
 
         build.try_run()?;
+        let rebase_url = format!(
+            "ostree-unverified-image:oci-archive:{LOCAL_BUILD}/{image_name}.{ARCHIVE_SUFFIX}"
+        );
 
         let status = if self.common.reboot {
             info!("Rebasing image {image_name} and rebooting");
 
+            trace!("rpm-ostree rebase --reboot {rebase_url}");
             Command::new("rpm-ostree")
                 .arg("rebase")
                 .arg("--reboot")
-                .arg(format!("ostree-unverified-image:{image_name}"))
+                .arg(rebase_url)
                 .status()?
         } else {
             info!("Rebasing image {image_name}");
 
+            trace!("rpm-ostree rebase {rebase_url}");
             Command::new("rpm-ostree")
                 .arg("rebase")
-                .arg(format!("ostree-unverified-image:{image_name}"))
+                .arg(rebase_url)
                 .status()?
         };
 
