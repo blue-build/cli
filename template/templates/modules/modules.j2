@@ -1,3 +1,11 @@
+ARG RECIPE={{ recipe_path.display() }}
+ARG IMAGE_REGISTRY={{ registry }}
+
+ARG CONFIG_DIRECTORY="/tmp/config"
+ARG MODULE_DIRECTORY="/tmp/modules"
+ARG IMAGE_NAME="{{ recipe.name }}"
+ARG BASE_IMAGE="{{ recipe.base_image }}"
+
 # Key RUN
 RUN --mount=type=bind,from=stage-keys,src=/keys,dst=/tmp/keys \
   mkdir -p /usr/etc/pki/containers/ \

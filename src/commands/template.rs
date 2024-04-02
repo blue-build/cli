@@ -14,6 +14,8 @@ use crate::drivers::Driver;
 
 use super::{BlueBuildCommand, DriverArgs};
 
+// https://github.com/containers/buildah/issues/1234#issuecomment-534685356
+
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct TemplateCommand {
     /// The recipe file to create a template from
@@ -41,6 +43,13 @@ pub struct TemplateCommand {
     #[arg(long)]
     #[builder(default, setter(into, strip_option))]
     registry_namespace: Option<String>,
+
+    /// Puts the build in a `squash-stage` and
+    /// COPY's the results to the final stage
+    /// as one layer.
+    #[arg(long)]
+    #[builder(default)]
+    squash: bool,
 
     #[clap(flatten)]
     #[builder(default)]
@@ -86,6 +95,7 @@ impl TemplateCommand {
             .recipe(&recipe_de)
             .recipe_path(recipe_path.as_path())
             .registry(self.get_registry())
+            .squash(self.squash)
             .build();
 
         let output_str = template.render()?;

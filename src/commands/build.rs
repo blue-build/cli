@@ -29,6 +29,7 @@ use crate::{
 
 use super::{BlueBuildCommand, DriverArgs};
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BuildCommand {
     /// The recipe file to build an image
@@ -99,6 +100,13 @@ pub struct BuildCommand {
     #[arg(short = 'P', long)]
     #[builder(default, setter(into, strip_option))]
     password: Option<String>,
+
+    /// Puts the build in a `squash-stage` and
+    /// COPY's the results to the final stage
+    /// as one layer.
+    #[arg(long)]
+    #[builder(default)]
+    squash: bool,
 
     #[clap(flatten)]
     #[builder(default)]
@@ -181,6 +189,7 @@ impl BlueBuildCommand for BuildCommand {
         TemplateCommand::builder()
             .recipe(&recipe_path)
             .output(PathBuf::from("Containerfile"))
+            .squash(self.squash)
             .build()
             .try_run()?;
 

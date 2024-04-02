@@ -42,3 +42,8 @@ COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
 {%- endif %}
 
 {%- include "modules/akmods/akmods.j2" %}
+
+{%- if squash %}
+FROM {{ recipe.base_image }}:{{ recipe.image_version }} as squash-stage
+{% include "modules/modules.j2" %}
+{%- endif %}
