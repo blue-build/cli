@@ -102,12 +102,12 @@ pub struct DriverArgs {
     /// Select which driver to use to build
     /// your image.
     #[builder(default)]
-    #[arg(long)]
+    #[arg(short = 'B', long)]
     build_driver: Option<BuildDriverType>,
 
     /// Select which driver to use to inspect
     /// images.
     #[builder(default)]
-    #[arg(long)]
+    #[arg(short = 'I', long)]
     inspect_driver: Option<InspectDriverType>,
 }
