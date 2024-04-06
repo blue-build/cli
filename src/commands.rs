@@ -1,9 +1,13 @@
 use log::error;
 
-use clap::{command, crate_authors, Parser, Subcommand};
+use clap::{command, crate_authors, Args, Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
+use typed_builder::TypedBuilder;
 
-use crate::shadow;
+use crate::{
+    drivers::types::{BuildDriverType, InspectDriverType},
+    shadow,
+};
 
 pub mod bug_report;
 pub mod build;
@@ -91,4 +95,19 @@ pub enum CommandArgs {
 
     /// Generate shell completions for your shell to stdout
     Completions(completions::CompletionsCommand),
+}
+
+#[derive(Default, Clone, Copy, Debug, TypedBuilder, Args)]
+pub struct DriverArgs {
+    /// Select which driver to use to build
+    /// your image.
+    #[builder(default)]
+    #[arg(long)]
+    build_driver: Option<BuildDriverType>,
+
+    /// Select which driver to use to inspect
+    /// images.
+    #[builder(default)]
+    #[arg(long)]
+    inspect_driver: Option<InspectDriverType>,
 }
