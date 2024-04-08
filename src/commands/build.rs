@@ -22,7 +22,7 @@ use crate::{
     commands::template::TemplateCommand,
     credentials,
     drivers::{
-        opts::{BuildTagPushOpts, CompressionType},
+        opts::{BuildTagPushOpts, CompressionType, GetMetadataOpts},
         Driver,
     },
 };
@@ -348,14 +348,23 @@ impl BuildCommand {
 // ========================= Helpers ====================== //
 // ======================================================== //
 
+#[allow(clippy::too_many_lines)]
 fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
     trace!("BuildCommand::sign_images({image_name}, {tag:?})");
 
     env::set_var("COSIGN_PASSWORD", "");
     env::set_var("COSIGN_YES", "true");
 
+    let inspect_opts = GetMetadataOpts::builder().image(image_name);
+
+    let inspect_opts = if let Some(tag) = tag {
+        inspect_opts.tag(tag).build()
+    } else {
+        inspect_opts.build()
+    };
+
     let image_digest = Driver::get_inspection_driver()
-        .get_metadata(image_name, tag.map_or_else(|| "latest", |t| t))?
+        .get_metadata(&inspect_opts)?
         .digest;
     let image_name_digest = format!("{image_name}@{image_digest}");
     let image_name_tag = tag.map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));

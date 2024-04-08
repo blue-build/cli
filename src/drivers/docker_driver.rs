@@ -13,7 +13,7 @@ use crate::image_metadata::ImageMetadata;
 
 use super::{
     credentials,
-    opts::{BuildTagPushOpts, CompressionType},
+    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, TagOpts},
     BuildDriver, DriverVersion, InspectDriver,
 };
 
@@ -51,57 +51,58 @@ impl DriverVersion for DockerDriver {
 }
 
 impl BuildDriver for DockerDriver {
-    fn build(&self, image: &str) -> Result<()> {
-        trace!("DockerDriver::build({image})");
+    fn build(&self, opts: &BuildOpts) -> Result<()> {
+        trace!("DockerDriver::build({opts:#?})");
 
-        trace!("docker build -t {image} -f {CONTAINER_FILE} .");
+        trace!("docker build -t {} -f {CONTAINER_FILE} .", opts.image);
         let status = Command::new("docker")
             .arg("build")
             .arg("-t")
-            .arg(image)
+            .arg(opts.image.as_ref())
             .arg("-f")
             .arg(CONTAINER_FILE)
             .arg(".")
             .status()?;
 
         if status.success() {
-            info!("Successfully built {image}");
+            info!("Successfully built {}", opts.image);
         } else {
-            bail!("Failed to build {image}");
+            bail!("Failed to build {}", opts.image);
         }
         Ok(())
     }
 
-    fn tag(&self, src_image: &str, image_name: &str, tag: &str) -> Result<()> {
-        trace!("DockerDriver::tag({src_image}, {image_name}, {tag})");
+    fn tag(&self, opts: &TagOpts) -> Result<()> {
+        trace!("DockerDriver::tag({opts:#?})");
 
-        let dest_image = format!("{image_name}:{tag}");
-
-        trace!("docker tag {src_image} {dest_image}");
+        trace!("docker tag {} {}", opts.src_image, opts.dest_image);
         let status = Command::new("docker")
             .arg("tag")
-            .arg(src_image)
-            .arg(&dest_image)
+            .arg(opts.src_image.as_ref())
+            .arg(opts.dest_image.as_ref())
             .status()?;
 
         if status.success() {
-            info!("Successfully tagged {dest_image}!");
+            info!("Successfully tagged {}!", opts.dest_image);
         } else {
-            bail!("Failed to tag image {dest_image}");
+            bail!("Failed to tag image {}", opts.dest_image);
         }
         Ok(())
     }
 
-    fn push(&self, image: &str, _: CompressionType) -> Result<()> {
-        trace!("DockerDriver::push({image})");
+    fn push(&self, opts: &PushOpts) -> Result<()> {
+        trace!("DockerDriver::push({opts:#?})");
 
-        trace!("docker push {image}");
-        let status = Command::new("docker").arg("push").arg(image).status()?;
+        trace!("docker push {}", opts.image);
+        let status = Command::new("docker")
+            .arg("push")
+            .arg(opts.image.as_ref())
+            .status()?;
 
         if status.success() {
-            info!("Successfully pushed {image}!");
+            info!("Successfully pushed {}!", opts.image);
         } else {
-            bail!("Failed to push image {image}")
+            bail!("Failed to push image {}", opts.image);
         }
         Ok(())
     }
@@ -203,10 +204,13 @@ impl BuildDriver for DockerDriver {
 }
 
 impl InspectDriver for DockerDriver {
-    fn get_metadata(&self, image_name: &str, tag: &str) -> Result<ImageMetadata> {
-        trace!("DockerDriver::get_labels({image_name}, {tag})");
+    fn get_metadata(&self, opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+        trace!("DockerDriver::get_labels({opts:#?})");
 
-        let url = format!("docker://{image_name}:{tag}");
+        let url = opts.tag.as_ref().map_or_else(
+            || format!("docker://{}", opts.image),
+            |tag| format!("docker://{}:{tag}", opts.image),
+        );
 
         trace!("docker run {SKOPEO_IMAGE} inspect {url}");
         let output = Command::new("docker")

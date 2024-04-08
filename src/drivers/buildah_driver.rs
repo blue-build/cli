@@ -7,7 +7,10 @@ use serde::Deserialize;
 
 use crate::credentials;
 
-use super::{opts::CompressionType, BuildDriver, DriverVersion};
+use super::{
+    opts::{BuildOpts, PushOpts, TagOpts},
+    BuildDriver, DriverVersion,
+};
 
 #[derive(Debug, Deserialize)]
 struct BuildahVersionJson {
@@ -23,68 +26,84 @@ impl DriverVersion for BuildahDriver {
     const VERSION_REQ: &'static str = ">=1.24";
 
     fn version() -> Result<Version> {
+        trace!("BuildahDriver::version()");
+
+        trace!("buildah version --json");
         let output = Command::new("buildah")
             .arg("version")
             .arg("--json")
             .output()?;
 
         let version_json: BuildahVersionJson = serde_json::from_slice(&output.stdout)?;
+        trace!("{version_json:#?}");
 
         Ok(version_json.version)
     }
 }
 
 impl BuildDriver for BuildahDriver {
-    fn build(&self, image: &str) -> Result<()> {
-        trace!("buildah build -t {image}");
+    fn build(&self, opts: &BuildOpts) -> Result<()> {
+        trace!("BuildahDriver::build({opts:#?})");
+
+        trace!("buildah build --pull=true -t {}", opts.image);
         let status = Command::new("buildah")
             .arg("build")
+            .arg("--pull=true")
+            .arg(format!("layers={}", !opts.squash))
             .arg("-t")
-            .arg(image)
+            .arg(opts.image.as_ref())
             .status()?;
 
         if status.success() {
-            info!("Successfully built {image}");
+            info!("Successfully built {}", opts.image);
         } else {
-            bail!("Failed to build {image}");
+            bail!("Failed to build {}", opts.image);
         }
         Ok(())
     }
 
-    fn tag(&self, src_image: &str, image_name: &str, tag: &str) -> Result<()> {
-        let dest_image = format!("{image_name}:{tag}");
-        trace!("buildah tag {src_image} {dest_image}");
+    fn tag(&self, opts: &TagOpts) -> Result<()> {
+        trace!("BuildahDriver::tag({opts:#?})");
+
+        trace!("buildah tag {} {}", opts.src_image, opts.dest_image);
         let status = Command::new("buildah")
             .arg("tag")
-            .arg(src_image)
-            .arg(&dest_image)
+            .arg(opts.src_image.as_ref())
+            .arg(opts.dest_image.as_ref())
             .status()?;
 
         if status.success() {
-            info!("Successfully tagged {dest_image}!");
+            info!("Successfully tagged {}!", opts.dest_image);
         } else {
-            bail!("Failed to tag image {dest_image}");
+            bail!("Failed to tag image {}", opts.dest_image);
         }
         Ok(())
     }
 
-    fn push(&self, image: &str, compression: CompressionType) -> Result<()> {
-        trace!("buildah push {image}");
+    fn push(&self, opts: &PushOpts) -> Result<()> {
+        trace!("BuildahDriver::push({opts:#?})");
+
+        trace!("buildah push {}", opts.image);
         let status = Command::new("buildah")
             .arg("push")
-            .arg(format!("--compression-format={compression}"))
-            .arg(image)
+            .arg(format!(
+                "--compression-format={}",
+                opts.compression_type.unwrap_or_default()
+            ))
+            .arg(opts.image.as_ref())
             .status()?;
 
         if status.success() {
-            info!("Successfully pushed {image}!");
+            info!("Successfully pushed {}!", opts.image);
         } else {
-            bail!("Failed to push image {image}")
+            bail!("Failed to push image {}", opts.image);
         }
         Ok(())
     }
 
     fn login(&self) -> Result<()> {
+        trace!("BuildahDriver::login()");
+
         let (registry, username, password) =
             credentials::get().map(|c| (&c.registry, &c.username, &c.password))?;
 

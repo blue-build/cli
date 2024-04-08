@@ -23,7 +23,7 @@ use crate::{credentials, image_metadata::ImageMetadata};
 use self::{
     buildah_driver::BuildahDriver,
     docker_driver::DockerDriver,
-    opts::{BuildTagPushOpts, CompressionType},
+    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, TagOpts},
     podman_driver::PodmanDriver,
     skopeo_driver::SkopeoDriver,
     types::{BuildDriverType, InspectDriverType},
@@ -124,19 +124,19 @@ pub trait BuildDriver: Sync + Send {
     ///
     /// # Errors
     /// Will error if the build fails.
-    fn build(&self, image: &str) -> Result<()>;
+    fn build(&self, opts: &BuildOpts) -> Result<()>;
 
     /// Runs the tag logic for the strategy.
     ///
     /// # Errors
     /// Will error if the tagging fails.
-    fn tag(&self, src_image: &str, image_name: &str, tag: &str) -> Result<()>;
+    fn tag(&self, opts: &TagOpts) -> Result<()>;
 
     /// Runs the push logic for the strategy
     ///
     /// # Errors
     /// Will error if the push fails.
-    fn push(&self, image: &str, compression: CompressionType) -> Result<()>;
+    fn push(&self, opts: &PushOpts) -> Result<()>;
 
     /// Runs the login logic for the strategy.
     ///
@@ -163,8 +163,10 @@ pub trait BuildDriver: Sync + Send {
             (None, None) => bail!("Need either the image or archive path set"),
         };
 
+        let build_opts = BuildOpts::builder().image(&full_image).build();
+
         info!("Building image {full_image}");
-        self.build(&full_image)?;
+        self.build(&build_opts)?;
 
         if !opts.tags.is_empty() && opts.archive_path.is_none() {
             let image = opts
@@ -176,7 +178,12 @@ pub trait BuildDriver: Sync + Send {
             for tag in opts.tags.as_ref() {
                 debug!("Tagging {} with {tag}", &full_image);
 
-                self.tag(&full_image, image.as_ref(), tag)?;
+                let tag_opts = TagOpts::builder()
+                    .src_image(&full_image)
+                    .dest_image(format!("{image}:{tag}"))
+                    .build();
+
+                self.tag(&tag_opts)?;
 
                 if opts.push {
                     let retry_count = if opts.no_retry_push {
@@ -192,7 +199,12 @@ pub trait BuildDriver: Sync + Send {
 
                         debug!("Pushing image {tag_image}");
 
-                        self.push(&tag_image, opts.compression)
+                        let push_opts = PushOpts::builder()
+                            .image(&tag_image)
+                            .compression_type(opts.compression)
+                            .build();
+
+                        self.push(&push_opts)
                     })?;
                 }
             }
@@ -208,7 +220,7 @@ pub trait InspectDriver: Sync + Send {
     ///
     /// # Errors
     /// Will error if it is unable to get the labels.
-    fn get_metadata(&self, image_name: &str, tag: &str) -> Result<ImageMetadata>;
+    fn get_metadata(&self, opts: &GetMetadataOpts) -> Result<ImageMetadata>;
 }
 
 #[derive(Debug, TypedBuilder)]
@@ -307,8 +319,11 @@ impl Driver<'_> {
         let os_version = match entry {
             None => {
                 info!("Retrieving OS version from {image}. This might take a bit");
-                let inspection =
-                    INSPECT_DRIVER.get_metadata(&recipe.base_image, &recipe.image_version)?;
+                let inspect_opts = GetMetadataOpts::builder()
+                    .image(recipe.base_image.as_ref())
+                    .tag(recipe.image_version.as_ref())
+                    .build();
+                let inspection = INSPECT_DRIVER.get_metadata(&inspect_opts)?;
 
                 let os_version = inspection.get_version().ok_or_else(|| {
                     anyhow!(

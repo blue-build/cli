@@ -5,14 +5,19 @@ use log::{debug, trace};
 
 use crate::image_metadata::ImageMetadata;
 
-use super::InspectDriver;
+use super::{opts::GetMetadataOpts, InspectDriver};
 
 #[derive(Debug)]
 pub struct SkopeoDriver;
 
 impl InspectDriver for SkopeoDriver {
-    fn get_metadata(&self, image_name: &str, tag: &str) -> Result<ImageMetadata> {
-        let url = format!("docker://{image_name}:{tag}");
+    fn get_metadata(&self, opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+        trace!("SkopeoDriver::get_metadata({opts:#?})");
+
+        let url = opts.tag.as_ref().map_or_else(
+            || format!("docker://{}", opts.image),
+            |tag| format!("docker://{}:{tag}", opts.image),
+        );
 
         trace!("skopeo inspect {url}");
         let output = Command::new("skopeo")
