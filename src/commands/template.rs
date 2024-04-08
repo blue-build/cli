@@ -95,7 +95,6 @@ impl TemplateCommand {
             .recipe(&recipe_de)
             .recipe_path(recipe_path.as_path())
             .registry(self.get_registry())
-            .squash(self.squash)
             .build();
 
         let output_str = template.render()?;

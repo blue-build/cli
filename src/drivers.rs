@@ -163,7 +163,10 @@ pub trait BuildDriver: Sync + Send {
             (None, None) => bail!("Need either the image or archive path set"),
         };
 
-        let build_opts = BuildOpts::builder().image(&full_image).build();
+        let build_opts = BuildOpts::builder()
+            .image(&full_image)
+            .squash(opts.squash)
+            .build();
 
         info!("Building image {full_image}");
         self.build(&build_opts)?;

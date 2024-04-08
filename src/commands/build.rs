@@ -224,6 +224,7 @@ impl BuildCommand {
                     archive_dir.to_string_lossy().trim_end_matches('/'),
                     recipe.name.to_lowercase().replace('/', "_"),
                 ))
+                .squash(self.squash)
                 .build()
         } else {
             BuildTagPushOpts::builder()
@@ -233,6 +234,7 @@ impl BuildCommand {
                 .no_retry_push(self.no_retry_push)
                 .retry_count(self.retry_count)
                 .compression(self.compression_format)
+                .squash(self.squash)
                 .build()
         };
 

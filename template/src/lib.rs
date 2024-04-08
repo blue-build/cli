@@ -27,9 +27,6 @@ pub struct ContainerFileTemplate<'a> {
 
     #[builder(setter(into))]
     registry: Cow<'a, str>,
-
-    #[builder(default)]
-    squash: bool,
 }
 
 #[derive(Debug, Clone, Template, TypedBuilder)]

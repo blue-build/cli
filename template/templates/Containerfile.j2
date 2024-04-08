@@ -1,10 +1,6 @@
 {%- include "stages.j2" %}
 
-{%- if squash %}
-FROM scratch
-{%- else %}
 FROM {{ recipe.base_image }}:{{ recipe.image_version }}
-{%- endif %}
 
 LABEL {{ blue_build_utils::constants::BUILD_ID_LABEL }}="{{ build_id }}"
 LABEL org.opencontainers.image.title="{{ recipe.name }}"
@@ -14,8 +10,4 @@ LABEL org.opencontainers.image.source="{{ repo }}"
 {%- endif %}
 LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md
 
-{%- if squash %}
-COPY --link --from=squash-stage / /
-{%- else %}
 {% include "modules/modules.j2" %}
-{%- endif %}

@@ -55,11 +55,15 @@ impl BuildDriver for PodmanDriver {
     fn build(&self, opts: &BuildOpts) -> Result<()> {
         trace!("PodmanDriver::build({opts:#?})");
 
-        trace!("podman build --pull=true . -t {}", opts.image);
+        trace!(
+            "podman build --pull=true --layers={} . -t {}",
+            !opts.squash,
+            opts.image,
+        );
         let status = Command::new("podman")
             .arg("build")
             .arg("--pull=true")
-            .arg(format!("layers={}", !opts.squash))
+            .arg(format!("--layers={}", !opts.squash))
             .arg(".")
             .arg("-t")
             .arg(opts.image.as_ref())

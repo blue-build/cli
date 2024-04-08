@@ -67,4 +67,7 @@ pub struct BuildTagPushOpts<'a> {
 
     #[builder(default)]
     pub compression: CompressionType,
+
+    #[builder(default)]
+    pub squash: bool,
 }

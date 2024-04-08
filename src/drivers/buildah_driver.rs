@@ -45,11 +45,15 @@ impl BuildDriver for BuildahDriver {
     fn build(&self, opts: &BuildOpts) -> Result<()> {
         trace!("BuildahDriver::build({opts:#?})");
 
-        trace!("buildah build --pull=true -t {}", opts.image);
+        trace!(
+            "buildah build --pull=true --layers={} -t {}",
+            !opts.squash,
+            opts.image,
+        );
         let status = Command::new("buildah")
             .arg("build")
             .arg("--pull=true")
-            .arg(format!("layers={}", !opts.squash))
+            .arg(format!("--layers={}", !opts.squash))
             .arg("-t")
             .arg(opts.image.as_ref())
             .status()?;
