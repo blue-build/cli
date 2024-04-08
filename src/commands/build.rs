@@ -27,7 +27,7 @@ use crate::{
     },
 };
 
-use super::BlueBuildCommand;
+use super::{BlueBuildCommand, DriverArgs};
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BuildCommand {
@@ -99,6 +99,10 @@ pub struct BuildCommand {
     #[arg(short = 'P', long)]
     #[builder(default, setter(into, strip_option))]
     password: Option<String>,
+
+    #[clap(flatten)]
+    #[builder(default)]
+    drivers: DriverArgs,
 }
 
 impl BlueBuildCommand for BuildCommand {
@@ -110,6 +114,8 @@ impl BlueBuildCommand for BuildCommand {
             .username(self.username.as_ref())
             .password(self.password.as_ref())
             .registry(self.registry.as_ref())
+            .build_driver(self.drivers.build_driver)
+            .inspect_driver(self.drivers.inspect_driver)
             .build()
             .init()?;
 

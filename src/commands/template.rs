@@ -12,7 +12,7 @@ use typed_builder::TypedBuilder;
 
 use crate::drivers::Driver;
 
-use super::BlueBuildCommand;
+use super::{BlueBuildCommand, DriverArgs};
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct TemplateCommand {
@@ -41,6 +41,10 @@ pub struct TemplateCommand {
     #[arg(long)]
     #[builder(default, setter(into, strip_option))]
     registry_namespace: Option<String>,
+
+    #[clap(flatten)]
+    #[builder(default)]
+    drivers: DriverArgs,
 }
 
 impl BlueBuildCommand for TemplateCommand {
@@ -52,6 +56,12 @@ impl BlueBuildCommand for TemplateCommand {
                 .unwrap_or_else(|| PathBuf::from(RECIPE_PATH))
                 .display()
         );
+
+        Driver::builder()
+            .build_driver(self.drivers.build_driver)
+            .inspect_driver(self.drivers.inspect_driver)
+            .build()
+            .init()?;
 
         self.template_file()
     }
