@@ -110,7 +110,7 @@ pub struct DriverArgs {
     /// NOTE: Squash has a performance benefit for
     /// the newer versions of podman and buildah.
     /// It can also
-    #[arg(long)]
+    #[arg(short, long)]
     #[builder(default)]
     squash: bool,
 
