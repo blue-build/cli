@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{bail, Result};
 use blue_build_utils::constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, SKOPEO_IMAGE};
-use log::{info, trace};
+use log::{info, trace, warn};
 use semver::Version;
 use serde::Deserialize;
 
@@ -55,16 +55,23 @@ impl BuildDriver for DockerDriver {
         trace!("DockerDriver::build({opts:#?})");
 
         trace!("docker build -t {} -f {CONTAINER_FILE} .", opts.image);
-        let status = Command::new("docker")
-            .arg("build")
+        let mut command = Command::new("docker");
+
+        command.arg("build");
+
+        if opts.squash {
+            warn!("Squash is deprecated for docker, this functionality could disappear soon");
+            command.arg("--squash");
+        }
+
+        command
             .arg("-t")
             .arg(opts.image.as_ref())
             .arg("-f")
             .arg(CONTAINER_FILE)
-            .arg(".")
-            .status()?;
+            .arg(".");
 
-        if status.success() {
+        if command.status()?.success() {
             info!("Successfully built {}", opts.image);
         } else {
             bail!("Failed to build {}", opts.image);
@@ -142,14 +149,9 @@ impl BuildDriver for DockerDriver {
             .arg("-f")
             .arg(CONTAINER_FILE);
 
-        // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
-        if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
-            trace!("--cache-from type=gha --cache-to type=gha");
-            command
-                .arg("--cache-from")
-                .arg("type=gha")
-                .arg("--cache-to")
-                .arg("type=gha");
+        if opts.squash {
+            warn!("Squash is deprecated for docker, this functionality could disappear soon");
+            command.arg("--squash");
         }
 
         match (opts.image.as_ref(), opts.archive_path.as_ref()) {
@@ -167,14 +169,24 @@ impl BuildDriver for DockerDriver {
                 }
 
                 if opts.push {
+                    // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
+                    if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
+                        trace!("--cache-from type=gha --cache-to type=gha");
+                        command
+                            .arg("--cache-from")
+                            .arg("type=gha")
+                            .arg("--cache-to")
+                            .arg("type=gha");
+                    }
+
                     trace!("--output type=image,name={image},push=true,compression={},oci-mediatypes=true", opts.compression);
                     command.arg("--output").arg(format!(
                         "type=image,name={image},push=true,compression={},oci-mediatypes=true",
                         opts.compression
                     ));
                 } else {
-                    trace!("--builder default");
-                    command.arg("--builder").arg("default");
+                    trace!("--load");
+                    command.arg("--load");
                 }
             }
             (None, Some(archive_path)) => {
@@ -215,6 +227,7 @@ impl InspectDriver for DockerDriver {
         trace!("docker run {SKOPEO_IMAGE} inspect {url}");
         let output = Command::new("docker")
             .arg("run")
+            .arg("--rm")
             .arg(SKOPEO_IMAGE)
             .arg("inspect")
             .arg(&url)

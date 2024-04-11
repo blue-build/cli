@@ -152,6 +152,7 @@ impl InspectDriver for PodmanDriver {
         trace!("podman run {SKOPEO_IMAGE} inspect {url}");
         let output = Command::new("podman")
             .arg("run")
+            .arg("--rm")
             .arg(SKOPEO_IMAGE)
             .arg("inspect")
             .arg(&url)
