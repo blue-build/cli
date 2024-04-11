@@ -138,7 +138,7 @@ You can then use this with `podman` or `buildah` to build and publish your image
 If you don't care about the details of the template, you can run the `build` command.
 
 ```bash
-bluebuild build ./config/recipe.yaml
+bluebuild build ./recipes/recipe.yaml
 ```
 
 This will template out the file and build with `buildah` or `podman`.
@@ -172,7 +172,7 @@ Currently, bluebuild completions are available for `bash`, `zsh`, `fish`, `power
 If you want to test your changes, you can do so by using the `rebase` command. This will create an image as a `.tar.gz` file, store it in `/etc/bluebuild`, an run `rpm-ostree rebase` on that newly built file.
 
 ```bash
-sudo bluebuild rebase config/recipe.yml
+sudo bluebuild rebase recipes/recipe.yml
 ```
 
 You can initiate an immediate restart by adding the `--reboot/-r` option.
@@ -182,7 +182,7 @@ You can initiate an immediate restart by adding the `--reboot/-r` option.
 When you've rebased onto a local image archive, you can update your image for your recipe by running:
 
 ```bash
-sudo bluebuild upgrade config/recipe.yml
+sudo bluebuild upgrade recipes/recipe.yml
 ```
 
 The `--reboot` argument can be used with this command as well.
@@ -272,7 +272,7 @@ build-image:
     - export COSIGN_PRIVATE_KEY=$(cat .secure_files/cosign.key)
   script:
     - sleep 5 # Wait a bit for the docker-in-docker service to start
-    - bluebuild build --push ./config/$RECIPE
+    - bluebuild build --push ./recipes/$RECIPE
 ```
 
 ## Future Features
