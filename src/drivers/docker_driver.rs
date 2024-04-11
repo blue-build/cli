@@ -150,6 +150,16 @@ impl BuildDriver for DockerDriver {
             .arg("-f")
             .arg(CONTAINER_FILE);
 
+        // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
+        if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
+            trace!("--cache-from type=gha --cache-to type=gha");
+            command
+                .arg("--cache-from")
+                .arg("type=gha")
+                .arg("--cache-to")
+                .arg("type=gha");
+        }
+
         match (opts.image.as_ref(), opts.archive_path.as_ref()) {
             (Some(image), None) => {
                 if opts.tags.is_empty() {
@@ -165,16 +175,6 @@ impl BuildDriver for DockerDriver {
                 }
 
                 if opts.push {
-                    // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
-                    if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
-                        trace!("--cache-from type=gha --cache-to type=gha");
-                        command
-                            .arg("--cache-from")
-                            .arg("type=gha")
-                            .arg("--cache-to")
-                            .arg("type=gha");
-                    }
-
                     trace!("--output type=image,name={image},push=true,compression={},oci-mediatypes=true", opts.compression);
                     command.arg("--output").arg(format!(
                         "type=image,name={image},push=true,compression={},oci-mediatypes=true",
