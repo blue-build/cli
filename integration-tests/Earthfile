@@ -15,6 +15,13 @@ test-image:
 
 	DO +RUN_TESTS
 
+test-legacy-image:
+	FROM +build-template --src=template-legacy-containerfile
+	WORKDIR /tmp/test
+	COPY ./test-scripts/*.sh ./
+
+	DO +RUN_TESTS
+
 test-secureblue:
 	FROM +build-template --src=template-secureblue
 	WORKDIR /tmp/test
@@ -30,6 +37,12 @@ build-template:
 
 template-containerfile:
 	FROM +test-base
+	RUN bluebuild -vv template recipes/recipe.yml | tee Containerfile
+
+	SAVE ARTIFACT /test
+
+template-legacy-containerfile:
+	FROM +test-legacy-base
 	RUN bluebuild -vv template config/recipe.yml | tee Containerfile
 
 	SAVE ARTIFACT /test
@@ -71,6 +84,16 @@ test-base:
 
 	WORKDIR /test
 	COPY ./test-repo /test
+
+	DO +GEN_KEYPAIR
+
+test-legacy-base:
+	FROM ../+blue-build-cli-alpine
+
+	COPY ./mock-scripts/ /usr/bin/
+
+	WORKDIR /test
+	COPY ./legacy-test-repo /test
 
 	DO +GEN_KEYPAIR
 

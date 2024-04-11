@@ -2,10 +2,10 @@ use std::{borrow::Cow, env, fs, path::Path, process};
 
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::{
-    CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_SERVER_HOST, CI_SERVER_PROTOCOL, COSIGN_PATH,
-    GITHUB_RESPOSITORY, GITHUB_SERVER_URL,
+    CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_SERVER_HOST, CI_SERVER_PROTOCOL, CONFIG_PATH,
+    COSIGN_PATH, FILES_PATH, GITHUB_RESPOSITORY, GITHUB_SERVER_URL,
 };
-use log::{debug, error, trace};
+use log::{debug, error, trace, warn};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
@@ -134,6 +134,17 @@ fn get_repo_url() -> Option<String> {
 fn modules_exists() -> bool {
     let mod_path = Path::new("modules");
     mod_path.exists() && mod_path.is_dir()
+}
+
+fn files_dir_exists() -> bool {
+    let path = Path::new(FILES_PATH);
+    let exists = path.exists() && path.is_dir();
+
+    if !exists {
+        warn!("Use of the {CONFIG_PATH} directory is deprecated. Please move your non-recipe files into {FILES_PATH}");
+    }
+
+    exists
 }
 
 mod filters {

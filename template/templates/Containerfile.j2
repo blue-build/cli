@@ -13,7 +13,11 @@ LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-b
 ARG RECIPE={{ recipe_path.display() }}
 ARG IMAGE_REGISTRY={{ registry }}
 
+{%- if self::files_dir_exists() %}
+ARG CONFIG_DIRECTORY="/tmp/files"
+{%- else %}
 ARG CONFIG_DIRECTORY="/tmp/config"
+{%- endif %}
 ARG MODULE_DIRECTORY="/tmp/modules"
 ARG IMAGE_NAME="{{ recipe.name }}"
 ARG BASE_IMAGE="{{ recipe.base_image }}"

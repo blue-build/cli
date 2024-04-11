@@ -81,25 +81,6 @@ impl<'a> Module<'a> {
         })
     }
 
-    #[must_use]
-    pub fn get_files_list(&'a self) -> Option<Vec<(String, String)>> {
-        Some(
-            self.config
-                .get("files")?
-                .as_sequence()?
-                .iter()
-                .filter_map(|entry| entry.as_mapping())
-                .flatten()
-                .filter_map(|(src, dest)| {
-                    Some((
-                        format!("./config/files/{}", src.as_str()?),
-                        dest.as_str()?.to_string(),
-                    ))
-                })
-                .collect(),
-        )
-    }
-
     pub fn generate_akmods_info(&'a self, os_version: &str) -> AkmodsInfo {
         trace!("generate_akmods_base({self:#?}, {os_version})");
 
