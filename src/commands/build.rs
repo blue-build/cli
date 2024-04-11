@@ -22,13 +22,14 @@ use crate::{
     commands::template::TemplateCommand,
     credentials,
     drivers::{
-        opts::{BuildTagPushOpts, CompressionType},
+        opts::{BuildTagPushOpts, CompressionType, GetMetadataOpts},
         Driver,
     },
 };
 
 use super::{BlueBuildCommand, DriverArgs};
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BuildCommand {
     /// The recipe file to build an image
@@ -181,6 +182,7 @@ impl BlueBuildCommand for BuildCommand {
         TemplateCommand::builder()
             .recipe(&recipe_path)
             .output(PathBuf::from("Containerfile"))
+            .drivers(DriverArgs::builder().squash(self.drivers.squash).build())
             .build()
             .try_run()?;
 
@@ -215,6 +217,7 @@ impl BuildCommand {
                     archive_dir.to_string_lossy().trim_end_matches('/'),
                     recipe.name.to_lowercase().replace('/', "_"),
                 ))
+                .squash(self.drivers.squash)
                 .build()
         } else {
             BuildTagPushOpts::builder()
@@ -224,6 +227,7 @@ impl BuildCommand {
                 .no_retry_push(self.no_retry_push)
                 .retry_count(self.retry_count)
                 .compression(self.compression_format)
+                .squash(self.drivers.squash)
                 .build()
         };
 
@@ -339,14 +343,23 @@ impl BuildCommand {
 // ========================= Helpers ====================== //
 // ======================================================== //
 
+#[allow(clippy::too_many_lines)]
 fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
     trace!("BuildCommand::sign_images({image_name}, {tag:?})");
 
     env::set_var("COSIGN_PASSWORD", "");
     env::set_var("COSIGN_YES", "true");
 
+    let inspect_opts = GetMetadataOpts::builder().image(image_name);
+
+    let inspect_opts = if let Some(tag) = tag {
+        inspect_opts.tag(tag).build()
+    } else {
+        inspect_opts.build()
+    };
+
     let image_digest = Driver::get_inspection_driver()
-        .get_metadata(image_name, tag.map_or_else(|| "latest", |t| t))?
+        .get_metadata(&inspect_opts)?
         .digest;
     let image_name_digest = format!("{image_name}@{image_digest}");
     let image_name_tag = tag.map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));

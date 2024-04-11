@@ -1,22 +1,35 @@
 use std::borrow::Cow;
 
-use clap::ValueEnum;
 use typed_builder::TypedBuilder;
 
-#[derive(Debug, Copy, Clone, Default, ValueEnum)]
-pub enum CompressionType {
-    #[default]
-    Gzip,
-    Zstd,
+use super::CompressionType;
+
+/// Options for building
+#[derive(Debug, Clone, TypedBuilder)]
+pub struct BuildOpts<'a> {
+    #[builder(setter(into))]
+    pub image: Cow<'a, str>,
+
+    #[builder(default)]
+    pub squash: bool,
 }
 
-impl std::fmt::Display for CompressionType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Self::Zstd => "zstd",
-            Self::Gzip => "gzip",
-        })
-    }
+#[derive(Debug, Clone, TypedBuilder)]
+pub struct TagOpts<'a> {
+    #[builder(setter(into))]
+    pub src_image: Cow<'a, str>,
+
+    #[builder(setter(into))]
+    pub dest_image: Cow<'a, str>,
+}
+
+#[derive(Debug, Clone, TypedBuilder)]
+pub struct PushOpts<'a> {
+    #[builder(setter(into))]
+    pub image: Cow<'a, str>,
+
+    #[builder(default, setter(strip_option))]
+    pub compression_type: Option<CompressionType>,
 }
 
 /// Options for building, tagging, and pusing images.
@@ -54,4 +67,7 @@ pub struct BuildTagPushOpts<'a> {
 
     #[builder(default)]
     pub compression: CompressionType,
+
+    #[builder(default)]
+    pub squash: bool,
 }

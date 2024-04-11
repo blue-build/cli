@@ -8,7 +8,11 @@ use serde::Deserialize;
 
 use crate::image_metadata::ImageMetadata;
 
-use super::{credentials, opts::CompressionType, BuildDriver, DriverVersion, InspectDriver};
+use super::{
+    credentials,
+    opts::{BuildOpts, GetMetadataOpts, PushOpts, TagOpts},
+    BuildDriver, DriverVersion, InspectDriver,
+};
 
 #[derive(Debug, Deserialize)]
 struct PodmanVersionJsonClient {
@@ -31,6 +35,9 @@ impl DriverVersion for PodmanDriver {
     const VERSION_REQ: &'static str = ">=4";
 
     fn version() -> Result<Version> {
+        trace!("PodmanDriver::version()");
+
+        trace!("podman version -f json");
         let output = Command::new("podman")
             .arg("version")
             .arg("-f")
@@ -38,64 +45,80 @@ impl DriverVersion for PodmanDriver {
             .output()?;
 
         let version_json: PodmanVersionJson = serde_json::from_slice(&output.stdout)?;
+        trace!("{version_json:#?}");
 
         Ok(version_json.client.version)
     }
 }
 
 impl BuildDriver for PodmanDriver {
-    fn build(&self, image: &str) -> Result<()> {
-        trace!("podman build . -t {image}");
+    fn build(&self, opts: &BuildOpts) -> Result<()> {
+        trace!("PodmanDriver::build({opts:#?})");
+
+        trace!(
+            "podman build --pull=true --layers={} . -t {}",
+            !opts.squash,
+            opts.image,
+        );
         let status = Command::new("podman")
             .arg("build")
+            .arg("--pull=true")
+            .arg(format!("--layers={}", !opts.squash))
             .arg(".")
             .arg("-t")
-            .arg(image)
+            .arg(opts.image.as_ref())
             .status()?;
 
         if status.success() {
-            info!("Successfully built {image}");
+            info!("Successfully built {}", opts.image);
         } else {
-            bail!("Failed to build {image}");
+            bail!("Failed to build {}", opts.image);
         }
         Ok(())
     }
 
-    fn tag(&self, src_image: &str, image_name: &str, tag: &str) -> Result<()> {
-        let dest_image = format!("{image_name}:{tag}");
+    fn tag(&self, opts: &TagOpts) -> Result<()> {
+        trace!("PodmanDriver::tag({opts:#?})");
 
-        trace!("podman tag {src_image} {dest_image}");
+        trace!("podman tag {} {}", opts.src_image, opts.dest_image);
         let status = Command::new("podman")
             .arg("tag")
-            .arg(src_image)
-            .arg(&dest_image)
+            .arg(opts.src_image.as_ref())
+            .arg(opts.dest_image.as_ref())
             .status()?;
 
         if status.success() {
-            info!("Successfully tagged {dest_image}!");
+            info!("Successfully tagged {}!", opts.dest_image);
         } else {
-            bail!("Failed to tag image {dest_image}");
+            bail!("Failed to tag image {}", opts.dest_image);
         }
         Ok(())
     }
 
-    fn push(&self, image: &str, compression: CompressionType) -> Result<()> {
-        trace!("podman push {image}");
+    fn push(&self, opts: &PushOpts) -> Result<()> {
+        trace!("PodmanDriver::push({opts:#?})");
+
+        trace!("podman push {}", opts.image);
         let status = Command::new("podman")
             .arg("push")
-            .arg(format!("--compression-format={compression}"))
-            .arg(image)
+            .arg(format!(
+                "--compression-format={}",
+                opts.compression_type.unwrap_or_default()
+            ))
+            .arg(opts.image.as_ref())
             .status()?;
 
         if status.success() {
-            info!("Successfully pushed {image}!");
+            info!("Successfully pushed {}!", opts.image);
         } else {
-            bail!("Failed to push image {image}")
+            bail!("Failed to push image {}", opts.image)
         }
         Ok(())
     }
 
     fn login(&self) -> Result<()> {
+        trace!("PodmanDriver::login()");
+
         let (registry, username, password) =
             credentials::get().map(|c| (&c.registry, &c.username, &c.password))?;
 
@@ -118,12 +141,18 @@ impl BuildDriver for PodmanDriver {
 }
 
 impl InspectDriver for PodmanDriver {
-    fn get_metadata(&self, image_name: &str, tag: &str) -> Result<ImageMetadata> {
-        let url = format!("docker://{image_name}:{tag}");
+    fn get_metadata(&self, opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+        trace!("PodmanDriver::get_metadata({opts:#?})");
+
+        let url = opts.tag.as_ref().map_or_else(
+            || format!("docker://{}", opts.image),
+            |tag| format!("docker://{}:{tag}", opts.image),
+        );
 
         trace!("podman run {SKOPEO_IMAGE} inspect {url}");
         let output = Command::new("podman")
             .arg("run")
+            .arg("--rm")
             .arg(SKOPEO_IMAGE)
             .arg("inspect")
             .arg(&url)
@@ -133,7 +162,7 @@ impl InspectDriver for PodmanDriver {
         if output.status.success() {
             debug!("Successfully inspected image {url}!");
         } else {
-            bail!("Failed to inspect image {url}")
+            bail!("Failed to inspect image {url}");
         }
         Ok(serde_json::from_slice(&output.stdout)?)
     }
