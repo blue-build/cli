@@ -18,11 +18,11 @@ RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
     {%- else %}
 RUN \
   --mount=type=tmpfs,target=/var \
-{%- if self::files_dir_exists() %}
+      {%- if self::files_dir_exists() %}
   --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,rw \
-{%- else %}
+      {%- else %}
   --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
-{%- endif %}
+      {%- endif %}
       {%- if let Some(source) = module.source %}
   --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
       {%- else %}
