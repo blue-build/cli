@@ -99,6 +99,21 @@ pub enum CommandArgs {
 
 #[derive(Default, Clone, Copy, Debug, TypedBuilder, Args)]
 pub struct DriverArgs {
+    /// Puts the build in a `squash-stage` and
+    /// COPY's the results to the final stage
+    /// as one layer.
+    ///
+    /// NOTE: This doesn't work with buildkit builders
+    /// for docker. You will want to use the standard
+    /// builder to use squash.
+    ///
+    /// NOTE: Squash has a performance benefit for
+    /// the newer versions of podman and buildah.
+    /// It can also
+    #[arg(long)]
+    #[builder(default)]
+    squash: bool,
+
     /// Select which driver to use to build
     /// your image.
     #[builder(default)]

@@ -149,8 +149,17 @@ impl BuildDriver for DockerDriver {
             .arg("-f")
             .arg(CONTAINER_FILE);
 
-        if opts.squash {
+        // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
+        if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
+            trace!("--cache-from type=gha --cache-to type=gha");
+            command
+                .arg("--cache-from")
+                .arg("type=gha")
+                .arg("--cache-to")
+                .arg("type=gha");
+        } else if opts.squash {
             warn!("Squash is deprecated for docker, this functionality could disappear soon");
+            trace!("--squash");
             command.arg("--squash");
         }
 
@@ -169,16 +178,6 @@ impl BuildDriver for DockerDriver {
                 }
 
                 if opts.push {
-                    // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
-                    if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
-                        trace!("--cache-from type=gha --cache-to type=gha");
-                        command
-                            .arg("--cache-from")
-                            .arg("type=gha")
-                            .arg("--cache-to")
-                            .arg("type=gha");
-                    }
-
                     trace!("--output type=image,name={image},push=true,compression={},oci-mediatypes=true", opts.compression);
                     command.arg("--output").arg(format!(
                         "type=image,name={image},push=true,compression={},oci-mediatypes=true",

@@ -44,13 +44,6 @@ pub struct TemplateCommand {
     #[builder(default, setter(into, strip_option))]
     registry_namespace: Option<String>,
 
-    /// Puts the build in a `squash-stage` and
-    /// COPY's the results to the final stage
-    /// as one layer.
-    #[arg(long)]
-    #[builder(default)]
-    squash: bool,
-
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,

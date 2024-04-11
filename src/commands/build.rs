@@ -101,13 +101,6 @@ pub struct BuildCommand {
     #[builder(default, setter(into, strip_option))]
     password: Option<String>,
 
-    /// Puts the build in a `squash-stage` and
-    /// COPY's the results to the final stage
-    /// as one layer.
-    #[arg(long)]
-    #[builder(default)]
-    squash: bool,
-
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,
@@ -189,7 +182,7 @@ impl BlueBuildCommand for BuildCommand {
         TemplateCommand::builder()
             .recipe(&recipe_path)
             .output(PathBuf::from("Containerfile"))
-            .squash(self.squash)
+            .drivers(DriverArgs::builder().squash(self.drivers.squash).build())
             .build()
             .try_run()?;
 
@@ -224,7 +217,7 @@ impl BuildCommand {
                     archive_dir.to_string_lossy().trim_end_matches('/'),
                     recipe.name.to_lowercase().replace('/', "_"),
                 ))
-                .squash(self.squash)
+                .squash(self.drivers.squash)
                 .build()
         } else {
             BuildTagPushOpts::builder()
@@ -234,7 +227,7 @@ impl BuildCommand {
                 .no_retry_push(self.no_retry_push)
                 .retry_count(self.retry_count)
                 .compression(self.compression_format)
-                .squash(self.squash)
+                .squash(self.drivers.squash)
                 .build()
         };
 
