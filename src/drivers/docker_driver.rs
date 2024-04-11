@@ -60,8 +60,7 @@ impl BuildDriver for DockerDriver {
         command.arg("build");
 
         if opts.squash {
-            warn!("Squash is deprecated for docker, this functionality could disappear soon");
-            command.arg("--squash");
+            warn!("Squash is deprecated for docker so this build will not squash");
         }
 
         command
@@ -149,18 +148,8 @@ impl BuildDriver for DockerDriver {
             .arg("-f")
             .arg(CONTAINER_FILE);
 
-        // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
-        if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
-            trace!("--cache-from type=gha --cache-to type=gha");
-            command
-                .arg("--cache-from")
-                .arg("type=gha")
-                .arg("--cache-to")
-                .arg("type=gha");
-        } else if opts.squash {
-            warn!("Squash is deprecated for docker, this functionality could disappear soon");
-            trace!("--squash");
-            command.arg("--squash");
+        if opts.squash {
+            warn!("Squash is deprecated for docker so this build will not squash");
         }
 
         match (opts.image.as_ref(), opts.archive_path.as_ref()) {
@@ -178,6 +167,16 @@ impl BuildDriver for DockerDriver {
                 }
 
                 if opts.push {
+                    // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
+                    if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
+                        trace!("--cache-from type=gha --cache-to type=gha");
+                        command
+                            .arg("--cache-from")
+                            .arg("type=gha")
+                            .arg("--cache-to")
+                            .arg("type=gha");
+                    }
+
                     trace!("--output type=image,name={image},push=true,compression={},oci-mediatypes=true", opts.compression);
                     command.arg("--output").arg(format!(
                         "type=image,name={image},push=true,compression={},oci-mediatypes=true",

@@ -25,7 +25,6 @@ RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
       {%- include "modules/containerfile/containerfile.j2" %}
     {%- else %}
 RUN \
-  --mount=type=tmpfs,target=/var \
   --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
       {%- if let Some(source) = module.source %}
   --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \

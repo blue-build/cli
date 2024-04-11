@@ -103,13 +103,11 @@ pub struct DriverArgs {
     /// COPY's the results to the final stage
     /// as one layer.
     ///
-    /// NOTE: This doesn't work with buildkit builders
-    /// for docker. You will want to use the standard
-    /// builder to use squash.
+    /// WARN: This doesn't work with the
+    /// docker driver as it has been deprecated.
     ///
     /// NOTE: Squash has a performance benefit for
     /// the newer versions of podman and buildah.
-    /// It can also
     #[arg(short, long)]
     #[builder(default)]
     squash: bool,
