@@ -10,4 +10,12 @@ LABEL org.opencontainers.image.source="{{ repo }}"
 {%- endif %}
 LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md
 
+ARG RECIPE={{ recipe_path.display() }}
+ARG IMAGE_REGISTRY={{ registry }}
+
+ARG CONFIG_DIRECTORY="/tmp/config"
+ARG MODULE_DIRECTORY="/tmp/modules"
+ARG IMAGE_NAME="{{ recipe.name }}"
+ARG BASE_IMAGE="{{ recipe.base_image }}"
+
 {% include "modules/modules.j2" %}
