@@ -54,23 +54,21 @@ impl BuildDriver for DockerDriver {
     fn build(&self, opts: &BuildOpts) -> Result<()> {
         trace!("DockerDriver::build({opts:#?})");
 
-        trace!("docker build -t {} -f {CONTAINER_FILE} .", opts.image);
-        let mut command = Command::new("docker");
-
-        command.arg("build");
-
         if opts.squash {
             warn!("Squash is deprecated for docker so this build will not squash");
         }
 
-        command
+        trace!("docker build -t {} -f {CONTAINER_FILE} .", opts.image);
+        let status = Command::new("docker")
+            .arg("build")
             .arg("-t")
             .arg(opts.image.as_ref())
             .arg("-f")
             .arg(CONTAINER_FILE)
-            .arg(".");
+            .arg(".")
+            .status()?;
 
-        if command.status()?.success() {
+        if status.success() {
             info!("Successfully built {}", opts.image);
         } else {
             bail!("Failed to build {}", opts.image);
@@ -139,6 +137,10 @@ impl BuildDriver for DockerDriver {
     fn build_tag_push(&self, opts: &BuildTagPushOpts) -> Result<()> {
         trace!("DockerDriver::build_tag_push({opts:#?})");
 
+        if opts.squash {
+            warn!("Squash is deprecated for docker so this build will not squash");
+        }
+
         let mut command = Command::new("docker");
 
         trace!("docker buildx build -f {CONTAINER_FILE}");
@@ -147,10 +149,6 @@ impl BuildDriver for DockerDriver {
             .arg("build")
             .arg("-f")
             .arg(CONTAINER_FILE);
-
-        if opts.squash {
-            warn!("Squash is deprecated for docker so this build will not squash");
-        }
 
         match (opts.image.as_ref(), opts.archive_path.as_ref()) {
             (Some(image), None) => {

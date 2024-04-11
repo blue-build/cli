@@ -14,8 +14,6 @@ use crate::drivers::Driver;
 
 use super::{BlueBuildCommand, DriverArgs};
 
-// https://github.com/containers/buildah/issues/1234#issuecomment-534685356
-
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct TemplateCommand {
     /// The recipe file to create a template from
