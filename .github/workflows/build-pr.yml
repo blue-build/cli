@@ -96,9 +96,6 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    needs:
-      - build
-
     steps:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@v6
