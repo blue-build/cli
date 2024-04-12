@@ -1,9 +1,0 @@
-name: files
-shortdesc: The files module simplifies the process of copying files to the image during build time.
-readme: https://raw.githubusercontent.com/blue-build/cli/main/template/templates/modules/files/README.md
-example: |
-  type: files
-  files:
-    - usr: /usr 
-      # usr: file/folder inside config/files/ to copy (config/files/usr/ in the repository)
-      # /usr: destination on the final system

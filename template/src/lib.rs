@@ -2,8 +2,8 @@ use std::{borrow::Cow, env, fs, path::Path, process};
 
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::{
-    CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CI_SERVER_HOST, CI_SERVER_PROTOCOL,
-    COSIGN_PATH, GITHUB_REPOSITORY_OWNER, GITHUB_RESPOSITORY, GITHUB_SERVER_URL,
+    CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_SERVER_HOST, CI_SERVER_PROTOCOL, COSIGN_PATH,
+    GITHUB_RESPOSITORY, GITHUB_SERVER_URL,
 };
 use log::{debug, error, trace};
 use typed_builder::TypedBuilder;
@@ -22,33 +22,11 @@ pub struct ContainerFileTemplate<'a> {
     #[builder(setter(into))]
     build_id: Uuid,
 
-    #[builder(default)]
-    export_script: ExportsTemplate,
-
     #[builder(setter(into))]
     os_version: Cow<'a, str>,
-}
 
-#[derive(Debug, Clone, Default, Template)]
-#[template(path = "export.sh", escape = "none")]
-pub struct ExportsTemplate;
-
-impl ExportsTemplate {
-    fn print_script(&self) -> String {
-        trace!("print_script({self})");
-
-        format!(
-            "\"{}\"",
-            self.render()
-                .unwrap_or_else(|e| {
-                    error!("Failed to render export.sh script: {e}");
-                    process::exit(1);
-                })
-                .replace('\n', "\\n")
-                .replace('\"', "\\\"")
-                .replace('$', "\\$")
-        )
-    }
+    #[builder(setter(into))]
+    registry: Cow<'a, str>,
 }
 
 #[derive(Debug, Clone, Template, TypedBuilder)]
@@ -121,22 +99,6 @@ fn print_containerfile(containerfile: &str) -> String {
     file
 }
 
-fn get_github_repo_owner() -> Option<String> {
-    Some(env::var(GITHUB_REPOSITORY_OWNER).ok()?.to_lowercase())
-}
-
-fn get_gitlab_registry_path() -> Option<String> {
-    Some(
-        format!(
-            "{}/{}/{}",
-            env::var(CI_REGISTRY).ok()?,
-            env::var(CI_PROJECT_NAMESPACE).ok()?,
-            env::var(CI_PROJECT_NAME).ok()?,
-        )
-        .to_lowercase(),
-    )
-}
-
 fn get_repo_url() -> Option<String> {
     Some(
         match (
@@ -172,4 +134,11 @@ fn get_repo_url() -> Option<String> {
 fn modules_exists() -> bool {
     let mod_path = Path::new("modules");
     mod_path.exists() && mod_path.is_dir()
+}
+
+mod filters {
+    #[allow(clippy::unnecessary_wraps)]
+    pub fn replace<T: std::fmt::Display>(input: T, from: char, to: &str) -> askama::Result<String> {
+        Ok(format!("{input}").replace(from, to))
+    }
 }

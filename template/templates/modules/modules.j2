@@ -1,3 +1,16 @@
+# Key RUN
+RUN --mount=type=bind,from=stage-keys,src=/keys,dst=/tmp/keys \
+  mkdir -p /usr/etc/pki/containers/ \
+  && cp /tmp/keys/* /usr/etc/pki/containers/ \
+  && ostree container commit
+
+# Bin RUN
+RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
+  mkdir -p /usr/bin/ \
+  && cp /tmp/bins/* /usr/bin/ \
+  && ostree container commit
+
+# Module RUNs
 {%- for module in recipe.modules_ext.modules %}
   {%- if let Some(type) = module.module_type %}
     {%- if type == "containerfile" %}
@@ -14,10 +27,13 @@ RUN \
       {%- if type == "akmods" %}
   --mount=type=bind,from=stage-akmods-{{ module.generate_akmods_info(os_version).stage_name }},src=/rpms,dst=/tmp/rpms,rw \
       {%- endif %}
-  --mount=type=bind,from=stage-exports,src=/exports.sh,dst=/tmp/exports.sh \
+  --mount=type=bind,from=ghcr.io/blue-build/cli:exports,src=/exports.sh,dst=/tmp/exports.sh \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
-  chmod +x /tmp/modules/{{ type }}/{{ type }}.sh \
-  && source /tmp/exports.sh && /tmp/modules/{{ type }}/{{ type }}.sh '{{ module.print_module_context() }}' \
+  echo "========== Start {{ type|capitalize }} module ==========" \
+  && chmod +x /tmp/modules/{{ type }}/{{ type }}.sh \
+  && source /tmp/exports.sh \
+  && /tmp/modules/{{ type }}/{{ type }}.sh '{{ module.print_module_context() }}' \
+  && echo "========== End {{ type|capitalize }} module ==========" \
   && ostree container commit
     {%- endif %}
   {%- endif %}

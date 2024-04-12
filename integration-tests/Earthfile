@@ -2,72 +2,62 @@ VERSION 0.8
 PROJECT blue-build/cli
 
 all:
-	ARG NIGHTLY=false
-	BUILD +test-image --NIGHTLY=$NIGHTLY
-	BUILD +test-secureblue --NIGHTLY=$NIGHTLY
-	BUILD +build --NIGHTLY=$NIGHTLY
-	BUILD +rebase --NIGHTLY=$NIGHTLY
-	BUILD +upgrade --NIGHTLY=$NIGHTLY
+	BUILD +test-image
+	BUILD +test-secureblue
+	BUILD +build
+	BUILD +rebase
+	BUILD +upgrade
 
 test-image:
-	ARG NIGHTLY=false
-	FROM +build-template --NIGHTLY=$NIGHTLY --src=template-containerfile
+	FROM +build-template --src=template-containerfile
 	WORKDIR /tmp/test
 	COPY ./test-scripts/*.sh ./
 
 	DO +RUN_TESTS
 
 test-secureblue:
-	ARG NIGHTLY=false
-	FROM +build-template --NIGHTLY=$NIGHTLY --src=template-secureblue
+	FROM +build-template --src=template-secureblue
 	WORKDIR /tmp/test
 	COPY ./test-scripts/secureblue/*.sh ./
 
 	DO +RUN_TESTS
 
 build-template:
-	ARG NIGHTLY=false
 	ARG --required src
 	FROM DOCKERFILE \
 		-f +$src/test/Containerfile \
-		+$src/test/* --NIGHTLY=$NIGHTLY
+		+$src/test/*
 
 template-containerfile:
-	ARG NIGHTLY=false
-	FROM +test-base --NIGHTLY=$NIGHTLY
+	FROM +test-base
 	RUN bluebuild -vv template config/recipe.yml | tee Containerfile
 
 	SAVE ARTIFACT /test
 
 template-secureblue:
-	ARG NIGHTLY=false
-	FROM +secureblue-base --NIGHTLY=$NIGHTLY
+	FROM +secureblue-base
 	RUN bluebuild -vv template -o Containerfile config/recipes/general/recipe-silverblue-nvidia.yml
 
 	SAVE ARTIFACT /test
 
 build:
-	ARG NIGHTLY=false
-	FROM +test-base --NIGHTLY=$NIGHTLY
+	FROM +test-base
 
 	RUN --privileged bluebuild -vv build config/recipe.yml
 
 rebase:
-	ARG NIGHTLY=false
-	FROM +test-base --NIGHTLY=$NIGHTLY
+	FROM +test-base
 
 	RUN --privileged bluebuild -vv rebase config/recipe.yml
 
 upgrade:
-	ARG NIGHTLY=false
-	FROM +test-base --NIGHTLY=$NIGHTLY
+	FROM +test-base
 	RUN mkdir -p /etc/bluebuild && touch /etc/bluebuild/cli_test.tar.gz
 
 	RUN --privileged bluebuild -vv upgrade config/recipe.yml
 
 secureblue-base:
-	ARG NIGHTLY=false
-	FROM +test-base --NIGHTLY=$NIGHTLY
+	FROM +test-base
 
 	RUN rm -fr /test
 	GIT CLONE https://github.com/secureblue/secureblue.git /test
@@ -75,9 +65,7 @@ secureblue-base:
 	DO +GEN_KEYPAIR
 
 test-base:
-	ARG NIGHTLY=false
-
-	FROM ../+blue-build-cli-alpine --NIGHTLY=$NIGHTLY
+	FROM ../+blue-build-cli-alpine
 
 	COPY ./mock-scripts/ /usr/bin/
 

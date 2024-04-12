@@ -7,46 +7,41 @@ ARG --global IMAGE=ghcr.io/blue-build/cli
 
 all:
 	BUILD +build
-	BUILD ./integration-tests+all --NIGHTLY=true --NIGHTLY=false
+	BUILD ./integration-tests+all
 
 build:
-	BUILD +default
-	BUILD +nightly
-
-default:
-	ARG NIGHTLY=false
-	BUILD +lint --NIGHTLY=$NIGHTLY
-	BUILD +test --NIGHTLY=$NIGHTLY
-	BUILD +blue-build-cli --NIGHTLY=$NIGHTLY
-	BUILD +blue-build-cli-alpine --NIGHTLY=$NIGHTLY
-	BUILD +installer --NIGHTLY=$NIGHTLY
-
-nightly:
-	BUILD +default --NIGHTLY=true
+	WAIT
+		BUILD +exports-script
+	END
+	BUILD +lint
+	BUILD +test
+	BUILD +blue-build-cli
+	BUILD +blue-build-cli-alpine
+	BUILD +installer
 
 lint:
 	FROM +common
-
-	ARG NIGHTLY=false
-
-	DO cargo+LINT --NIGHTLY=$NIGHTLY
+	DO cargo+LINT
 
 test:
 	FROM +common
-
-	ARG NIGHTLY=false
-
-	DO cargo+TEST --NIGHTLY=$NIGHTLY
+	DO cargo+TEST
 
 install:
 	FROM +common
 
-	ARG NIGHTLY=false
 	ARG --required BUILD_TARGET
 
-	DO cargo+BUILD_RELEASE --BUILD_TARGET=$BUILD_TARGET --NIGHTLY=$NIGHTLY
+	DO cargo+BUILD_RELEASE --BUILD_TARGET=$BUILD_TARGET
 
 	SAVE ARTIFACT target/$BUILD_TARGET/release/bluebuild
+
+exports-script:
+	FROM alpine
+	LABEL org.opencontainers.image.source="https://github.com/blue-build/cli"
+	COPY exports.sh /
+	RUN chmod +x exports.sh
+	SAVE IMAGE --push $IMAGE:exports
 
 common:
 	FROM ghcr.io/blue-build/earthly-lib/cargo-builder
@@ -62,9 +57,8 @@ common:
 
 blue-build-cli:
 	FROM registry.fedoraproject.org/fedora-toolbox
-	ARG NIGHTLY=false
 
-	BUILD +install --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY
+	BUILD +install --BUILD_TARGET="x86_64-unknown-linux-gnu"
 
 	RUN dnf -y install dnf-plugins-core \
 		&& dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo \
@@ -81,7 +75,7 @@ blue-build-cli:
 
 	COPY +cosign/cosign /usr/bin/cosign
 
-	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-gnu" --NIGHTLY=$NIGHTLY) /usr/bin/bluebuild
+	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-gnu") /usr/bin/bluebuild
 
 	ARG TAG
 	ARG LATEST=false
@@ -90,18 +84,17 @@ blue-build-cli:
 	WORKDIR /bluebuild
 	ENTRYPOINT ["bluebuild"]
 
-	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY
+	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST
 
 blue-build-cli-alpine:
 	FROM alpine
-	ARG NIGHTLY=false
 
-	BUILD +install --BUILD_TARGET="x86_64-unknown-linux-musl" --NIGHTLY=$NIGHTLY
+	BUILD +install --BUILD_TARGET="x86_64-unknown-linux-musl"
 
 	RUN apk update && apk add buildah podman skopeo fuse-overlayfs
 
 	COPY +cosign/cosign /usr/bin/cosign
-	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-musl" --NIGHTLY=$NIGHTLY) /usr/bin/bluebuild
+	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-musl") /usr/bin/bluebuild
 
 	ARG TAG
 	ARG LATEST=false
@@ -110,20 +103,19 @@ blue-build-cli-alpine:
 	WORKDIR /bluebuild
 	ENTRYPOINT ["bluebuild"]
 
-	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY --ALPINE=true
+	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --ALPINE=true
 
 installer:
 	FROM alpine
-	ARG NIGHTLY=false
 
-	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-musl" --NIGHTLY=$NIGHTLY) /out/bluebuild
+	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-musl") /out/bluebuild
 	COPY install.sh /install.sh
 
 	CMD ["cat", "/install.sh"]
 
 	ARG TAG
 	ARG LATEST=false
-	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --NIGHTLY=$NIGHTLY --INSTALLER=true
+	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --INSTALLER=true
 
 cosign:
 	FROM gcr.io/projectsigstore/cosign

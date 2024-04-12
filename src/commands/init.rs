@@ -102,7 +102,7 @@ impl BlueBuildCommand for InitCommand {
                 .build();
 
             let response: GitHubRepoResponse = ureq::post(api_url)
-                .set("Authorization", &format!("token {}", token))
+                .set("Authorization", &format!("token {token}"))
                 .set("Accept", "application/vnd.github.v3+json")
                 .send_json(ureq::json!(repo_request))?
                 .into_json()?;
@@ -140,7 +140,7 @@ fn clone_repository(repo_url: &str, dir: &Path) -> Result<()> {
         .status()
         .context("Failed to execute git clone")?;
 
-    println!("Repository cloned successfully into {:?}", dir);
+    println!("Repository cloned successfully into {}", dir.display());
     Ok(())
 }
 

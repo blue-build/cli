@@ -58,7 +58,8 @@ impl BlueBuildCommand for UpgradeCommand {
             .force(self.common.force)
             .build();
 
-        let image_name = build.generate_full_image_name(&recipe)?;
+        let image_name = recipe.name.to_lowercase().replace('/', "_");
+
         clean_local_build_dir(&image_name, false)?;
         debug!("Image name is {image_name}");
 
@@ -67,6 +68,7 @@ impl BlueBuildCommand for UpgradeCommand {
         let status = if self.common.reboot {
             info!("Upgrading image {image_name} and rebooting");
 
+            trace!("rpm-ostree upgrade --reboot");
             Command::new("rpm-ostree")
                 .arg("upgrade")
                 .arg("--reboot")
@@ -74,6 +76,7 @@ impl BlueBuildCommand for UpgradeCommand {
         } else {
             info!("Upgrading image {image_name}");
 
+            trace!("rpm-ostree upgrade");
             Command::new("rpm-ostree").arg("upgrade").status()?
         };
 
@@ -106,26 +109,31 @@ impl BlueBuildCommand for RebaseCommand {
             .force(self.common.force)
             .build();
 
-        let image_name = build.generate_full_image_name(&recipe)?;
+        let image_name = recipe.name.to_lowercase().replace('/', "_");
         clean_local_build_dir(&image_name, true)?;
         debug!("Image name is {image_name}");
 
         build.try_run()?;
+        let rebase_url = format!(
+            "ostree-unverified-image:oci-archive:{LOCAL_BUILD}/{image_name}.{ARCHIVE_SUFFIX}"
+        );
 
         let status = if self.common.reboot {
             info!("Rebasing image {image_name} and rebooting");
 
+            trace!("rpm-ostree rebase --reboot {rebase_url}");
             Command::new("rpm-ostree")
                 .arg("rebase")
                 .arg("--reboot")
-                .arg(format!("ostree-unverified-image:{image_name}"))
+                .arg(rebase_url)
                 .status()?
         } else {
             info!("Rebasing image {image_name}");
 
+            trace!("rpm-ostree rebase {rebase_url}");
             Command::new("rpm-ostree")
                 .arg("rebase")
-                .arg(format!("ostree-unverified-image:{image_name}"))
+                .arg(rebase_url)
                 .status()?
         };
 
@@ -158,7 +166,7 @@ fn clean_local_build_dir(image_name: &str, rebase: bool) -> Result<()> {
     trace!("clean_local_build_dir()");
 
     let local_build_path = Path::new(LOCAL_BUILD);
-    let image_file_path = local_build_path.join(image_name.trim_start_matches("oci-archive:"));
+    let image_file_path = local_build_path.join(format!("{image_name}.{ARCHIVE_SUFFIX}"));
 
     if !image_file_path.exists() && !rebase {
         bail!(

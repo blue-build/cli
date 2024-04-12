@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.3] - 2024-03-27
+
+### Bug Fixes
+
+- Checkout proper versions when building on main vs a PR
+- Use container skopeo (#110)
+- Remove tmpfs for /tmp (#123)
+- Allow docker driver to properly use cache (#126)
+- Allow special characters for export script (#128)
+- Copy bins and keys with mounts for ostree commit (#132)
+- Set gzip to default compression format
+- Create dir for keys and bins in case they don't exist
+- Allow user supplied registry to be set in the template (#135)
+- Unable to use SHELL with podman, encapsulate commands in /bin/bash -c
+- Put export script in own image
+- Remove docker syntax marker
+- Pulling wrong exports image
+
+### Features
+
+- Revert to bash files module (#125)
+- Support `zstd` compression (#134)
+- Improve logging output (#139)
+
+### Miscellaneous Tasks
+
+- Update workspace dependency versions
+- Setup build concurrency to reduce number of simultaneous builds on a PR
+- Adjust readme path in files module.yml
+- Fix readme path for containerfile module in module.yml
+- Add version checks for upstream tools (#121)
+- Don't build nightly for now
+- Separate nightly build to not run in CI for now
+- Remove builtin-podman code
+- Enable cache builds on main branch
+- Don't use docker driver for buildx job on main
+- Update gitlab-ci section in README
+- Add image source label for exports
+- Use tag exports instead
+- Fix build.yml
+
+### Refactor
+
+- Rename strategies to drivers
+
 ## [0.8.2] - 2024-03-09
 
 ### Bug Fixes
@@ -28,6 +73,7 @@ All notable changes to this project will be documented in this file.
 - Update builds to use different satellites and have integration tests on their own job
 - Move cargo release settings to root Cargo.toml
 - Update crates to have their own versions starting at CLI version
+- Prepare for v0.8.2 release
 
 ### Refactor
 
@@ -197,9 +243,21 @@ All notable changes to this project will be documented in this file.
 
 ### Miscellaneous Tasks
 
+- Create GitHub Workflow (#9)
+- Don't build integration tests in +all
+- Allow write for contents and id-token
+- Allow workflow_dispatch on build
+- Use docker/login-action@v3
+- Set packages permissions to write
+- Update README.md (#10)
+- Use GHCR for install.sh (#11)
+- Remove input for release
+- Add CARGO_REGISTRY_TOKEN
+- Fetch all to get history for changelog updates
+- Allow write for id-token
 - Bump version
 
-## [0.5.2] - 2024-01-24
+## [0.5.2] - 2024-01-22
 
 ### Bug Fixes
 
@@ -219,18 +277,6 @@ All notable changes to this project will be documented in this file.
 
 - Update Cargo.toml with new repo URL
 - Manual bump of version
-- Create GitHub Workflow (#9)
-- Don't build integration tests in +all
-- Allow write for contents and id-token
-- Allow workflow_dispatch on build
-- Use docker/login-action@v3
-- Set packages permissions to write
-- Update README.md (#10)
-- Use GHCR for install.sh (#11)
-- Remove input for release
-- Add CARGO_REGISTRY_TOKEN
-- Fetch all to get history for changelog updates
-- Allow write for id-token
 
 ## [0.5.1] - 2024-01-22
 
