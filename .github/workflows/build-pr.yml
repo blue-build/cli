@@ -129,7 +129,6 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          earthly +exports-script
           earthly -a +install/bluebuild --BUILD_TARGET=x86_64-unknown-linux-musl /usr/local/bin/bluebuild
 
       - name: Expose GitHub Runtime

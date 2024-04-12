@@ -97,6 +97,9 @@ jobs:
       contents: read
       packages: write
       id-token: write
+    needs:
+      - build
+
     steps:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@v6
@@ -126,7 +129,6 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          earthly +exports-script
           earthly -a +install/bluebuild --BUILD_TARGET=x86_64-unknown-linux-musl /usr/local/bin/bluebuild
 
       - name: Expose GitHub Runtime
