@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build
-    if: needs.build.has_exports == "true"
+    if: needs.build.has_exports == 'true'
 
     steps:
       - name: Maximize build space
@@ -101,7 +101,7 @@ jobs:
       id-token: write
     needs:
       - build
-    if: needs.build.has_exports == "true"
+    if: needs.build.has_exports == 'true'
 
     steps:
       - name: Maximize build space
