@@ -11,4 +11,9 @@ if [ "$1" = "rebase" ]; then
    echo "Failed to rebase"
    exit 1
   fi
+else if [ "$1" = "upgrade" ]; then
+  echo "Performing upgrade for $BB_TEST_LOCAL_IMAGE"
+else
+  echo "Arg $1 is not recognized"
+  exit 1
 fi
