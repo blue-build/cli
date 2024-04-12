@@ -39,10 +39,23 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.ref }}
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        if: secrets.GITHUB_TOKEN != null
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run build
-        run: earthly --ci +build
+        run: |
+          if [ -n "${{ secrets.GITHUB_TOKEN }}" ]; then
+            earthly --ci --push +exports-script
+          fi
+          earthly --ci +build
 
   integration-tests:
+    if: secrets.GITHUB_TOKEN != null
     permissions:
       packages: write
     timeout-minutes: 60
