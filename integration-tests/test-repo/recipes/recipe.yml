@@ -42,4 +42,3 @@ modules:
       - labels
     snippets:
       - RUN echo "This is a snippet" && ostree container commit
-

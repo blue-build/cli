@@ -4,6 +4,7 @@ PROJECT blue-build/cli
 all:
 	BUILD +test-image
 	BUILD +test-secureblue
+	BUILD +test-legacy-image
 	BUILD +build
 	BUILD +rebase
 	BUILD +upgrade
@@ -56,18 +57,18 @@ template-secureblue:
 build:
 	FROM +test-base
 
-	RUN --privileged bluebuild -vv build recipes/recipe.yml
+	RUN bluebuild -vv build recipes/recipe.yml
 
 rebase:
 	FROM +test-base
 
-	RUN --privileged bluebuild -vv rebase recipes/recipe.yml
+	RUN bluebuild -vv rebase recipes/recipe.yml
 
 upgrade:
 	FROM +test-base
 	RUN mkdir -p /etc/bluebuild && touch /etc/bluebuild/cli_test.tar.gz
 
-	RUN --privileged bluebuild -vv upgrade recipes/recipe.yml
+	RUN bluebuild -vv upgrade recipes/recipe.yml
 
 secureblue-base:
 	FROM +test-base
