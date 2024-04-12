@@ -120,7 +120,7 @@ jobs:
       - name: Earthly login
         if: github.secrets.EARTHLY_SAT_TOKEN != null
         run: |
-          earthly account login --token ${{ github.secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
+          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
           earthly sat s blue-build-integration-tests
 
