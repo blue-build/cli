@@ -23,16 +23,20 @@ jobs:
     steps:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@v6
-        if: github.secrets.EARTHLY_SAT_TOKEN == null
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN == null
 
       - uses: earthly/actions-setup@v1
         with:
           version: v0.8.4
 
       - name: Earthly login
-        if: github.secrets.EARTHLY_SAT_TOKEN != null
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN != null
         run: |
-          earthly account login --token ${{ github.secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
+          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
           earthly sat s blue-build-main
 
@@ -63,16 +67,20 @@ jobs:
     steps:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@v6
-        if: github.secrets.EARTHLY_SAT_TOKEN == null
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN == null
 
       - uses: earthly/actions-setup@v1
         with:
           version: v0.8.4
 
       - name: Earthly login
-        if: github.secrets.EARTHLY_SAT_TOKEN != null
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN != null
         run: |
-          earthly account login --token ${{ github.secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
+          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
           earthly sat s blue-build-integration-tests
 
@@ -110,9 +118,11 @@ jobs:
           install: true
 
       - name: Earthly login
-        if: github.secrets.EARTHLY_SAT_TOKEN != null
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN != null
         run: |
-          earthly account login --token ${{ github.secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
+          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
           earthly sat s blue-build-integration-tests
 
@@ -131,7 +141,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_PR_EVENT_NUMBER: ${{ github.event.number }}
-          COSIGN_PRIVATE_KEY: ${{ github.secrets.TEST_SIGNING_SECRET }}
+          COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
           BB_BUILDKIT_CACHE_GHA: true
         run: |
           cd integration-tests/test-repo
