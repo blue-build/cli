@@ -127,7 +127,7 @@ jobs:
         run: |
           earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
-          earthly sat s blue-build-integration-tests
+          earthly sat s blue-build-pr
 
       - uses: actions/checkout@v4
         with:
