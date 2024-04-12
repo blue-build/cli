@@ -1,3 +1,14 @@
 #!/bin/sh
 
+set -euo pipefail
+
 echo 'Running rpm-ostree'
+
+if [ "$1" = "rebase" ]; then
+  if [ "$2" = "ostree-unverified-image:oci-archive:$BB_TEST_LOCAL_IMAGE" ]; then
+    echo "Rebased to local image $BB_TEST_LOCAL_IMAGE"
+  else
+   echo "Failed to rebase"
+   exit 1
+  fi
+fi
