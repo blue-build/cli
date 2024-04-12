@@ -54,7 +54,7 @@ common:
 	COPY --keep-ts *.md /app
 	COPY --keep-ts LICENSE /app
 	COPY --keep-ts build.rs /app
-	COPY --dir .git/ /app
+	COPY --keep-ts --dir .git/ /app
 	RUN touch build.rs
 
 	DO cargo+INIT
