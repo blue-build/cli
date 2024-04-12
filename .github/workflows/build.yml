@@ -56,11 +56,16 @@ jobs:
         if: github.repository == 'blue-build/cli'
         run: earthly --push --ci +build
 
+      - name: Run build fork
+        if: github.repository != 'blue-build/cli'
+        run: earthly --ci +build
+
   integration-tests:
     permissions:
       packages: write
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    if: github.repository == 'blue-build/cli'
     needs:
       - build
 
@@ -100,6 +105,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
+    if: github.repository == 'blue-build/cli'
     needs:
       - build
 
