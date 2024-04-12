@@ -146,6 +146,7 @@ installer:
 		ARG EARTHLY_GIT_BRANCH
 		SAVE IMAGE --push $IMAGE:$EARTHLY_GIT_BRANCH-installer
 	END
+	SAVE ARTIFACT /out/bluebuild
 
 cosign:
 	FROM gcr.io/projectsigstore/cosign

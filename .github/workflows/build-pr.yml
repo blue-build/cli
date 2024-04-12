@@ -129,7 +129,7 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          earthly -a +blue-build-cli-alpine/usr/bin/bluebuild /usr/local/bin/bluebuild
+          earthly -a +installer/bluebuild /usr/local/bin/bluebuild
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@v3
