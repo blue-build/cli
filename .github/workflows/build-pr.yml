@@ -118,7 +118,9 @@ jobs:
           install: true
 
       - name: Earthly login
-        if: github.secrets.EARTHLY_SAT_TOKEN != null
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN != null
         run: |
           earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
