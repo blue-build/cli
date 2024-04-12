@@ -50,6 +50,7 @@ jobs:
           password: ${{ github.token }}
 
       - name: Run build
+        id: build
         run: |
           if [ -n "${{ github.token }}" ]; then
             earthly --ci --push +exports-script
