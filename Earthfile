@@ -42,8 +42,8 @@ exports-script:
 	COPY exports.sh /
 	RUN chmod +x exports.sh
 
-	ARG EARTHLY_GIT_SHORT_HASH
-	SAVE IMAGE --push $IMAGE:$EARTHLY_GIT_SHORT_HASH-exports
+	ARG EARTHLY_GIT_HASH
+	SAVE IMAGE --push $IMAGE:$EARTHLY_GIT_HASH-exports
 
 common:
 	FROM ghcr.io/blue-build/earthly-lib/cargo-builder
@@ -114,11 +114,10 @@ blue-build-cli-alpine:
 	ENTRYPOINT ["bluebuild"]
 
 	ARG TAG
-	ARG LATEST=false
-
 	IF [ -n "$TAG" ]
 		SAVE IMAGE --push $IMAGE:$TAG-alpine
 
+		ARG LATEST=false
 		IF [ "$LATEST" = "true" ]
 			SAVE IMAGE --push $IMAGE:latest-alpine
 		END
@@ -136,11 +135,10 @@ installer:
 	CMD ["cat", "/install.sh"]
 
 	ARG TAG
-	ARG LATEST=false
-
 	IF [ -n "$TAG" ]
 		SAVE IMAGE --push $IMAGE:$TAG-installer
 
+		ARG LATEST=false
 		IF [ "$LATEST" = "true" ]
 			SAVE IMAGE --push $IMAGE:latest-installer
 		END
