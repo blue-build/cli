@@ -23,15 +23,11 @@ fn append_write_const(mut file: &File) -> SdResult<()> {
         })
         .unwrap_or(None);
 
-    let short_hash = Command::new("git")
-        .args(["rev-parse", "--short", "HEAD"])
-        .output()
-        .map(|x| {
-            String::from_utf8(x.stdout)
-                .ok()
-                .map(|x| x.trim().to_string())
-        })
-        .unwrap_or(None);
+    let short_hash = hash.as_ref().map(|hash| {
+        let mut hash = hash.clone();
+        hash.truncate(8);
+        hash
+    });
 
     let hook_const: &str = &format!(
         "{}\n{}",
