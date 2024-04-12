@@ -42,13 +42,8 @@ exports-script:
 	COPY exports.sh /
 	RUN chmod +x exports.sh
 
-	ARG TAG
-	IF [ -n "$TAG" ]
-		SAVE IMAGE --push $IMAGE:$TAG-exports
-	ELSE
-		ARG EARTHLY_GIT_BRANCH
-		SAVE IMAGE --push $IMAGE:$EARTHLY_GIT_BRANCH-exports
-	END
+	ARG EARTHLY_GIT_SHORT_HASH
+	SAVE IMAGE --push $IMAGE:$EARTHLY_GIT_SHORT_HASH-exports
 
 common:
 	FROM ghcr.io/blue-build/earthly-lib/cargo-builder
