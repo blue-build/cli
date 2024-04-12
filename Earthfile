@@ -71,7 +71,10 @@ blue-build-cli:
 			docker-compose-plugin \
 			buildah \
 			podman \
-			skopeo
+			skopeo \
+			systemd
+
+	COPY rootless_containers.conf /etc/containers/containers.conf
 
 	COPY +cosign/cosign /usr/bin/cosign
 
@@ -91,7 +94,8 @@ blue-build-cli-alpine:
 
 	BUILD +install --BUILD_TARGET="x86_64-unknown-linux-musl"
 
-	RUN apk update && apk add buildah podman skopeo fuse-overlayfs
+	RUN apk update && apk add buildah podman skopeo fuse-overlayfs shadow
+	COPY rootless_containers.conf /etc/containers/containers.conf
 
 	COPY +cosign/cosign /usr/bin/cosign
 	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-musl") /usr/bin/bluebuild
@@ -120,3 +124,4 @@ installer:
 cosign:
 	FROM gcr.io/projectsigstore/cosign
 	SAVE ARTIFACT /ko-app/cosign
+
