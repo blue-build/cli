@@ -41,7 +41,9 @@ exports-script:
 	LABEL org.opencontainers.image.source="https://github.com/blue-build/cli"
 	COPY exports.sh /
 	RUN chmod +x exports.sh
-	SAVE IMAGE --push $IMAGE:exports
+
+	ARG EARTHLY_GIT_HASH
+	SAVE IMAGE --push $IMAGE:$EARTHLY_GIT_HASH-exports
 
 common:
 	FROM ghcr.io/blue-build/earthly-lib/cargo-builder
@@ -52,6 +54,8 @@ common:
 	COPY --keep-ts *.md /app
 	COPY --keep-ts LICENSE /app
 	COPY --keep-ts build.rs /app
+	COPY --keep-ts --dir .git/ /app
+	RUN touch build.rs
 
 	DO cargo+INIT
 
@@ -77,14 +81,23 @@ blue-build-cli:
 
 	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-gnu") /usr/bin/bluebuild
 
-	ARG TAG
-	ARG LATEST=false
-
 	RUN mkdir -p /bluebuild
 	WORKDIR /bluebuild
 	ENTRYPOINT ["bluebuild"]
 
-	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST
+	ARG TAG
+	ARG LATEST=false
+
+	IF [ -n "$TAG" ]
+		SAVE IMAGE --push $IMAGE:$TAG
+
+		IF [ "$LATEST" = "true" ]
+			SAVE IMAGE --push $IMAGE:latest
+		END
+	ELSE
+		ARG EARTHLY_GIT_BRANCH
+		SAVE IMAGE --push $IMAGE:$EARTHLY_GIT_BRANCH
+	END
 
 blue-build-cli-alpine:
 	FROM alpine
@@ -96,14 +109,22 @@ blue-build-cli-alpine:
 	COPY +cosign/cosign /usr/bin/cosign
 	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-musl") /usr/bin/bluebuild
 
-	ARG TAG
-	ARG LATEST=false
-
 	RUN mkdir -p /bluebuild
 	WORKDIR /bluebuild
 	ENTRYPOINT ["bluebuild"]
 
-	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --ALPINE=true
+	ARG TAG
+	IF [ -n "$TAG" ]
+		SAVE IMAGE --push $IMAGE:$TAG-alpine
+
+		ARG LATEST=false
+		IF [ "$LATEST" = "true" ]
+			SAVE IMAGE --push $IMAGE:latest-alpine
+		END
+	ELSE
+		ARG EARTHLY_GIT_BRANCH
+		SAVE IMAGE --push $IMAGE:$EARTHLY_GIT_BRANCH-alpine
+	END
 
 installer:
 	FROM alpine
@@ -114,8 +135,18 @@ installer:
 	CMD ["cat", "/install.sh"]
 
 	ARG TAG
-	ARG LATEST=false
-	DO cargo+SAVE_IMAGE --IMAGE=$IMAGE --TAG=$TAG --LATEST=$LATEST --INSTALLER=true
+	IF [ -n "$TAG" ]
+		SAVE IMAGE --push $IMAGE:$TAG-installer
+
+		ARG LATEST=false
+		IF [ "$LATEST" = "true" ]
+			SAVE IMAGE --push $IMAGE:latest-installer
+		END
+	ELSE
+		ARG EARTHLY_GIT_BRANCH
+		SAVE IMAGE --push $IMAGE:$EARTHLY_GIT_BRANCH-installer
+	END
+	SAVE ARTIFACT /out/bluebuild
 
 cosign:
 	FROM gcr.io/projectsigstore/cosign

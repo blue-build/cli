@@ -10,7 +10,7 @@ use clap::Args;
 use log::{debug, info, trace};
 use typed_builder::TypedBuilder;
 
-use crate::drivers::Driver;
+use crate::{drivers::Driver, shadow};
 
 use super::{BlueBuildCommand, DriverArgs};
 
@@ -86,6 +86,7 @@ impl TemplateCommand {
             .recipe(&recipe_de)
             .recipe_path(recipe_path.as_path())
             .registry(self.get_registry())
+            .exports_tag(shadow::BB_COMMIT_HASH)
             .build();
 
         let output_str = template.render()?;
