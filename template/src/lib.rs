@@ -28,6 +28,9 @@ pub struct ContainerFileTemplate<'a> {
 
     #[builder(setter(into))]
     registry: Cow<'a, str>,
+
+    #[builder(setter(into))]
+    exports_tag: Cow<'a, str>,
 }
 
 #[derive(Debug, Clone, Template, TypedBuilder)]
