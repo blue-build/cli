@@ -1,16 +1,20 @@
-use std::{env, path::PathBuf};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::constants::{
-    CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, GITHUB_REPOSITORY_OWNER, RECIPE_PATH,
+    CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CONFIG_PATH, GITHUB_REPOSITORY_OWNER,
+    RECIPE_FILE, RECIPE_PATH,
 };
 use clap::Args;
-use log::{debug, info, trace};
+use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 
-use crate::drivers::Driver;
+use crate::{drivers::Driver, shadow};
 
 use super::{BlueBuildCommand, DriverArgs};
 
@@ -49,14 +53,6 @@ pub struct TemplateCommand {
 
 impl BlueBuildCommand for TemplateCommand {
     fn try_run(&mut self) -> Result<()> {
-        info!(
-            "Templating for recipe at {}",
-            self.recipe
-                .clone()
-                .unwrap_or_else(|| PathBuf::from(RECIPE_PATH))
-                .display()
-        );
-
         Driver::builder()
             .build_driver(self.drivers.build_driver)
             .inspect_driver(self.drivers.inspect_driver)
@@ -71,10 +67,18 @@ impl TemplateCommand {
     fn template_file(&self) -> Result<()> {
         trace!("TemplateCommand::template_file()");
 
-        let recipe_path = self
-            .recipe
-            .clone()
-            .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
+        let recipe_path = self.recipe.clone().unwrap_or_else(|| {
+            let legacy_path = Path::new(CONFIG_PATH);
+            let recipe_path = Path::new(RECIPE_PATH);
+            if recipe_path.exists() && recipe_path.is_dir() {
+                recipe_path.join(RECIPE_FILE)
+            } else {
+                warn!("Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}");
+                legacy_path.join(RECIPE_FILE)
+            }
+        });
+
+        info!("Templating for recipe at {}", recipe_path.display());
 
         debug!("Deserializing recipe");
         let recipe_de = Recipe::parse(&recipe_path)?;
@@ -86,6 +90,7 @@ impl TemplateCommand {
             .recipe(&recipe_de)
             .recipe_path(recipe_path.as_path())
             .registry(self.get_registry())
+            .exports_tag(shadow::BB_COMMIT_HASH)
             .build();
 
         let output_str = template.render()?;

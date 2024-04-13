@@ -1,7 +1,8 @@
-use std::{borrow::Cow, collections::HashSet, fs, path::PathBuf};
+use std::{borrow::Cow, collections::HashSet, fs, path::Path};
 
 use anyhow::Result;
-use log::trace;
+use blue_build_utils::constants::{CONFIG_PATH, RECIPE_PATH};
+use log::{trace, warn};
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 
@@ -20,11 +21,14 @@ impl ModuleExt<'_> {
     /// Can return an `anyhow` Error if the file cannot be read or deserialized
     /// into a [`ModuleExt`]
     pub fn parse_module_from_file(file_name: &str) -> Result<Self> {
-        let file_path = PathBuf::from("config").join(file_name);
-        let file_path = if file_path.is_absolute() {
-            file_path
+        let legacy_path = Path::new(CONFIG_PATH);
+        let recipe_path = Path::new(RECIPE_PATH);
+
+        let file_path = if recipe_path.exists() && recipe_path.is_dir() {
+            recipe_path.join(file_name)
         } else {
-            std::env::current_dir()?.join(file_path)
+            warn!("Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}");
+            legacy_path.join(file_name)
         };
 
         let file = fs::read_to_string(file_path)?;

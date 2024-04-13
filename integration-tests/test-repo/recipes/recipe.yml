@@ -37,3 +37,8 @@ modules:
 
   - type: test-module
 
+  - type: containerfile
+    containerfiles:
+      - labels
+    snippets:
+      - RUN echo "This is a snippet" && ostree container commit

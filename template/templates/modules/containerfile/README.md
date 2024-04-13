@@ -29,7 +29,7 @@ This makes it really easy to copy a file or program from another image.
 
 ### `containerfiles:`
 
-The `containerfiles` property allows you to tell the compiler which directory contains a `Containerfile` in `./config/containerfiles/`. 
+The `containerfiles` property allows you to tell the compiler which directory contains a `Containerfile` in `./containerfiles/`. 
 
 Below is an example of how a `containerfile` module would be used with the `containerfiles` property:
 
@@ -43,10 +43,10 @@ modules:
 
 In the example above, the compiler would look for these files:
 
-- `./config/containerfiles/example/Containerfile`
-- `./config/containerfiles/subroutine/Containerfile`
+- `./containerfiles/example/Containerfile`
+- `./containerfiles/subroutine/Containerfile`
 
-You could then store files related to say the `subroutine` `Containerfile` in `./config/containerfiles/subroutine/` to keep it organized and portable for other recipes to use.
+You could then store files related to say the `subroutine` `Containerfile` in `./containerfiles/subroutine/` to keep it organized and portable for other recipes to use.
 
 :::note
 **NOTE:** The instructions you add in your `Containerfile`'s each become a layer unlike other modules which are typically run as a single `RUN` command, thus creating only one layer.
