@@ -8,10 +8,10 @@ use anyhow::{bail, Result};
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::{
     ARCHIVE_SUFFIX, BUILD_ID_LABEL, CI_DEFAULT_BRANCH, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE,
-    CI_PROJECT_URL, CI_REGISTRY, CI_SERVER_HOST, CI_SERVER_PROTOCOL, CONTAINER_FILE, COSIGN_PATH,
-    COSIGN_PRIVATE_KEY, GITHUB_REPOSITORY_OWNER, GITHUB_TOKEN, GITHUB_TOKEN_ISSUER_URL,
-    GITHUB_WORKFLOW_REF, GITIGNORE_PATH, LABELED_ERROR_MESSAGE, NO_LABEL_ERROR_MESSAGE,
-    RECIPE_PATH, SIGSTORE_ID_TOKEN,
+    CI_PROJECT_URL, CI_REGISTRY, CI_SERVER_HOST, CI_SERVER_PROTOCOL, CONFIG_PATH, CONTAINER_FILE,
+    COSIGN_PATH, COSIGN_PRIVATE_KEY, GITHUB_REPOSITORY_OWNER, GITHUB_TOKEN,
+    GITHUB_TOKEN_ISSUER_URL, GITHUB_WORKFLOW_REF, GITIGNORE_PATH, LABELED_ERROR_MESSAGE,
+    NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH, SIGSTORE_ID_TOKEN,
 };
 use clap::Args;
 use colored::Colorize;
@@ -174,10 +174,16 @@ impl BlueBuildCommand for BuildCommand {
             bail!("You cannot use '--archive' and '--push' at the same time");
         }
 
-        let recipe_path = self
-            .recipe
-            .clone()
-            .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
+        let recipe_path = self.recipe.clone().unwrap_or_else(|| {
+            let legacy_path = Path::new(CONFIG_PATH);
+            let recipe_path = Path::new(RECIPE_PATH);
+            if recipe_path.exists() && recipe_path.is_dir() {
+                recipe_path.join(RECIPE_FILE)
+            } else {
+                warn!("Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}");
+                legacy_path.join(RECIPE_FILE)
+            }
+        });
 
         TemplateCommand::builder()
             .recipe(&recipe_path)

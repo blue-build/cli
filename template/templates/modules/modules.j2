@@ -18,7 +18,11 @@ RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
     {%- else %}
 RUN \
   --mount=type=tmpfs,target=/var \
+      {%- if files_dir_exists %}
+  --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,rw \
+      {%- else %}
   --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
+      {%- endif %}
       {%- if let Some(source) = module.source %}
   --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
       {%- else %}
@@ -27,7 +31,7 @@ RUN \
       {%- if type == "akmods" %}
   --mount=type=bind,from=stage-akmods-{{ module.generate_akmods_info(os_version).stage_name }},src=/rpms,dst=/tmp/rpms,rw \
       {%- endif %}
-  --mount=type=bind,from=ghcr.io/blue-build/cli:exports,src=/exports.sh,dst=/tmp/exports.sh \
+  --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-exports,src=/exports.sh,dst=/tmp/exports.sh \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
   echo "========== Start {{ type|capitalize }} module ==========" \
   && chmod +x /tmp/modules/{{ type }}/{{ type }}.sh \

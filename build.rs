@@ -7,12 +7,7 @@ fn main() -> SdResult<()> {
     shadow_rs::new_hook(hook)
 }
 
-fn hook(file: &File) -> SdResult<()> {
-    append_write_const(file)?;
-    Ok(())
-}
-
-fn append_write_const(mut file: &File) -> SdResult<()> {
+fn hook(mut file: &File) -> SdResult<()> {
     let hash = Command::new("git")
         .args(["rev-parse", "HEAD"])
         .output()
