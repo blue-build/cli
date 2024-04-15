@@ -1,5 +1,6 @@
 use std::{borrow::Cow, process};
 
+use anyhow::{bail, Result};
 use indexmap::IndexMap;
 use log::{error, trace};
 use serde::{Deserialize, Serialize};
@@ -28,23 +29,29 @@ pub struct Module<'a> {
 }
 
 impl<'a> Module<'a> {
-    #[must_use]
-    pub fn get_modules(modules: &[Self]) -> Vec<Self> {
-        modules
-            .iter()
-            .flat_map(|module| {
-                module.from_file.as_ref().map_or_else(
-                    || vec![module.clone()],
-                    |file_name| match ModuleExt::parse_module_from_file(file_name) {
-                        Err(e) => {
-                            error!("Failed to get module from {file_name}: {e}");
-                            vec![]
+    /// Get's any child modules.
+    ///
+    /// # Errors
+    /// Will error if the module cannot be
+    /// deserialized or the user uses another
+    /// property alongside `from-file:`.
+    pub fn get_modules(modules: &[Self]) -> Result<Vec<Self>> {
+        let mut found_modules = vec![];
+        for module in modules {
+            found_modules.extend(
+                match module.from_file.as_ref() {
+                    None => vec![module.clone()],
+                    Some(file_name) => {
+                        if module.module_type.is_some() || module.source.is_some() {
+                            bail!("You cannot use the `type:` or `source:` property with `from-file:`");
                         }
-                        Ok(module_ext) => Self::get_modules(&module_ext.modules),
-                    },
-                )
-            })
-            .collect()
+                        Self::get_modules(&ModuleExt::parse_module_from_file(file_name)?.modules)?
+                    }
+                }
+                .into_iter(),
+            );
+        }
+        Ok(found_modules)
     }
 
     #[must_use]
