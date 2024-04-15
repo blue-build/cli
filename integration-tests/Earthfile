@@ -66,8 +66,8 @@ rebase:
 
 upgrade:
 	FROM +test-base
-	RUN mkdir -p /etc/bluebuild && touch /etc/bluebuild/cli_test.tar.gz
 
+	RUN mkdir -p /etc/bluebuild && touch $BB_TEST_LOCAL_IMAGE
 	RUN bluebuild -vv upgrade recipes/recipe.yml
 
 secureblue-base:
@@ -88,6 +88,7 @@ legacy-base:
 
 test-base:
 	FROM ../+blue-build-cli-alpine
+	ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test.tar.gz
 	ENV CLICOLOR_FORCE=1
 
 	COPY ./mock-scripts/ /usr/bin/
