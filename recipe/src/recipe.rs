@@ -1,6 +1,6 @@
 use std::{borrow::Cow, env, fs, path::Path};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use blue_build_utils::constants::{
     CI_COMMIT_REF_NAME, CI_COMMIT_SHORT_SHA, CI_DEFAULT_BRANCH, CI_MERGE_REQUEST_IID,
     CI_PIPELINE_SOURCE, GITHUB_EVENT_NAME, GITHUB_REF_NAME, GITHUB_SHA, PR_EVENT_NUMBER,
@@ -123,17 +123,16 @@ impl<'a> Recipe<'a> {
     /// #
     /// # Errors
     pub fn parse<P: AsRef<Path>>(path: &P) -> Result<Self> {
+        trace!("Recipe::parse({})", path.as_ref().display());
+
         let file_path = if Path::new(path.as_ref()).is_absolute() {
             path.as_ref().to_path_buf()
         } else {
             std::env::current_dir()?.join(path.as_ref())
         };
 
-        let recipe_path = fs::canonicalize(file_path)?;
-        let recipe_path_string = recipe_path.display().to_string();
-        debug!("Recipe::parse_recipe({recipe_path_string})");
-
-        let file = fs::read_to_string(recipe_path)?;
+        let file = fs::read_to_string(&file_path)
+            .context(format!("Failed to read {}", file_path.display()))?;
 
         debug!("Recipe contents: {file}");
 

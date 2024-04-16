@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::HashSet, fs, path::Path};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use blue_build_utils::constants::{CONFIG_PATH, RECIPE_PATH};
 use log::{trace, warn};
 use serde::{Deserialize, Serialize};
@@ -31,7 +31,8 @@ impl ModuleExt<'_> {
             legacy_path.join(file_name)
         };
 
-        let file = fs::read_to_string(file_path)?;
+        let file = fs::read_to_string(&file_path)
+            .context(format!("Failed to open {}", file_path.display()))?;
 
         serde_yaml::from_str::<Self>(&file).map_or_else(
             |_| -> Result<Self> {
