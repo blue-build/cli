@@ -25,4 +25,5 @@ export OS_VERSION=$(grep -Po "(?<=VERSION_ID=)\d+" /usr/lib/os-release)
 export -f get_yaml_array
 
 mkdir -p /var/roothome
+mkdir -p /var/lib/alternatives
 
