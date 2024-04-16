@@ -17,7 +17,6 @@ RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
       {%- include "modules/containerfile/containerfile.j2" %}
     {%- else %}
 RUN \
-  --mount=type=tmpfs,target=/var \
       {%- if files_dir_exists %}
   --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,rw \
       {%- else %}
