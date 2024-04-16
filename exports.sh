@@ -24,3 +24,5 @@ export OS_VERSION=$(grep -Po "(?<=VERSION_ID=)\d+" /usr/lib/os-release)
 # Export functions for use in sub-shells or sourced scripts
 export -f get_yaml_array
 
+mkdir -p /var/roothome
+
