@@ -2,7 +2,7 @@ use std::{borrow::Cow, process};
 
 use anyhow::{bail, Result};
 use indexmap::IndexMap;
-use log::{error, trace};
+use log::{error, trace, warn};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
@@ -88,6 +88,7 @@ impl<'a> Module<'a> {
         })
     }
 
+    #[must_use]
     pub fn generate_akmods_info(&'a self, os_version: &str) -> AkmodsInfo {
         trace!("generate_akmods_base({self:#?}, {os_version})");
 
@@ -95,28 +96,41 @@ impl<'a> Module<'a> {
             .config
             .get("base")
             .map(|b| b.as_str().unwrap_or_default());
-        let nvidia_version = self
-            .config
-            .get("nvidia-version")
-            .map(|v| v.as_u64().unwrap_or_default());
+        let nvidia = self.config.get("nvidia-version").map_or_else(
+            || {
+                self.config
+                    .get("nvidia")
+                    .is_some_and(|v| v.as_bool().unwrap_or_default())
+            },
+            |_| {
+                warn!(
+                    "The `nvidia-version` property is deprecated, replace it with `nvidia: true`"
+                );
+                true
+            },
+        );
 
         AkmodsInfo::builder()
-            .images(match (base, nvidia_version) {
-                (Some(b), Some(nv)) if !b.is_empty() && nv > 0 => (
+            .images(match (base, nvidia) {
+                (Some(b), nv) if !b.is_empty() && nv => (
                     format!("akmods:{b}-{os_version}"),
-                    Some(format!("akmods-nvidia:{b}-{os_version}-{nv}")),
+                    Some(format!("akmods-nvidia:{b}-{os_version}")),
                 ),
                 (Some(b), _) if !b.is_empty() => (format!("akmods:{b}-{os_version}"), None),
-                (_, Some(nv)) if nv > 0 => (
+                (_, nv) if nv => (
                     format!("akmods:main-{os_version}"),
-                    Some(format!("akmods-nvidia:main-{os_version}-{nv}")),
+                    Some(format!("akmods-nvidia:main-{os_version}")),
                 ),
                 _ => (format!("akmods:main-{os_version}"), None),
             })
             .stage_name(format!(
                 "{}{}",
                 base.unwrap_or("main"),
-                nvidia_version.map_or_else(String::default, |nv| format!("-{nv}"))
+                if nvidia {
+                    "-nvidia".to_string()
+                } else {
+                    String::default()
+                }
             ))
             .build()
     }
