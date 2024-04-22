@@ -3,7 +3,6 @@
 export RUST_BACKTRACE := "1"
 
 set dotenv-load := true
-set shell := ["bash", "-xeu", "-o", "pipefail", "-c"]
 set positional-arguments := true
 
 # default recipe to display help information
@@ -12,6 +11,8 @@ default:
 
 # release: Run cargo release and push the tag separately
 release *args:
+  #!/usr/bin/env bash
+  set -euxo pipefail
   # --workspace: updating all crates in the workspace
   # --no-tag: do not push tag for each new version
   # --no-confirm: don't look for user input, just run the command

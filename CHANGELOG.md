@@ -33,6 +33,7 @@ All notable changes to this project will be documented in this file.
 - Cleanup images and use hash for exports tag (#158)
 - Update akmods module to account for upstream changes (#165)
 - Prepare justfile for release
+- Release
 
 ### README
 
