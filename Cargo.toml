@@ -7,6 +7,7 @@ edition = "2021"
 repository = "https://github.com/blue-build/cli"
 license = "Apache-2.0"
 categories = ["command-line-utilities"]
+version = "0.8.3"
 
 [workspace.dependencies]
 anyhow = "1"
@@ -36,8 +37,8 @@ module_name_repetitions = "allow"
 [package]
 name = "blue-build"
 build = "build.rs"
-version = "0.8.3"
 
+version.workspace = true
 edition.workspace = true
 description.workspace = true
 repository.workspace = true

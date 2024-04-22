@@ -1,6 +1,6 @@
 [package]
 name = "blue-build-template"
-version = "0.8.3"
+version.workspace = true
 edition.workspace = true
 description.workspace = true
 repository.workspace = true
