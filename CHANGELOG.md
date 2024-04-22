@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.4] - 2024-04-22
+
+### Bug Fixes
+
+- Sign all images in manifest (#148)
+- Use proper image URI for local rebasing
+- Add test for rpm-ostree rebase (#161)
+- Error if any module fails to deserialize (#163)
+- Remove /var tmpfs
+- Create /var/roothome to fix any issues with adding files to /root
+- Create /var/lib/alternatives
+- Give better errors for read_to_string
+
+### Documentation
+
+- Add distrobox installation tips (#146)
+
+### Features
+
+- Add driver selection args (#153)
+- Squash builds (#155)
+- Look for recipes in `./recipes/`, build files in `./files/`, and Containerfiles in `./containerfiles/` (#157)
+
+### Miscellaneous Tasks
+
+- Add MODULE_DIRECTORY env var (#142)
+- Remove unused files module
+- Put LABELS last since they cause cache miss with buildah
+- Cleanup images and use hash for exports tag (#158)
+- Update akmods module to account for upstream changes (#165)
+- Prepare justfile for release
+
+### README
+
+- Add alpine distrobox and shell completions (#149)
+
 ## [0.8.3] - 2024-03-27
 
 ### Bug Fixes
@@ -42,6 +78,7 @@ All notable changes to this project will be documented in this file.
 - Add image source label for exports
 - Use tag exports instead
 - Fix build.yml
+- Release
 
 ### Refactor
 
@@ -243,21 +280,9 @@ All notable changes to this project will be documented in this file.
 
 ### Miscellaneous Tasks
 
-- Create GitHub Workflow (#9)
-- Don't build integration tests in +all
-- Allow write for contents and id-token
-- Allow workflow_dispatch on build
-- Use docker/login-action@v3
-- Set packages permissions to write
-- Update README.md (#10)
-- Use GHCR for install.sh (#11)
-- Remove input for release
-- Add CARGO_REGISTRY_TOKEN
-- Fetch all to get history for changelog updates
-- Allow write for id-token
 - Bump version
 
-## [0.5.2] - 2024-01-22
+## [0.5.2] - 2024-01-24
 
 ### Bug Fixes
 
@@ -277,6 +302,18 @@ All notable changes to this project will be documented in this file.
 
 - Update Cargo.toml with new repo URL
 - Manual bump of version
+- Create GitHub Workflow (#9)
+- Don't build integration tests in +all
+- Allow write for contents and id-token
+- Allow workflow_dispatch on build
+- Use docker/login-action@v3
+- Set packages permissions to write
+- Update README.md (#10)
+- Use GHCR for install.sh (#11)
+- Remove input for release
+- Add CARGO_REGISTRY_TOKEN
+- Fetch all to get history for changelog updates
+- Allow write for id-token
 
 ## [0.5.1] - 2024-01-22
 
