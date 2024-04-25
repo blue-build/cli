@@ -6,7 +6,7 @@ use std::{ffi::OsStr, io::Write, path::PathBuf, process::Command, thread, time::
 
 use anyhow::{anyhow, Result};
 use format_serde_error::SerdeError;
-use log::{debug, trace};
+use log::trace;
 
 pub use command_output::*;
 
@@ -16,7 +16,6 @@ pub use command_output::*;
 /// Will error if the command doesn't exist.
 pub fn check_command_exists(command: &str) -> Result<()> {
     trace!("check_command_exists({command})");
-    debug!("Checking if {command} exists");
 
     trace!("which {command}");
     if Command::new("which")
@@ -25,7 +24,7 @@ pub fn check_command_exists(command: &str) -> Result<()> {
         .status
         .success()
     {
-        debug!("Command {command} does exist");
+        trace!("Command {command} does exist");
         Ok(())
     } else {
         Err(anyhow!(
@@ -41,7 +40,6 @@ pub fn check_command_exists(command: &str) -> Result<()> {
 pub fn append_to_file<T: Into<PathBuf> + AsRef<OsStr>>(file_path: &T, content: &str) -> Result<()> {
     let file_path: PathBuf = file_path.into();
     trace!("append_to_file({}, {content})", file_path.display());
-    debug!("Appending {content} to {}", file_path.display());
 
     let mut file = std::fs::OpenOptions::new()
         .append(true)
