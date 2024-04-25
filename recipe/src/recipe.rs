@@ -44,7 +44,7 @@ pub struct Recipe<'a> {
 
 impl<'a> Recipe<'a> {
     #[must_use]
-    pub fn generate_tags(&self, os_version: &str) -> Vec<String> {
+    pub fn generate_tags(&self, os_version: u64) -> Vec<String> {
         trace!("Recipe::generate_tags()");
         trace!("Generating image tags for {}", &self.name);
 

@@ -89,7 +89,7 @@ impl<'a> Module<'a> {
     }
 
     #[must_use]
-    pub fn generate_akmods_info(&'a self, os_version: &str) -> AkmodsInfo {
+    pub fn generate_akmods_info(&'a self, os_version: &u64) -> AkmodsInfo {
         #[derive(Debug, Copy, Clone)]
         enum NvidiaAkmods {
             Nvidia(bool),

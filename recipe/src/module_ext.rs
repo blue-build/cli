@@ -45,7 +45,7 @@ impl ModuleExt<'_> {
     }
 
     #[must_use]
-    pub fn get_akmods_info_list(&self, os_version: &str) -> Vec<AkmodsInfo> {
+    pub fn get_akmods_info_list(&self, os_version: &u64) -> Vec<AkmodsInfo> {
         trace!("get_akmods_image_list({self:#?}, {os_version})");
 
         let mut seen = HashSet::new();
