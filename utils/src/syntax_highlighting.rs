@@ -4,8 +4,9 @@ use log::trace;
 use serde::ser::Serialize;
 use syntect::{dumps, easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet};
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Debug, Default, Clone, Copy, ValueEnum)]
 pub enum DefaultThemes {
+    #[default]
     MochaDark,
     OceanDark,
     OceanLight,
@@ -54,11 +55,7 @@ pub fn print(file: &str, file_type: &str, theme: Option<DefaultThemes>) -> Resul
         let mut h = HighlightLines::new(
             syntax,
             ts.themes
-                .get(
-                    theme
-                        .map_or_else(|| "base16-mocha.dark".to_string(), |t| t.to_string())
-                        .as_str(),
-                )
+                .get(theme.unwrap_or_default().to_string().as_str())
                 .ok_or_else(|| anyhow!("Failed to get highlight theme"))?,
         );
         for line in file.lines() {

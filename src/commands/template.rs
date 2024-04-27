@@ -58,6 +58,10 @@ pub struct TemplateCommand {
     #[builder(default)]
     display_full_recipe: bool,
 
+    /// Choose a theme for the syntax highlighting
+    /// for the Containerfile or Yaml.
+    ///
+    /// The default is `mocha-dark`.
     #[arg(short = 't', long)]
     #[builder(default, setter(strip_option))]
     syntax_theme: Option<DefaultThemes>,
