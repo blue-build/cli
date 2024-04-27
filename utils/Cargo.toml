@@ -9,6 +9,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+atty = "0.2.14"
 directories = "5"
 process_control = { version = "4.0.3", features = ["crossbeam-channel"] }
 syntect = "5.2.0"
@@ -23,7 +24,6 @@ log.workspace = true
 serde.workspace = true
 serde_yaml.workspace = true
 serde_json.workspace = true
-atty = "0.2.14"
 
 [dependencies.clap]
 workspace = true
