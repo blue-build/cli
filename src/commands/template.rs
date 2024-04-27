@@ -6,9 +6,12 @@ use std::{
 use anyhow::Result;
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
-use blue_build_utils::constants::{
-    CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CONFIG_PATH, GITHUB_REPOSITORY_OWNER,
-    RECIPE_FILE, RECIPE_PATH,
+use blue_build_utils::{
+    constants::{
+        CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CONFIG_PATH, GITHUB_REPOSITORY_OWNER,
+        RECIPE_FILE, RECIPE_PATH,
+    },
+    syntax_highlighting::{self, DefaultThemes},
 };
 use clap::Args;
 use log::{debug, info, trace, warn};
@@ -46,6 +49,23 @@ pub struct TemplateCommand {
     #[builder(default, setter(into, strip_option))]
     registry_namespace: Option<String>,
 
+    /// Instead of creating a Containerfile, display
+    /// the full recipe after traversing all `from-file` properties.
+    ///
+    /// This can be used to help debug the order
+    /// you defined your recipe.
+    #[arg(short, long)]
+    #[builder(default)]
+    display_full_recipe: bool,
+
+    /// Choose a theme for the syntax highlighting
+    /// for the Containerfile or Yaml.
+    ///
+    /// The default is `mocha-dark`.
+    #[arg(short = 't', long)]
+    #[builder(default, setter(strip_option))]
+    syntax_theme: Option<DefaultThemes>,
+
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,
@@ -78,11 +98,20 @@ impl TemplateCommand {
             }
         });
 
-        info!("Templating for recipe at {}", recipe_path.display());
-
         debug!("Deserializing recipe");
         let recipe_de = Recipe::parse(&recipe_path)?;
         trace!("recipe_de: {recipe_de:#?}");
+
+        if self.display_full_recipe {
+            if let Some(output) = self.output.as_ref() {
+                std::fs::write(output, serde_yaml::to_string(&recipe_de)?)?;
+            } else {
+                syntax_highlighting::print_ser(&recipe_de, "yml", self.syntax_theme)?;
+            }
+            return Ok(());
+        }
+
+        info!("Templating for recipe at {}", recipe_path.display());
 
         let template = ContainerFileTemplate::builder()
             .os_version(Driver::get_os_version(&recipe_de)?)
@@ -101,10 +130,9 @@ impl TemplateCommand {
             std::fs::write(output, output_str)?;
         } else {
             debug!("Templating to stdout");
-            println!("{output_str}");
+            syntax_highlighting::print(&output_str, "Dockerfile", self.syntax_theme)?;
         }
 
-        info!("Finished templating Containerfile");
         Ok(())
     }
 

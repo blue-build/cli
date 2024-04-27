@@ -12,6 +12,7 @@ version = "0.8.4"
 [workspace.dependencies]
 anyhow = "1"
 chrono = "0.4.35"
+clap = { version = "4", features = ["derive", "cargo", "unicode"] }
 colored = "2.1.0"
 env_logger = "0.11"
 format_serde_error = "0.3.0"
@@ -54,7 +55,6 @@ pre-release-replacements = [
 blue-build-recipe = { version = "=0.8.4", path = "./recipe" }
 blue-build-template = { version = "=0.8.4", path = "./template" }
 blue-build-utils = { version = "=0.8.4", path = "./utils" }
-clap = { version = "4", features = ["derive", "cargo", "unicode"] }
 clap-verbosity-flag = "2"
 clap_complete = "4"
 clap_complete_nushell = "4"
@@ -71,6 +71,7 @@ users = "0.11.0"
 # Workspace dependencies
 anyhow.workspace = true
 chrono.workspace = true
+clap.workspace = true
 colored.workspace = true
 env_logger.workspace = true
 log.workspace = true

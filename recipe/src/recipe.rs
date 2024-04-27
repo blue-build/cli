@@ -30,7 +30,7 @@ pub struct Recipe<'a> {
     #[builder(setter(into))]
     pub image_version: Cow<'a, str>,
 
-    #[serde(alias = "blue-build-tag")]
+    #[serde(alias = "blue-build-tag", skip_serializing_if = "Option::is_none")]
     #[builder(default, setter(into, strip_option))]
     pub blue_build_tag: Option<Cow<'a, str>>,
 
