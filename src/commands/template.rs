@@ -103,7 +103,11 @@ impl TemplateCommand {
         trace!("recipe_de: {recipe_de:#?}");
 
         if self.display_full_recipe {
-            syntax_highlighting::print_ser(&recipe_de, "yml", self.syntax_theme)?;
+            if let Some(output) = self.output.as_ref() {
+                std::fs::write(output, serde_yaml::to_string(&recipe_de)?)?;
+            } else {
+                syntax_highlighting::print_ser(&recipe_de, "yml", self.syntax_theme)?;
+            }
             return Ok(());
         }
 
