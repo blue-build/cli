@@ -120,22 +120,34 @@ impl<'a> Module<'a> {
             .images(match (base, nvidia) {
                 (Some(b), NvidiaAkmods::Nvidia(nv)) if !b.is_empty() && nv => (
                     format!("akmods:{b}-{os_version}"),
+                    format!("akmods-extra:{b}-{os_version}"),
                     Some(format!("akmods-nvidia:{b}-{os_version}")),
                 ),
                 (Some(b), NvidiaAkmods::Version(nv)) if !b.is_empty() && nv > 0 => (
                     format!("akmods:{b}-{os_version}"),
+                    format!("akmods-extra:{b}-{os_version}"),
                     Some(format!("akmods-nvidia:{b}-{os_version}-{nv}")),
                 ),
-                (Some(b), _) if !b.is_empty() => (format!("akmods:{b}-{os_version}"), None),
+                (Some(b), _) if !b.is_empty() => (
+                    format!("akmods:{b}-{os_version}"),
+                    format!("akmods-extra:{b}-{os_version}"),
+                    None,
+                ),
                 (_, NvidiaAkmods::Nvidia(nv)) if nv => (
                     format!("akmods:main-{os_version}"),
+                    format!("akmods-extra:main-{os_version}"),
                     Some(format!("akmods-nvidia:main-{os_version}")),
                 ),
                 (_, NvidiaAkmods::Version(nv)) if nv > 0 => (
                     format!("akmods:main-{os_version}"),
+                    format!("akmods-extra:main-{os_version}"),
                     Some(format!("akmods-nvidia:main-{os_version}-{nv}")),
                 ),
-                _ => (format!("akmods:main-{os_version}"), None),
+                _ => (
+                    format!("akmods:main-{os_version}"),
+                    format!("akmods-extra:main-{os_version}"),
+                    None,
+                ),
             })
             .stage_name(format!(
                 "{}{}",
