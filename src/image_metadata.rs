@@ -1,4 +1,5 @@
 use blue_build_utils::constants::IMAGE_VERSION_LABEL;
+use semver::Version;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -13,15 +14,14 @@ pub struct ImageMetadata {
 }
 
 impl ImageMetadata {
-    pub fn get_version(&self) -> Option<String> {
+    #[must_use]
+    pub fn get_version(&self) -> Option<u64> {
         Some(
             self.labels
                 .get(IMAGE_VERSION_LABEL)?
                 .as_str()
-                .map(std::string::ToString::to_string)?
-                .split('.')
-                .take(1)
-                .collect(),
+                .and_then(|v| Version::parse(v).ok())?
+                .major,
         )
     }
 }

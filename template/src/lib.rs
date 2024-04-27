@@ -23,8 +23,7 @@ pub struct ContainerFileTemplate<'a> {
     #[builder(setter(into))]
     build_id: Uuid,
 
-    #[builder(setter(into))]
-    os_version: Cow<'a, str>,
+    os_version: u64,
 
     #[builder(setter(into))]
     registry: Cow<'a, str>,

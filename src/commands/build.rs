@@ -211,7 +211,7 @@ impl BuildCommand {
 
         let recipe = Recipe::parse(&recipe_path)?;
         let os_version = Driver::get_os_version(&recipe)?;
-        let tags = recipe.generate_tags(&os_version);
+        let tags = recipe.generate_tags(os_version);
         let image_name = self.generate_full_image_name(&recipe)?;
 
         if self.push {
