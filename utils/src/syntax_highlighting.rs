@@ -37,35 +37,39 @@ impl std::fmt::Display for DefaultThemes {
 pub fn print(file: &str, file_type: &str, theme: Option<DefaultThemes>) -> Result<()> {
     trace!("syntax_highlighting::print({file}, {file_type}, {theme:?})");
 
-    let ss: SyntaxSet = if file_type == "dockerfile" || file_type == "Dockerfile" {
-        dumps::from_uncompressed_data(include_bytes!(concat!(
-            env!("OUT_DIR"),
-            "/docker_syntax.bin"
-        )))?
-    } else {
-        SyntaxSet::load_defaults_newlines()
-    };
-    let ts = ThemeSet::load_defaults();
+    if atty::is(atty::Stream::Stdout) {
+        let ss: SyntaxSet = if file_type == "dockerfile" || file_type == "Dockerfile" {
+            dumps::from_uncompressed_data(include_bytes!(concat!(
+                env!("OUT_DIR"),
+                "/docker_syntax.bin"
+            )))?
+        } else {
+            SyntaxSet::load_defaults_newlines()
+        };
+        let ts = ThemeSet::load_defaults();
 
-    let syntax = ss
-        .find_syntax_by_extension(file_type)
-        .ok_or_else(|| anyhow!("Failed to get syntax"))?;
-    let mut h = HighlightLines::new(
-        syntax,
-        ts.themes
-            .get(
-                theme
-                    .map_or_else(|| "base16-mocha.dark".to_string(), |t| t.to_string())
-                    .as_str(),
-            )
-            .ok_or_else(|| anyhow!("Failed to get highlight theme"))?,
-    );
-    for line in file.lines() {
-        let ranges = h.highlight_line(line, &ss)?;
-        let escaped = syntect::util::as_24_bit_terminal_escaped(&ranges, false);
-        println!("{escaped}");
+        let syntax = ss
+            .find_syntax_by_extension(file_type)
+            .ok_or_else(|| anyhow!("Failed to get syntax"))?;
+        let mut h = HighlightLines::new(
+            syntax,
+            ts.themes
+                .get(
+                    theme
+                        .map_or_else(|| "base16-mocha.dark".to_string(), |t| t.to_string())
+                        .as_str(),
+                )
+                .ok_or_else(|| anyhow!("Failed to get highlight theme"))?,
+        );
+        for line in file.lines() {
+            let ranges = h.highlight_line(line, &ss)?;
+            let escaped = syntect::util::as_24_bit_terminal_escaped(&ranges, false);
+            println!("{escaped}");
+        }
+        println!("\x1b[0m");
+    } else {
+        println!("{file}");
     }
-    println!("\x1b[0m");
     Ok(())
 }
 
