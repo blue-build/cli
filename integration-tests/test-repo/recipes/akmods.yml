@@ -3,15 +3,15 @@
 modules:
   # Tests installing rpms from a combo image stage
   - type: akmods
+    install:
+      - nct6687d
+      - openrazer
+      - openrgb
+
+  # Tests pulling surface image
+  - type: akmods
     base: surface
     nvidia: true
-    # install:
-    #   - nvidia
-    #   - openrazer
-    #   - openrgb
-
-  # Tests pulling main image
-  - type: akmods
 
   # Tests pulling image for main nvidia
   - type: akmods
@@ -20,3 +20,4 @@ modules:
   # Test pulling image for base asus
   - type: akmods
     base: asus
+    nvidia: true
