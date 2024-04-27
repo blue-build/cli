@@ -88,7 +88,9 @@ jobs:
       # Setup repo and add caching
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.ref }}
+          fetch-depth: 0
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
 
       - name: Run integration tests
         run: earthly --ci -P ./integration-tests+all
@@ -127,7 +129,9 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.ref }}
+          fetch-depth: 0
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
 
       - name: Install bluebuild
         run: |
