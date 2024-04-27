@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.5] - 2024-04-27
+
+### Bug Fixes
+
+- Use shebang in release recipe
+- Pull extra akmods image too (#169)
+
+### Features
+
+- Display full recipe with syntax highlighting (#166)
+- Move module run logic into its own script (#168)
+
+### Miscellaneous Tasks
+
+- Fix tag.yml workflow to pull version from .workspace.package.version
+- Remove debug logs from utils
+- Use Semver to grab OS version from image
+- Make more /var dirs
+
 ## [0.8.4] - 2024-04-22
 
 ### Bug Fixes

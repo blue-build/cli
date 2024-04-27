@@ -188,7 +188,7 @@ checksum = "ed570934406eb16438a4e976b1b4500774099c13b8cb96eec99f620f05090ddf"
 
 [[package]]
 name = "blue-build"
-version = "0.8.4"
+version = "0.8.5"
 dependencies = [
  "anyhow",
  "blue-build-recipe",
@@ -222,7 +222,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-recipe"
-version = "0.8.4"
+version = "0.8.5"
 dependencies = [
  "anyhow",
  "blue-build-utils",
@@ -237,7 +237,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-template"
-version = "0.8.4"
+version = "0.8.5"
 dependencies = [
  "askama",
  "blue-build-recipe",
@@ -252,7 +252,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-utils"
-version = "0.8.4"
+version = "0.8.5"
 dependencies = [
  "anyhow",
  "atty",
