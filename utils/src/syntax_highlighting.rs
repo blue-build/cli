@@ -1,9 +1,8 @@
 use anyhow::{anyhow, Result};
 use clap::ValueEnum;
+use log::trace;
 use serde::ser::Serialize;
-use syntect::{easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet};
-
-const DOCKERFILE_SYNTAX: &str = include_str!("../highlights/Dockerfile.sublime-syntax");
+use syntect::{dumps, easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet};
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum DefaultThemes {
@@ -30,11 +29,22 @@ impl std::fmt::Display for DefaultThemes {
     }
 }
 
+/// Prints the file with syntax highlighting.
+///
+/// # Errors
+/// Will error if the theme doesn't exist, the syntax doesn't exist, or the file
+/// failed to serialize.
 pub fn print(file: &str, file_type: &str, theme: Option<DefaultThemes>) -> Result<()> {
-    let ss = SyntaxSet::load_defaults_newlines();
-    for synt in ss.syntaxes() {
-        println!("Name: {}, Ext: {:?}", synt.name, synt.file_extensions);
-    }
+    trace!("syntax_highlighting::print({file}, {file_type}, {theme:?})");
+
+    let ss: SyntaxSet = if file_type == "dockerfile" || file_type == "Dockerfile" {
+        dumps::from_uncompressed_data(include_bytes!(concat!(
+            env!("OUT_DIR"),
+            "/docker_syntax.bin"
+        )))?
+    } else {
+        SyntaxSet::load_defaults_newlines()
+    };
     let ts = ThemeSet::load_defaults();
 
     let syntax = ss
