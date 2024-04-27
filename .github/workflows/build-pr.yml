@@ -51,7 +51,7 @@ jobs:
         id: build
         run: |
           if [ -n "${{ github.token }}" ]; then
-            earthly --ci --push +exports-script
+            earthly --ci --push +build-scripts
             echo "export=true" >> "$GITHUB_OUTPUT"
           fi
           earthly --ci +build
