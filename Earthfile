@@ -11,7 +11,7 @@ all:
 
 build:
 	WAIT
-		BUILD +exports-script
+		BUILD +build-scripts
 	END
 	BUILD +lint
 	BUILD +test
@@ -36,14 +36,17 @@ install:
 
 	SAVE ARTIFACT target/$BUILD_TARGET/release/bluebuild
 
-exports-script:
+build-scripts:
 	FROM alpine
 	LABEL org.opencontainers.image.source="https://github.com/blue-build/cli"
-	COPY exports.sh /
-	RUN chmod +x exports.sh
+	COPY --dir scripts/ /
+	FOR script IN $(ls /scripts | grep -e '.*\.sh$')
+		RUN echo "Making ${script} executable" && \
+			chmod +x scripts/${script}
+	END
 
 	ARG EARTHLY_GIT_HASH
-	SAVE IMAGE --push $IMAGE:$EARTHLY_GIT_HASH-exports
+	SAVE IMAGE --push $IMAGE:$EARTHLY_GIT_HASH-build-scripts
 
 common:
 	FROM ghcr.io/blue-build/earthly-lib/cargo-builder
