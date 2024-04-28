@@ -4,6 +4,7 @@ base-image: ghcr.io/ublue-os/silverblue-main
 image-version: 39
 modules:
   - from-file: akmods.yml
+  - from-file: flatpaks.yml
 
   - type: files
     files:
@@ -22,16 +23,6 @@ modules:
     remove:
       - firefox
       - firefox-langpacks
-
-  - type: default-flatpaks
-    notify: true
-    system:
-      install:
-        - org.mozilla.firefox
-        - org.gnome.Loupe
-        - one.ablaze.floorp//lightning
-      remove:
-        - org.gnome.eog
 
   - type: signing
 

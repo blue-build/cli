@@ -21,12 +21,12 @@ title_case() {
   echo $(tr '[:lower:]' '[:upper:]' <<< ${1:0:1})${1:1}
 }
 
-module=$1
-params=$2
+module="$1"
+params="$2"
 script_path="/tmp/modules/${module}/${module}.sh"
 
 print_banner "Start $(title_case ${module}) Module"
 chmod +x ${script_path}
-${script_path} ${params}
+${script_path} "${params}"
 print_banner "End $(title_case ${module}) Module"
 ostree container commit
