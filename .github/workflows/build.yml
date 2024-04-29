@@ -36,7 +36,7 @@ jobs:
         run: |
           earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
-          earthly sat s blue-build-main
+          earthly sat s main
 
       # Setup repo and add caching
       - uses: actions/checkout@v4
@@ -124,7 +124,7 @@ jobs:
         run: |
           earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
-          earthly sat s blue-build-main
+          earthly sat s main
 
       - uses: actions/checkout@v4
         with:
