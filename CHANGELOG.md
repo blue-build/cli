@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.6] - 2024-04-29
+
+### Bug Fixes
+
+- Fix flatpak module errors
+
+### Miscellaneous Tasks
+
+- Remove token from checkout
+- Pull version using cargo for tag job
+- Fix integration tests
+- Improve tagging of images and applying labels
+
 ## [0.8.5] - 2024-04-27
 
 ### Bug Fixes
@@ -20,6 +33,7 @@ All notable changes to this project will be documented in this file.
 - Remove debug logs from utils
 - Use Semver to grab OS version from image
 - Make more /var dirs
+- Release
 
 ## [0.8.4] - 2024-04-22
 
