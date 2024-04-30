@@ -1,6 +1,9 @@
 name: cli/test
 description: This is my personal OS image.
 base-image: ghcr.io/ublue-os/silverblue-main
+alt-tags:
+  - gts
+  - stable
 image-version: 39
 modules:
   - from-file: akmods.yml
