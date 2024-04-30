@@ -14,35 +14,91 @@ use typed_builder::TypedBuilder;
 
 use crate::{Module, ModuleExt};
 
+/// The build recipe.
+///
+/// This is the top-level section of a recipe.yml.
+/// This will contain information on the image and its
+/// base image to assist with building the Containerfile
+/// and tagging the image appropriately.
 #[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
 pub struct Recipe<'a> {
+    /// The name of the user's image.
+    ///
+    /// This will be set on the `org.opencontainers.image.title` label.
     #[builder(setter(into))]
     pub name: Cow<'a, str>,
 
+    /// The description of the user's image.
+    ///
+    /// This will be set on the `org.opencontainers.image.description` label.
     #[builder(setter(into))]
     pub description: Cow<'a, str>,
 
+    /// The base image from which to build the user's image.
     #[serde(alias = "base-image")]
     #[builder(setter(into))]
     pub base_image: Cow<'a, str>,
 
+    /// The version/tag of the base image.
     #[serde(alias = "image-version")]
     #[builder(setter(into))]
     pub image_version: Cow<'a, str>,
 
+    /// The version of `bluebuild` to install in the image
     #[serde(alias = "blue-build-tag", skip_serializing_if = "Option::is_none")]
     #[builder(default, setter(into, strip_option))]
     pub blue_build_tag: Option<Cow<'a, str>>,
 
+    /// Alternate tags to the `latest` tag to add to the image.
+    ///
+    /// If `alt-tags` is not supplied by the user, the build system
+    /// will assume `latest` and will also tag with the
+    /// timestamp with no version (e.g. `20240429`).
+    ///
+    /// Any user input will override the `latest` and timestamp tags.
+    #[serde(alias = "alt-tags", skip_serializing_if = "Option::is_none")]
+    #[builder(default, setter(into, strip_option))]
+    pub alt_tags: Option<Vec<Cow<'a, str>>>,
+
+    /// The modules extension of the recipe.
+    ///
+    /// This holds the list of modules to be run on the image.
     #[serde(flatten)]
     pub modules_ext: ModuleExt<'a>,
 
+    /// Extra data that the user might have added. This is
+    /// done in case we serialize the data to a yaml file
+    /// so that we retain any unused information.
     #[serde(flatten)]
     #[builder(setter(into))]
     pub extra: IndexMap<String, Value>,
 }
 
 impl<'a> Recipe<'a> {
+    /// Generate a list of tags based on the OS version.
+    ///
+    /// ## CI
+    /// The tags are generated based on the CI system that
+    /// is detected. The general format for the default branch is:
+    /// - `${os_version}`
+    /// - `${timestamp}-${os_version}`
+    ///
+    /// On a branch:
+    /// - `br-${branch_name}-${os_version}`
+    ///
+    /// In a PR(GitHub)/MR(GitLab)
+    /// - `pr-${pr_event_number}-${os_version}`/`mr-${mr_iid}-${os_version}`
+    ///
+    /// In all above cases the short git sha is also added:
+    /// - `${commit_sha}-${os_version}`
+    ///
+    /// When `alt_tags` are not present, the following tags are added:
+    /// - `latest`
+    /// - `${timestamp}`
+    ///
+    /// ## Locally
+    /// When ran locally, only a local tag is created:
+    /// - `local-${os_version}`
     #[must_use]
     pub fn generate_tags(&self, os_version: u64) -> Vec<String> {
         trace!("Recipe::generate_tags()");
@@ -72,8 +128,13 @@ impl<'a> Recipe<'a> {
                 debug!("Running on the default branch");
                 tags.push(os_version.to_string());
                 tags.push(format!("{timestamp}-{os_version}"));
-                tags.push("latest".into());
-                tags.push(timestamp);
+
+                if let Some(alt_tags) = self.alt_tags.as_ref() {
+                    tags.extend(alt_tags.iter().map(ToString::to_string));
+                } else {
+                    tags.push("latest".into());
+                    tags.push(timestamp);
+                }
             } else {
                 debug!("Running on branch {commit_branch}");
                 tags.push(format!("br-{commit_branch}-{os_version}"));
@@ -103,8 +164,13 @@ impl<'a> Recipe<'a> {
             } else if github_ref_name == "live" || github_ref_name == "main" {
                 tags.push(os_version.to_string());
                 tags.push(format!("{timestamp}-{os_version}"));
-                tags.push("latest".into());
-                tags.push(timestamp);
+
+                if let Some(alt_tags) = self.alt_tags.as_ref() {
+                    tags.extend(alt_tags.iter().map(ToString::to_string));
+                } else {
+                    tags.push("latest".into());
+                    tags.push(timestamp);
+                }
             } else {
                 tags.push(format!("br-{github_ref_name}-{os_version}"));
             }
@@ -119,9 +185,11 @@ impl<'a> Recipe<'a> {
         tags.into_iter().map(|t| t.replace('/', "_")).collect()
     }
 
-    /// # Parse a recipe file
-    /// #
+    /// Parse a recipe file
+    ///
     /// # Errors
+    /// Errors when a yaml file cannot be deserialized,
+    /// or a linked module yaml file does not exist.
     pub fn parse<P: AsRef<Path>>(path: &P) -> Result<Self> {
         trace!("Recipe::parse({})", path.as_ref().display());
 
