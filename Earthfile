@@ -3,20 +3,7 @@ PROJECT blue-build/cli
 
 IMPORT github.com/blue-build/earthly-lib/cargo AS cargo
 
-FROM rust
-
-RUN apt-get update && apt-get install -y jq
-
-WORKDIR /app
-COPY --keep-ts --dir src/ template/ recipe/ utils/ /app
-COPY --keep-ts Cargo.* /app
-
 ARG --global IMAGE=ghcr.io/blue-build/cli
-ARG --global VERSION="$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "blue-build") .version')"
-ARG --global MAJOR_VERSION="$(echo "$VERSION" | cut -d'.' -f1)"
-ARG --global MINOR_VERSION="$(echo "$VERSION" | cut -d'.' -f2)"
-ARG --global PATCH_VERSION="$(echo "$VERSION" | cut -d'.' -f3)"
-ARG --global BUILD_TIME="$(date --rfc-3339=seconds)"
 
 all:
 	BUILD +build
@@ -149,11 +136,30 @@ cosign:
 	FROM gcr.io/projectsigstore/cosign
 	SAVE ARTIFACT /ko-app/cosign
 
+version:
+	FROM rust
+
+	RUN apt-get update && apt-get install -y jq
+
+	WORKDIR /app
+	COPY --keep-ts --dir src/ template/ recipe/ utils/ /app
+	COPY --keep-ts Cargo.* /app
+
+	RUN echo "$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "blue-build") .version')" > /version
+
+	SAVE ARTIFACT /version
+
 SAVE_IMAGE:
 	FUNCTION
 	ARG SUFFIX=""
 	ARG TAGGED="false"
 
+	COPY +version/version /
+	ARG VERSION="$(cat /version)"
+	ARG MAJOR_VERSION="$(echo "$VERSION" | cut -d'.' -f1)"
+	ARG MINOR_VERSION="$(echo "$VERSION" | cut -d'.' -f2)"
+	ARG PATCH_VERSION="$(echo "$VERSION" | cut -d'.' -f3)"
+	ARG BUILD_TIME="$(date -Iseconds)"
 	DO --pass-args +LABELS
 
 	IF [ "$TAGGED" = "true" ]
