@@ -3,21 +3,15 @@ PROJECT blue-build/cli
 
 IMPORT github.com/blue-build/earthly-lib/cargo AS cargo
 
-ARG --global IMAGE=ghcr.io/blue-build/cli
+FROM rust
 
-FROM ghcr.io/blue-build/earthly-lib/cargo-builder
+RUN apt-get update && apt-get install -y jq
 
 WORKDIR /app
 COPY --keep-ts --dir src/ template/ recipe/ utils/ /app
 COPY --keep-ts Cargo.* /app
-COPY --keep-ts *.md /app
-COPY --keep-ts LICENSE /app
-COPY --keep-ts build.rs /app
-COPY --keep-ts --dir .git/ /app
-RUN touch build.rs
 
-DO cargo+INIT
-
+ARG --global IMAGE=ghcr.io/blue-build/cli
 ARG --global VERSION="$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "blue-build") .version')"
 ARG --global MAJOR_VERSION="$(echo "$VERSION" | cut -d'.' -f1)"
 ARG --global MINOR_VERSION="$(echo "$VERSION" | cut -d'.' -f2)"
@@ -39,17 +33,34 @@ build:
 	BUILD +installer
 
 lint:
+	FROM +common
 	DO cargo+LINT
 
 test:
+	FROM +common
 	DO cargo+TEST
 
 install:
+	FROM +common
 	ARG --required BUILD_TARGET
 
 	DO cargo+BUILD_RELEASE --BUILD_TARGET=$BUILD_TARGET
 
 	SAVE ARTIFACT target/$BUILD_TARGET/release/bluebuild
+
+common:
+	FROM ghcr.io/blue-build/earthly-lib/cargo-builder
+
+	WORKDIR /app
+	COPY --keep-ts --dir src/ template/ recipe/ utils/ /app
+	COPY --keep-ts Cargo.* /app
+	COPY --keep-ts *.md /app
+	COPY --keep-ts LICENSE /app
+	COPY --keep-ts build.rs /app
+	COPY --keep-ts --dir .git/ /app
+	RUN touch build.rs
+
+	DO cargo+INIT
 
 build-scripts:
 	FROM alpine
