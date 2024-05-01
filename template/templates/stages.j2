@@ -50,7 +50,9 @@ COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
 
 {%~ if let Some(stages_ext) = recipe.stages_ext %}
   {%- for stage in stages_ext.stages %}
-FROM {{ stage.image }} as {{ stage.name }}
-    {% call modules::stage_modules_run(stage.modules_ext, os_version) %}
+    {%- if let (Some(image), Some(name), Some(modules_ext)) = (stage.image.as_ref(), stage.name.as_ref(), stage.modules_ext.as_ref()) %}
+FROM {{ image }} as {{ name }}
+      {% call modules::stage_modules_run(modules_ext, os_version) %}
+    {%- endif %}
   {%- endfor %}
 {%- endif %}
