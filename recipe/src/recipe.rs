@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
 
-use crate::{Module, ModuleExt};
+use crate::{Module, ModuleExt, StagesExt};
 
 /// The build recipe.
 ///
@@ -59,6 +59,14 @@ pub struct Recipe<'a> {
     #[serde(alias = "alt-tags", skip_serializing_if = "Option::is_none")]
     #[builder(default, setter(into, strip_option))]
     pub alt_tags: Option<Vec<Cow<'a, str>>>,
+
+    /// The stages extension of the recipe.
+    ///
+    /// This hold the list of stages that can
+    /// be used to build software outside of
+    /// the final build image.
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub stages_ext: Option<StagesExt<'a>>,
 
     /// The modules extension of the recipe.
     ///

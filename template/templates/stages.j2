@@ -47,3 +47,10 @@ COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
 {%- endif %}
 
 {%- include "modules/akmods/akmods.j2" %}
+
+{%~ if let Some(stages_ext) = recipe.stages_ext %}
+  {%- for stage in stages_ext.stages %}
+FROM {{ stage.image }} as {{ stage.name }}
+    {% call modules::stage_modules_run(stage.modules_ext, os_version) %}
+  {%- endfor %}
+{%- endif %}

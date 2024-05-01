@@ -1,0 +1,4 @@
+{%- if let Some((from_img, src, dest)) = module.get_copy_args() %}
+COPY --from={{ from_img }} {{ src }} {{ dest }}
+{%- endif %}
+

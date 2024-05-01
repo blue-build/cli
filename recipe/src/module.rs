@@ -89,6 +89,15 @@ impl<'a> Module<'a> {
     }
 
     #[must_use]
+    pub fn get_copy_args(&'a self) -> Option<(&'a str, &'a str, &'a str)> {
+        Some((
+            self.config.get("from")?.as_str()?,
+            self.config.get("src")?.as_str()?,
+            self.config.get("dest")?.as_str()?,
+        ))
+    }
+
+    #[must_use]
     pub fn generate_akmods_info(&'a self, os_version: &u64) -> AkmodsInfo {
         #[derive(Debug, Copy, Clone)]
         enum NvidiaAkmods {
