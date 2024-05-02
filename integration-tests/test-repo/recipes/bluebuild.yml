@@ -1,6 +1,6 @@
 stages:
   - name: blue-build
-    image: rust:alpine
+    image: rust
     modules:
       - type: script
         scripts:

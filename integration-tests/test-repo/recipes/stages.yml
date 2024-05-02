@@ -1,0 +1,31 @@
+stages:
+  - name: ubuntu-test
+    image: ubuntu
+    modules:
+      - from-file: stages.yml
+  - name: debian-test
+    image: debian
+    modules:
+      - from-file: stages.yml
+  - name: fedora-test
+    image: fedora
+    modules:
+      - from-file: stages.yml
+  - name: alpine-test
+    image: alpine
+    modules:
+      - from-file: stages.yml
+modules:
+  - type: files
+    files:
+      - usr: /usr
+  - type: script
+    scripts:
+      - example.sh
+  - type: test-module
+  - type: containerfile
+    containerfiles:
+      - labels
+    snippets:
+      - RUN echo "This is a snippet"
+
