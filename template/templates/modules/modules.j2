@@ -51,7 +51,6 @@ RUN \
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
         {%- endif %}
   --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
-  --mount=type=bind,from=stage-bins,src=/bins/yq,dst=/usr/bin/yq \
   /tmp/scripts/run_module.sh {{ type }} '{{ module.print_module_context() }}'
       {%- endif %}
     {%- endif %}

@@ -54,6 +54,10 @@ COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
     {%- if let (Some(image), Some(name), Some(modules_ext)) = (stage.image.as_ref(), stage.name.as_ref(), stage.modules_ext.as_ref()) %}
 FROM {{ image }} as {{ name }}
 
+RUN --mount=type=bind,from=stage-bins,src=/bins/,dst=/tmp/bins/ \
+  --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
+  /tmp/scripts/setup.sh
+
       {%- if files_dir_exists %}
 ARG CONFIG_DIRECTORY="/tmp/files"
       {%- else %}
@@ -63,6 +67,8 @@ ARG MODULE_DIRECTORY="/tmp/modules"
 
       {%- if let Some(shell_args) = stage.shell %}
 SHELL [{% for arg in shell_args %}"{{ arg }}"{% if !loop.last %}, {% endif %}{% endfor %}]
+      {%- else %}
+SHELL ["bash", "-c"]
       {%- endif %}
 
       {% call modules::stage_modules_run(modules_ext, os_version) %}
