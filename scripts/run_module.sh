@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-source /tmp/exports.sh
+source /tmp/scripts/exports.sh
 
 # Function to print a centered text banner within a specified width
 print_banner() {
