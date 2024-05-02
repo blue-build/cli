@@ -15,7 +15,7 @@ pub struct ModuleExt<'a> {
 }
 
 impl ModuleExt<'_> {
-    /// # Parse a module file returning a [`ModuleExt`]
+    /// Parse a module file returning a [`ModuleExt`]
     ///
     /// # Errors
     /// Can return an `anyhow` Error if the file cannot be read or deserialized

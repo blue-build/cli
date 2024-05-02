@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+source /tmp/exports.sh
+
 # Function to print a centered text banner within a specified width
 print_banner() {
   local term_width=120
@@ -29,4 +31,3 @@ print_banner "Start $(title_case ${module}) Module"
 chmod +x ${script_path}
 ${script_path} "${params}"
 print_banner "End $(title_case ${module}) Module"
-ostree container commit

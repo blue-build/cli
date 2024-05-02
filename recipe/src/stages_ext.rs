@@ -15,11 +15,11 @@ pub struct StagesExt<'a> {
 }
 
 impl<'a> StagesExt<'a> {
-    /// # Parse a module file returning a [`ModuleExt`]
+    /// Parse a module file returning a [`StagesExt`]
     ///
     /// # Errors
     /// Can return an `anyhow` Error if the file cannot be read or deserialized
-    /// into a [`ModuleExt`]
+    /// into a [`StagesExt`]
     pub fn parse_stage_from_file(file_name: &str) -> Result<Self> {
         let legacy_path = Path::new(CONFIG_PATH);
         let recipe_path = Path::new(RECIPE_PATH);

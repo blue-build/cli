@@ -48,10 +48,23 @@ COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
 
 {%- include "modules/akmods/akmods.j2" %}
 
+{%- set files_dir_exists = self::files_dir_exists() %}
 {%~ if let Some(stages_ext) = recipe.stages_ext %}
   {%- for stage in stages_ext.stages %}
     {%- if let (Some(image), Some(name), Some(modules_ext)) = (stage.image.as_ref(), stage.name.as_ref(), stage.modules_ext.as_ref()) %}
 FROM {{ image }} as {{ name }}
+
+      {%- if files_dir_exists %}
+ARG CONFIG_DIRECTORY="/tmp/files"
+      {%- else %}
+ARG CONFIG_DIRECTORY="/tmp/config"
+      {%- endif %}
+ARG MODULE_DIRECTORY="/tmp/modules"
+
+      {%- if let Some(shell_args) = stage.shell %}
+SHELL [{% for arg in shell_args %}"{{ arg }}"{% if !loop.last %}, {% endif %}{% endfor %}]
+      {%- endif %}
+
       {% call modules::stage_modules_run(modules_ext, os_version) %}
     {%- endif %}
   {%- endfor %}
