@@ -6,7 +6,7 @@ if [ -f /etc/os-release ]; then
   if [ "$ID" = "alpine" ]; then
     echo "Setting up Alpine based image to run BlueBuild modules"
     apk update
-    apk add --no-cache bash curl coreutils wget
+    apk add --no-cache bash curl coreutils wget grep
   elif [ "$ID" = "ubuntu" ] || [ "$ID" = "debian" ]; then
     echo "Setting up Ubuntu based image to run BlueBuild modules"
     apt-get update
