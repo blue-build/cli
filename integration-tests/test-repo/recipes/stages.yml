@@ -22,10 +22,11 @@ modules:
   - type: script
     scripts:
       - example.sh
+    snippets:
+      - echo "test" > /test.txt
   - type: test-module
   - type: containerfile
     containerfiles:
       - labels
     snippets:
       - RUN echo "This is a snippet"
-

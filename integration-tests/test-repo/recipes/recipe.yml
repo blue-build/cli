@@ -40,3 +40,19 @@ modules:
       - RUN echo "This is a snippet" && ostree container commit
 
   - from-file: bluebuild.yml
+  - type: copy
+    from: alpine-test
+    src: /test.txt
+    dest: /
+  - type: copy
+    from: ubuntu-test
+    src: /test.txt
+    dest: /
+  - type: copy
+    from: debian-test
+    src: /test.txt
+    dest: /
+  - type: copy
+    from: fedora-test
+    src: /test.txt
+    dest: /
