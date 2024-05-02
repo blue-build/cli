@@ -6,7 +6,7 @@ use log::warn;
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 
-use crate::Stage;
+use crate::{Module, Stage};
 
 #[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
 pub struct StagesExt<'a> {
@@ -36,11 +36,24 @@ impl<'a> StagesExt<'a> {
 
         serde_yaml::from_str::<Self>(&file).map_or_else(
             |_| -> Result<Self> {
-                let stage = serde_yaml::from_str::<Stage>(&file)
+                let mut stage = serde_yaml::from_str::<Stage>(&file)
                     .map_err(blue_build_utils::serde_yaml_err(&file))?;
+                if let Some(ref mut modules_ext) = stage.modules_ext {
+                    modules_ext.modules = Module::get_modules(&modules_ext.modules)?.into();
+                }
                 Ok(Self::builder().stages(vec![stage]).build())
             },
-            Ok,
+            |mut stages_ext| -> Result<Self> {
+                let mut stages: Vec<Stage> =
+                    stages_ext.stages.iter().map(ToOwned::to_owned).collect();
+                for stage in &mut stages {
+                    if let Some(ref mut modules_ext) = stage.modules_ext {
+                        modules_ext.modules = Module::get_modules(&modules_ext.modules)?.into();
+                    }
+                }
+                stages_ext.stages = stages.into();
+                Ok(stages_ext)
+            },
         )
     }
 }

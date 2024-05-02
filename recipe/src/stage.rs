@@ -92,7 +92,7 @@ impl<'a> Stage<'a> {
                 match stage.from_file.as_ref() {
                     None => vec![stage.clone()],
                     Some(file_name) => {
-                        if stage.name.is_some() || stage.image.is_some() {
+                        if stage.name.is_some() || stage.image.is_some() || stage.shell.is_some() {
                             bail!(
                                 "You cannot use the `name:` or `image:` property with `from-file:`"
                             );
