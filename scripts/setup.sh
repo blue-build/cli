@@ -18,6 +18,7 @@ if [ -f /etc/os-release ]; then
     echo "OS not detected, exiting"
     exit 1
   fi
+  cp /tmp/bins/yq /usr/bin/
 else
   echo "File /etc/os-release not found, can't proceed"
   exit 1
