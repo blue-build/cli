@@ -11,12 +11,13 @@ if [ -f /etc/os-release ]; then
     echo "Setting up Ubuntu based image to run BlueBuild modules"
     apt-get update
     apt-get install -y bash curl
-  elif [ "$ID" = "fedora" ]
+  elif [ "$ID" = "fedora" ]; then
     echo "Settig up Fedora based image to run BlueBuild modules"
     dnf install -y --refresh bash curl wget
   else
     echo "OS not detected, exiting"
     exit 1
+  fi
 else
   echo "File /etc/os-release not found, can't proceed"
   exit 1
