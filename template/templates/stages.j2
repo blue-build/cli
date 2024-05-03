@@ -3,19 +3,19 @@
 # the final image
 {%- if files_dir_exists %}
 FROM scratch as stage-files
-COPY ./files /files
+COPY --link ./files /files
 {%- else %}
 FROM scratch as stage-config
-COPY ./config /config
+COPY --link ./config /config
 {%- endif %}
 
 # Copy modules
 # The default modules are inside blue-build/modules
 # Custom modules overwrite defaults
 FROM scratch as stage-modules
-COPY --from=ghcr.io/blue-build/modules:latest /modules /modules
+COPY --link --from=ghcr.io/blue-build/modules:latest /modules /modules
 {%- if self::modules_exists() %}
-COPY ./modules /modules
+COPY --link ./modules /modules
 {%- endif %}
 
 # Bins to install
@@ -25,9 +25,9 @@ COPY ./modules /modules
 # can be added to the ostree commits.
 FROM scratch as stage-bins
 
-COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /bins/cosign
-COPY --from=docker.io/mikefarah/yq /usr/bin/yq /bins/yq
-COPY --from=ghcr.io/blue-build/cli:
+COPY --link --from=gcr.io/projectsigstore/cosign /ko-app/cosign /bins/cosign
+COPY --link --from=docker.io/mikefarah/yq /usr/bin/yq /bins/yq
+COPY --link --from=ghcr.io/blue-build/cli:
 {%- if let Some(tag) = recipe.blue_build_tag -%}
 {{ tag }}
 {%- else -%}
@@ -43,7 +43,7 @@ latest-installer
 FROM scratch as stage-keys
 
 {%- if self::has_cosign_file() %}
-COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
+COPY --link cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
 {%- endif %}
 
 {%- include "modules/akmods/akmods.j2" %}
@@ -52,9 +52,11 @@ COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
 {%~ if let Some(stages_ext) = recipe.stages_ext %}
   {%- for stage in stages_ext.stages %}
     {%- if let (Some(image), Some(name), Some(modules_ext)) = (stage.image.as_ref(), stage.name.as_ref(), stage.modules_ext.as_ref()) %}
+# {{ name|capitalize }} stage
 FROM {{ image }} as {{ name }}
 
       {%- if image.as_ref() != "scratch" %}
+# Add compatibility for modules
 RUN --mount=type=bind,from=stage-bins,src=/bins/,dst=/tmp/bins/ \
   --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
   /tmp/scripts/setup.sh
