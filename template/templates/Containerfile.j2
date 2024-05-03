@@ -2,6 +2,7 @@
 {%- set files_dir_exists = self::files_dir_exists() %}
 {%- include "stages.j2" %}
 
+# Main image
 FROM {{ recipe.base_image }}:{{ recipe.image_version }} as {{ recipe.name|replace('/', "-") }}
 
 ARG RECIPE={{ recipe_path.display() }}
