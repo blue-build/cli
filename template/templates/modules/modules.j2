@@ -1,6 +1,11 @@
 {% macro main_modules_run(modules_ext, os_version) %}
 # Module RUNs
   {%- for module in modules_ext.modules %}
+
+    {%- if module.no_cache %}
+ARG CACHEBUST="{{ build_id }}"
+    {%- endif %}
+
     {%- if let Some(type) = module.module_type %}
       {%- if type == "containerfile" %}
         {%- include "modules/containerfile/containerfile.j2" %}
@@ -33,6 +38,11 @@ RUN \
 {% macro stage_modules_run(modules_ext, os_version) %}
 # Module RUNs
   {%- for module in modules_ext.modules %}
+
+    {%- if module.no_cache %}
+ARG CACHEBUST="{{ build_id }}"
+    {%- endif %}
+
     {%- if let Some(type) = module.module_type %}
       {%- if type == "containerfile" %}
         {%- include "modules/containerfile/containerfile.j2" %}

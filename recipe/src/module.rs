@@ -23,6 +23,10 @@ pub struct Module<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<Cow<'a, str>>,
 
+    #[builder(default)]
+    #[serde(rename = "no-cache", default)]
+    pub no_cache: bool,
+
     #[serde(flatten)]
     #[builder(default, setter(into))]
     pub config: IndexMap<String, Value>,
