@@ -21,5 +21,10 @@ serde_yaml.workspace = true
 serde_json.workspace = true
 typed-builder.workspace = true
 
+[features]
+default = []
+stages = []
+copy = []
+
 [lints]
 workspace = true

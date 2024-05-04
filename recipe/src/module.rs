@@ -71,12 +71,21 @@ impl<'a> ModuleRequiredFields<'a> {
     }
 
     #[must_use]
+    #[allow(clippy::missing_const_for_fn)]
     pub fn get_copy_args(&'a self) -> Option<(Option<&'a str>, &'a str, &'a str)> {
-        Some((
-            self.config.get("from").and_then(|from| from.as_str()),
-            self.config.get("src")?.as_str()?,
-            self.config.get("dest")?.as_str()?,
-        ))
+        #[cfg(feature = "copy")]
+        {
+            Some((
+                self.config.get("from").and_then(|from| from.as_str()),
+                self.config.get("src")?.as_str()?,
+                self.config.get("dest")?.as_str()?,
+            ))
+        }
+
+        #[cfg(not(feature = "copy"))]
+        {
+            None
+        }
     }
 
     #[must_use]

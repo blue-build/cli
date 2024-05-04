@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
 
-use crate::{Module, ModuleExt, Stage, StagesExt};
+use crate::{Module, ModuleExt, StagesExt};
 
 /// The build recipe.
 ///
@@ -217,8 +217,14 @@ impl<'a> Recipe<'a> {
 
         recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules, None)?.into();
 
+        #[cfg(feature = "stages")]
         if let Some(ref mut stages_ext) = recipe.stages_ext {
-            stages_ext.stages = Stage::get_stages(&stages_ext.stages, None)?.into();
+            stages_ext.stages = crate::Stage::get_stages(&stages_ext.stages, None)?.into();
+        }
+
+        #[cfg(not(feature = "stages"))]
+        {
+            recipe.stages_ext = None;
         }
 
         Ok(recipe)
