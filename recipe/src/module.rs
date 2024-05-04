@@ -1,6 +1,8 @@
-use std::{borrow::Cow, process};
+use std::{borrow::Cow, path::PathBuf, process};
 
 use anyhow::{bail, Result};
+use blue_build_utils::syntax_highlighting::highlight_ser;
+use colored::Colorize;
 use indexmap::IndexMap;
 use log::{error, trace, warn};
 use serde::{Deserialize, Serialize};
@@ -9,22 +11,18 @@ use typed_builder::TypedBuilder;
 
 use crate::{AkmodsInfo, ModuleExt};
 
-#[derive(Serialize, Deserialize, Debug, Clone, TypedBuilder)]
-pub struct Module<'a> {
-    #[builder(default, setter(into, strip_option))]
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
-    pub module_type: Option<Cow<'a, str>>,
-
-    #[builder(default, setter(into, strip_option))]
-    #[serde(rename = "from-file", skip_serializing_if = "Option::is_none")]
-    pub from_file: Option<Cow<'a, str>>,
+#[derive(Serialize, Deserialize, Debug, Clone, TypedBuilder, Default)]
+pub struct ModuleRequiredFields<'a> {
+    #[builder(default, setter(into))]
+    #[serde(rename = "type")]
+    pub module_type: Cow<'a, str>,
 
     #[builder(default, setter(into, strip_option))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<Cow<'a, str>>,
 
     #[builder(default)]
-    #[serde(rename = "no-cache", default)]
+    #[serde(rename = "no-cache", default, skip_serializing_if = "is_false")]
     pub no_cache: bool,
 
     #[serde(flatten)]
@@ -32,35 +30,15 @@ pub struct Module<'a> {
     pub config: IndexMap<String, Value>,
 }
 
-impl<'a> Module<'a> {
-    /// Get's any child modules.
-    ///
-    /// # Errors
-    /// Will error if the module cannot be
-    /// deserialized or the user uses another
-    /// property alongside `from-file:`.
-    pub fn get_modules(modules: &[Self]) -> Result<Vec<Self>> {
-        let mut found_modules = vec![];
-        for module in modules {
-            found_modules.extend(
-                match module.from_file.as_ref() {
-                    None => vec![module.clone()],
-                    Some(file_name) => {
-                        if module.module_type.is_some() || module.source.is_some() {
-                            bail!("You cannot use the `type:` or `source:` property with `from-file:`");
-                        }
-                        Self::get_modules(&ModuleExt::parse_module_from_file(file_name)?.modules)?
-                    }
-                }
-                .into_iter(),
-            );
-        }
-        Ok(found_modules)
-    }
+#[allow(clippy::trivially_copy_pass_by_ref)]
+const fn is_false(b: &bool) -> bool {
+    !*b
+}
 
+impl<'a> ModuleRequiredFields<'a> {
     #[must_use]
     pub fn get_module_type_list(&'a self, typ: &str, list_key: &str) -> Option<Vec<String>> {
-        if self.module_type.as_ref()? == typ {
+        if self.module_type == typ {
             Some(
                 self.config
                     .get(list_key)?
@@ -171,6 +149,93 @@ impl<'a> Module<'a> {
                     _ => String::default(),
                 }
             ))
+            .build()
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, TypedBuilder, Default)]
+pub struct Module<'a> {
+    #[builder(default, setter(strip_option))]
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub required_fields: Option<ModuleRequiredFields<'a>>,
+
+    #[builder(default, setter(into, strip_option))]
+    #[serde(rename = "from-file", skip_serializing_if = "Option::is_none")]
+    pub from_file: Option<Cow<'a, str>>,
+}
+
+impl<'a> Module<'a> {
+    /// Get's any child modules.
+    ///
+    /// # Errors
+    /// Will error if the module cannot be
+    /// deserialized or the user uses another
+    /// property alongside `from-file:`.
+    pub fn get_modules(
+        modules: &[Self],
+        traversed_files: Option<Vec<PathBuf>>,
+    ) -> Result<Vec<Self>> {
+        let mut found_modules = vec![];
+        let traversed_files = traversed_files.unwrap_or_default();
+
+        for module in modules {
+            found_modules.extend(
+                match &module {
+                    Module {
+                        required_fields: Some(_),
+                        from_file: None,
+                    } => vec![module.clone()],
+                    Module {
+                        required_fields: None,
+                        from_file: Some(file_name),
+                    } => {
+                        let file_name = PathBuf::from(file_name.as_ref());
+                        if traversed_files.contains(&file_name) {
+                            bail!(
+                                "{} File {} has already been parsed:\n{traversed_files:?}",
+                                "Circular dependency detected!".bright_red(),
+                                file_name.display().to_string().bold(),
+                            );
+                        }
+
+                        let mut traversed_files = traversed_files.clone();
+                        traversed_files.push(file_name.clone());
+
+                        Self::get_modules(
+                            &ModuleExt::parse(&file_name)?.modules,
+                            Some(traversed_files),
+                        )?
+                    }
+                    _ => {
+                        let from_example = Self::builder().from_file("test.yml").build();
+                        let module_example = Self::example();
+
+                        bail!(
+                            "Improper format for module. Must be in the format like:\n{}\n{}\n\n{}",
+                            highlight_ser(&module_example, "yaml", None)?,
+                            "or".bold(),
+                            highlight_ser(&from_example, "yaml", None)?
+                        );
+                    }
+                }
+                .into_iter(),
+            );
+        }
+        Ok(found_modules)
+    }
+
+    #[must_use]
+    pub fn example() -> Self {
+        Self::builder()
+            .required_fields(
+                ModuleRequiredFields::builder()
+                    .module_type("module-name")
+                    .config(IndexMap::from_iter([
+                        ("module".to_string(), Value::String("config".to_string())),
+                        ("goes".to_string(), Value::String("here".to_string())),
+                    ]))
+                    .build(),
+            )
             .build()
     }
 }

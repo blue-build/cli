@@ -1,15 +1,14 @@
 {% macro main_modules_run(modules_ext, os_version) %}
 # Module RUNs
   {%- for module in modules_ext.modules %}
-
-    {%- if module.no_cache %}
+    {%- if let Some(module) = module.required_fields %}
+      {%- if module.no_cache %}
 ARG CACHEBUST="{{ build_id }}"
-    {%- endif %}
+      {%- endif %}
 
-    {%- if let Some(type) = module.module_type %}
-      {%- if type == "containerfile" %}
+      {%- if module.module_type == "containerfile" %}
         {%- include "modules/containerfile/containerfile.j2" %}
-      {%- else if type == "copy" %}
+      {%- else if module.module_type == "copy" %}
         {%- include "modules/copy/copy.j2" %}
       {%- else %}
 RUN \
@@ -23,12 +22,12 @@ RUN \
         {%- else %}
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
         {%- endif %}
-        {%- if type == "akmods" %}
+        {%- if module.module_type == "akmods" %}
   --mount=type=bind,from=stage-akmods-{{ module.generate_akmods_info(os_version).stage_name }},src=/rpms,dst=/tmp/rpms,rw \
         {%- endif %}
   --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
-  /tmp/scripts/run_module.sh '{{ type }}' '{{ module.print_module_context() }}' \
+  /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module.print_module_context() }}' \
   && ostree container commit
       {%- endif %}
     {%- endif %}
@@ -38,15 +37,15 @@ RUN \
 {% macro stage_modules_run(modules_ext, os_version) %}
 # Module RUNs
   {%- for module in modules_ext.modules %}
+    {%- if let Some(module) = module.required_fields %}
 
-    {%- if module.no_cache %}
+      {%- if module.no_cache %}
 ARG CACHEBUST="{{ build_id }}"
-    {%- endif %}
+      {%- endif %}
 
-    {%- if let Some(type) = module.module_type %}
-      {%- if type == "containerfile" %}
+      {%- if module.module_type == "containerfile" %}
         {%- include "modules/containerfile/containerfile.j2" %}
-      {%- else if type == "copy" %}
+      {%- else if module.module_type == "copy" %}
         {%- include "modules/copy/copy.j2" %}
       {%- else %}
 RUN \
@@ -61,7 +60,7 @@ RUN \
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
         {%- endif %}
   --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
-  /tmp/scripts/run_module.sh '{{ type }}' '{{ module.print_module_context() }}'
+  /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module.print_module_context() }}'
       {%- endif %}
     {%- endif %}
   {%- endfor %}

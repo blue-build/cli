@@ -51,11 +51,11 @@ COPY --link cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
 {%- set files_dir_exists = self::files_dir_exists() %}
 {%~ if let Some(stages_ext) = recipe.stages_ext %}
   {%- for stage in stages_ext.stages %}
-    {%- if let (Some(image), Some(name), Some(modules_ext)) = (stage.image.as_ref(), stage.name.as_ref(), stage.modules_ext.as_ref()) %}
-# {{ name|capitalize }} stage
-FROM {{ image }} as {{ name }}
+    {%- if let Some(stage) = stage.required_fields %}
+# {{ stage.name|capitalize }} stage
+FROM {{ stage.image }} as {{ stage.name }}
 
-      {%- if image.as_ref() != "scratch" %}
+      {%- if stage.image != "scratch" %}
 # Add compatibility for modules
 RUN --mount=type=bind,from=stage-bins,src=/bins/,dst=/tmp/bins/ \
   --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
@@ -75,7 +75,7 @@ SHELL ["bash", "-c"]
         {%- endif %}
       {%- endif %}
 
-      {% call modules::stage_modules_run(modules_ext, os_version) %}
+      {% call modules::stage_modules_run(stage.modules_ext, os_version) %}
     {%- endif %}
   {%- endfor %}
 {%- endif %}

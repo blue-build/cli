@@ -215,10 +215,10 @@ impl<'a> Recipe<'a> {
         let mut recipe = serde_yaml::from_str::<Recipe>(&file)
             .map_err(blue_build_utils::serde_yaml_err(&file))?;
 
-        recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules)?.into();
+        recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules, None)?.into();
 
         if let Some(ref mut stages_ext) = recipe.stages_ext {
-            stages_ext.stages = Stage::get_stages(&stages_ext.stages)?.into();
+            stages_ext.stages = Stage::get_stages(&stages_ext.stages, None)?.into();
         }
 
         Ok(recipe)

@@ -14,6 +14,7 @@ chrono = "0.4"
 indexmap = { version = "2", features = ["serde"] }
 
 anyhow.workspace = true
+colored.workspace = true
 log.workspace = true
 serde.workspace = true
 serde_yaml.workspace = true

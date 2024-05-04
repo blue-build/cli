@@ -20,7 +20,7 @@ impl ModuleExt<'_> {
     /// # Errors
     /// Can return an `anyhow` Error if the file cannot be read or deserialized
     /// into a [`ModuleExt`]
-    pub fn parse_module_from_file(file_name: &str) -> Result<Self> {
+    pub fn parse(file_name: &Path) -> Result<Self> {
         let legacy_path = Path::new(CONFIG_PATH);
         let recipe_path = Path::new(RECIPE_PATH);
 
@@ -52,8 +52,20 @@ impl ModuleExt<'_> {
 
         self.modules
             .iter()
-            .filter(|module| module.module_type.as_ref().is_some_and(|t| t == "akmods"))
-            .map(|module| module.generate_akmods_info(os_version))
+            .filter(|module| {
+                module
+                    .required_fields
+                    .as_ref()
+                    .is_some_and(|rf| rf.module_type == "akmods")
+            })
+            .filter_map(|module| {
+                Some(
+                    module
+                        .required_fields
+                        .as_ref()?
+                        .generate_akmods_info(os_version),
+                )
+            })
             .filter(|image| seen.insert(image.clone()))
             .collect()
     }

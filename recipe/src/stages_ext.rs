@@ -20,7 +20,7 @@ impl<'a> StagesExt<'a> {
     /// # Errors
     /// Can return an `anyhow` Error if the file cannot be read or deserialized
     /// into a [`StagesExt`]
-    pub fn parse_stage_from_file(file_name: &str) -> Result<Self> {
+    pub fn parse(file_name: &Path) -> Result<Self> {
         let legacy_path = Path::new(CONFIG_PATH);
         let recipe_path = Path::new(RECIPE_PATH);
 
@@ -38,8 +38,9 @@ impl<'a> StagesExt<'a> {
             |_| -> Result<Self> {
                 let mut stage = serde_yaml::from_str::<Stage>(&file)
                     .map_err(blue_build_utils::serde_yaml_err(&file))?;
-                if let Some(ref mut modules_ext) = stage.modules_ext {
-                    modules_ext.modules = Module::get_modules(&modules_ext.modules)?.into();
+                if let Some(ref mut rf) = stage.required_fields {
+                    rf.modules_ext.modules =
+                        Module::get_modules(&rf.modules_ext.modules, None)?.into();
                 }
                 Ok(Self::builder().stages(vec![stage]).build())
             },
@@ -47,8 +48,9 @@ impl<'a> StagesExt<'a> {
                 let mut stages: Vec<Stage> =
                     stages_ext.stages.iter().map(ToOwned::to_owned).collect();
                 for stage in &mut stages {
-                    if let Some(ref mut modules_ext) = stage.modules_ext {
-                        modules_ext.modules = Module::get_modules(&modules_ext.modules)?.into();
+                    if let Some(ref mut rf) = stage.required_fields {
+                        rf.modules_ext.modules =
+                            Module::get_modules(&rf.modules_ext.modules, None)?.into();
                     }
                 }
                 stages_ext.stages = stages.into();
