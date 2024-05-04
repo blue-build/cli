@@ -6,7 +6,6 @@ description: This is my personal OS image.
 base-image: ghcr.io/ublue-os/silverblue-main
 image-version: 39
 stages:
-  - from-file: bluebuild.yml
   - from-file: stages.yml
 modules:
   - from-file: akmods.yml
@@ -40,7 +39,6 @@ modules:
     snippets:
       - RUN echo "This is a snippet" && ostree container commit
 
-  - from-file: bluebuild.yml
   - type: copy
     from: alpine-test
     src: /test.txt
