@@ -4,7 +4,7 @@
 Only compiler-based builds can use this module as it is built-in to the BlueBuild CLI tool.
 :::
 
-The `containerfile` module is a tool for adding custom [`Containerfile`](https://github.com/containers/common/blob/main/docs/Containerfile.5.md) instructions for custom image builds. This is useful when you wish to use some feature directly available in a `Containerfile`, but not in a bash module, such as copying from other OCI images with `COPY --from`.
+The `containerfile` module is a tool for adding custom [`Containerfile`](https://github.com/containers/common/blob/main/docs/Containerfile.5.md) instructions for custom image builds. This is useful when you wish to use some feature directly available in a `Containerfile`, but not in a bash module, such as using a `RUN` instruction with custom mounts.
 
 Since standard compiler-based BlueBuild image builds generate a `Containerfile` from your recipe, there is no need to manage it yourself. However, we know that we also have technical users that would like to have the ability to customize their `Containerfile`. This is where the `containerfile` module comes into play. 
 
@@ -18,10 +18,10 @@ The `snippets` property is the easiest to use when you just need to insert a few
 modules:
   - type: containerfile
     snippets:
-      - COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
+      - RUN --mount=type=tmpfs,target=/tmp /some/script.sh
 ```
 
-This makes it really easy to copy a file or program from another image.
+This makes it really easy to add individual, custom instructions.
 
 :::note
 **NOTE:** Each entry of a snippet will be its own layer in the final `Containerfile`.
@@ -66,7 +66,7 @@ If you wanted to have some `snippets` run before any `containerfiles` have, you 
 modules:
   - type: containerfile
     snippets:
-      - COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
+      - RUN --mount=type=tmpfs,target=/tmp /some/script.sh
   - type: containerfile
     containerfiles:
       - example
