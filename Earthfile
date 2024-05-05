@@ -1,7 +1,7 @@
 VERSION 0.8
 PROJECT blue-build/cli
 
-IMPORT github.com/blue-build/earthly-lib/cargo AS cargo
+IMPORT github.com/earthly/lib/rust AS rust
 
 ARG --global IMAGE=ghcr.io/blue-build/cli
 
@@ -21,17 +21,29 @@ build:
 
 lint:
 	FROM +common
-	DO cargo+LINT
+	DO rust+CARGO --args="clippy -- -D warnings"
+	DO rust+CARGO --args="clippy --all-features -- -D warnings"
+	DO rust+CARGO --args="clippy --no-default-features -- -D warnings"
 
 test:
 	FROM +common
-	DO cargo+TEST
+	DO rust+CARGO --args="test -- --show-output"
+	DO rust+CARGO --args="test --all-features -- --show-output"
+	DO rust+CARGO --args="test --no-default-features -- --show-output"
 
 install:
 	FROM +common
 	ARG --required BUILD_TARGET
 
-	DO cargo+BUILD_RELEASE --BUILD_TARGET=$BUILD_TARGET
+	DO rust+CARGO --args="build --release --target $BUILD_TARGET" --output="$BUILD_TARGET/release/[^\./]+"
+
+	SAVE ARTIFACT target/$BUILD_TARGET/release/bluebuild
+
+install-all-features:
+	FROM +common
+	ARG --required BUILD_TARGET
+
+	DO rust+CARGO --args="build --all-features --release --target $BUILD_TARGET" --output="$BUILD_TARGET/release/[^\./]+"
 
 	SAVE ARTIFACT target/$BUILD_TARGET/release/bluebuild
 
@@ -47,13 +59,13 @@ common:
 	COPY --keep-ts --dir .git/ /app
 	RUN touch build.rs
 
-	DO cargo+INIT
+	DO rust+INIT --keep_fingerprints=true
 
 build-scripts:
 	FROM alpine
 	LABEL org.opencontainers.image.source="https://github.com/blue-build/cli"
 	COPY --dir scripts/ /
-	FOR script IN $(ls /scripts | grep -e '.*\.sh$')
+	FOR script IN "$(ls /scripts | grep -e '.*\.sh$')"
 		RUN echo "Making ${script} executable" && \
 			chmod +x scripts/${script}
 	END
@@ -61,14 +73,18 @@ build-scripts:
 	DO --pass-args +LABELS
 
 	ARG EARTHLY_GIT_HASH
-	SAVE IMAGE --push $IMAGE:$EARTHLY_GIT_HASH-build-scripts
+	SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-build-scripts"
+
+	ARG TAGGED="false"
+	ARG LATEST="false"
+	IF [ "$TAGGED" = "true" ] && [ "$LATEST" ]
+		SAVE IMAGE --push "$IMAGE:latest-build-scripts"
+	END
 
 blue-build-cli:
 	ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
 	FROM $BASE_IMAGE
 	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
-
-	BUILD +install --BUILD_TARGET="x86_64-unknown-linux-gnu"
 
 	RUN dnf -y install dnf-plugins-core \
 		&& dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo \
@@ -87,7 +103,7 @@ blue-build-cli:
 
 	COPY +cosign/cosign /usr/bin/cosign
 
-	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-gnu") /usr/bin/bluebuild
+	DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-gnu"
 
 	RUN mkdir -p /bluebuild
 	WORKDIR /bluebuild
@@ -100,14 +116,12 @@ blue-build-cli-alpine:
 	FROM $BASE_IMAGE
 	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
 
-	BUILD +install --BUILD_TARGET="x86_64-unknown-linux-musl"
-
 	RUN apk update && apk add buildah podman skopeo fuse-overlayfs jq
 
 	LABEL org.opencontainers.image.base.digest="$(skopeo inspect "docker://$BASE_IMAGE" | jq -r '.Digest')"
 
 	COPY +cosign/cosign /usr/bin/cosign
-	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-musl") /usr/bin/bluebuild
+	DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl"
 
 	RUN mkdir -p /bluebuild
 	WORKDIR /bluebuild
@@ -124,7 +138,7 @@ installer:
 
 	LABEL org.opencontainers.image.base.digest="$(skopeo inspect "docker://$BASE_IMAGE" | jq -r '.Digest')"
 
-	COPY (+install/bluebuild --BUILD_TARGET="x86_64-unknown-linux-musl") /out/bluebuild
+	DO --pass-args +INSTALL --OUT_DIR="/out/" --BUILD_TARGET="x86_64-unknown-linux-musl"
 	COPY install.sh /install.sh
 
 	CMD ["cat", "/install.sh"]
@@ -148,6 +162,18 @@ version:
 	RUN echo "$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "blue-build") .version')" > /version
 
 	SAVE ARTIFACT /version
+
+INSTALL:
+	FUNCTION
+	ARG TAGGED="false"
+	ARG --required BUILD_TARGET
+	ARG --required OUT_DIR
+
+	IF [ "$TAGGED" = "true" ]
+		COPY (+install/bluebuild --BUILD_TARGET="$BUILD_TARGET") $OUT_DIR
+	ELSE
+		COPY (+install-all-features/bluebuild --BUILD_TARGET="$BUILD_TARGET") $OUT_DIR
+	END
 
 SAVE_IMAGE:
 	FUNCTION

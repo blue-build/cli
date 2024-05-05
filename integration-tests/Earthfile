@@ -79,10 +79,16 @@ secureblue-base:
 	DO +GEN_KEYPAIR
 
 legacy-base:
-	FROM +test-base
+	FROM ../+blue-build-cli-alpine
+	ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test.tar.gz
+	ENV CLICOLOR_FORCE=1
 
-	RUN rm -fr /test
+	COPY ./mock-scripts/ /usr/bin/
+
+	WORKDIR /test
 	COPY ./legacy-test-repo /test
+
+	DO ../+INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl" --TAGGED="true"
 
 	DO +GEN_KEYPAIR
 
