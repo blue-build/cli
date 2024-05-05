@@ -119,7 +119,11 @@ impl TemplateCommand {
             .recipe(&recipe_de)
             .recipe_path(recipe_path.as_path())
             .registry(self.get_registry())
-            .exports_tag(shadow::BB_COMMIT_HASH)
+            .exports_tag(if shadow::COMMIT_HASH.is_empty() {
+                "latest"
+            } else {
+                shadow::COMMIT_HASH
+            })
             .build();
 
         let output_str = template.render()?;

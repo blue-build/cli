@@ -67,7 +67,7 @@ build-scripts:
 	COPY --dir scripts/ /
 	FOR script IN "$(ls /scripts | grep -e '.*\.sh$')"
 		RUN echo "Making ${script} executable" && \
-			chmod +x scripts/${script}
+			chmod +x "scripts/${script}"
 	END
 
 	DO --pass-args +LABELS
