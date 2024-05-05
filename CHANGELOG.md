@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.7] - 2024-05-05
+
+### Bug Fixes
+
+- Git sha not present during `cargo install` (#176)
+
+### Features
+
+- Add alternate tags for user images (#172)
+
+### Miscellaneous Tasks
+
+- Streamline getting version
+- Fix how we get the version in the Earthfile
+- Allow tests to pass due to upstream akmods issues
+- Remove title case (#177)
+- Fix release replacements
+
 ## [0.8.6] - 2024-04-29
 
 ### Bug Fixes
@@ -14,6 +32,7 @@ All notable changes to this project will be documented in this file.
 - Pull version using cargo for tag job
 - Fix integration tests
 - Improve tagging of images and applying labels
+- Release
 
 ## [0.8.5] - 2024-04-27
 
