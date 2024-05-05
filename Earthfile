@@ -53,15 +53,21 @@ build-scripts:
 	FROM alpine
 	LABEL org.opencontainers.image.source="https://github.com/blue-build/cli"
 	COPY --dir scripts/ /
-	FOR script IN $(ls /scripts | grep -e '.*\.sh$')
+	FOR script IN "$(ls /scripts | grep -e '.*\.sh$')"
 		RUN echo "Making ${script} executable" && \
-			chmod +x scripts/${script}
+			chmod +x "scripts/${script}"
 	END
 
 	DO --pass-args +LABELS
 
 	ARG EARTHLY_GIT_HASH
-	SAVE IMAGE --push $IMAGE:$EARTHLY_GIT_HASH-build-scripts
+	SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-build-scripts"
+
+	ARG TAGGED="false"
+	ARG LATEST="false"
+	IF [ "$TAGGED" = "true" ] && [ "$LATEST" ]
+		SAVE IMAGE --push "$IMAGE:latest-build-scripts"
+	END
 
 blue-build-cli:
 	ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
