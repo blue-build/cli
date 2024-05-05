@@ -17,16 +17,12 @@ print_banner() {
   printf '%*.*s%s%*.*s\n' 0 "$padlen" "$padding" "$text" 0 "$padlen" "$padding"
 }
 
-title_case() {
-  echo $(tr '[:lower:]' '[:upper:]' <<< ${1:0:1})${1:1}
-}
-
 module="$1"
 params="$2"
 script_path="/tmp/modules/${module}/${module}.sh"
 
-print_banner "Start $(title_case ${module}) Module"
+print_banner "Start '${module}' Module"
 chmod +x ${script_path}
 ${script_path} "${params}"
-print_banner "End $(title_case ${module}) Module"
+print_banner "End '${module}' Module"
 ostree container commit
