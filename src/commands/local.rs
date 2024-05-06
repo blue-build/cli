@@ -14,7 +14,7 @@ use users::{Users, UsersCache};
 
 use crate::commands::build::BuildCommand;
 
-use super::BlueBuildCommand;
+use super::{BlueBuildCommand, DriverArgs};
 
 #[derive(Default, Clone, Debug, TypedBuilder, Args)]
 pub struct LocalCommonArgs {
@@ -36,6 +36,10 @@ pub struct LocalCommonArgs {
     #[arg(short, long)]
     #[builder(default)]
     force: bool,
+
+    #[clap(flatten)]
+    #[builder(default)]
+    drivers: DriverArgs,
 }
 
 #[derive(Default, Clone, Debug, TypedBuilder, Args)]
@@ -55,6 +59,7 @@ impl BlueBuildCommand for UpgradeCommand {
         let mut build = BuildCommand::builder()
             .recipe(self.common.recipe.clone())
             .archive(LOCAL_BUILD)
+            .drivers(self.common.drivers)
             .force(self.common.force)
             .build();
 
@@ -106,6 +111,7 @@ impl BlueBuildCommand for RebaseCommand {
         let mut build = BuildCommand::builder()
             .recipe(self.common.recipe.clone())
             .archive(LOCAL_BUILD)
+            .drivers(self.common.drivers)
             .force(self.common.force)
             .build();
 
