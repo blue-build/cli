@@ -114,18 +114,12 @@ impl BugReportCommand {
     }
 
     fn get_recipe(&self) -> Option<Recipe> {
-        let recipe_path = self.recipe_path.clone().map_or_else(
-            || {
-                get_config_file("recipe", "Enter path to recipe file").map_or_else(
-                    |_| {
-                        trace!("Failed to get recipe");
-                        String::new()
-                    },
-                    |recipe| recipe,
-                )
-            },
-            |recipe_path| recipe_path,
-        );
+        let recipe_path = self.recipe_path.clone().unwrap_or_else(|| {
+            get_config_file("recipe", "Enter path to recipe file").unwrap_or_else(|_| {
+                trace!("Failed to get recipe");
+                String::new()
+            })
+        });
 
         Recipe::parse(&recipe_path).ok()
     }

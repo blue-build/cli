@@ -13,7 +13,7 @@ use blue_build_utils::{
     },
     syntax_highlighting::{self, DefaultThemes},
 };
-use clap::Args;
+use clap::{crate_version, Args};
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 
@@ -120,9 +120,12 @@ impl TemplateCommand {
             .recipe_path(recipe_path.as_path())
             .registry(self.get_registry())
             .exports_tag(if shadow::COMMIT_HASH.is_empty() {
-                "latest"
+                // This is done for users who install via
+                // cargo. Cargo installs do not carry git
+                // information via shadow
+                format!("v{}", crate_version!())
             } else {
-                shadow::COMMIT_HASH
+                shadow::COMMIT_HASH.to_string()
             })
             .build();
 
