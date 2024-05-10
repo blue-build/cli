@@ -33,7 +33,6 @@ RUN \
     {%- endif %}
   {%- endfor %}
 {% endmacro %}
-
 {% macro stage_modules_run(modules_ext, os_version) %}
 # Module RUNs
   {%- for module in modules_ext.modules %}
