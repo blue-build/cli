@@ -70,16 +70,7 @@ build-scripts:
 			chmod +x "scripts/${script}"
 	END
 
-	DO --pass-args +LABELS
-
-	ARG EARTHLY_GIT_HASH
-	SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-build-scripts"
-
-	ARG TAGGED="false"
-	ARG LATEST="false"
-	IF [ "$TAGGED" = "true" ] && [ "$LATEST" ]
-		SAVE IMAGE --push "$IMAGE:latest-build-scripts"
-	END
+	DO --pass-args +SAVE_IMAGE --SUFFIX="-build-scripts"
 
 blue-build-cli:
 	ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
@@ -159,7 +150,7 @@ version:
 	COPY --keep-ts --dir src/ template/ recipe/ utils/ /app
 	COPY --keep-ts Cargo.* /app
 
-	RUN echo "$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "blue-build") .version')" > /version
+	RUN echo "$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "blue-build") .version')" > /version
 
 	SAVE ARTIFACT /version
 
@@ -201,6 +192,8 @@ SAVE_IMAGE:
 		ARG EARTHLY_GIT_BRANCH
 		SAVE IMAGE --push "${IMAGE}:${EARTHLY_GIT_BRANCH}${SUFFIX}"
 	END
+	ARG EARTHLY_GIT_HASH
+	SAVE IMAGE --push "${IMAGE}:${EARTHLY_GIT_HASH}${SUFFIX}"
 
 LABELS:
 	FUNCTION
