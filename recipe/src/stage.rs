@@ -22,7 +22,7 @@ pub struct StageRequiredFields<'a> {
     ///
     /// This is set directly in a `FROM` instruction.
     #[builder(setter(into))]
-    pub image: Cow<'a, str>,
+    pub from: Cow<'a, str>,
 
     /// The shell to use in the stage.
     #[builder(default, setter(into, strip_option))]
@@ -146,7 +146,7 @@ impl<'a> Stage<'a> {
             .required_fields(
                 StageRequiredFields::builder()
                     .name("stage-name")
-                    .image("build/image:here")
+                    .from("build/image:here")
                     .modules_ext(
                         ModuleExt::builder()
                             .modules(vec![Module::example()])

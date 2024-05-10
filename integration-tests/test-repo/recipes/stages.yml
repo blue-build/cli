@@ -1,18 +1,18 @@
 stages:
   - name: ubuntu-test
-    image: ubuntu
+    from: ubuntu
     modules:
       - from-file: stages.yml
   - name: debian-test
-    image: debian
+    from: debian
     modules:
       - from-file: stages.yml
   - name: fedora-test
-    image: fedora
+    from: fedora
     modules:
       - from-file: stages.yml
   - name: alpine-test
-    image: alpine
+    from: alpine
     modules:
       - from-file: stages.yml
 modules:
