@@ -165,6 +165,7 @@ pub trait BuildDriver: Sync + Send {
 
         let build_opts = BuildOpts::builder()
             .image(&full_image)
+            .containerfile(opts.containerfile)
             .squash(opts.squash)
             .build();
 

@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, path::Path};
 
 use typed_builder::TypedBuilder;
 
@@ -12,6 +12,9 @@ pub struct BuildOpts<'a> {
 
     #[builder(default)]
     pub squash: bool,
+
+    #[builder(setter(into))]
+    pub containerfile: &'a Path,
 }
 
 #[derive(Debug, Clone, TypedBuilder)]
@@ -46,6 +49,10 @@ pub struct BuildTagPushOpts<'a> {
     /// NOTE: You cannot have this set with image set.
     #[builder(default, setter(into, strip_option))]
     pub archive_path: Option<Cow<'a, str>>,
+
+    /// The path to the Containerfile to build.
+    #[builder(setter(into))]
+    pub containerfile: &'a Path,
 
     /// The list of tags for the image being built.
     #[builder(default, setter(into))]

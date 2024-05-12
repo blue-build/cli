@@ -187,6 +187,7 @@ impl BuildDriver for DockerDriver {
             .arg("buildx")
             .arg("--builder=bluebuild")
             .arg("build")
+            .arg("--progress=plain")
             .arg("--pull")
             .arg("-f")
             .arg(CONTAINER_FILE);

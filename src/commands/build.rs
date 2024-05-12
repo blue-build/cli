@@ -4,7 +4,7 @@ use std::{
     process::Command,
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::{
     ARCHIVE_SUFFIX, BUILD_ID_LABEL, CI_DEFAULT_BRANCH, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE,
@@ -16,9 +16,7 @@ use blue_build_utils::constants::{
 use clap::Args;
 use colored::Colorize;
 use log::{debug, info, trace, warn};
-use rayon::iter::{
-    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
-};
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use typed_builder::TypedBuilder;
 
 use crate::{
@@ -159,54 +157,58 @@ impl BlueBuildCommand for BuildCommand {
                 .try_run()
         })?;
 
-        // info!("Building image for recipe at {}", recipe_paths.display());
-
-        // self.start(&recipe_path)
-        todo!()
+        self.start(&recipe_paths)
     }
 }
 
 impl BuildCommand {
-    fn start(&self, recipe_path: &Path) -> Result<()> {
+    fn start(&self, recipe_paths: &[(String, PathBuf)]) -> Result<()> {
         trace!("BuildCommand::build_image()");
-
-        let recipe = Recipe::parse(&recipe_path)?;
-        let os_version = Driver::get_os_version(&recipe)?;
-        let tags = recipe.generate_tags(os_version);
-        let image_name = self.generate_full_image_name(&recipe)?;
 
         if self.push {
             Self::login()?;
         }
 
-        let opts = if let Some(archive_dir) = self.archive.as_ref() {
-            BuildTagPushOpts::builder()
-                .archive_path(format!(
-                    "{}/{}.{ARCHIVE_SUFFIX}",
-                    archive_dir.to_string_lossy().trim_end_matches('/'),
-                    recipe.name.to_lowercase().replace('/', "_"),
-                ))
-                .squash(self.drivers.squash)
-                .build()
-        } else {
-            BuildTagPushOpts::builder()
-                .image(&image_name)
-                .tags(tags.iter().map(String::as_str).collect::<Vec<_>>())
-                .push(self.push)
-                .no_retry_push(self.no_retry_push)
-                .retry_count(self.retry_count)
-                .compression(self.compression_format)
-                .squash(self.drivers.squash)
-                .build()
-        };
+        recipe_paths
+            .par_iter()
+            .try_for_each(|recipe_path| -> Result<()> {
+                let recipe = Recipe::parse(&recipe_path.1)?;
+                let os_version = Driver::get_os_version(&recipe)?;
+                let tags = recipe.generate_tags(os_version);
+                let image_name = self.generate_full_image_name(&recipe)?;
 
-        Driver::get_build_driver().build_tag_push(&opts)?;
+                let opts = if let Some(archive_dir) = self.archive.as_ref() {
+                    BuildTagPushOpts::builder()
+                        .containerfile(Path::new(recipe_path.0.as_str()))
+                        .archive_path(format!(
+                            "{}/{}.{ARCHIVE_SUFFIX}",
+                            archive_dir.to_string_lossy().trim_end_matches('/'),
+                            recipe.name.to_lowercase().replace('/', "_"),
+                        ))
+                        .squash(self.drivers.squash)
+                        .build()
+                } else {
+                    BuildTagPushOpts::builder()
+                        .image(&image_name)
+                        .containerfile(Path::new(recipe_path.0.as_str()))
+                        .tags(tags.iter().map(String::as_str).collect::<Vec<_>>())
+                        .push(self.push)
+                        .no_retry_push(self.no_retry_push)
+                        .retry_count(self.retry_count)
+                        .compression(self.compression_format)
+                        .squash(self.drivers.squash)
+                        .build()
+                };
 
-        if self.push {
-            sign_images(&image_name, tags.first().map(String::as_str))?;
-        }
+                Driver::get_build_driver().build_tag_push(&opts)?;
 
-        info!("Build complete!");
+                if self.push {
+                    sign_images(&image_name, tags.first().map(String::as_str))?;
+                }
+
+                info!("Build complete!");
+                Ok(())
+            })?;
 
         Ok(())
     }
@@ -322,8 +324,7 @@ impl BuildCommand {
         let label = format!("LABEL {BUILD_ID_LABEL}");
 
         if !self.force && container_file_path.exists() {
-            let to_ignore_lines =
-                vec![format!("/{CONTAINER_FILE}"), format!("/{CONTAINER_FILE}.*")];
+            let to_ignore_lines = [format!("/{CONTAINER_FILE}"), format!("/{CONTAINER_FILE}.*")];
             let gitignore = fs::read_to_string(GITIGNORE_PATH)
                 .context(format!("Failed to read {GITIGNORE_PATH}"))?;
 
@@ -363,7 +364,7 @@ impl BuildCommand {
                                 edited_gitignore.push('\n');
                             }
 
-                            edited_gitignore.push_str(&to_ignore);
+                            edited_gitignore.push_str(to_ignore);
                             edited_gitignore.push('\n');
                         }
                     }

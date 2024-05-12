@@ -57,7 +57,7 @@ impl BlueBuildCommand for UpgradeCommand {
         let recipe = Recipe::parse(&self.common.recipe)?;
 
         let mut build = BuildCommand::builder()
-            .recipe(self.common.recipe.clone())
+            .recipe(vec![self.common.recipe.clone()])
             .archive(LOCAL_BUILD)
             .drivers(self.common.drivers)
             .force(self.common.force)
@@ -109,7 +109,7 @@ impl BlueBuildCommand for RebaseCommand {
         let recipe = Recipe::parse(&self.common.recipe)?;
 
         let mut build = BuildCommand::builder()
-            .recipe(self.common.recipe.clone())
+            .recipe(vec![self.common.recipe.clone()])
             .archive(LOCAL_BUILD)
             .drivers(self.common.drivers)
             .force(self.common.force)
