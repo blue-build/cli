@@ -147,6 +147,7 @@ impl BuildDriver for DockerDriver {
         command
             .arg("buildx")
             .arg("build")
+            .arg("--pull")
             .arg("-f")
             .arg(CONTAINER_FILE);
 
