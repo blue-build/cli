@@ -36,11 +36,11 @@ impl DockerDriver {
     fn setup() -> Result<()> {
         trace!("DockerDriver::setup()");
 
-        trace!("docker buildx ls --format='{{.Name}}'");
+        trace!("docker buildx ls --format={}", "{{.Name}}");
         let ls_out = Command::new("docker")
             .arg("buildx")
             .arg("ls")
-            .arg("--format='{{.Name}}'")
+            .arg("--format={{.Name}}")
             .output()?;
 
         if !ls_out.status.success() {
