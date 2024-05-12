@@ -3,7 +3,7 @@ pub mod constants;
 pub mod logging;
 pub mod syntax_highlighting;
 
-use std::{ffi::OsStr, io::Write, path::PathBuf, process::Command, thread, time::Duration};
+use std::{path::PathBuf, process::Command, thread, time::Duration};
 
 use anyhow::{anyhow, Result};
 use format_serde_error::SerdeError;
@@ -32,23 +32,6 @@ pub fn check_command_exists(command: &str) -> Result<()> {
             "Command {command} doesn't exist and is required to build the image"
         ))
     }
-}
-
-/// Appends a string to a file.
-///
-/// # Errors
-/// Will error if it fails to append to a file.
-pub fn append_to_file<T: Into<PathBuf> + AsRef<OsStr>>(file_path: &T, content: &str) -> Result<()> {
-    let file_path: PathBuf = file_path.into();
-    trace!("append_to_file({}, {content})", file_path.display());
-
-    let mut file = std::fs::OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(file_path)?;
-
-    writeln!(file, "\n{content}")?;
-    Ok(())
 }
 
 /// Creates a serde error for displaying the file

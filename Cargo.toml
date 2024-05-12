@@ -81,6 +81,7 @@ serde_json.workspace = true
 serde_yaml.workspace = true
 typed-builder.workspace = true
 uuid.workspace = true
+rayon = "1.10.0"
 
 [features]
 default = []

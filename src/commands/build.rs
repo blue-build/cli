@@ -4,7 +4,7 @@ use std::{
     process::Command,
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::{
     ARCHIVE_SUFFIX, BUILD_ID_LABEL, CI_DEFAULT_BRANCH, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE,
@@ -16,6 +16,9 @@ use blue_build_utils::constants::{
 use clap::Args;
 use colored::Colorize;
 use log::{debug, info, trace, warn};
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
+};
 use typed_builder::TypedBuilder;
 
 use crate::{
@@ -35,7 +38,7 @@ pub struct BuildCommand {
     /// The recipe file to build an image
     #[arg()]
     #[builder(default, setter(into, strip_option))]
-    recipe: Option<PathBuf>,
+    recipe: Option<Vec<PathBuf>>,
 
     /// Push the image with all the tags.
     ///
@@ -120,88 +123,46 @@ impl BlueBuildCommand for BuildCommand {
             .build()
             .init()?;
 
-        // Check if the Containerfile exists
-        //   - If doesn't => *Build*
-        //   - If it does:
-        //     - check entry in .gitignore
-        //       -> If it is => *Build*
-        //       -> If isn't:
-        //         - check if it has the BlueBuild tag (LABEL)
-        //           -> If it does => *Ask* to add to .gitignore and remove from git
-        //           -> If it doesn't => *Ask* to continue and override the file
-
-        let container_file_path = Path::new(CONTAINER_FILE);
-
-        if !self.force && container_file_path.exists() {
-            let gitignore = fs::read_to_string(GITIGNORE_PATH)
-                .context(format!("Failed to read {GITIGNORE_PATH}"))?;
-
-            let is_ignored = gitignore
-                .lines()
-                .any(|line: &str| line.contains(CONTAINER_FILE));
-
-            if !is_ignored {
-                let containerfile = fs::read_to_string(container_file_path)
-                    .context(format!("Failed to read {}", container_file_path.display()))?;
-                let has_label = containerfile.lines().any(|line| {
-                    let label = format!("LABEL {BUILD_ID_LABEL}");
-                    line.to_string().trim().starts_with(&label)
-                });
-
-                let question = requestty::Question::confirm("build")
-                    .message(
-                        if has_label {
-                            LABELED_ERROR_MESSAGE
-                        } else {
-                            NO_LABEL_ERROR_MESSAGE
-                        }
-                        .bright_yellow()
-                        .to_string(),
-                    )
-                    .default(true)
-                    .build();
-
-                if let Ok(answer) = requestty::prompt_one(question) {
-                    if answer.as_bool().unwrap_or(false) {
-                        blue_build_utils::append_to_file(
-                            &GITIGNORE_PATH,
-                            &format!("/{CONTAINER_FILE}"),
-                        )?;
-                    }
-                }
-            }
-        }
+        self.update_gitignore()?;
 
         if self.push && self.archive.is_some() {
             bail!("You cannot use '--archive' and '--push' at the same time");
         }
-
-        let recipe_path = self.recipe.clone().unwrap_or_else(|| {
-            let legacy_path = Path::new(CONFIG_PATH);
-            let recipe_path = Path::new(RECIPE_PATH);
-            if recipe_path.exists() && recipe_path.is_dir() {
-                recipe_path.join(RECIPE_FILE)
-            } else {
-                warn!("Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}");
-                legacy_path.join(RECIPE_FILE)
-            }
-        });
-
-        TemplateCommand::builder()
-            .recipe(&recipe_path)
-            .output(PathBuf::from("Containerfile"))
-            .drivers(DriverArgs::builder().squash(self.drivers.squash).build())
-            .build()
-            .try_run()?;
 
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
             check_cosign_files()?;
         }
 
-        info!("Building image for recipe at {}", recipe_path.display());
+        let recipe_paths = self.recipe.clone().map_or_else(|| {
+            let legacy_path = Path::new(CONFIG_PATH);
+            let recipe_path = Path::new(RECIPE_PATH);
+            if recipe_path.exists() && recipe_path.is_dir() {
+                vec![(CONTAINER_FILE.to_string(), recipe_path.join(RECIPE_FILE))]
+            } else {
+                warn!("Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}");
+                vec![(CONTAINER_FILE.to_string(), legacy_path.join(RECIPE_FILE))]
+            }
+        },
+        |recipes| {
+            recipes.into_par_iter().filter_map(|recipe| {
+                Some((format!("{CONTAINER_FILE}.{}", recipe.file_stem()?.to_str()?), recipe))
+            }).collect()
+        });
 
-        self.start(&recipe_path)
+        recipe_paths.par_iter().try_for_each(|recipe| {
+            TemplateCommand::builder()
+                .output(PathBuf::from(&recipe.0))
+                .recipe(&recipe.1)
+                .drivers(DriverArgs::builder().squash(self.drivers.squash).build())
+                .build()
+                .try_run()
+        })?;
+
+        // info!("Building image for recipe at {}", recipe_paths.display());
+
+        // self.start(&recipe_path)
+        todo!()
     }
 }
 
@@ -344,6 +305,73 @@ impl BuildCommand {
         debug!("Using image name '{image_name}'");
 
         Ok(image_name)
+    }
+
+    fn update_gitignore(&self) -> Result<()> {
+        // Check if the Containerfile exists
+        //   - If doesn't => *Build*
+        //   - If it does:
+        //     - check entry in .gitignore
+        //       -> If it is => *Build*
+        //       -> If isn't:
+        //         - check if it has the BlueBuild tag (LABEL)
+        //           -> If it does => *Ask* to add to .gitignore and remove from git
+        //           -> If it doesn't => *Ask* to continue and override the file
+
+        let container_file_path = Path::new(CONTAINER_FILE);
+        let label = format!("LABEL {BUILD_ID_LABEL}");
+
+        if !self.force && container_file_path.exists() {
+            let to_ignore_lines =
+                vec![format!("/{CONTAINER_FILE}"), format!("/{CONTAINER_FILE}.*")];
+            let gitignore = fs::read_to_string(GITIGNORE_PATH)
+                .context(format!("Failed to read {GITIGNORE_PATH}"))?;
+
+            let mut edited_gitignore = gitignore.clone();
+
+            to_ignore_lines
+                .iter()
+                .filter(|to_ignore| {
+                    gitignore
+                        .lines()
+                        .any(|line| line.trim() == to_ignore.trim())
+                })
+                .try_for_each(|to_ignore| -> Result<()> {
+                    let containerfile = fs::read_to_string(container_file_path)
+                        .context(format!("Failed to read {}", container_file_path.display()))?;
+
+                    let has_label = containerfile
+                        .lines()
+                        .any(|line| line.to_string().trim().starts_with(&label));
+
+                    let question = requestty::Question::confirm("build")
+                        .message(
+                            if has_label {
+                                LABELED_ERROR_MESSAGE
+                            } else {
+                                NO_LABEL_ERROR_MESSAGE
+                            }
+                            .bright_yellow()
+                            .to_string(),
+                        )
+                        .default(true)
+                        .build();
+
+                    if let Ok(answer) = requestty::prompt_one(question) {
+                        if answer.as_bool().unwrap_or(false) {
+                            if !edited_gitignore.ends_with('\n') {
+                                edited_gitignore.push('\n');
+                            }
+
+                            edited_gitignore.push_str(&to_ignore);
+                            edited_gitignore.push('\n');
+                        }
+                    }
+                    Ok(())
+                })?;
+        }
+
+        Ok(())
     }
 }
 
