@@ -32,6 +32,43 @@ struct DockerVersionJson {
 #[derive(Debug)]
 pub struct DockerDriver;
 
+impl DockerDriver {
+    fn setup() -> Result<()> {
+        trace!("DockerDriver::setup()");
+
+        trace!("docker buildx ls --format='{{.Name}}'");
+        let ls_out = Command::new("docker")
+            .arg("buildx")
+            .arg("ls")
+            .arg("--format='{{.Name}}'")
+            .output()?;
+
+        if !ls_out.status.success() {
+            bail!("{}", String::from_utf8_lossy(&ls_out.stderr));
+        }
+
+        let ls_out = String::from_utf8(ls_out.stdout)?;
+
+        trace!("{ls_out}");
+
+        if !ls_out.lines().any(|line| line == "bluebuild") {
+            trace!("docker buildx create --bootstrap --driver=docker-container --name=bluebuild");
+            let create_out = Command::new("docker")
+                .arg("buildx")
+                .arg("create")
+                .arg("--bootstrap")
+                .arg("--driver=docker-container")
+                .arg("--name=bluebuild")
+                .output()?;
+
+            if !create_out.status.success() {
+                bail!("{}", String::from_utf8_lossy(&create_out.stderr));
+            }
+        }
+        Ok(())
+    }
+}
+
 impl DriverVersion for DockerDriver {
     // First docker verison to use buildkit
     // https://docs.docker.com/build/buildkit/
@@ -137,6 +174,8 @@ impl BuildDriver for DockerDriver {
     fn build_tag_push(&self, opts: &BuildTagPushOpts) -> Result<()> {
         trace!("DockerDriver::build_tag_push({opts:#?})");
 
+        Self::setup()?;
+
         if opts.squash {
             warn!("Squash is deprecated for docker so this build will not squash");
         }
@@ -146,6 +185,7 @@ impl BuildDriver for DockerDriver {
         trace!("docker buildx build -f {CONTAINER_FILE}");
         command
             .arg("buildx")
+            .arg("--builder=bluebuild")
             .arg("build")
             .arg("--pull")
             .arg("-f")
