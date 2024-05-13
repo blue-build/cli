@@ -5,13 +5,19 @@ use colored::{ColoredString, Colorize};
 use env_logger::fmt::Formatter;
 use log::{Level, LevelFilter, Record};
 
-fn colored_level(level: Level) -> ColoredString {
-    match level {
-        Level::Error => Level::Error.as_str().red(),
-        Level::Warn => Level::Warn.as_str().yellow(),
-        Level::Info => Level::Info.as_str().green(),
-        Level::Debug => Level::Debug.as_str().blue(),
-        Level::Trace => Level::Trace.as_str().cyan(),
+trait ColoredLevel {
+    fn colored(&self) -> ColoredString;
+}
+
+impl ColoredLevel for Level {
+    fn colored(&self) -> ColoredString {
+        match self {
+            Self::Error => Self::Error.as_str().red(),
+            Self::Warn => Self::Warn.as_str().yellow(),
+            Self::Info => Self::Info.as_str().green(),
+            Self::Debug => Self::Debug.as_str().blue(),
+            Self::Trace => Self::Trace.as_str().cyan(),
+        }
     }
 }
 
@@ -26,7 +32,7 @@ pub fn format_log(
             writeln!(
                 buf,
                 "{:width$} {} {}",
-                colored_level(record.level()),
+                record.level().colored(),
                 "=>".bold(),
                 record.args(),
                 width = 5,
@@ -36,7 +42,7 @@ pub fn format_log(
             buf,
             "[{} {:>width$}] {} {}",
             Local::now().format("%H:%M:%S"),
-            colored_level(record.level()),
+            record.level().colored(),
             "=>".bold(),
             record.args(),
             width = 5,
@@ -45,7 +51,7 @@ pub fn format_log(
             buf,
             "[{} {:width$} {}:{}] {} {}",
             Local::now().format("%H:%M:%S"),
-            colored_level(record.level()),
+            record.level().colored(),
             record
                 .module_path()
                 .map_or_else(|| "", |p| p)
