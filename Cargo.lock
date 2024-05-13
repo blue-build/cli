@@ -289,6 +289,7 @@ dependencies = [
  "directories",
  "env_logger",
  "format_serde_error",
+ "hsl",
  "log",
  "process_control",
  "rand",
@@ -771,6 +772,12 @@ checksum = "e3d1354bf6b7235cb4a0576c2619fd4ed18183f689b12b006a0ee7329eeff9a5"
 dependencies = [
  "windows-sys 0.52.0",
 ]
+
+[[package]]
+name = "hsl"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "575fb7f1167f3b88ed825e90eb14918ac460461fdeaa3965c6a50951dee1c970"
 
 [[package]]
 name = "humansize"

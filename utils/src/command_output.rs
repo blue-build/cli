@@ -8,6 +8,7 @@ use std::{
 };
 
 use colored::Colorize;
+use hsl::HSL;
 use process_control::{ChildExt, Control};
 use rand::Rng;
 
@@ -22,12 +23,15 @@ pub trait CommandExt {
 
 impl CommandExt for Command {
     fn status_log_prefix<T: AsRef<str>>(&mut self, log_prefix: &T) -> Result<ExitStatus> {
-        let mut child = self.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
-
         let mut rng = rand::thread_rng();
-        let red: u8 = rng.gen_range(80..=240);
-        let green: u8 = rng.gen_range(80..=240);
-        let blue: u8 = rng.gen_range(80..=240);
+        let (red, green, blue) = HSL {
+            h: rng.gen_range(0.0..=360.0),
+            s: 0.75,
+            l: 0.75,
+        }
+        .to_rgb();
+
+        let mut child = self.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
 
         if let Some(stdout) = child.stdout.take() {
             let reader = BufReader::new(stdout);
