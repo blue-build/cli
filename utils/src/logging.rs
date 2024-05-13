@@ -31,37 +31,37 @@ pub fn format_log(
         LevelFilter::Error | LevelFilter::Warn | LevelFilter::Info => {
             writeln!(
                 buf,
-                "{:width$} {} {}",
-                record.level().colored(),
-                "=>".bold(),
-                record.args(),
+                "{level:width$} {sep} {args}",
+                level = record.level().colored(),
                 width = 5,
+                sep = "=>".bold(),
+                args = record.args(),
             )
         }
         LevelFilter::Debug => writeln!(
             buf,
-            "[{} {:>width$}] {} {}",
-            Local::now().format("%H:%M:%S"),
-            record.level().colored(),
-            "=>".bold(),
-            record.args(),
+            "[{time} {level:>width$}] {sep} {args}",
+            time = Local::now().format("%H:%M:%S"),
+            level = record.level().colored(),
+            sep = "=>".bold(),
+            args = record.args(),
             width = 5,
         ),
         LevelFilter::Trace => writeln!(
             buf,
-            "[{} {:width$} {}:{}] {} {}",
-            Local::now().format("%H:%M:%S"),
-            record.level().colored(),
-            record
+            "[{time} {level:width$} {module}:{line}] {sep} {args}",
+            time = Local::now().format("%H:%M:%S"),
+            level = record.level().colored(),
+            module = record
                 .module_path()
                 .map_or_else(|| "", |p| p)
                 .bright_yellow(),
-            record
+            line = record
                 .line()
                 .map_or_else(String::new, |l| l.to_string())
                 .bright_green(),
-            "=>".bold(),
-            record.args(),
+            sep = "=>".bold(),
+            args = record.args(),
             width = 5,
         ),
         LevelFilter::Off => Ok(()),
