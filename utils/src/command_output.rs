@@ -26,8 +26,8 @@ impl CommandExt for Command {
         let mut rng = rand::thread_rng();
         let (red, green, blue) = HSL {
             h: rng.gen_range(0.0..=360.0),
-            s: 0.75,
-            l: 0.75,
+            s: rng.gen_range(0.6..=1.0),
+            l: rng.gen_range(0.5..=0.8),
         }
         .to_rgb();
 
