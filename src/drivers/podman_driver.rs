@@ -1,7 +1,7 @@
 use std::process::{Command, Stdio};
 
 use anyhow::{bail, Result};
-use blue_build_utils::constants::SKOPEO_IMAGE;
+use blue_build_utils::{constants::SKOPEO_IMAGE, CommandExt};
 use log::{debug, info, trace};
 use semver::Version;
 use serde::Deserialize;
@@ -56,18 +56,21 @@ impl BuildDriver for PodmanDriver {
         trace!("PodmanDriver::build({opts:#?})");
 
         trace!(
-            "podman build --pull=true --layers={} . -t {}",
+            "podman build --pull=true --layers={} -f {} -t {} .",
             !opts.squash,
+            opts.containerfile.display(),
             opts.image,
         );
         let status = Command::new("podman")
             .arg("build")
             .arg("--pull=true")
             .arg(format!("--layers={}", !opts.squash))
-            .arg(".")
+            .arg("-f")
+            .arg(opts.containerfile)
             .arg("-t")
             .arg(opts.image.as_ref())
-            .status()?;
+            .arg(".")
+            .status_log_prefix(&opts.image)?;
 
         if status.success() {
             info!("Successfully built {}", opts.image);
@@ -106,7 +109,7 @@ impl BuildDriver for PodmanDriver {
                 opts.compression_type.unwrap_or_default()
             ))
             .arg(opts.image.as_ref())
-            .status()?;
+            .status_log_prefix(&format!("push - {}", opts.image))?;
 
         if status.success() {
             info!("Successfully pushed {}!", opts.image);

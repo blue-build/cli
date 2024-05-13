@@ -36,6 +36,7 @@ pub struct PushOpts<'a> {
 }
 
 /// Options for building, tagging, and pusing images.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, TypedBuilder)]
 pub struct BuildTagPushOpts<'a> {
     /// The base image name.
@@ -72,9 +73,11 @@ pub struct BuildTagPushOpts<'a> {
     #[builder(default = 1)]
     pub retry_count: u8,
 
+    /// The compression type to use when pushing.
     #[builder(default)]
     pub compression: CompressionType,
 
+    /// Run all steps in a single layer.
     #[builder(default)]
     pub squash: bool,
 }

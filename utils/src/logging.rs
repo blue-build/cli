@@ -7,11 +7,11 @@ use log::{Level, LevelFilter, Record};
 
 fn colored_level(level: Level) -> ColoredString {
     match level {
-        Level::Error => Level::Error.as_str().bright_red(),
+        Level::Error => Level::Error.as_str().red(),
         Level::Warn => Level::Warn.as_str().yellow(),
-        Level::Info => Level::Info.as_str().bright_green(),
+        Level::Info => Level::Info.as_str().green(),
         Level::Debug => Level::Debug.as_str().blue(),
-        Level::Trace => Level::Trace.as_str().bright_cyan(),
+        Level::Trace => Level::Trace.as_str().cyan(),
     }
 }
 
@@ -25,23 +25,25 @@ pub fn format_log(
         LevelFilter::Error | LevelFilter::Warn | LevelFilter::Info => {
             writeln!(
                 buf,
-                "{:width$} => {}",
+                "{:width$} {} {}",
                 colored_level(record.level()),
+                "=>".bold(),
                 record.args(),
                 width = 5,
             )
         }
         LevelFilter::Debug => writeln!(
             buf,
-            "[{} {:>width$}] => {}",
+            "[{} {:>width$}] {} {}",
             Local::now().format("%H:%M:%S"),
             colored_level(record.level()),
+            "=>".bold(),
             record.args(),
             width = 5,
         ),
         LevelFilter::Trace => writeln!(
             buf,
-            "[{} {:width$} {}:{}] => {}",
+            "[{} {:width$} {}:{}] {} {}",
             Local::now().format("%H:%M:%S"),
             colored_level(record.level()),
             record
@@ -52,6 +54,7 @@ pub fn format_log(
                 .line()
                 .map_or_else(String::new, |l| l.to_string())
                 .bright_green(),
+            "=>".bold(),
             record.args(),
             width = 5,
         ),

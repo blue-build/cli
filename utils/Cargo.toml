@@ -12,6 +12,7 @@ license.workspace = true
 atty = "0.2.14"
 directories = "5"
 process_control = { version = "4.0.3", features = ["crossbeam-channel"] }
+rand = "0.8.5"
 syntect = "5.2.0"
 which = "6"
 

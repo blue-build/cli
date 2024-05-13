@@ -1,6 +1,7 @@
 use std::process::Command;
 
 use anyhow::{bail, Result};
+use blue_build_utils::CommandExt;
 use log::{info, trace};
 use semver::Version;
 use serde::Deserialize;
@@ -46,17 +47,20 @@ impl BuildDriver for BuildahDriver {
         trace!("BuildahDriver::build({opts:#?})");
 
         trace!(
-            "buildah build --pull=true --layers={} -t {}",
+            "buildah build --pull=true --layers={} -f {} -t {}",
             !opts.squash,
+            opts.containerfile.display(),
             opts.image,
         );
         let status = Command::new("buildah")
             .arg("build")
             .arg("--pull=true")
             .arg(format!("--layers={}", !opts.squash))
+            .arg("-f")
+            .arg(opts.containerfile)
             .arg("-t")
             .arg(opts.image.as_ref())
-            .status()?;
+            .status_log_prefix(&opts.image)?;
 
         if status.success() {
             info!("Successfully built {}", opts.image);
@@ -95,7 +99,7 @@ impl BuildDriver for BuildahDriver {
                 opts.compression_type.unwrap_or_default()
             ))
             .arg(opts.image.as_ref())
-            .status()?;
+            .status_log_prefix(&format!("push - {}", opts.image))?;
 
         if status.success() {
             info!("Successfully pushed {}!", opts.image);

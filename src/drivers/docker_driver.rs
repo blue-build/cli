@@ -4,7 +4,10 @@ use std::{
 };
 
 use anyhow::{bail, Result};
-use blue_build_utils::constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, SKOPEO_IMAGE};
+use blue_build_utils::{
+    constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, SKOPEO_IMAGE},
+    CommandExt,
+};
 use log::{info, trace, warn};
 use semver::Version;
 use serde::Deserialize;
@@ -101,7 +104,7 @@ impl BuildDriver for DockerDriver {
             .arg("-t")
             .arg(opts.image.as_ref())
             .arg("-f")
-            .arg(CONTAINER_FILE)
+            .arg(opts.containerfile)
             .arg(".")
             .status()?;
 
@@ -182,7 +185,7 @@ impl BuildDriver for DockerDriver {
 
         let mut command = Command::new("docker");
 
-        trace!("docker buildx build -f {CONTAINER_FILE}");
+        trace!("docker buildx build -f {}", opts.containerfile.display());
         command
             .arg("buildx")
             .arg("--builder=bluebuild")
@@ -190,7 +193,7 @@ impl BuildDriver for DockerDriver {
             .arg("--progress=plain")
             .arg("--pull")
             .arg("-f")
-            .arg(CONTAINER_FILE);
+            .arg(opts.containerfile);
 
         // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
         if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
@@ -201,6 +204,8 @@ impl BuildDriver for DockerDriver {
                 .arg("--cache-to")
                 .arg("type=gha");
         }
+
+        let mut final_image = String::new();
 
         match (opts.image.as_ref(), opts.archive_path.as_ref()) {
             (Some(image), None) => {
@@ -216,6 +221,8 @@ impl BuildDriver for DockerDriver {
                     }
                 }
 
+                final_image.push_str(image);
+
                 if opts.push {
                     trace!("--output type=image,name={image},push=true,compression={},oci-mediatypes=true", opts.compression);
                     command.arg("--output").arg(format!(
@@ -228,6 +235,8 @@ impl BuildDriver for DockerDriver {
                 }
             }
             (None, Some(archive_path)) => {
+                final_image.push_str(archive_path);
+
                 trace!("--output type=oci,dest={archive_path}");
                 command
                     .arg("--output")
@@ -240,14 +249,14 @@ impl BuildDriver for DockerDriver {
         trace!(".");
         command.arg(".");
 
-        if command.status()?.success() {
+        if command.status_log_prefix(&final_image)?.success() {
             if opts.push {
-                info!("Successfully built and pushed image");
+                info!("Successfully built and pushed image {}", final_image);
             } else {
-                info!("Successfully built image");
+                info!("Successfully built image {}", final_image);
             }
         } else {
-            bail!("Failed to build image");
+            bail!("Failed to build image {}", final_image);
         }
         Ok(())
     }

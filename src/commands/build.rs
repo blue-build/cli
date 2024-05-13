@@ -206,10 +206,10 @@ impl BuildCommand {
                     sign_images(&image_name, tags.first().map(String::as_str))?;
                 }
 
-                info!("Build complete!");
                 Ok(())
             })?;
 
+        info!("Build complete!");
         Ok(())
     }
 
@@ -333,7 +333,7 @@ impl BuildCommand {
             to_ignore_lines
                 .iter()
                 .filter(|to_ignore| {
-                    gitignore
+                    !gitignore
                         .lines()
                         .any(|line| line.trim() == to_ignore.trim())
                 })
@@ -370,6 +370,10 @@ impl BuildCommand {
                     }
                     Ok(())
                 })?;
+
+            if edited_gitignore != gitignore {
+                fs::write(GITIGNORE_PATH, edited_gitignore.as_str())?;
+            }
         }
 
         Ok(())

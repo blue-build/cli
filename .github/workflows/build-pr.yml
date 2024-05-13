@@ -151,4 +151,4 @@ jobs:
           cd integration-tests/test-repo
           bluebuild template -vv | tee Containerfile
           grep -q 'ARG IMAGE_REGISTRY=ghcr.io/blue-build' Containerfile || exit 1
-          bluebuild build --push -vv
+          bluebuild build --push -vv recipes/recipe.yml recipes/recipe-39.yml
