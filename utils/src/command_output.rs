@@ -36,7 +36,7 @@ impl CommandExt for Command {
             thread::spawn(move || {
                 reader.lines().for_each(|line| {
                     if let Ok(l) = line {
-                        println!("{prefix} {} {l}", "=>".bold());
+                        eprintln!("{prefix} {seperator} {l}", seperator = "=>".bold());
                     }
                 });
             });
@@ -49,7 +49,7 @@ impl CommandExt for Command {
             thread::spawn(move || {
                 reader.lines().for_each(|line| {
                     if let Ok(l) = line {
-                        eprintln!("{prefix} {} {l}", "=>".bold());
+                        eprintln!("{prefix} {seperator} {l}", seperator = "=>".bold());
                     }
                 });
             });

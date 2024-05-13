@@ -66,7 +66,7 @@ impl BuildDriver for PodmanDriver {
             .arg("--pull=true")
             .arg(format!("--layers={}", !opts.squash))
             .arg("-f")
-            .arg(opts.containerfile)
+            .arg(opts.containerfile.as_ref())
             .arg("-t")
             .arg(opts.image.as_ref())
             .arg(".")

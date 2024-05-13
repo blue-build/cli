@@ -1,10 +1,16 @@
 use std::{
+    collections::HashSet,
     env, fs,
     path::{Path, PathBuf},
     process::Command,
 };
 
 use anyhow::{bail, Context, Result};
+use base64::prelude::*;
+use blake2::{
+    digest::{Update, VariableOutput},
+    Blake2bVar,
+};
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::{
     ARCHIVE_SUFFIX, BUILD_ID_LABEL, CI_DEFAULT_BRANCH, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE,
@@ -16,7 +22,7 @@ use blue_build_utils::constants::{
 use clap::Args;
 use colored::Colorize;
 use log::{debug, info, trace, warn};
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use typed_builder::TypedBuilder;
 
 use crate::{
@@ -136,22 +142,22 @@ impl BlueBuildCommand for BuildCommand {
             let legacy_path = Path::new(CONFIG_PATH);
             let recipe_path = Path::new(RECIPE_PATH);
             if recipe_path.exists() && recipe_path.is_dir() {
-                vec![(CONTAINER_FILE.to_string(), recipe_path.join(RECIPE_FILE))]
+                vec![recipe_path.join(RECIPE_FILE)]
             } else {
                 warn!("Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}");
-                vec![(CONTAINER_FILE.to_string(), legacy_path.join(RECIPE_FILE))]
+                vec![legacy_path.join(RECIPE_FILE)]
             }
         },
         |recipes| {
-            recipes.into_par_iter().filter_map(|recipe| {
-                Some((format!("{CONTAINER_FILE}.{}", recipe.file_stem()?.to_str()?), recipe))
-            }).collect()
+            let mut same = HashSet::new();
+
+            recipes.into_iter().filter(|recipe| same.insert(recipe.clone())).collect()
         });
 
         recipe_paths.par_iter().try_for_each(|recipe| {
             TemplateCommand::builder()
-                .output(PathBuf::from(&recipe.0))
-                .recipe(&recipe.1)
+                .output(generate_containerfile_path(recipe)?)
+                .recipe(recipe)
                 .drivers(DriverArgs::builder().squash(self.drivers.squash).build())
                 .build()
                 .try_run()
@@ -162,7 +168,7 @@ impl BlueBuildCommand for BuildCommand {
 }
 
 impl BuildCommand {
-    fn start(&self, recipe_paths: &[(String, PathBuf)]) -> Result<()> {
+    fn start(&self, recipe_paths: &[PathBuf]) -> Result<()> {
         trace!("BuildCommand::build_image()");
 
         if self.push {
@@ -172,14 +178,15 @@ impl BuildCommand {
         recipe_paths
             .par_iter()
             .try_for_each(|recipe_path| -> Result<()> {
-                let recipe = Recipe::parse(&recipe_path.1)?;
+                let recipe = Recipe::parse(recipe_path)?;
                 let os_version = Driver::get_os_version(&recipe)?;
+                let containerfile = generate_containerfile_path(recipe_path)?;
                 let tags = recipe.generate_tags(os_version);
                 let image_name = self.generate_full_image_name(&recipe)?;
 
                 let opts = if let Some(archive_dir) = self.archive.as_ref() {
                     BuildTagPushOpts::builder()
-                        .containerfile(Path::new(recipe_path.0.as_str()))
+                        .containerfile(&containerfile)
                         .archive_path(format!(
                             "{}/{}.{ARCHIVE_SUFFIX}",
                             archive_dir.to_string_lossy().trim_end_matches('/'),
@@ -190,7 +197,7 @@ impl BuildCommand {
                 } else {
                     BuildTagPushOpts::builder()
                         .image(&image_name)
-                        .containerfile(Path::new(recipe_path.0.as_str()))
+                        .containerfile(&containerfile)
                         .tags(tags.iter().map(String::as_str).collect::<Vec<_>>())
                         .push(self.push)
                         .no_retry_push(self.no_retry_push)
@@ -583,4 +590,19 @@ fn check_cosign_files() -> Result<()> {
             Ok(())
         }
     }
+}
+
+fn generate_containerfile_path<T: AsRef<Path>>(path: &T) -> Result<PathBuf> {
+    const HASH_SIZE: usize = 8;
+    let path_str = path.as_ref().to_string_lossy();
+    let mut buf = [0u8; HASH_SIZE];
+
+    let mut hasher = Blake2bVar::new(HASH_SIZE)?;
+    hasher.update(path_str.as_bytes());
+    hasher.finalize_variable(&mut buf)?;
+
+    Ok(PathBuf::from(format!(
+        "{CONTAINER_FILE}.{}",
+        BASE64_URL_SAFE_NO_PAD.encode(buf)
+    )))
 }

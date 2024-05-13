@@ -53,6 +53,8 @@ pre-release-replacements = [
 ]
 
 [dependencies]
+base64 = "0.22.1"
+blake2 = "0.10.6"
 blue-build-recipe = { version = "=0.8.7", path = "./recipe" }
 blue-build-template = { version = "=0.8.7", path = "./template" }
 blue-build-utils = { version = "=0.8.7", path = "./utils" }

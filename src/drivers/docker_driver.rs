@@ -120,7 +120,7 @@ impl BuildDriver for DockerDriver {
             .arg("-t")
             .arg(opts.image.as_ref())
             .arg("-f")
-            .arg(opts.containerfile)
+            .arg(opts.containerfile.as_ref())
             .arg(".")
             .status()?;
 
@@ -209,7 +209,7 @@ impl BuildDriver for DockerDriver {
             .arg("--progress=plain")
             .arg("--pull")
             .arg("-f")
-            .arg(opts.containerfile);
+            .arg(opts.containerfile.as_ref());
 
         // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
         if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {

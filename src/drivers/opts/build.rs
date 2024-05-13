@@ -14,7 +14,7 @@ pub struct BuildOpts<'a> {
     pub squash: bool,
 
     #[builder(setter(into))]
-    pub containerfile: &'a Path,
+    pub containerfile: Cow<'a, Path>,
 }
 
 #[derive(Debug, Clone, TypedBuilder)]
@@ -53,7 +53,7 @@ pub struct BuildTagPushOpts<'a> {
 
     /// The path to the Containerfile to build.
     #[builder(setter(into))]
-    pub containerfile: &'a Path,
+    pub containerfile: Cow<'a, Path>,
 
     /// The list of tags for the image being built.
     #[builder(default, setter(into))]
