@@ -226,18 +226,21 @@ impl BuildDriver for DockerDriver {
         match (opts.image.as_ref(), opts.archive_path.as_ref()) {
             (Some(image), None) => {
                 if opts.tags.is_empty() {
+                    final_image.push_str(image);
+
                     trace!("-t {image}");
                     command.arg("-t").arg(image.as_ref());
                 } else {
-                    for tag in opts.tags.as_ref() {
+                    final_image
+                        .push_str(format!("{image}:{}", opts.tags.first().unwrap_or(&"")).as_str());
+
+                    opts.tags.iter().for_each(|tag| {
                         let full_image = format!("{image}:{tag}");
 
                         trace!("-t {full_image}");
                         command.arg("-t").arg(full_image);
-                    }
+                    });
                 }
-
-                final_image.push_str(image);
 
                 if opts.push {
                     trace!("--output type=image,name={image},push=true,compression={},oci-mediatypes=true", opts.compression);
