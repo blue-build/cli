@@ -9,6 +9,8 @@ on:
 
 env:
   FORCE_COLOR: 1
+  CLICOLOR_FORCE: 1
+  RUST_LOG_STYLE: always
 
 jobs:
   build:
