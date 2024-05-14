@@ -61,7 +61,7 @@ A CLI tool built for creating Containerfile templates based on the Ublue Communi
 This is the best way to install as it gives you the opportunity to build for your specific environment.
 
 ```bash
-cargo install --git https://github.com/blue-build/cli.git --tag v0.8.8
+cargo install --locked blue-build
 ```
 
 ### Podman/Docker
