@@ -8,7 +8,7 @@ use std::{
 };
 
 use colored::Colorize;
-use hsl::HSL;
+use nu_ansi_term::Color;
 use process_control::{ChildExt, Control};
 use rand::Rng;
 
@@ -24,18 +24,13 @@ pub trait CommandExt {
 impl CommandExt for Command {
     fn status_log_prefix<T: AsRef<str>>(&mut self, log_prefix: &T) -> Result<ExitStatus> {
         let mut rng = rand::thread_rng();
-        let (red, green, blue) = HSL {
-            h: rng.gen_range(0.0..=360.0),
-            s: rng.gen_range(0.6..=1.0),
-            l: rng.gen_range(0.5..=0.8),
-        }
-        .to_rgb();
+        let ansi_color: u8 = rng.gen_range(17..=230);
 
         let mut child = self.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
 
         if let Some(stdout) = child.stdout.take() {
             let reader = BufReader::new(stdout);
-            let prefix = log_prefix.as_ref().truecolor(red, green, blue);
+            let prefix = Color::Fixed(ansi_color).paint(log_prefix.as_ref().to_string());
 
             thread::spawn(move || {
                 reader.lines().for_each(|line| {
@@ -48,7 +43,7 @@ impl CommandExt for Command {
 
         if let Some(stderr) = child.stderr.take() {
             let reader = BufReader::new(stderr);
-            let prefix = log_prefix.as_ref().truecolor(red, green, blue);
+            let prefix = Color::Fixed(ansi_color).paint(log_prefix.as_ref().to_string());
 
             thread::spawn(move || {
                 reader.lines().for_each(|line| {

@@ -11,7 +11,7 @@ license.workspace = true
 [dependencies]
 atty = "0.2.14"
 directories = "5"
-hsl = "0.1.1"
+nu-ansi-term = { version = "0.50.0", features = ["gnu_legacy"] }
 process_control = { version = "4.0.3", features = ["crossbeam-channel"] }
 rand = "0.8.5"
 syntect = "5.2.0"
