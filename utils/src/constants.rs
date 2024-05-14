@@ -18,6 +18,9 @@ pub const IMAGE_VERSION_LABEL: &str = "org.opencontainers.image.version";
 // BlueBuild vars
 pub const BB_BUILDKIT_CACHE_GHA: &str = "BB_BUILDKIT_CACHE_GHA";
 
+// Docker vars
+pub const DOCKER_HOST: &str = "DOCKER_HOST";
+
 // Cosign vars
 pub const COSIGN_PRIVATE_KEY: &str = "COSIGN_PRIVATE_KEY";
 pub const GITHUB_TOKEN_ISSUER_URL: &str = "https://token.actions.githubusercontent.com";
