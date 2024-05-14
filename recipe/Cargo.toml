@@ -9,7 +9,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-blue-build-utils = { version = "=0.8.7", path = "../utils" }
+blue-build-utils = { version = "=0.8.8", path = "../utils" }
 chrono = "0.4"
 indexmap = { version = "2", features = ["serde"] }
 

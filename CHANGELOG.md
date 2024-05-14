@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.8] - 2024-05-14
+
+### Bug Fixes
+
+- Add driver args to rebase/upgrade command
+- Make docker pull latest images when building
+- Don't use '' in format arg
+- Create lock on docker setup to prevent race conditions
+
+### Features
+
+- Create a bluebuild buildx runner
+
+### Miscellaneous Tasks
+
+- Ensure cargo installs use version for build scripts image
+- Cleanup install script to instead create the container without running it
+
 ## [0.8.7] - 2024-05-05
 
 ### Bug Fixes
@@ -19,6 +37,7 @@ All notable changes to this project will be documented in this file.
 - Allow tests to pass due to upstream akmods issues
 - Remove title case (#177)
 - Fix release replacements
+- Release
 
 ## [0.8.6] - 2024-04-29
 

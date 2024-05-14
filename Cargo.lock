@@ -212,7 +212,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build"
-version = "0.8.7"
+version = "0.8.8"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -249,7 +249,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-recipe"
-version = "0.8.7"
+version = "0.8.8"
 dependencies = [
  "anyhow",
  "blue-build-utils",
@@ -264,7 +264,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-template"
-version = "0.8.7"
+version = "0.8.8"
 dependencies = [
  "askama",
  "blue-build-recipe",
@@ -279,7 +279,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-utils"
-version = "0.8.7"
+version = "0.8.8"
 dependencies = [
  "anyhow",
  "atty",
