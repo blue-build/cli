@@ -7,7 +7,7 @@ use std::{
 use anyhow::{anyhow, bail, Result};
 use blue_build_utils::{
     constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
-    CommandExt,
+    logging::{shorten_image_names, CommandLogging},
 };
 use log::{info, trace, warn};
 use once_cell::sync::Lazy;
@@ -278,7 +278,10 @@ impl BuildDriver for DockerDriver {
         trace!(".");
         command.arg(".");
 
-        if command.status_log_prefix(&final_image)?.success() {
+        if command
+            .status_log_prefix(&shorten_image_names(&final_image))?
+            .success()
+        {
             if opts.push {
                 info!("Successfully built and pushed image {}", final_image);
             } else {

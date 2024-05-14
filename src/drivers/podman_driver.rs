@@ -1,7 +1,10 @@
 use std::process::{Command, Stdio};
 
 use anyhow::{bail, Result};
-use blue_build_utils::{constants::SKOPEO_IMAGE, CommandExt};
+use blue_build_utils::{
+    constants::SKOPEO_IMAGE,
+    logging::{shorten_image_names, CommandLogging},
+};
 use log::{debug, info, trace};
 use semver::Version;
 use serde::Deserialize;
@@ -70,7 +73,7 @@ impl BuildDriver for PodmanDriver {
             .arg("-t")
             .arg(opts.image.as_ref())
             .arg(".")
-            .status_log_prefix(&opts.image)?;
+            .status_log_prefix(&shorten_image_names(&opts.image))?;
 
         if status.success() {
             info!("Successfully built {}", opts.image);
@@ -109,7 +112,7 @@ impl BuildDriver for PodmanDriver {
                 opts.compression_type.unwrap_or_default()
             ))
             .arg(opts.image.as_ref())
-            .status_log_prefix(&format!("push - {}", opts.image))?;
+            .status_log_prefix(&format!("push - {}", shorten_image_names(&opts.image)))?;
 
         if status.success() {
             info!("Successfully pushed {}!", opts.image);

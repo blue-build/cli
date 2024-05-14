@@ -6,12 +6,10 @@ use log::LevelFilter;
 fn main() {
     let args = BlueBuildArgs::parse();
 
-    let log_level = args.verbosity.log_level_filter();
-
     env_logger::builder()
         .filter_level(args.verbosity.log_level_filter())
         .filter_module("hyper::proto", LevelFilter::Info)
-        .format(logging::format_log(log_level))
+        .format(logging::format_log)
         .init();
 
     log::trace!("Parsed arguments: {args:#?}");

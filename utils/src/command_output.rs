@@ -1,62 +1,12 @@
 use std::{
     ffi::OsStr,
     fmt::Debug,
-    io::{BufRead, BufReader, Error, ErrorKind, Result},
-    process::{Command, ExitStatus, Stdio},
-    thread,
+    io::{Error, ErrorKind, Result},
+    process::{Command, Stdio},
     time::{Duration, Instant},
 };
 
-use colored::Colorize;
-use nu_ansi_term::Color;
 use process_control::{ChildExt, Control};
-use rand::Rng;
-
-pub trait CommandExt {
-    /// Prints each line of stdout with a prefix string
-    /// that is given a random color.
-    ///
-    /// # Errors
-    /// Will error if there was an issue executing the process.
-    fn status_log_prefix<T: AsRef<str>>(&mut self, log_prefix: &T) -> Result<ExitStatus>;
-}
-
-impl CommandExt for Command {
-    fn status_log_prefix<T: AsRef<str>>(&mut self, log_prefix: &T) -> Result<ExitStatus> {
-        let mut rng = rand::thread_rng();
-        let ansi_color: u8 = rng.gen_range(17..=230);
-
-        let mut child = self.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
-
-        if let Some(stdout) = child.stdout.take() {
-            let reader = BufReader::new(stdout);
-            let prefix = Color::Fixed(ansi_color).paint(log_prefix.as_ref().to_string());
-
-            thread::spawn(move || {
-                reader.lines().for_each(|line| {
-                    if let Ok(l) = line {
-                        eprintln!("{prefix} {seperator} {l}", seperator = "=>".bold());
-                    }
-                });
-            });
-        }
-
-        if let Some(stderr) = child.stderr.take() {
-            let reader = BufReader::new(stderr);
-            let prefix = Color::Fixed(ansi_color).paint(log_prefix.as_ref().to_string());
-
-            thread::spawn(move || {
-                reader.lines().for_each(|line| {
-                    if let Ok(l) = line {
-                        eprintln!("{prefix} {seperator} {l}", seperator = "=>".bold());
-                    }
-                });
-            });
-        }
-
-        child.wait()
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandOutput {
