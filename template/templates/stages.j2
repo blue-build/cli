@@ -3,19 +3,19 @@
 # the final image
 {%- if files_dir_exists %}
 FROM scratch AS stage-files
-COPY --link ./files /files
+COPY ./files /files
 {% else %}
 FROM scratch AS stage-config
-COPY --link ./config /config
+COPY ./config /config
 {% endif %}
 
 # Copy modules
 # The default modules are inside blue-build/modules
 # Custom modules overwrite defaults
 FROM scratch AS stage-modules
-COPY --link --from=ghcr.io/blue-build/modules:latest /modules /modules
+COPY --from=ghcr.io/blue-build/modules:latest /modules /modules
 {%- if self::modules_exists() %}
-COPY --link ./modules /modules
+COPY ./modules /modules
 {% endif %}
 
 # Bins to install
@@ -24,9 +24,9 @@ COPY --link ./modules /modules
 # stage process so that adding the bins into the image
 # can be added to the ostree commits.
 FROM scratch AS stage-bins
-COPY --link --from=gcr.io/projectsigstore/cosign /ko-app/cosign /bins/cosign
-COPY --link --from=docker.io/mikefarah/yq /usr/bin/yq /bins/yq
-COPY --link --from=ghcr.io/blue-build/cli:
+COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /bins/cosign
+COPY --from=docker.io/mikefarah/yq /usr/bin/yq /bins/yq
+COPY --from=ghcr.io/blue-build/cli:
 {%- if let Some(tag) = recipe.blue_build_tag -%}
 {{ tag }}
 {%- else -%}
@@ -41,7 +41,7 @@ latest-installer
 # public key.
 FROM scratch AS stage-keys
 {%- if self::has_cosign_file() %}
-COPY --link cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
+COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
 {% endif %}
 
 {%- include "modules/akmods/akmods.j2" %}
