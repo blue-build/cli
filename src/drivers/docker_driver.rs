@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use blue_build_utils::{
-    constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, SKOPEO_IMAGE},
+    constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
     CommandExt,
 };
 use log::{info, trace, warn};
@@ -199,12 +199,22 @@ impl BuildDriver for DockerDriver {
             warn!("Squash is deprecated for docker so this build will not squash");
         }
 
+        trace!("docker buildx");
         let mut command = Command::new("docker");
+        command.arg("buildx");
 
-        trace!("docker buildx build -f {}", opts.containerfile.display());
+        if !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty()) {
+            Self::setup()?;
+
+            trace!("--builder=bluebuild");
+            command.arg("--builder=bluebuild");
+        }
+
+        trace!(
+            "build --progress=plain --pull -f {}",
+            opts.containerfile.display()
+        );
         command
-            .arg("buildx")
-            .arg("--builder=bluebuild")
             .arg("build")
             .arg("--progress=plain")
             .arg("--pull")
