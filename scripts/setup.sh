@@ -15,11 +15,9 @@ if [ -f /etc/os-release ]; then
     echo "Settig up Fedora based image to run BlueBuild modules"
     dnf install -y --refresh bash curl wget coreutils
   else
-    echo "OS not detected, exiting"
-    exit 1
+    echo "OS not detected, proceeding without setup"
   fi
   cp /tmp/bins/yq /usr/bin/
 else
-  echo "File /etc/os-release not found, can't proceed"
-  exit 1
+  echo "File /etc/os-release not found, proceeding without setup"
 fi
