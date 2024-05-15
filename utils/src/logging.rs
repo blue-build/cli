@@ -39,11 +39,14 @@ pub trait CommandLogging {
 
 impl CommandLogging for Command {
     fn status_log_prefix<T: AsRef<str>>(&mut self, log_prefix: T) -> Result<ExitStatus> {
-        let mut rng = rand::thread_rng();
-        let ansi_color: u8 = rng.gen_range(21..=230);
+        // ANSI extended color range
+        // https://www.ditig.com/publications/256-colors-cheat-sheet
+        const LOW_END: u8 = 21; // Blue1 #0000ff rgb(0,0,255) hsl(240,100%,50%)
+        const HIGH_END: u8 = 230; // Cornsilk1 #ffffd7 rgb(255,255,215) hsl(60,100%,92%)
+
         let log_prefix = Arc::new(log_header(
             if ShouldColorize::from_env().should_colorize() {
-                Color::Fixed(ansi_color)
+                Color::Fixed(rand::thread_rng().gen_range(LOW_END..=HIGH_END))
                     .paint(log_prefix.as_ref().to_string())
                     .to_string()
             } else {
