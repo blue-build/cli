@@ -152,3 +152,63 @@ jobs:
           bluebuild template -vv | tee Containerfile
           grep -q 'ARG IMAGE_REGISTRY=ghcr.io/blue-build' Containerfile || exit 1
           bluebuild build --push -vv
+
+  podman-build:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    needs:
+      - build
+    if: needs.build.outputs.push == 'true'
+
+    steps:
+      - name: Maximize build space
+        uses: ublue-os/remove-unwanted-software@v6
+
+      - uses: sigstore/cosign-installer@v3.3.0
+      - uses: earthly/actions-setup@v1
+
+      - name: Setup Podman
+        shell: bash
+        run: |
+          # from https://askubuntu.com/questions/1414446/whats-the-recommended-way-of-installing-podman-4-in-ubuntu-22-04
+          ubuntu_version='22.04'
+          key_url="https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_${ubuntu_version}/Release.key"
+          sources_url="https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_${ubuntu_version}"
+          echo "deb $sources_url/ /" | sudo tee /etc/apt/sources.list.d/devel-kubic-libcontainers-unstable.list
+          curl -fsSL $key_url | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Earthly login
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN != null
+        run: |
+          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
+          earthly org s blue-build
+          earthly sat s pr
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
+
+      - name: Install bluebuild
+        run: |
+          earthly -a +installer/bluebuild /usr/local/bin/bluebuild
+
+      - name: Run Build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_PR_EVENT_NUMBER: ${{ github.event.number }}
+          COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
+        run: |
+          cd integration-tests/test-repo
+          bluebuild template -vv | tee Containerfile
+          grep -q 'ARG IMAGE_REGISTRY=ghcr.io/blue-build' Containerfile || exit 1
+          bluebuild build -B podman --push -vv
