@@ -95,7 +95,7 @@ static INSPECT_DRIVER: Lazy<Arc<dyn InspectDriver>> = Lazy::new(|| {
 static BUILD_ID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
 
 /// The cached os versions
-static OS_VERSION: Lazy<Mutex<HashMap<String, String>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+static OS_VERSION: Lazy<Mutex<HashMap<String, u64>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 
 /// Trait for retrieving version of a driver.
 pub trait DriverVersion {
@@ -309,7 +309,7 @@ impl Driver<'_> {
     /// # Errors
     /// Will error if the image doesn't have OS version info
     /// or we are unable to lock a mutex.
-    pub fn get_os_version(recipe: &Recipe) -> Result<String> {
+    pub fn get_os_version(recipe: &Recipe) -> Result<u64> {
         trace!("Driver::get_os_version({recipe:#?})");
         let image = format!("{}:{}", &recipe.base_image, &recipe.image_version);
 
@@ -339,13 +339,13 @@ impl Driver<'_> {
             }
             Some(os_version) => {
                 debug!("Found cached {os_version} for {image}");
-                os_version.clone()
+                *os_version
             }
         };
 
         if let Entry::Vacant(entry) = os_version_lock.entry(image.clone()) {
             trace!("Caching version {os_version} for {image}");
-            entry.insert(os_version.clone());
+            entry.insert(os_version);
         }
         drop(os_version_lock);
         Ok(os_version)

@@ -4,7 +4,7 @@ use std::{
     process::Command,
 };
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::{
     ARCHIVE_SUFFIX, BUILD_ID_LABEL, CI_DEFAULT_BRANCH, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE,
@@ -133,14 +133,16 @@ impl BlueBuildCommand for BuildCommand {
         let container_file_path = Path::new(CONTAINER_FILE);
 
         if !self.force && container_file_path.exists() {
-            let gitignore = fs::read_to_string(GITIGNORE_PATH)?;
+            let gitignore = fs::read_to_string(GITIGNORE_PATH)
+                .context(format!("Failed to read {GITIGNORE_PATH}"))?;
 
             let is_ignored = gitignore
                 .lines()
                 .any(|line: &str| line.contains(CONTAINER_FILE));
 
             if !is_ignored {
-                let containerfile = fs::read_to_string(container_file_path)?;
+                let containerfile = fs::read_to_string(container_file_path)
+                    .context(format!("Failed to read {}", container_file_path.display()))?;
                 let has_label = containerfile.lines().any(|line| {
                     let label = format!("LABEL {BUILD_ID_LABEL}");
                     line.to_string().trim().starts_with(&label)
@@ -209,7 +211,7 @@ impl BuildCommand {
 
         let recipe = Recipe::parse(&recipe_path)?;
         let os_version = Driver::get_os_version(&recipe)?;
-        let tags = recipe.generate_tags(&os_version);
+        let tags = recipe.generate_tags(os_version);
         let image_name = self.generate_full_image_name(&recipe)?;
 
         if self.push {
@@ -532,7 +534,8 @@ fn check_cosign_files() -> Result<()> {
             }
 
             let calculated_pub_key = String::from_utf8(output.stdout)?;
-            let found_pub_key = fs::read_to_string(COSIGN_PATH)?;
+            let found_pub_key =
+                fs::read_to_string(COSIGN_PATH).context(format!("Failed to read {COSIGN_PATH}"))?;
             trace!("calculated_pub_key={calculated_pub_key},found_pub_key={found_pub_key}");
 
             if calculated_pub_key.trim() == found_pub_key.trim() {

@@ -1,7 +1,8 @@
 use std::{borrow::Cow, process};
 
+use anyhow::{bail, Result};
 use indexmap::IndexMap;
-use log::{error, trace};
+use log::{error, trace, warn};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
@@ -28,23 +29,29 @@ pub struct Module<'a> {
 }
 
 impl<'a> Module<'a> {
-    #[must_use]
-    pub fn get_modules(modules: &[Self]) -> Vec<Self> {
-        modules
-            .iter()
-            .flat_map(|module| {
-                module.from_file.as_ref().map_or_else(
-                    || vec![module.clone()],
-                    |file_name| match ModuleExt::parse_module_from_file(file_name) {
-                        Err(e) => {
-                            error!("Failed to get module from {file_name}: {e}");
-                            vec![]
+    /// Get's any child modules.
+    ///
+    /// # Errors
+    /// Will error if the module cannot be
+    /// deserialized or the user uses another
+    /// property alongside `from-file:`.
+    pub fn get_modules(modules: &[Self]) -> Result<Vec<Self>> {
+        let mut found_modules = vec![];
+        for module in modules {
+            found_modules.extend(
+                match module.from_file.as_ref() {
+                    None => vec![module.clone()],
+                    Some(file_name) => {
+                        if module.module_type.is_some() || module.source.is_some() {
+                            bail!("You cannot use the `type:` or `source:` property with `from-file:`");
                         }
-                        Ok(module_ext) => Self::get_modules(&module_ext.modules),
-                    },
-                )
-            })
-            .collect()
+                        Self::get_modules(&ModuleExt::parse_module_from_file(file_name)?.modules)?
+                    }
+                }
+                .into_iter(),
+            );
+        }
+        Ok(found_modules)
     }
 
     #[must_use]
@@ -81,35 +88,75 @@ impl<'a> Module<'a> {
         })
     }
 
-    pub fn generate_akmods_info(&'a self, os_version: &str) -> AkmodsInfo {
+    #[must_use]
+    pub fn generate_akmods_info(&'a self, os_version: &u64) -> AkmodsInfo {
+        #[derive(Debug, Copy, Clone)]
+        enum NvidiaAkmods {
+            Nvidia(bool),
+            Version(u64),
+        }
+
         trace!("generate_akmods_base({self:#?}, {os_version})");
 
         let base = self
             .config
             .get("base")
             .map(|b| b.as_str().unwrap_or_default());
-        let nvidia_version = self
-            .config
-            .get("nvidia-version")
-            .map(|v| v.as_u64().unwrap_or_default());
+        let nvidia = self.config.get("nvidia-version").map_or_else(
+            || {
+                self.config
+                    .get("nvidia")
+                    .map_or_else(|| NvidiaAkmods::Nvidia(false), |v| NvidiaAkmods::Nvidia(v.as_bool().unwrap_or_default()))
+            },
+            |v| {
+                warn!(
+                    "The `nvidia-version` property is deprecated as upstream images may no longer exist, replace it with `nvidia: true`"
+                );
+                NvidiaAkmods::Version(v.as_u64().unwrap_or_default())
+            },
+        );
 
         AkmodsInfo::builder()
-            .images(match (base, nvidia_version) {
-                (Some(b), Some(nv)) if !b.is_empty() && nv > 0 => (
+            .images(match (base, nvidia) {
+                (Some(b), NvidiaAkmods::Nvidia(nv)) if !b.is_empty() && nv => (
                     format!("akmods:{b}-{os_version}"),
+                    format!("akmods-extra:{b}-{os_version}"),
+                    Some(format!("akmods-nvidia:{b}-{os_version}")),
+                ),
+                (Some(b), NvidiaAkmods::Version(nv)) if !b.is_empty() && nv > 0 => (
+                    format!("akmods:{b}-{os_version}"),
+                    format!("akmods-extra:{b}-{os_version}"),
                     Some(format!("akmods-nvidia:{b}-{os_version}-{nv}")),
                 ),
-                (Some(b), _) if !b.is_empty() => (format!("akmods:{b}-{os_version}"), None),
-                (_, Some(nv)) if nv > 0 => (
+                (Some(b), _) if !b.is_empty() => (
+                    format!("akmods:{b}-{os_version}"),
+                    format!("akmods-extra:{b}-{os_version}"),
+                    None,
+                ),
+                (_, NvidiaAkmods::Nvidia(nv)) if nv => (
                     format!("akmods:main-{os_version}"),
+                    format!("akmods-extra:main-{os_version}"),
+                    Some(format!("akmods-nvidia:main-{os_version}")),
+                ),
+                (_, NvidiaAkmods::Version(nv)) if nv > 0 => (
+                    format!("akmods:main-{os_version}"),
+                    format!("akmods-extra:main-{os_version}"),
                     Some(format!("akmods-nvidia:main-{os_version}-{nv}")),
                 ),
-                _ => (format!("akmods:main-{os_version}"), None),
+                _ => (
+                    format!("akmods:main-{os_version}"),
+                    format!("akmods-extra:main-{os_version}"),
+                    None,
+                ),
             })
             .stage_name(format!(
                 "{}{}",
                 base.unwrap_or("main"),
-                nvidia_version.map_or_else(String::default, |nv| format!("-{nv}"))
+                match nvidia {
+                    NvidiaAkmods::Nvidia(nv) if nv => "-nvidia".to_string(),
+                    NvidiaAkmods::Version(nv) if nv > 0 => format!("-nvidia-{nv}"),
+                    _ => String::default(),
+                }
             ))
             .build()
     }

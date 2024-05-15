@@ -2,30 +2,40 @@
 
 set -euo pipefail
 
-VERSION=v0.8.3
+VERSION=v0.8.8
+
+# Container runtime
+function cr() {
+  if command -v podman > /dev/null; then
+    podman $@
+  elif command -v docker > /dev/null; then
+    docker $@
+  else
+    echo "Need docker or podman to install!!"
+    exit 1
+  fi
+}
 
 # We use sudo for podman so that we can copy directly into /usr/local/bin
-
 function cleanup() {
   echo "Cleaning up image"
-  sudo podman stop -i -t 0 blue-build-installer
+  cr rm blue-build-installer
   sleep 2
-  sudo podman image rm ghcr.io/blue-build/cli:${VERSION}-installer
+  cr image rm ghcr.io/blue-build/cli:${VERSION}-installer
 }
 
 trap cleanup SIGINT
 
-sudo podman run \
+cr create \
   --pull always \
   --replace \
-  --detach \
-  --rm \
   --name blue-build-installer \
-  ghcr.io/blue-build/cli:${VERSION}-installer \
-  tail -f /dev/null
+  ghcr.io/blue-build/cli:${VERSION}-installer
 
 set +e
-sudo podman cp blue-build-installer:/out/bluebuild /usr/local/bin/bluebuild
+cr cp blue-build-installer:/out/bluebuild /tmp/
+
+sudo mv /tmp/bluebuild /usr/local/bin/
 
 RETVAL=$?
 set -e

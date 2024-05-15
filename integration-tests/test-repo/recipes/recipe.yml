@@ -1,9 +1,13 @@
 name: cli/test
 description: This is my personal OS image.
-base-image: ghcr.io/ublue-os/silverblue-surface
-image-version: 39
+base-image: ghcr.io/ublue-os/silverblue-main
+alt-tags:
+  - gts
+  - stable
+image-version: 40
 modules:
   - from-file: akmods.yml
+  - from-file: flatpaks.yml
 
   - type: files
     files:
@@ -22,16 +26,6 @@ modules:
     remove:
       - firefox
       - firefox-langpacks
-
-  - type: default-flatpaks
-    notify: true
-    system:
-      install:
-        - org.mozilla.firefox
-        - org.gnome.Loupe
-        - one.ablaze.floorp//lightning
-      remove:
-        - org.gnome.eog
 
   - type: signing
 

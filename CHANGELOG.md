@@ -2,6 +2,114 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.8] - 2024-05-14
+
+### Bug Fixes
+
+- Add driver args to rebase/upgrade command
+- Make docker pull latest images when building
+- Don't use '' in format arg
+- Create lock on docker setup to prevent race conditions
+
+### Features
+
+- Create a bluebuild buildx runner
+
+### Miscellaneous Tasks
+
+- Ensure cargo installs use version for build scripts image
+- Cleanup install script to instead create the container without running it
+
+## [0.8.7] - 2024-05-05
+
+### Bug Fixes
+
+- Git sha not present during `cargo install` (#176)
+
+### Features
+
+- Add alternate tags for user images (#172)
+
+### Miscellaneous Tasks
+
+- Streamline getting version
+- Fix how we get the version in the Earthfile
+- Allow tests to pass due to upstream akmods issues
+- Remove title case (#177)
+- Fix release replacements
+- Release
+
+## [0.8.6] - 2024-04-29
+
+### Bug Fixes
+
+- Fix flatpak module errors
+
+### Miscellaneous Tasks
+
+- Remove token from checkout
+- Pull version using cargo for tag job
+- Fix integration tests
+- Improve tagging of images and applying labels
+- Release
+
+## [0.8.5] - 2024-04-27
+
+### Bug Fixes
+
+- Use shebang in release recipe
+- Pull extra akmods image too (#169)
+
+### Features
+
+- Display full recipe with syntax highlighting (#166)
+- Move module run logic into its own script (#168)
+
+### Miscellaneous Tasks
+
+- Fix tag.yml workflow to pull version from .workspace.package.version
+- Remove debug logs from utils
+- Use Semver to grab OS version from image
+- Make more /var dirs
+- Release
+
+## [0.8.4] - 2024-04-22
+
+### Bug Fixes
+
+- Sign all images in manifest (#148)
+- Use proper image URI for local rebasing
+- Add test for rpm-ostree rebase (#161)
+- Error if any module fails to deserialize (#163)
+- Remove /var tmpfs
+- Create /var/roothome to fix any issues with adding files to /root
+- Create /var/lib/alternatives
+- Give better errors for read_to_string
+
+### Documentation
+
+- Add distrobox installation tips (#146)
+
+### Features
+
+- Add driver selection args (#153)
+- Squash builds (#155)
+- Look for recipes in `./recipes/`, build files in `./files/`, and Containerfiles in `./containerfiles/` (#157)
+
+### Miscellaneous Tasks
+
+- Add MODULE_DIRECTORY env var (#142)
+- Remove unused files module
+- Put LABELS last since they cause cache miss with buildah
+- Cleanup images and use hash for exports tag (#158)
+- Update akmods module to account for upstream changes (#165)
+- Prepare justfile for release
+- Release
+
+### README
+
+- Add alpine distrobox and shell completions (#149)
+
 ## [0.8.3] - 2024-03-27
 
 ### Bug Fixes
@@ -42,6 +150,7 @@ All notable changes to this project will be documented in this file.
 - Add image source label for exports
 - Use tag exports instead
 - Fix build.yml
+- Release
 
 ### Refactor
 
@@ -243,21 +352,9 @@ All notable changes to this project will be documented in this file.
 
 ### Miscellaneous Tasks
 
-- Create GitHub Workflow (#9)
-- Don't build integration tests in +all
-- Allow write for contents and id-token
-- Allow workflow_dispatch on build
-- Use docker/login-action@v3
-- Set packages permissions to write
-- Update README.md (#10)
-- Use GHCR for install.sh (#11)
-- Remove input for release
-- Add CARGO_REGISTRY_TOKEN
-- Fetch all to get history for changelog updates
-- Allow write for id-token
 - Bump version
 
-## [0.5.2] - 2024-01-22
+## [0.5.2] - 2024-01-24
 
 ### Bug Fixes
 
@@ -277,6 +374,18 @@ All notable changes to this project will be documented in this file.
 
 - Update Cargo.toml with new repo URL
 - Manual bump of version
+- Create GitHub Workflow (#9)
+- Don't build integration tests in +all
+- Allow write for contents and id-token
+- Allow workflow_dispatch on build
+- Use docker/login-action@v3
+- Set packages permissions to write
+- Update README.md (#10)
+- Use GHCR for install.sh (#11)
+- Remove input for release
+- Add CARGO_REGISTRY_TOKEN
+- Fetch all to get history for changelog updates
+- Allow write for id-token
 
 ## [0.5.1] - 2024-01-22
 

@@ -67,8 +67,7 @@ pub enum CommandArgs {
     /// subcommand.
     ///
     /// NOTE: This can only be used if you have `rpm-ostree`
-    /// installed and if the `--push` and `--rebase` option isn't
-    /// used. This image will not be signed.
+    /// installed. This image will not be signed.
     #[command(visible_alias("update"))]
     Upgrade(local::UpgradeCommand),
 
@@ -80,7 +79,7 @@ pub enum CommandArgs {
     /// rebase onto the image using `oci-archive`.
     ///
     /// NOTE: This can only be used if you have `rpm-ostree`
-    /// installed.
+    /// installed. This image will not be signed.
     Rebase(local::RebaseCommand),
 
     /// Initialize a new Ublue Starting Point repo
@@ -99,15 +98,13 @@ pub enum CommandArgs {
 
 #[derive(Default, Clone, Copy, Debug, TypedBuilder, Args)]
 pub struct DriverArgs {
-    /// Puts the build in a `squash-stage` and
-    /// COPY's the results to the final stage
-    /// as one layer.
+    /// Runs all instructions inside one layer of the final image.
     ///
     /// WARN: This doesn't work with the
     /// docker driver as it has been deprecated.
     ///
     /// NOTE: Squash has a performance benefit for
-    /// the newer versions of podman and buildah.
+    /// podman and buildah when running inside a container.
     #[arg(short, long)]
     #[builder(default)]
     squash: bool,

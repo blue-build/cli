@@ -33,10 +33,7 @@ pub struct BugReportCommand {
 
 impl BlueBuildCommand for BugReportCommand {
     fn try_run(&mut self) -> anyhow::Result<()> {
-        debug!(
-            "Generating bug report for hash: {}\n",
-            shadow::BB_COMMIT_HASH
-        );
+        debug!("Generating bug report for hash: {}\n", shadow::COMMIT_HASH);
         debug!("Shadow Versioning:\n{}", shadow::VERSION.trim());
 
         self.create_bugreport()
@@ -117,18 +114,12 @@ impl BugReportCommand {
     }
 
     fn get_recipe(&self) -> Option<Recipe> {
-        let recipe_path = self.recipe_path.clone().map_or_else(
-            || {
-                get_config_file("recipe", "Enter path to recipe file").map_or_else(
-                    |_| {
-                        trace!("Failed to get recipe");
-                        String::new()
-                    },
-                    |recipe| recipe,
-                )
-            },
-            |recipe_path| recipe_path,
-        );
+        let recipe_path = self.recipe_path.clone().unwrap_or_else(|| {
+            get_config_file("recipe", "Enter path to recipe file").unwrap_or_else(|_| {
+                trace!("Failed to get recipe");
+                String::new()
+            })
+        });
 
         Recipe::parse(&recipe_path).ok()
     }
@@ -295,7 +286,7 @@ fn generate_github_issue(
         .bb_version(shadow::PKG_VERSION)
         .build_rust_channel(shadow::BUILD_RUST_CHANNEL)
         .build_time(shadow::BUILD_TIME)
-        .git_commit_hash(shadow::BB_COMMIT_HASH)
+        .git_commit_hash(shadow::COMMIT_HASH)
         .os_name(format!("{}", environment.os_type))
         .os_version(format!("{}", environment.os_version))
         .pkg_branch_tag(get_pkg_branch_tag())

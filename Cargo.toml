@@ -2,15 +2,17 @@
 members = ["utils", "recipe", "template"]
 
 [workspace.package]
-description = "A CLI tool built for creating Containerfile templates based on the Ublue Community Project"
+description = "A CLI tool built for creating Containerfile templates for ostree based atomic distros"
 edition = "2021"
 repository = "https://github.com/blue-build/cli"
 license = "Apache-2.0"
 categories = ["command-line-utilities"]
+version = "0.8.8"
 
 [workspace.dependencies]
 anyhow = "1"
 chrono = "0.4.35"
+clap = { version = "4", features = ["derive", "cargo", "unicode"] }
 colored = "2.1.0"
 env_logger = "0.11"
 format_serde_error = "0.3.0"
@@ -36,8 +38,8 @@ module_name_repetitions = "allow"
 [package]
 name = "blue-build"
 build = "build.rs"
-version = "0.8.3"
 
+version.workspace = true
 edition.workspace = true
 description.workspace = true
 repository.workspace = true
@@ -46,14 +48,14 @@ license.workspace = true
 [package.metadata.release]
 pre-release-hook = ["git", "cliff", "-o", "CHANGELOG.md", "--tag", "{{version}}"]
 pre-release-replacements = [
-  { file = "install.sh", search="VERSION=v\\d+\\.\\d+\\.\\d+", replace = "VERSION=v{{version}}" }
+  { file = "install.sh", search = "VERSION=v\\d+\\.\\d+\\.\\d+", replace = "VERSION=v{{version}}" },
+  { file = "README.md", search = "--tag v\\d+\\.\\d+\\.\\d+", replace = "--tag v{{version}}" }
 ]
 
 [dependencies]
-blue-build-recipe = { version = "=0.8.3", path = "./recipe" }
-blue-build-template = { version = "=0.8.3", path = "./template" }
-blue-build-utils = { version = "=0.8.3", path = "./utils" }
-clap = { version = "4", features = ["derive", "cargo", "unicode"] }
+blue-build-recipe = { version = "=0.8.8", path = "./recipe" }
+blue-build-template = { version = "=0.8.8", path = "./template" }
+blue-build-utils = { version = "=0.8.8", path = "./utils" }
 clap-verbosity-flag = "2"
 clap_complete = "4"
 clap_complete_nushell = "4"
@@ -63,13 +65,14 @@ open = "5"
 os_info = "3.7"                                                     # update os module config and tests when upgrading os_info
 requestty = { version = "0.5", features = ["macros", "termion"] }
 semver = { version = "1.0.22", features = ["serde"] }
-shadow-rs = { version = "0.26" }
+shadow-rs = "0.26"
 urlencoding = "2.1.3"
 users = "0.11.0"
 
 # Workspace dependencies
 anyhow.workspace = true
 chrono.workspace = true
+clap.workspace = true
 colored.workspace = true
 env_logger.workspace = true
 log.workspace = true
@@ -86,7 +89,7 @@ default = []
 rusty-hook = "0.11.2"
 
 [build-dependencies]
-shadow-rs = { version = "0.26.1", default-features = false }
+shadow-rs = "0.26"
 dunce = "1.0.4"
 
 [lints]
