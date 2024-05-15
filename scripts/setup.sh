@@ -17,7 +17,7 @@ if [ -f /etc/os-release ]; then
   else
     echo "OS not detected, proceeding without setup"
   fi
-  cp /tmp/bins/yq /usr/bin/
 else
   echo "File /etc/os-release not found, proceeding without setup"
 fi
+cp /tmp/bins/yq /usr/bin/
