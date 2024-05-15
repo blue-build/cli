@@ -156,9 +156,9 @@ jobs:
       contents: read
       packages: write
       id-token: write
+    if: github.repository == 'blue-build/cli'
     needs:
       - build
-    if: needs.build.outputs.push == 'true'
 
     steps:
       - name: Maximize build space
@@ -186,13 +186,11 @@ jobs:
         run: |
           earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
           earthly org s blue-build
-          earthly sat s pr
+          earthly sat s main
 
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          ref: ${{github.event.pull_request.head.ref}}
-          repository: ${{github.event.pull_request.head.repo.full_name}}
+          ref: main
 
       - name: Install bluebuild
         run: |
