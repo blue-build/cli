@@ -39,18 +39,19 @@ pub trait CommandLogging {
 impl CommandLogging for Command {
     fn status_log_prefix<T: AsRef<str>>(&mut self, log_prefix: &T) -> Result<ExitStatus> {
         let mut rng = rand::thread_rng();
-        let ansi_color: u8 = rng.gen_range(17..=230);
+        let ansi_color: u8 = rng.gen_range(21..=230);
 
         let mut child = self.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
 
         if let Some(stdout) = child.stdout.take() {
             let reader = BufReader::new(stdout);
-            let log_prefix = Color::Fixed(ansi_color).paint(log_prefix.as_ref().to_string());
+            let log_prefix =
+                log_header(&Color::Fixed(ansi_color).paint(log_prefix.as_ref().to_string()));
 
             thread::spawn(move || {
                 reader.lines().for_each(|line| {
                     if let Ok(l) = line {
-                        eprintln!("{prefix} {l}", prefix = log_header(&log_prefix));
+                        eprintln!("{log_prefix} {l}");
                     }
                 });
             });
@@ -58,12 +59,13 @@ impl CommandLogging for Command {
 
         if let Some(stderr) = child.stderr.take() {
             let reader = BufReader::new(stderr);
-            let log_prefix = Color::Fixed(ansi_color).paint(log_prefix.as_ref().to_string());
+            let log_prefix =
+                log_header(&Color::Fixed(ansi_color).paint(log_prefix.as_ref().to_string()));
 
             thread::spawn(move || {
                 reader.lines().for_each(|line| {
                     if let Ok(l) = line {
-                        eprintln!("{prefix} {l}", prefix = log_header(&log_prefix));
+                        eprintln!("{log_prefix} {l}");
                     }
                 });
             });
@@ -147,8 +149,8 @@ fn log_header<T: std::fmt::Display>(text: &T) -> String {
 /// images on their log prefix output.
 ///
 /// # Examples
-/// ghcr.io/blue-build/cli:latest -> g.i/b/cli:latest
-/// registry.gitlab.com/some/namespace/image:latest -> r.g.c/s/n/image:latest
+/// `ghcr.io/blue-build/cli:latest` -> `g.i/b/cli:latest`
+/// `registry.gitlab.com/some/namespace/image:latest` -> `r.g.c/s/n/image:latest`
 #[must_use]
 pub fn shorten_image_names(text: &str) -> String {
     // Split the reference by colon to separate the tag or digest
