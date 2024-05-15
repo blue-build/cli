@@ -1,11 +1,12 @@
 use std::{
     io::{BufRead, BufReader, Result, Write},
     process::{Command, ExitStatus, Stdio},
+    sync::Arc,
     thread,
 };
 
 use chrono::Local;
-use colored::{ColoredString, Colorize};
+use colored::{control::ShouldColorize, ColoredString, Colorize};
 use env_logger::fmt::Formatter;
 use log::{Level, LevelFilter, Record};
 use nu_ansi_term::Color;
@@ -33,20 +34,28 @@ pub trait CommandLogging {
     ///
     /// # Errors
     /// Will error if there was an issue executing the process.
-    fn status_log_prefix<T: AsRef<str>>(&mut self, log_prefix: &T) -> Result<ExitStatus>;
+    fn status_log_prefix<T: AsRef<str>>(&mut self, log_prefix: T) -> Result<ExitStatus>;
 }
 
 impl CommandLogging for Command {
-    fn status_log_prefix<T: AsRef<str>>(&mut self, log_prefix: &T) -> Result<ExitStatus> {
+    fn status_log_prefix<T: AsRef<str>>(&mut self, log_prefix: T) -> Result<ExitStatus> {
         let mut rng = rand::thread_rng();
         let ansi_color: u8 = rng.gen_range(21..=230);
+        let log_prefix = Arc::new(log_header(
+            if ShouldColorize::from_env().should_colorize() {
+                Color::Fixed(ansi_color)
+                    .paint(log_prefix.as_ref().to_string())
+                    .to_string()
+            } else {
+                log_prefix.as_ref().to_string()
+            },
+        ));
 
         let mut child = self.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
 
         if let Some(stdout) = child.stdout.take() {
             let reader = BufReader::new(stdout);
-            let log_prefix =
-                log_header(&Color::Fixed(ansi_color).paint(log_prefix.as_ref().to_string()));
+            let log_prefix = log_prefix.clone();
 
             thread::spawn(move || {
                 reader.lines().for_each(|line| {
@@ -59,8 +68,6 @@ impl CommandLogging for Command {
 
         if let Some(stderr) = child.stderr.take() {
             let reader = BufReader::new(stderr);
-            let log_prefix =
-                log_header(&Color::Fixed(ansi_color).paint(log_prefix.as_ref().to_string()));
 
             thread::spawn(move || {
                 reader.lines().for_each(|line| {
@@ -87,7 +94,7 @@ pub fn format_log(buf: &mut Formatter, record: &Record) -> Result<()> {
             writeln!(
                 buf,
                 "{prefix} {args}",
-                prefix = log_header(&format!(
+                prefix = log_header(format!(
                     "{level:width$}",
                     level = record.level().colored(),
                     width = 5,
@@ -98,7 +105,7 @@ pub fn format_log(buf: &mut Formatter, record: &Record) -> Result<()> {
         LevelFilter::Debug => writeln!(
             buf,
             "{prefix} {args}",
-            prefix = log_header(&format!(
+            prefix = log_header(format!(
                 "{level:>width$}",
                 level = record.level().colored(),
                 width = 5,
@@ -108,7 +115,7 @@ pub fn format_log(buf: &mut Formatter, record: &Record) -> Result<()> {
         LevelFilter::Trace => writeln!(
             buf,
             "{prefix} {args}",
-            prefix = log_header(&format!(
+            prefix = log_header(format!(
                 "{level:width$} {module}:{line}",
                 level = record.level().colored(),
                 width = 5,
@@ -129,7 +136,8 @@ pub fn format_log(buf: &mut Formatter, record: &Record) -> Result<()> {
 
 /// Used to keep the style of logs consistent between
 /// normal log use and command output.
-fn log_header<T: std::fmt::Display>(text: &T) -> String {
+fn log_header<T: AsRef<str>>(text: T) -> String {
+    let text = text.as_ref();
     match log::max_level() {
         LevelFilter::Error | LevelFilter::Warn | LevelFilter::Info => {
             format!("{text} {sep}", sep = "=>".bold())

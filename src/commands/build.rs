@@ -592,7 +592,7 @@ fn check_cosign_files() -> Result<()> {
     }
 }
 
-fn generate_containerfile_path<T: AsRef<Path>>(path: &T) -> Result<PathBuf> {
+fn generate_containerfile_path<T: AsRef<Path>>(path: T) -> Result<PathBuf> {
     const HASH_SIZE: usize = 8;
     let path_str = path.as_ref().to_string_lossy();
     let mut buf = [0u8; HASH_SIZE];
