@@ -63,7 +63,7 @@ template-secureblue:
 
 template-secureblue-ucore:
 	FROM +secureblue-base
-	RUN bluebuild -vv template -o Containerfile recipes/server/recipe-main.yml
+	RUN bluebuild -vv template -o Containerfile recipes/server/recipe-server-main.yml
 
 	SAVE ARTIFACT /test
 
