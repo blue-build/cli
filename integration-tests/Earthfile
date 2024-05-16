@@ -30,6 +30,13 @@ test-secureblue:
 
 	DO +RUN_TESTS
 
+test-secureblue-ucore:
+	FROM +build-template --src=template-secureblue-ucore
+	WORKDIR /tmp/test
+	COPY ./test-scripts/secureblue/*.sh ./
+
+	DO +RUN_TESTS
+
 build-template:
 	ARG --required src
 	FROM DOCKERFILE \
@@ -50,7 +57,13 @@ template-legacy-containerfile:
 
 template-secureblue:
 	FROM +secureblue-base
-	RUN bluebuild -vv template -o Containerfile config/recipes/general/recipe-silverblue-nvidia.yml
+	RUN bluebuild -vv template -o Containerfile recipes/general/recipe-silverblue-nvidia.yml
+
+	SAVE ARTIFACT /test
+
+template-secureblue-ucore:
+	FROM +secureblue-base
+	RUN bluebuild -vv template -o Containerfile recipes/server/recipe-main.yml
 
 	SAVE ARTIFACT /test
 
