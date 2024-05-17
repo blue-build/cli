@@ -1,5 +1,4 @@
 use blue_build_utils::constants::IMAGE_VERSION_LABEL;
-use semver::Version;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -20,7 +19,7 @@ impl ImageMetadata {
             self.labels
                 .get(IMAGE_VERSION_LABEL)?
                 .as_str()
-                .and_then(|v| Version::parse(v).ok())?
+                .and_then(|v| lenient_semver::parse(v).ok())?
                 .major,
         )
     }

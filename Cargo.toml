@@ -60,6 +60,7 @@ clap-verbosity-flag = "2"
 clap_complete = "4"
 clap_complete_nushell = "4"
 fuzzy-matcher = "0.3"
+lenient_semver = "0.4.2"
 once_cell = "1.19.0"
 open = "5"
 os_info = "3.7"                                                     # update os module config and tests when upgrading os_info
