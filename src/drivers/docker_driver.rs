@@ -77,12 +77,12 @@ impl DockerDriver {
                 .arg("--name=bluebuild")
                 .output()?;
 
-            if create_out.status.success() {
-                *lock = true;
-            } else {
+            if !create_out.status.success() {
                 bail!("{}", String::from_utf8_lossy(&create_out.stderr));
             }
         }
+
+        *lock = true;
         drop(lock);
         Ok(())
     }
