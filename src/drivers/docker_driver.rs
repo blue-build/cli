@@ -192,8 +192,6 @@ impl BuildDriver for DockerDriver {
     fn build_tag_push(&self, opts: &BuildTagPushOpts) -> Result<()> {
         trace!("DockerDriver::build_tag_push({opts:#?})");
 
-        Self::setup()?;
-
         if opts.squash {
             warn!("Squash is deprecated for docker so this build will not squash");
         }
