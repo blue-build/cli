@@ -228,6 +228,7 @@ dependencies = [
  "anyhow",
  "blue-build-utils",
  "chrono",
+ "colored",
  "indexmap 2.2.3",
  "log",
  "serde",

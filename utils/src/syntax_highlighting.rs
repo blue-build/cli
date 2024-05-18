@@ -35,9 +35,8 @@ impl std::fmt::Display for DefaultThemes {
 /// # Errors
 /// Will error if the theme doesn't exist, the syntax doesn't exist, or the file
 /// failed to serialize.
-pub fn print(file: &str, file_type: &str, theme: Option<DefaultThemes>) -> Result<()> {
-    trace!("syntax_highlighting::print({file}, {file_type}, {theme:?})");
-
+pub fn highlight(file: &str, file_type: &str, theme: Option<DefaultThemes>) -> Result<String> {
+    trace!("syntax_highlighting::highlight(file, {file_type}, {theme:?})");
     if atty::is(atty::Stream::Stdout) {
         let ss: SyntaxSet = if file_type == "dockerfile" || file_type == "Dockerfile" {
             dumps::from_uncompressed_data(include_bytes!(concat!(
@@ -58,15 +57,43 @@ pub fn print(file: &str, file_type: &str, theme: Option<DefaultThemes>) -> Resul
                 .get(theme.unwrap_or_default().to_string().as_str())
                 .ok_or_else(|| anyhow!("Failed to get highlight theme"))?,
         );
+
+        let mut highlighted_lines: Vec<String> = vec![];
         for line in file.lines() {
-            let ranges = h.highlight_line(line, &ss)?;
-            let escaped = syntect::util::as_24_bit_terminal_escaped(&ranges, false);
-            println!("{escaped}");
+            highlighted_lines.push(syntect::util::as_24_bit_terminal_escaped(
+                &h.highlight_line(line, &ss)?,
+                false,
+            ));
         }
-        println!("\x1b[0m");
+        highlighted_lines.push("\x1b[0m".to_string());
+        Ok(highlighted_lines.join("\n"))
     } else {
-        println!("{file}");
+        Ok(file.to_string())
     }
+}
+
+/// Takes a serializable struct and serializes it with syntax highlighting.
+///
+/// # Errors
+/// Will error if the theme doesn't exist, the syntax doesn't exist, or the file
+/// failed to serialize.
+pub fn highlight_ser<T: Serialize + std::fmt::Debug>(
+    file: &T,
+    file_type: &str,
+    theme: Option<DefaultThemes>,
+) -> Result<String> {
+    trace!("syntax_highlighting::highlight_ser(file, {file_type}, {theme:?})");
+    highlight(serde_yaml::to_string(file)?.as_str(), file_type, theme)
+}
+
+/// Prints the file with syntax highlighting.
+///
+/// # Errors
+/// Will error if the theme doesn't exist, the syntax doesn't exist, or the file
+/// failed to serialize.
+pub fn print(file: &str, file_type: &str, theme: Option<DefaultThemes>) -> Result<()> {
+    trace!("syntax_highlighting::print(file, {file_type}, {theme:?})");
+    println!("{}", highlight(file, file_type, theme)?);
     Ok(())
 }
 
@@ -75,11 +102,12 @@ pub fn print(file: &str, file_type: &str, theme: Option<DefaultThemes>) -> Resul
 /// # Errors
 /// Will error if the theme doesn't exist, the syntax doesn't exist, or the file
 /// failed to serialize.
-pub fn print_ser<T: Serialize>(
+pub fn print_ser<T: Serialize + std::fmt::Debug>(
     file: &T,
     file_type: &str,
     theme: Option<DefaultThemes>,
 ) -> Result<()> {
+    trace!("syntax_highlighting::print_ser(file, {file_type}, {theme:?})");
     print(serde_yaml::to_string(file)?.as_str(), file_type, theme)?;
     Ok(())
 }
