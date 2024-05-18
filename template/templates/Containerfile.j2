@@ -1,5 +1,4 @@
 {%- import "modules/modules.j2" as modules -%}
-{%- set files_dir_exists = self::files_dir_exists() %}
 {%- include "stages.j2" %}
 
 # Main image
@@ -8,9 +7,9 @@ FROM {{ recipe.base_image }}:{{ recipe.image_version }} as {{ recipe.name|replac
 ARG RECIPE={{ recipe_path.display() }}
 ARG IMAGE_REGISTRY={{ registry }}
 
-{%- if files_dir_exists %}
+{%- if self::files_dir_exists() %}
 ARG CONFIG_DIRECTORY="/tmp/files"
-{%- else %}
+{%- else if self::config_dir_exists() %}
 ARG CONFIG_DIRECTORY="/tmp/config"
 {%- endif %}
 ARG MODULE_DIRECTORY="/tmp/modules"
