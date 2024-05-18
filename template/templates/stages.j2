@@ -1,10 +1,10 @@
 # This stage is responsible for holding onto
 # your config without copying it directly into
 # the final image
-{%- if files_dir_exists %}
+{%- if self::files_dir_exists() %}
 FROM scratch AS stage-files
 COPY ./files /files
-{% else %}
+{% else if self::config_dir_exists() %}
 FROM scratch AS stage-config
 COPY ./config /config
 {% endif %}

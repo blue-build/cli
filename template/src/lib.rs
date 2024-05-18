@@ -149,9 +149,14 @@ fn modules_exists() -> bool {
 
 fn files_dir_exists() -> bool {
     let path = Path::new(FILES_PATH);
+    path.exists() && path.is_dir()
+}
+
+fn config_dir_exists() -> bool {
+    let path = Path::new(CONFIG_PATH);
     let exists = path.exists() && path.is_dir();
 
-    if !exists {
+    if exists {
         warn!("Use of the {CONFIG_PATH} directory is deprecated. Please move your non-recipe files into {FILES_PATH}");
     }
 

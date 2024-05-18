@@ -12,9 +12,9 @@ ARG CACHEBUST="{{ build_id }}"
         {%- include "modules/copy/copy.j2" %}
       {%- else %}
 RUN \
-        {%- if files_dir_exists %}
+        {%- if self::files_dir_exists() %}
   --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,rw \
-        {%- else %}
+        {%- else if self::config_dir_exists() %}
   --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
         {%- endif %}
         {%- if let Some(source) = module.source %}
