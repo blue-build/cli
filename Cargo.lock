@@ -212,7 +212,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build"
-version = "0.8.8"
+version = "0.8.9"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -229,6 +229,7 @@ dependencies = [
  "dunce",
  "env_logger",
  "fuzzy-matcher",
+ "lenient_semver",
  "log",
  "once_cell",
  "open",
@@ -249,7 +250,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-recipe"
-version = "0.8.8"
+version = "0.8.9"
 dependencies = [
  "anyhow",
  "blue-build-utils",
@@ -264,7 +265,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-template"
-version = "0.8.8"
+version = "0.8.9"
 dependencies = [
  "askama",
  "blue-build-recipe",
@@ -279,7 +280,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-utils"
-version = "0.8.8"
+version = "0.8.9"
 dependencies = [
  "anyhow",
  "atty",
@@ -896,6 +897,35 @@ name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
+
+[[package]]
+name = "lenient_semver"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de8de3f4f3754c280ce1c8c42ed8dd26a9c8385c2e5ad4ec5a77e774cea9c1ec"
+dependencies = [
+ "lenient_semver_parser",
+ "semver",
+]
+
+[[package]]
+name = "lenient_semver_parser"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f650c1d024ddc26b4bb79c3076b30030f2cf2b18292af698c81f7337a64d7d6"
+dependencies = [
+ "lenient_semver_version_builder",
+ "semver",
+]
+
+[[package]]
+name = "lenient_semver_version_builder"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9049f8ff49f75b946f95557148e70230499c8a642bf2d6528246afc7d0282d17"
+dependencies = [
+ "semver",
+]
 
 [[package]]
 name = "libc"
