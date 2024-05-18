@@ -4,7 +4,7 @@ readme: https://raw.githubusercontent.com/blue-build/cli/main/template/templates
 example: |
   type: containerfile
   snippets:
-    - COPY ./config/example-dir/example-file.txt /usr/etc/example/
+    - RUN --mount=type=tmpfs,target=/tmp /some/script.sh
   containerfiles:
     - example
     - subroutine

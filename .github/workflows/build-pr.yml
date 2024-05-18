@@ -73,20 +73,8 @@ jobs:
     steps:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@v6
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN == null
 
       - uses: earthly/actions-setup@v1
-
-      - name: Earthly login
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN != null
-        run: |
-          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
-          earthly org s blue-build
-          earthly sat s integration-tests
 
       # Setup repo and add caching
       - uses: actions/checkout@v4
@@ -96,7 +84,9 @@ jobs:
           repository: ${{github.event.pull_request.head.repo.full_name}}
 
       - name: Run integration tests
-        run: earthly --ci -P ./integration-tests+all
+        run: |
+          earthly bootstrap
+          earthly --ci -P ./integration-tests+all
 
   docker-build:
     timeout-minutes: 60

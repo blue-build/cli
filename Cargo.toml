@@ -87,6 +87,8 @@ uuid.workspace = true
 
 [features]
 default = []
+stages = ["blue-build-recipe/stages"]
+copy = ["blue-build-recipe/copy"]
 
 [dev-dependencies]
 rusty-hook = "0.11.2"
