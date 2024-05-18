@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.9] - 2024-05-17
+
+### Bug Fixes
+
+- Don't create builder if DOCKER_HOST is set
+- Use leniency for semver parsing (#184)
+
+### Documentation
+
+- Update README to revert cargo install instruction since issue is fixed
+- Update docker/podman install instructions
+
+### Miscellaneous Tasks
+
+- Fix checkout for podman-build
+- Remove a pre-release-replacement
+
 ## [0.8.8] - 2024-05-14
 
 ### Bug Fixes
@@ -19,6 +36,7 @@ All notable changes to this project will be documented in this file.
 
 - Ensure cargo installs use version for build scripts image
 - Cleanup install script to instead create the container without running it
+- Release
 
 ## [0.8.7] - 2024-05-05
 
