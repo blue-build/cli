@@ -3,11 +3,24 @@ pub mod constants;
 pub mod logging;
 pub mod syntax_highlighting;
 
-use std::{path::PathBuf, process::Command, thread, time::Duration};
+use std::{
+    os::unix::ffi::OsStrExt,
+    path::{Path, PathBuf},
+    process::Command,
+    thread,
+    time::Duration,
+};
 
 use anyhow::{anyhow, Result};
+use base64::prelude::*;
+use blake2::{
+    digest::{Update, VariableOutput},
+    Blake2bVar,
+};
 use format_serde_error::SerdeError;
 use log::trace;
+
+use crate::constants::CONTAINER_FILE;
 
 pub use command_output::*;
 
@@ -75,4 +88,23 @@ where
 #[must_use]
 pub fn home_dir() -> Option<PathBuf> {
     directories::BaseDirs::new().map(|base_dirs| base_dirs.home_dir().to_path_buf())
+}
+
+/// Generates a 1-1 related Containerfile to a recipe.
+/// The file is in the format of `Containerfile.{path_hash}`.
+///
+/// # Errors
+/// Will error if unable to create a hash of the
+pub fn generate_containerfile_path<T: AsRef<Path>>(path: T) -> Result<PathBuf> {
+    const HASH_SIZE: usize = 8;
+    let mut buf = [0u8; HASH_SIZE];
+
+    let mut hasher = Blake2bVar::new(HASH_SIZE)?;
+    hasher.update(path.as_ref().as_os_str().as_bytes());
+    hasher.finalize_variable(&mut buf)?;
+
+    Ok(PathBuf::from(format!(
+        "{CONTAINER_FILE}.{}",
+        BASE64_URL_SAFE_NO_PAD.encode(buf)
+    )))
 }

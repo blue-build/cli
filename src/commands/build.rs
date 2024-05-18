@@ -1,28 +1,24 @@
 use std::{
-    collections::HashSet,
     env, fs,
     path::{Path, PathBuf},
     process::Command,
 };
 
 use anyhow::{bail, Context, Result};
-use base64::prelude::*;
-use blake2::{
-    digest::{Update, VariableOutput},
-    Blake2bVar,
-};
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::{
-    ARCHIVE_SUFFIX, BUILD_ID_LABEL, CI_DEFAULT_BRANCH, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE,
-    CI_PROJECT_URL, CI_REGISTRY, CI_SERVER_HOST, CI_SERVER_PROTOCOL, CONFIG_PATH, CONTAINER_FILE,
-    COSIGN_PATH, COSIGN_PRIVATE_KEY, GITHUB_REPOSITORY_OWNER, GITHUB_TOKEN,
-    GITHUB_TOKEN_ISSUER_URL, GITHUB_WORKFLOW_REF, GITIGNORE_PATH, LABELED_ERROR_MESSAGE,
-    NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH, SIGSTORE_ID_TOKEN,
+use blue_build_utils::{
+    constants::{
+        ARCHIVE_SUFFIX, BUILD_ID_LABEL, CI_DEFAULT_BRANCH, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE,
+        CI_PROJECT_URL, CI_REGISTRY, CI_SERVER_HOST, CI_SERVER_PROTOCOL, CONFIG_PATH,
+        CONTAINER_FILE, COSIGN_PATH, COSIGN_PRIVATE_KEY, GITHUB_REPOSITORY_OWNER, GITHUB_TOKEN,
+        GITHUB_TOKEN_ISSUER_URL, GITHUB_WORKFLOW_REF, GITIGNORE_PATH, LABELED_ERROR_MESSAGE,
+        NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH, SIGSTORE_ID_TOKEN,
+    },
+    generate_containerfile_path,
 };
 use clap::Args;
 use colored::Colorize;
 use log::{debug, info, trace, warn};
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use typed_builder::TypedBuilder;
 
 use crate::{
@@ -41,8 +37,15 @@ use super::{BlueBuildCommand, DriverArgs};
 pub struct BuildCommand {
     /// The recipe file to build an image
     #[arg()]
+    #[cfg(feature = "multi-recipe")]
     #[builder(default, setter(into, strip_option))]
     recipe: Option<Vec<PathBuf>>,
+
+    /// The recipe file to build an image
+    #[arg()]
+    #[cfg(not(feature = "multi-recipe"))]
+    #[builder(default, setter(into, strip_option))]
+    recipe: Option<PathBuf>,
 
     /// Push the image with all the tags.
     ///
@@ -136,44 +139,70 @@ impl BlueBuildCommand for BuildCommand {
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
             check_cosign_files()?;
+            Self::login()?;
         }
 
-        let recipe_paths = self.recipe.clone().map_or_else(|| {
-            let legacy_path = Path::new(CONFIG_PATH);
-            let recipe_path = Path::new(RECIPE_PATH);
-            if recipe_path.exists() && recipe_path.is_dir() {
-                vec![recipe_path.join(RECIPE_FILE)]
-            } else {
-                warn!("Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}");
-                vec![legacy_path.join(RECIPE_FILE)]
-            }
-        },
-        |recipes| {
-            let mut same = HashSet::new();
+        #[cfg(feature = "multi-recipe")]
+        {
+            use rayon::prelude::*;
+            let recipe_paths = self.recipe.clone().map_or_else(|| {
+                let legacy_path = Path::new(CONFIG_PATH);
+                let recipe_path = Path::new(RECIPE_PATH);
+                if recipe_path.exists() && recipe_path.is_dir() {
+                    vec![recipe_path.join(RECIPE_FILE)]
+                } else {
+                    warn!("Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}");
+                    vec![legacy_path.join(RECIPE_FILE)]
+                }
+            },
+            |recipes| {
+                let mut same = std::collections::HashSet::new();
 
-            recipes.into_iter().filter(|recipe| same.insert(recipe.clone())).collect()
-        });
+                recipes.into_iter().filter(|recipe| same.insert(recipe.clone())).collect()
+            });
 
-        recipe_paths.par_iter().try_for_each(|recipe| {
+            recipe_paths.par_iter().try_for_each(|recipe| {
+                TemplateCommand::builder()
+                    .output(generate_containerfile_path(recipe)?)
+                    .recipe(recipe)
+                    .drivers(DriverArgs::builder().squash(self.drivers.squash).build())
+                    .build()
+                    .try_run()
+            })?;
+
+            self.start(&recipe_paths)
+        }
+
+        #[cfg(not(feature = "multi-recipe"))]
+        {
+            let recipe_path = self.recipe.clone().unwrap_or_else(|| {
+                let legacy_path = Path::new(CONFIG_PATH);
+                let recipe_path = Path::new(RECIPE_PATH);
+                if recipe_path.exists() && recipe_path.is_dir() {
+                    recipe_path.join(RECIPE_FILE)
+                } else {
+                    warn!("Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}");
+                    legacy_path.join(RECIPE_FILE)
+                }
+            });
+
             TemplateCommand::builder()
-                .output(generate_containerfile_path(recipe)?)
-                .recipe(recipe)
+                .output(generate_containerfile_path(&recipe_path)?)
+                .recipe(&recipe_path)
                 .drivers(DriverArgs::builder().squash(self.drivers.squash).build())
                 .build()
-                .try_run()
-        })?;
+                .try_run()?;
 
-        self.start(&recipe_paths)
+            self.start(&recipe_path)
+        }
     }
 }
 
 impl BuildCommand {
+    #[cfg(feature = "multi-recipe")]
     fn start(&self, recipe_paths: &[PathBuf]) -> Result<()> {
+        use rayon::prelude::*;
         trace!("BuildCommand::build_image()");
-
-        if self.push {
-            Self::login()?;
-        }
 
         recipe_paths
             .par_iter()
@@ -215,6 +244,49 @@ impl BuildCommand {
 
                 Ok(())
             })?;
+
+        info!("Build complete!");
+        Ok(())
+    }
+
+    #[cfg(not(feature = "multi-recipe"))]
+    fn start(&self, recipe_path: &Path) -> Result<()> {
+        trace!("BuildCommand::start()");
+
+        let recipe = Recipe::parse(recipe_path)?;
+        let os_version = Driver::get_os_version(&recipe)?;
+        let containerfile = generate_containerfile_path(recipe_path)?;
+        let tags = recipe.generate_tags(os_version);
+        let image_name = self.generate_full_image_name(&recipe)?;
+
+        let opts = if let Some(archive_dir) = self.archive.as_ref() {
+            BuildTagPushOpts::builder()
+                .containerfile(&containerfile)
+                .archive_path(format!(
+                    "{}/{}.{ARCHIVE_SUFFIX}",
+                    archive_dir.to_string_lossy().trim_end_matches('/'),
+                    recipe.name.to_lowercase().replace('/', "_"),
+                ))
+                .squash(self.drivers.squash)
+                .build()
+        } else {
+            BuildTagPushOpts::builder()
+                .image(&image_name)
+                .containerfile(&containerfile)
+                .tags(tags.iter().map(String::as_str).collect::<Vec<_>>())
+                .push(self.push)
+                .no_retry_push(self.no_retry_push)
+                .retry_count(self.retry_count)
+                .compression(self.compression_format)
+                .squash(self.drivers.squash)
+                .build()
+        };
+
+        Driver::get_build_driver().build_tag_push(&opts)?;
+
+        if self.push {
+            sign_images(&image_name, tags.first().map(String::as_str))?;
+        }
 
         info!("Build complete!");
         Ok(())
@@ -590,19 +662,4 @@ fn check_cosign_files() -> Result<()> {
             Ok(())
         }
     }
-}
-
-fn generate_containerfile_path<T: AsRef<Path>>(path: T) -> Result<PathBuf> {
-    const HASH_SIZE: usize = 8;
-    let path_str = path.as_ref().to_string_lossy();
-    let mut buf = [0u8; HASH_SIZE];
-
-    let mut hasher = Blake2bVar::new(HASH_SIZE)?;
-    hasher.update(path_str.as_bytes());
-    hasher.finalize_variable(&mut buf)?;
-
-    Ok(PathBuf::from(format!(
-        "{CONTAINER_FILE}.{}",
-        BASE64_URL_SAFE_NO_PAD.encode(buf)
-    )))
 }

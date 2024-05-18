@@ -215,8 +215,6 @@ name = "blue-build"
 version = "0.8.9"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
- "blake2",
  "blue-build-recipe",
  "blue-build-template",
  "blue-build-utils",
@@ -285,6 +283,8 @@ version = "0.8.9"
 dependencies = [
  "anyhow",
  "atty",
+ "base64 0.22.1",
+ "blake2",
  "chrono",
  "clap",
  "colored",

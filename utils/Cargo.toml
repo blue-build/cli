@@ -10,6 +10,8 @@ license.workspace = true
 
 [dependencies]
 atty = "0.2.14"
+base64 = "0.22.1"
+blake2 = "0.10.6"
 directories = "5"
 nu-ansi-term = { version = "0.50.0", features = ["gnu_legacy"] }
 process_control = { version = "4.0.3", features = ["crossbeam-channel"] }
