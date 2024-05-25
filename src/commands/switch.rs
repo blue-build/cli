@@ -5,9 +5,12 @@ use std::{
 
 use anyhow::{bail, Result};
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::{ARCHIVE_SUFFIX, LOCAL_BUILD};
+use blue_build_utils::constants::{
+    ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_UNVERIFIED_IMAGE,
+};
 use clap::Args;
-use log::{debug, trace};
+use colored::Colorize;
+use log::{debug, trace, warn};
 use tempdir::TempDir;
 use typed_builder::TypedBuilder;
 
@@ -52,12 +55,14 @@ impl BlueBuildCommand for SwitchCommand {
             .init()?;
 
         let status = RpmOstreeStatus::try_new()?;
+        trace!("{status:?}");
 
         if status.transaction_in_progress() {
             bail!("There is a transaction in progress. Please cancel it using `rpm-ostree cancel`");
         }
 
         let tempdir = TempDir::new("oci-archive")?;
+        trace!("{tempdir:?}");
 
         BuildCommand::builder()
             .recipe(self.recipe.clone())
@@ -74,18 +79,78 @@ impl BlueBuildCommand for SwitchCommand {
         let temp_file_path = tempdir.path().join(&image_file_name);
         let archive_path = Path::new(LOCAL_BUILD).join(&image_file_name);
 
+        warn!(
+            "{notice}: {} `{sudo}`. {}",
+            "The next few steps will require".yellow(),
+            "You may have to supply your password".yellow(),
+            notice = "NOTICE".bright_red().bold(),
+            sudo = "sudo".italic().bright_yellow()
+        );
         Self::sudo_clean_local_build_dir()?;
         Self::sudo_move_archive(&temp_file_path, &archive_path)?;
-        self.switch()
+
+        // We drop the tempdir ahead of time so that the directory
+        // can be cleaned out.
+        drop(tempdir);
+
+        self.switch(&archive_path, &status)
     }
 }
 
 impl SwitchCommand {
-    fn switch(&self) -> Result<()> {
-        todo!()
+    fn switch(&self, archive_path: &Path, status: &RpmOstreeStatus<'_>) -> Result<()> {
+        trace!(
+            "SwitchCommand::switch({}, {status:#?})",
+            archive_path.display()
+        );
+
+        let status = if status.is_booted_on_archive(archive_path) {
+            let mut command = Command::new("rpm-ostree");
+            command.arg("upgrade");
+
+            if self.reboot {
+                command.arg("--reboot");
+            }
+
+            trace!(
+                "rpm-ostree upgrade {}",
+                self.reboot.then_some("--reboot").unwrap_or_default()
+            );
+            command
+        } else {
+            let image_ref = format!(
+                "{OSTREE_UNVERIFIED_IMAGE}:{OCI_ARCHIVE}:{path}",
+                path = archive_path.display()
+            );
+            let mut command = Command::new("rpm-ostree");
+            command.arg("rebase").arg(&image_ref);
+
+            if self.reboot {
+                command.arg("--reboot");
+            }
+
+            trace!(
+                "rpm-ostree rebase{} {image_ref}",
+                self.reboot.then_some(" --reboot").unwrap_or_default()
+            );
+            command
+        }
+        .status()?;
+
+        if !status.success() {
+            bail!("Failed to switch to new image!");
+        }
+        Ok(())
     }
 
     fn sudo_move_archive(from: &Path, to: &Path) -> Result<()> {
+        trace!(
+            "SwitchCommand::sudo_move_archive({}, {})",
+            from.display(),
+            to.display()
+        );
+
+        trace!("sudo mv {} {}", from.display(), to.display());
         let status = Command::new("sudo").arg("mv").args([from, to]).status()?;
 
         if !status.success() {
@@ -100,20 +165,38 @@ impl SwitchCommand {
     }
 
     fn sudo_clean_local_build_dir() -> Result<()> {
-        trace!("clean_local_build_dir()");
+        trace!("SwitchCommand::clean_local_build_dir()");
 
         let local_build_path = Path::new(LOCAL_BUILD);
 
         if local_build_path.exists() {
             debug!("Cleaning out build dir {LOCAL_BUILD}");
 
-            let status = Command::new("sudo")
-                .args(["rm", "-f"])
-                .arg(format!("{LOCAL_BUILD}/*.{ARCHIVE_SUFFIX}"))
-                .status()?;
+            trace!("sudo ls {LOCAL_BUILD}");
+            let output = String::from_utf8(
+                Command::new("sudo")
+                    .args(["ls", LOCAL_BUILD])
+                    .output()?
+                    .stdout,
+            )?;
 
-            if !status.success() {
-                bail!("Failed to clean out archives in {LOCAL_BUILD}");
+            let files = output
+                .lines()
+                .filter(|line| line.ends_with(ARCHIVE_SUFFIX))
+                .collect::<Vec<_>>();
+
+            if !files.is_empty() {
+                let files = files.join(" ");
+
+                trace!("sudo rm -f {files}");
+                let status = Command::new("sudo")
+                    .args(["rm", "-f"])
+                    .arg(files)
+                    .status()?;
+
+                if !status.success() {
+                    bail!("Failed to clean out archives in {LOCAL_BUILD}");
+                }
             }
         } else {
             debug!(

@@ -210,7 +210,6 @@ impl BuildDriver for DockerDriver {
         trace!("build --progress=plain --pull -f {CONTAINER_FILE}",);
         command
             .arg("build")
-            .arg("--progress=plain")
             .arg("--pull")
             .arg("-f")
             .arg(CONTAINER_FILE);

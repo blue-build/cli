@@ -64,7 +64,7 @@ pub const XDG_RUNTIME_DIR: &str = "XDG_RUNTIME_DIR";
 // Misc
 pub const OCI_ARCHIVE: &str = "oci-archive";
 pub const OSTREE_IMAGE_SIGNED: &str = "ostree-image-signed";
-pub const OSTREE_UNVERIFIED_REGISTRY: &str = "ostree-unverified-registry";
+pub const OSTREE_UNVERIFIED_IMAGE: &str = "ostree-unverified-image";
 pub const SKOPEO_IMAGE: &str = "quay.io/skopeo/stable:latest";
 pub const UNKNOWN_SHELL: &str = "<unknown shell>";
 pub const UNKNOWN_VERSION: &str = "<unknown version>";

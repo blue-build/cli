@@ -6,7 +6,7 @@ use serde::Deserialize;
 #[derive(Debug, Clone, Deserialize)]
 pub struct RpmOstreeStatus<'a> {
     deployments: Cow<'a, [RpmOstreeDeployments<'a>]>,
-    transactions: Cow<'a, [Cow<'a, str>]>,
+    transactions: Option<Cow<'a, [Cow<'a, str>]>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -34,26 +34,26 @@ impl<'a> RpmOstreeStatus<'a> {
         Ok(serde_json::from_slice(&output.stdout)?)
     }
 
+    /// Checks if there is a transaction in progress.
+    #[must_use]
+    pub fn transaction_in_progress(&self) -> bool {
+        self.transactions.as_ref().is_some_and(|tr| !tr.is_empty())
+    }
+
     /// Get the booted image's reference.
     #[must_use]
-    pub fn booted_image(&'a self) -> Option<&'a str> {
+    pub fn booted_image(&self) -> Option<String> {
         Some(
             self.deployments
                 .iter()
                 .find(|deployment| deployment.booted)?
                 .container_image_reference
-                .as_ref(),
+                .to_string(),
         )
     }
 
-    /// Checks if there is a transaction in progress.
     #[must_use]
-    pub fn transaction_in_progress(&self) -> bool {
-        !self.transactions.is_empty()
-    }
-
-    #[must_use]
-    pub fn is_booted_on_archive<P>(&'a self, archive_path: P) -> bool
+    pub fn is_booted_on_archive<P>(&self, archive_path: P) -> bool
     where
         P: AsRef<Path>,
     {
@@ -61,7 +61,7 @@ impl<'a> RpmOstreeStatus<'a> {
             deployment
                 .split(':')
                 .last()
-                .is_some_and(|path| Path::new(path) == archive_path.as_ref())
+                .is_some_and(|boot_ref| Path::new(boot_ref) == archive_path.as_ref())
         })
     }
 }
@@ -71,7 +71,7 @@ mod test {
     use std::path::Path;
 
     use blue_build_utils::constants::{
-        ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_IMAGE_SIGNED, OSTREE_UNVERIFIED_REGISTRY,
+        ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_IMAGE_SIGNED, OSTREE_UNVERIFIED_IMAGE,
     };
 
     use super::{RpmOstreeDeployments, RpmOstreeStatus};
@@ -95,7 +95,7 @@ mod test {
                 },
             ]
             .into(),
-            transactions: vec![].into(),
+            transactions: None,
         }
     }
 
@@ -118,7 +118,7 @@ mod test {
                 },
             ]
             .into(),
-            transactions: vec!["Upgrade".into(), "/".into()].into(),
+            transactions: Some(vec!["Upgrade".into(), "/".into()].into()),
         }
     }
 
@@ -127,7 +127,7 @@ mod test {
             deployments: vec![
                 RpmOstreeDeployments {
                     container_image_reference:
-                        format!("{OSTREE_UNVERIFIED_REGISTRY}:{OCI_ARCHIVE}:{LOCAL_BUILD}/cli_test.{ARCHIVE_SUFFIX}").into(),
+                        format!("{OSTREE_UNVERIFIED_IMAGE}:{OCI_ARCHIVE}:{LOCAL_BUILD}/cli_test.{ARCHIVE_SUFFIX}").into(),
                     booted: true,
                 },
                 RpmOstreeDeployments {
@@ -137,7 +137,7 @@ mod test {
                 },
             ]
             .into(),
-            transactions: vec![].into(),
+            transactions: None,
         }
     }
 
