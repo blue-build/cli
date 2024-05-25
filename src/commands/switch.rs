@@ -104,7 +104,9 @@ impl SwitchCommand {
             archive_path.display()
         );
 
-        let status = if status.is_booted_on_archive(archive_path) {
+        let status = if status.is_booted_on_archive(archive_path)
+            || status.is_staged_on_archive(archive_path)
+        {
             let mut command = Command::new("rpm-ostree");
             command.arg("upgrade");
 

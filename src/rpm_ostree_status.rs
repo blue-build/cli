@@ -14,6 +14,7 @@ pub struct RpmOstreeStatus<'a> {
 struct RpmOstreeDeployments<'a> {
     container_image_reference: Cow<'a, str>,
     booted: bool,
+    staged: bool,
 }
 
 impl<'a> RpmOstreeStatus<'a> {
@@ -52,12 +53,37 @@ impl<'a> RpmOstreeStatus<'a> {
         )
     }
 
+    /// Get the booted image's reference.
+    #[must_use]
+    pub fn staged_image(&self) -> Option<String> {
+        Some(
+            self.deployments
+                .iter()
+                .find(|deployment| deployment.staged)?
+                .container_image_reference
+                .to_string(),
+        )
+    }
+
     #[must_use]
     pub fn is_booted_on_archive<P>(&self, archive_path: P) -> bool
     where
         P: AsRef<Path>,
     {
         self.booted_image().is_some_and(|deployment| {
+            deployment
+                .split(':')
+                .last()
+                .is_some_and(|boot_ref| Path::new(boot_ref) == archive_path.as_ref())
+        })
+    }
+
+    #[must_use]
+    pub fn is_staged_on_archive<P>(&self, archive_path: P) -> bool
+    where
+        P: AsRef<Path>,
+    {
+        self.staged_image().is_some_and(|deployment| {
             deployment
                 .split(':')
                 .last()
