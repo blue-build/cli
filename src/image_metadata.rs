@@ -4,21 +4,23 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct ImageInspection {
+pub struct ImageMetadata {
     #[serde(alias = "Labels")]
-    labels: HashMap<String, Value>,
+    pub labels: HashMap<String, Value>,
+
+    #[serde(alias = "Digest")]
+    pub digest: String,
 }
 
-impl ImageInspection {
-    pub fn get_version(&self) -> Option<String> {
+impl ImageMetadata {
+    #[must_use]
+    pub fn get_version(&self) -> Option<u64> {
         Some(
             self.labels
                 .get(IMAGE_VERSION_LABEL)?
                 .as_str()
-                .map(std::string::ToString::to_string)?
-                .split('.')
-                .take(1)
-                .collect(),
+                .and_then(|v| lenient_semver::parse(v).ok())?
+                .major,
         )
     }
 }

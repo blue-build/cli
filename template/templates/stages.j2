@@ -1,0 +1,79 @@
+# This stage is responsible for holding onto
+# your config without copying it directly into
+# the final image
+{%- if self::files_dir_exists() %}
+FROM scratch AS stage-files
+COPY ./files /files
+{% else if self::config_dir_exists() %}
+FROM scratch AS stage-config
+COPY ./config /config
+{% endif %}
+
+# Copy modules
+# The default modules are inside blue-build/modules
+# Custom modules overwrite defaults
+FROM scratch AS stage-modules
+COPY --from=ghcr.io/blue-build/modules:latest /modules /modules
+{%- if self::modules_exists() %}
+COPY ./modules /modules
+{% endif %}
+
+# Bins to install
+# These are basic tools that are added to all images.
+# Generally used for the build process. We use a multi
+# stage process so that adding the bins into the image
+# can be added to the ostree commits.
+FROM scratch AS stage-bins
+COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /bins/cosign
+COPY --from=docker.io/mikefarah/yq /usr/bin/yq /bins/yq
+COPY --from=ghcr.io/blue-build/cli:
+{%- if let Some(tag) = recipe.blue_build_tag -%}
+{{ tag }}
+{%- else -%}
+latest-installer
+{%- endif %} /out/bluebuild /bins/bluebuild
+
+# Keys for pre-verified images
+# Used to copy the keys into the final image
+# and perform an ostree commit.
+#
+# Currently only holds the current image's
+# public key.
+FROM scratch AS stage-keys
+{%- if self::has_cosign_file() %}
+COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
+{% endif %}
+
+{%- include "modules/akmods/akmods.j2" %}
+
+{%- set files_dir_exists = self::files_dir_exists() %}
+{%~ if let Some(stages_ext) = recipe.stages_ext %}
+  {%- for stage in stages_ext.stages %}
+    {%- if let Some(stage) = stage.required_fields %}
+# {{ stage.name|capitalize }} stage
+FROM {{ stage.from }} AS {{ stage.name }}
+
+      {%- if stage.from != "scratch" %}
+# Add compatibility for modules
+RUN --mount=type=bind,from=stage-bins,src=/bins/,dst=/tmp/bins/ \
+  --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
+  /tmp/scripts/setup.sh
+
+        {%- if files_dir_exists %}
+ARG CONFIG_DIRECTORY="/tmp/files"
+        {%- else %}
+ARG CONFIG_DIRECTORY="/tmp/config"
+        {%- endif %}
+ARG MODULE_DIRECTORY="/tmp/modules"
+
+        {%- if let Some(shell_args) = stage.shell %}
+SHELL [{% for arg in shell_args %}"{{ arg }}"{% if !loop.last %}, {% endif %}{% endfor %}]
+        {%- else %}
+SHELL ["bash", "-c"]
+        {%- endif %}
+      {%- endif %}
+
+      {% call modules::stage_modules_run(stage.modules_ext, os_version) %}
+    {%- endif %}
+  {%- endfor %}
+{%- endif %}

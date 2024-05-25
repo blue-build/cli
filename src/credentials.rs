@@ -1,7 +1,10 @@
 use std::{env, sync::Mutex};
 
 use anyhow::{anyhow, Result};
-use blue_build_utils::constants::*;
+use blue_build_utils::constants::{
+    CI_REGISTRY, CI_REGISTRY_PASSWORD, CI_REGISTRY_USER, GITHUB_ACTIONS, GITHUB_ACTOR, GITHUB_TOKEN,
+};
+use log::trace;
 use once_cell::sync::Lazy;
 use typed_builder::TypedBuilder;
 
@@ -44,9 +47,9 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
     let (username, password, registry) = {
         USER_CREDS.lock().map_or((None, None, None), |creds| {
             (
-                creds.username.as_ref().map(|s| s.to_owned()),
-                creds.password.as_ref().map(|s| s.to_owned()),
-                creds.registry.as_ref().map(|s| s.to_owned()),
+                creds.username.as_ref().map(std::borrow::ToOwned::to_owned),
+                creds.password.as_ref().map(std::borrow::ToOwned::to_owned),
+                creds.registry.as_ref().map(std::borrow::ToOwned::to_owned),
             )
         })
     };
@@ -61,6 +64,7 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
         (None, None, Some(_)) => "ghcr.io".to_string(),
         _ => return None,
     };
+    trace!("Registry: {registry}");
 
     let username = match (
         username,
@@ -72,6 +76,7 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
         (None, None, Some(github_actor)) => github_actor,
         _ => return None,
     };
+    trace!("Username: {username}");
 
     let password = match (
         password,
@@ -99,18 +104,23 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
 /// Be sure to call this before trying to use
 /// any strategy that requires credentials as
 /// the environment credentials are lazy allocated.
+///
+/// # Errors
+/// Will error if it can't lock the mutex.
 pub fn set_user_creds(
     username: Option<&String>,
     password: Option<&String>,
     registry: Option<&String>,
 ) -> Result<()> {
+    trace!("credentials::set({username:?}, password, {registry:?})");
     let mut creds_lock = USER_CREDS
         .lock()
         .map_err(|e| anyhow!("Failed to set credentials: {e}"))?;
-    creds_lock.username = username.map(|s| s.to_owned());
-    creds_lock.password = password.map(|s| s.to_owned());
-    creds_lock.registry = registry.map(|s| s.to_owned());
+    creds_lock.username = username.map(ToOwned::to_owned);
+    creds_lock.password = password.map(ToOwned::to_owned);
+    creds_lock.registry = registry.map(ToOwned::to_owned);
     drop(creds_lock);
+    let _ = ENV_CREDENTIALS.as_ref();
     Ok(())
 }
 
@@ -118,7 +128,8 @@ pub fn set_user_creds(
 ///
 /// # Errors
 /// Will error if there aren't any credentials available.
-pub fn get_credentials() -> Result<&'static Credentials> {
+pub fn get() -> Result<&'static Credentials> {
+    trace!("credentials::get()");
     ENV_CREDENTIALS
         .as_ref()
         .ok_or_else(|| anyhow!("No credentials available"))

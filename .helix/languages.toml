@@ -1,5 +1,5 @@
 [language-server.rust-analyzer.config]
-cargo.features = ["nightly"]
+cargo.features = []
 
 [language-server.rust-analyzer.config.check]
 command = "clippy"

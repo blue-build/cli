@@ -1,0 +1,23 @@
+# TODO: Add back installs after upstream issues are fixed
+
+modules:
+  # Tests installing rpms from a combo image stage
+  - type: akmods
+    # install:
+    #   - nct6687d
+    #   - openrazer
+    #   - openrgb
+
+  # Tests pulling surface image
+  - type: akmods
+    base: surface
+    nvidia: true
+
+  # Tests pulling image for main nvidia
+  - type: akmods
+    nvidia: true
+
+  # Test pulling image for base asus
+  - type: akmods
+    base: asus
+    nvidia: true

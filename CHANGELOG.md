@@ -2,6 +2,178 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.9] - 2024-05-17
+
+### Bug Fixes
+
+- Don't create builder if DOCKER_HOST is set
+- Use leniency for semver parsing (#184)
+
+### Documentation
+
+- Update README to revert cargo install instruction since issue is fixed
+- Update docker/podman install instructions
+
+### Miscellaneous Tasks
+
+- Fix checkout for podman-build
+- Remove a pre-release-replacement
+
+## [0.8.8] - 2024-05-14
+
+### Bug Fixes
+
+- Add driver args to rebase/upgrade command
+- Make docker pull latest images when building
+- Don't use '' in format arg
+- Create lock on docker setup to prevent race conditions
+
+### Features
+
+- Create a bluebuild buildx runner
+
+### Miscellaneous Tasks
+
+- Ensure cargo installs use version for build scripts image
+- Cleanup install script to instead create the container without running it
+- Release
+
+## [0.8.7] - 2024-05-05
+
+### Bug Fixes
+
+- Git sha not present during `cargo install` (#176)
+
+### Features
+
+- Add alternate tags for user images (#172)
+
+### Miscellaneous Tasks
+
+- Streamline getting version
+- Fix how we get the version in the Earthfile
+- Allow tests to pass due to upstream akmods issues
+- Remove title case (#177)
+- Fix release replacements
+- Release
+
+## [0.8.6] - 2024-04-29
+
+### Bug Fixes
+
+- Fix flatpak module errors
+
+### Miscellaneous Tasks
+
+- Remove token from checkout
+- Pull version using cargo for tag job
+- Fix integration tests
+- Improve tagging of images and applying labels
+- Release
+
+## [0.8.5] - 2024-04-27
+
+### Bug Fixes
+
+- Use shebang in release recipe
+- Pull extra akmods image too (#169)
+
+### Features
+
+- Display full recipe with syntax highlighting (#166)
+- Move module run logic into its own script (#168)
+
+### Miscellaneous Tasks
+
+- Fix tag.yml workflow to pull version from .workspace.package.version
+- Remove debug logs from utils
+- Use Semver to grab OS version from image
+- Make more /var dirs
+- Release
+
+## [0.8.4] - 2024-04-22
+
+### Bug Fixes
+
+- Sign all images in manifest (#148)
+- Use proper image URI for local rebasing
+- Add test for rpm-ostree rebase (#161)
+- Error if any module fails to deserialize (#163)
+- Remove /var tmpfs
+- Create /var/roothome to fix any issues with adding files to /root
+- Create /var/lib/alternatives
+- Give better errors for read_to_string
+
+### Documentation
+
+- Add distrobox installation tips (#146)
+
+### Features
+
+- Add driver selection args (#153)
+- Squash builds (#155)
+- Look for recipes in `./recipes/`, build files in `./files/`, and Containerfiles in `./containerfiles/` (#157)
+
+### Miscellaneous Tasks
+
+- Add MODULE_DIRECTORY env var (#142)
+- Remove unused files module
+- Put LABELS last since they cause cache miss with buildah
+- Cleanup images and use hash for exports tag (#158)
+- Update akmods module to account for upstream changes (#165)
+- Prepare justfile for release
+- Release
+
+### README
+
+- Add alpine distrobox and shell completions (#149)
+
+## [0.8.3] - 2024-03-27
+
+### Bug Fixes
+
+- Checkout proper versions when building on main vs a PR
+- Use container skopeo (#110)
+- Remove tmpfs for /tmp (#123)
+- Allow docker driver to properly use cache (#126)
+- Allow special characters for export script (#128)
+- Copy bins and keys with mounts for ostree commit (#132)
+- Set gzip to default compression format
+- Create dir for keys and bins in case they don't exist
+- Allow user supplied registry to be set in the template (#135)
+- Unable to use SHELL with podman, encapsulate commands in /bin/bash -c
+- Put export script in own image
+- Remove docker syntax marker
+- Pulling wrong exports image
+
+### Features
+
+- Revert to bash files module (#125)
+- Support `zstd` compression (#134)
+- Improve logging output (#139)
+
+### Miscellaneous Tasks
+
+- Update workspace dependency versions
+- Setup build concurrency to reduce number of simultaneous builds on a PR
+- Adjust readme path in files module.yml
+- Fix readme path for containerfile module in module.yml
+- Add version checks for upstream tools (#121)
+- Don't build nightly for now
+- Separate nightly build to not run in CI for now
+- Remove builtin-podman code
+- Enable cache builds on main branch
+- Don't use docker driver for buildx job on main
+- Update gitlab-ci section in README
+- Add image source label for exports
+- Use tag exports instead
+- Fix build.yml
+- Release
+
+### Refactor
+
+- Rename strategies to drivers
+
 ## [0.8.2] - 2024-03-09
 
 ### Bug Fixes
@@ -28,6 +200,7 @@ All notable changes to this project will be documented in this file.
 - Update builds to use different satellites and have integration tests on their own job
 - Move cargo release settings to root Cargo.toml
 - Update crates to have their own versions starting at CLI version
+- Prepare for v0.8.2 release
 
 ### Refactor
 

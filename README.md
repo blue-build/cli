@@ -8,20 +8,57 @@
 
 BlueBuild's command line program that builds Containerfiles and custom images based on your recipe.yml.
 
+## Requirements
+
+The `bluebuild` tool takes advantage of newer build features. Specifically bind, cache, and tmpfs mounts on the `RUN` instructions. We support using the following tools and their versions:
+
+- Docker - v23 and above
+- Podman - v4 and above
+- Buildah - v1.24 and above
+
 ## Installation
 
 ### Distrobox
 
+[distrobox-export-documentation]: https://distrobox.it/usage/distrobox-export/
+
 We package a `fedora-toolbox` and `alpine` image with all the tools needed to run `bluebuild`. You can use `distrobox` to run the application without needing to install it on your machine.
 
 ```bash
+# fedora-toolbox
 distrobox create blue-build --image ghcr.io/blue-build/cli
-distrobox enter blue-build
+# alpine
+distrobox create blue-build --image ghcr.io/blue-build/cli:latest-alpine
+```
+
+By default, the bluebuild commands will not be visible outside of the distrobox itself. You will need to **enter** the distrobox, and either run the commands from inside the distrobox, or **export** the distrobox commands for use outside the distrobox.
+
+Refer to the [distrobox documentation][distrobox-export-documentation] for more information.
+
+#### Running commands from within distrobox
+
+```bash
+[user@host]$ bluebuild help
+ERROR
+[user@host]$ distrobox enter blue-build
+[user@blue-build]$ bluebuild help
+A CLI tool built for creating Containerfile templates based on the Ublue Community Project
+...
+```
+
+#### Exporting commands to run outside distrobox
+
+```bash
+[user@blue-build]$ distrobox-export --bin $(which bluebuild)
+[user@blue-build]$ exit
+[user@host]$ bluebuild help
+A CLI tool built for creating Containerfile templates based on the Ublue Community Project
+...
 ```
 
 ### Cargo
 
-This is the best way to install as it gives you the opportunity to bulid for your specific environment.
+This is the best way to install as it gives you the opportunity to build for your specific environment.
 
 ```bash
 cargo install --locked blue-build
@@ -32,7 +69,11 @@ cargo install --locked blue-build
 This will install the binary on your system in `/usr/local/bin`. This is only a `linux-gnu` version.
 
 ```bash
-podman run --rm ghcr.io/blue-build/cli:latest-installer | bash
+podman run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
+```
+
+```bash
+docker run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
 ```
 
 ### Nix Flake
@@ -55,7 +96,7 @@ If you are using a dedicated flake to manage your dependencies, you can add Blue
 {pkgs,inputs,...}: {
     ...
     environment.SystemPackages = [
-        inputs.bluebuild.packages.${pkgs.system}.bluebuild # change bluebuild with the fh added input name 
+        inputs.bluebuild.packages.${pkgs.system}.bluebuild # change bluebuild with the fh added input name
     ];
     ...
 }
@@ -76,7 +117,7 @@ in {
 }
 ```
 
-You can also use `nix develop .#` in this repos directory to run a nix shell with development dependencies and some helful utilities for building BlueBuild! 
+You can also use `nix develop .#` in this repos directory to run a nix shell with development dependencies and some helful utilities for building BlueBuild!
 
 ### Github Install Script
 
@@ -101,10 +142,32 @@ You can then use this with `podman` or `buildah` to build and publish your image
 If you don't care about the details of the template, you can run the `build` command.
 
 ```bash
-bluebuild build ./config/recipe.yaml
+bluebuild build ./recipes/recipe.yaml
 ```
 
-This will template out the file and build with `buildah` or `podman`. 
+This will template out the file and build with `buildah` or `podman`.
+
+### Completions
+
+The `bluebuild completions` command generates shell completions, printed to stdout. These completions can be stored for integration in your shell environment. For example, on a system with [bash-completion](https://github.com/scop/bash-completion/) installed:
+
+```bash
+# user completions
+$ bluebuild completions bash > ~/.local/share/bash-completion/completions/bluebuild
+# system-wide completions
+$ bluebuild completions bash | sudo tee /usr/share/bash-completion/completions/bluebuild
+```
+
+Subsequent invocations of `bluebuild` will respond to `<Tab>` autocompletions:
+
+```bash
+$ bluebuild # press <Tab>
+-v           -V           --help       template     bug-report
+-q           --verbose    --version    upgrade      completions
+-h           --quiet      build        rebase       help
+```
+
+Currently, bluebuild completions are available for `bash`, `zsh`, `fish`, `powershell`, and `elvish` shell environments.
 
 #### Local Builds
 
@@ -113,7 +176,7 @@ This will template out the file and build with `buildah` or `podman`.
 If you want to test your changes, you can do so by using the `rebase` command. This will create an image as a `.tar.gz` file, store it in `/etc/bluebuild`, an run `rpm-ostree rebase` on that newly built file.
 
 ```bash
-sudo bluebuild rebase config/recipe.yml
+sudo bluebuild rebase recipes/recipe.yml
 ```
 
 You can initiate an immediate restart by adding the `--reboot/-r` option.
@@ -123,7 +186,7 @@ You can initiate an immediate restart by adding the `--reboot/-r` option.
 When you've rebased onto a local image archive, you can update your image for your recipe by running:
 
 ```bash
-sudo bluebuild upgrade config/recipe.yml
+sudo bluebuild upgrade recipes/recipe.yml
 ```
 
 The `--reboot` argument can be used with this command as well.
@@ -138,7 +201,7 @@ You can use our [GitHub Action](https://github.com/blue-build/github-action) by 
 name: bluebuild
 on:
   schedule:
-    - cron: "00 17 * * *" # build at 17:00 UTC every day 
+    - cron: "00 17 * * *" # build at 17:00 UTC every day
                           # (20 minutes after last ublue images start building)
   push:
     paths-ignore: # don't rebuild if only documentation has changed
@@ -148,7 +211,7 @@ on:
 jobs:
   bluebuild:
     name: Build Custom Image
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -157,7 +220,7 @@ jobs:
       fail-fast: false # stop GH from cancelling all matrix builds if one fails
       matrix:
         recipe:
-          # !! Add your recipes here 
+          # !! Add your recipes here
           - recipe.yml
     steps:
        # the build is fully handled by the reusable github action
@@ -172,7 +235,7 @@ jobs:
 
 ##### Gitlab
 
-If you're running in Gitlab CI, it will automatically sign your image using Gitlab's own OIDC service. Here's an example of a `.gitlab-ci.yaml`:
+We also support GitLab CI! Fun fact, this project started out as a way to build these images in GitLab. You will want to make use of GitLab's [Secure Files](https://docs.gitlab.com/ee/ci/secure_files/index.html) feature for using your cosign private key for signing. Here's an example of a `.gitlab-ci.yml`:
 
 ```yaml
 workflow:
@@ -184,35 +247,42 @@ workflow:
     - if: "$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS"
       when: never
     - if: "$CI_COMMIT_BRANCH"
+
 stages:
   - build
-variables:
-  ACTION:
-    description: "Action to perform for the pipeline."
-    value: "build-image"
-    options:
-      - "build-image"
+
 build-image:
   stage: build
-  image: ghcr.io/blue-build/cli:latest-alpine
-  retry: 2
-  rules:
-    - if: $ACTION == "build-image"
+  image:
+    name: ghcr.io/blue-build/cli:main
+    entrypoint: [""]
+  services:
+    - docker:dind
   parallel:
     matrix:
       - RECIPE:
+          # Add your recipe files here
           - recipe.yml
-  id_tokens:
-    SIGSTORE_ID_TOKEN:
-      aud: sigstore
+  variables:
+    # Setup a secure connection with docker-in-docker service
+    # https://docs.gitlab.com/ee/ci/docker/using_docker_build.html
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: /certs
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: $DOCKER_TLS_CERTDIR/client
+  before_script:
+    # Pulls secure files into the build
+    - curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/main/installer" | bash
+    - export COSIGN_PRIVATE_KEY=$(cat .secure_files/cosign.key)
   script:
-    - bluebuild build --push ./config/$RECIPE
+    - sleep 5 # Wait a bit for the docker-in-docker service to start
+    - bluebuild build --push ./recipes/$RECIPE
 ```
 
 ## Future Features
 
-- [x] Update to the most recent stable style of the [starting point](https://github.com/ublue-os/startingpoint/tree/template) template
-- [x] Setup pipeline automation for publishing
-- [ ] Create an init command to create a repo for you to start out
-- [ ] Setup the project to allow installing with `binstall`
-- [x] Create an install script for easy install for users without `cargo`
+- Stages for parallel building (useful for compiling programs for your image)
+- Automatic download and management of image keys for seamless signed image rebasing
+- Module command for easy 3rd party plugin management
+- Create an init command to create a repo for you to start out
+- Setup the project to allow installing with `cargo-binstall`

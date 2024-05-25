@@ -2,82 +2,113 @@ VERSION 0.8
 PROJECT blue-build/cli
 
 all:
-	ARG NIGHTLY=false
-	BUILD +test-image --NIGHTLY=$NIGHTLY
-	BUILD +test-secureblue --NIGHTLY=$NIGHTLY
-	BUILD +build --NIGHTLY=$NIGHTLY
-	BUILD +rebase --NIGHTLY=$NIGHTLY
-	BUILD +upgrade --NIGHTLY=$NIGHTLY
+	BUILD +test-image
+	BUILD +test-secureblue
+	BUILD +test-legacy-image
+	BUILD +build
+	BUILD +rebase
+	BUILD +upgrade
 
 test-image:
-	ARG NIGHTLY=false
-	FROM +build-template --NIGHTLY=$NIGHTLY --src=template-containerfile
+	FROM +build-template --src=template-containerfile
+	WORKDIR /tmp/test
+	COPY ./test-scripts/*.sh ./
+
+	DO +RUN_TESTS
+
+test-legacy-image:
+	FROM +build-template --src=template-legacy-containerfile
 	WORKDIR /tmp/test
 	COPY ./test-scripts/*.sh ./
 
 	DO +RUN_TESTS
 
 test-secureblue:
-	ARG NIGHTLY=false
-	FROM +build-template --NIGHTLY=$NIGHTLY --src=template-secureblue
+	FROM +build-template --src=template-secureblue
+	WORKDIR /tmp/test
+	COPY ./test-scripts/secureblue/*.sh ./
+
+	DO +RUN_TESTS
+
+test-secureblue-ucore:
+	FROM +build-template --src=template-secureblue-ucore
 	WORKDIR /tmp/test
 	COPY ./test-scripts/secureblue/*.sh ./
 
 	DO +RUN_TESTS
 
 build-template:
-	ARG NIGHTLY=false
 	ARG --required src
 	FROM DOCKERFILE \
 		-f +$src/test/Containerfile \
-		+$src/test/* --NIGHTLY=$NIGHTLY
+		+$src/test/*
 
 template-containerfile:
-	ARG NIGHTLY=false
-	FROM +test-base --NIGHTLY=$NIGHTLY
+	FROM +test-base
+	RUN bluebuild -vv template recipes/recipe.yml | tee Containerfile
+
+	SAVE ARTIFACT /test
+
+template-legacy-containerfile:
+	FROM +legacy-base
 	RUN bluebuild -vv template config/recipe.yml | tee Containerfile
 
 	SAVE ARTIFACT /test
 
 template-secureblue:
-	ARG NIGHTLY=false
-	FROM +secureblue-base --NIGHTLY=$NIGHTLY
-	RUN bluebuild -vv template -o Containerfile config/recipes/general/recipe-silverblue-nvidia.yml
+	FROM +secureblue-base
+	RUN bluebuild -vv template -o Containerfile recipes/general/recipe-silverblue-nvidia.yml
+
+	SAVE ARTIFACT /test
+
+template-secureblue-ucore:
+	FROM +secureblue-base
+	RUN bluebuild -vv template -o Containerfile recipes/server/recipe-server-main.yml
 
 	SAVE ARTIFACT /test
 
 build:
-	ARG NIGHTLY=false
-	FROM +test-base --NIGHTLY=$NIGHTLY
+	FROM +test-base
 
-	RUN --privileged bluebuild -vv build config/recipe.yml
+	RUN bluebuild -vv build recipes/recipe.yml
 
 rebase:
-	ARG NIGHTLY=false
-	FROM +test-base --NIGHTLY=$NIGHTLY
+	FROM +test-base
 
-	RUN --privileged bluebuild -vv rebase config/recipe.yml
+	RUN bluebuild -vv rebase recipes/recipe.yml
 
 upgrade:
-	ARG NIGHTLY=false
-	FROM +test-base --NIGHTLY=$NIGHTLY
-	RUN mkdir -p /etc/bluebuild && touch /etc/bluebuild/cli_test.tar.gz
+	FROM +test-base
 
-	RUN --privileged bluebuild -vv upgrade config/recipe.yml
+	RUN mkdir -p /etc/bluebuild && touch $BB_TEST_LOCAL_IMAGE
+	RUN bluebuild -vv upgrade recipes/recipe.yml
 
 secureblue-base:
-	ARG NIGHTLY=false
-	FROM +test-base --NIGHTLY=$NIGHTLY
+	FROM +test-base
 
 	RUN rm -fr /test
 	GIT CLONE https://github.com/secureblue/secureblue.git /test
 
 	DO +GEN_KEYPAIR
 
-test-base:
-	ARG NIGHTLY=false
+legacy-base:
+	FROM ../+blue-build-cli-alpine
+	ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test.tar.gz
+	ENV CLICOLOR_FORCE=1
 
-	FROM ../+blue-build-cli-alpine --NIGHTLY=$NIGHTLY
+	COPY ./mock-scripts/ /usr/bin/
+
+	WORKDIR /test
+	COPY ./legacy-test-repo /test
+
+	DO ../+INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl" --TAGGED="true"
+
+	DO +GEN_KEYPAIR
+
+test-base:
+	FROM ../+blue-build-cli-alpine
+	ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test.tar.gz
+	ENV CLICOLOR_FORCE=1
 
 	COPY ./mock-scripts/ /usr/bin/
 

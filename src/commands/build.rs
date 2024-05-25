@@ -4,18 +4,32 @@ use std::{
     process::Command,
 };
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::*;
+use blue_build_utils::constants::{
+    ARCHIVE_SUFFIX, BUILD_ID_LABEL, CI_DEFAULT_BRANCH, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE,
+    CI_PROJECT_URL, CI_REGISTRY, CI_SERVER_HOST, CI_SERVER_PROTOCOL, CONFIG_PATH, CONTAINER_FILE,
+    COSIGN_PATH, COSIGN_PRIVATE_KEY, GITHUB_REPOSITORY_OWNER, GITHUB_TOKEN,
+    GITHUB_TOKEN_ISSUER_URL, GITHUB_WORKFLOW_REF, GITIGNORE_PATH, LABELED_ERROR_MESSAGE,
+    NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH, SIGSTORE_ID_TOKEN,
+};
 use clap::Args;
-use colorized::{Color, Colors};
+use colored::Colorize;
 use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 
-use crate::{commands::generate::GenerateCommand, strategies::Strategy};
+use crate::{
+    commands::generate::GenerateCommand,
+    credentials,
+    drivers::{
+        opts::{BuildTagPushOpts, CompressionType, GetMetadataOpts},
+        Driver,
+    },
+};
 
-use super::BlueBuildCommand;
+use super::{BlueBuildCommand, DriverArgs};
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct BuildCommand {
     /// The recipe file to build an image
@@ -31,6 +45,12 @@ pub struct BuildCommand {
     #[arg(short, long)]
     #[builder(default)]
     push: bool,
+
+    /// The compression format the images
+    /// will be pushed in.
+    #[arg(short, long, default_value_t = CompressionType::Gzip)]
+    #[builder(default)]
+    compression_format: CompressionType,
 
     /// Block `bluebuild` from retrying to push the image.
     #[arg(short, long, default_value_t = true)]
@@ -99,54 +119,9 @@ pub struct BuildCommand {
     #[builder(default, setter(into, strip_option))]
     password: Option<String>,
 
-    /// The connection string used to connect
-    /// to a remote podman socket.
-    #[cfg(feature = "tls")]
-    #[arg(short, long)]
-    #[builder(default, setter(into, strip_option))]
-    connection: Option<String>,
-
-    /// The path to the `cert.pem`, `key.pem`,
-    /// and `ca.pem` files needed to connect to
-    /// a remote podman build socket.
-    #[cfg(feature = "tls")]
-    #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
-    tls_path: Option<PathBuf>,
-
-    /// Whether to sign the image.
-    #[cfg(feature = "sigstore")]
-    #[arg(short, long)]
+    #[clap(flatten)]
     #[builder(default)]
-    sign: bool,
-
-    /// Path to the public key used to sign the image.
-    ///
-    /// If the contents of the key are in an environment
-    /// variable, you can use `env://` to sepcify which
-    /// variable to read from.
-    ///
-    /// For example:
-    ///
-    /// bluebuild build --public-key env://PUBLIC_KEY ...
-    #[cfg(feature = "sigstore")]
-    #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
-    public_key: Option<String>,
-
-    /// Path to the private key used to sign the image.
-    ///
-    /// If the contents of the key are in an environment
-    /// variable, you can use `env://` to sepcify which
-    /// variable to read from.
-    ///
-    /// For example:
-    ///
-    /// bluebuild build --private-key env://PRIVATE_KEY ...
-    #[cfg(feature = "sigstore")]
-    #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
-    private_key: Option<String>,
+    drivers: DriverArgs,
 }
 
 impl BlueBuildCommand for BuildCommand {
@@ -154,10 +129,12 @@ impl BlueBuildCommand for BuildCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
-        Strategy::builder()
+        Driver::builder()
             .username(self.username.as_ref())
             .password(self.password.as_ref())
             .registry(self.registry.as_ref())
+            .build_driver(self.drivers.build_driver)
+            .inspect_driver(self.drivers.inspect_driver)
             .build()
             .init()?;
 
@@ -180,16 +157,18 @@ impl BlueBuildCommand for BuildCommand {
         let container_file_path = Path::new(CONTAINER_FILE);
 
         if !self.force && container_file_path.exists() {
-            let gitignore = fs::read_to_string(GITIGNORE_PATH)?;
+            let gitignore = fs::read_to_string(GITIGNORE_PATH)
+                .context(format!("Failed to read {GITIGNORE_PATH}"))?;
 
             let is_ignored = gitignore
                 .lines()
                 .any(|line: &str| line.contains(CONTAINER_FILE));
 
             if !is_ignored {
-                let containerfile = fs::read_to_string(container_file_path)?;
+                let containerfile = fs::read_to_string(container_file_path)
+                    .context(format!("Failed to read {}", container_file_path.display()))?;
                 let has_label = containerfile.lines().any(|line| {
-                    let label = format!("LABEL {}", BUILD_ID_LABEL);
+                    let label = format!("LABEL {BUILD_ID_LABEL}");
                     line.to_string().trim().starts_with(&label)
                 });
 
@@ -200,7 +179,8 @@ impl BlueBuildCommand for BuildCommand {
                         } else {
                             NO_LABEL_ERROR_MESSAGE
                         }
-                        .color(Colors::BrightYellowFg),
+                        .bright_yellow()
+                        .to_string(),
                     )
                     .default(true)
                     .build();
@@ -208,24 +188,33 @@ impl BlueBuildCommand for BuildCommand {
                 if let Ok(answer) = requestty::prompt_one(question) {
                     if answer.as_bool().unwrap_or(false) {
                         blue_build_utils::append_to_file(
-                            GITIGNORE_PATH,
-                            &format!("/{}", CONTAINER_FILE),
+                            &GITIGNORE_PATH,
+                            &format!("/{CONTAINER_FILE}"),
                         )?;
                     }
                 }
             }
         }
 
-        let recipe_path = self
-            .recipe
-            .clone()
-            .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
+        if self.push && self.archive.is_some() {
+            bail!("You cannot use '--archive' and '--push' at the same time");
+        }
 
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
-            blue_build_utils::check_command_exists("skopeo")?;
             check_cosign_files()?;
         }
+
+        let recipe_path = self.recipe.clone().unwrap_or_else(|| {
+            let legacy_path = Path::new(CONFIG_PATH);
+            let recipe_path = Path::new(RECIPE_PATH);
+            if recipe_path.exists() && recipe_path.is_dir() {
+                recipe_path.join(RECIPE_FILE)
+            } else {
+                warn!("Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}");
+                legacy_path.join(RECIPE_FILE)
+            }
+        });
 
         GenerateCommand::builder()
             .recipe(&recipe_path)
@@ -244,15 +233,36 @@ impl BuildCommand {
         trace!("BuildCommand::build_image()");
 
         let recipe = Recipe::parse(&recipe_path)?;
-        let os_version = Strategy::get_os_version(&recipe)?;
-        let tags = recipe.generate_tags(&os_version);
+        let os_version = Driver::get_os_version(&recipe)?;
+        let tags = recipe.generate_tags(os_version);
         let image_name = self.generate_full_image_name(&recipe)?;
 
         if self.push {
-            self.login()?;
+            Self::login()?;
         }
 
-        self.run_build(&image_name, &tags)?;
+        let opts = if let Some(archive_dir) = self.archive.as_ref() {
+            BuildTagPushOpts::builder()
+                .archive_path(format!(
+                    "{}/{}.{ARCHIVE_SUFFIX}",
+                    archive_dir.to_string_lossy().trim_end_matches('/'),
+                    recipe.name.to_lowercase().replace('/', "_"),
+                ))
+                .squash(self.drivers.squash)
+                .build()
+        } else {
+            BuildTagPushOpts::builder()
+                .image(&image_name)
+                .tags(tags.iter().map(String::as_str).collect::<Vec<_>>())
+                .push(self.push)
+                .no_retry_push(self.no_retry_push)
+                .retry_count(self.retry_count)
+                .compression(self.compression_format)
+                .squash(self.drivers.squash)
+                .build()
+        };
+
+        Driver::get_build_driver().build_tag_push(&opts)?;
 
         if self.push {
             sign_images(&image_name, tags.first().map(String::as_str))?;
@@ -267,11 +277,11 @@ impl BuildCommand {
         Ok(())
     }
 
-    fn login(&self) -> Result<()> {
+    fn login() -> Result<()> {
         trace!("BuildCommand::login()");
         info!("Attempting to login to the registry");
 
-        let credentials = Strategy::get_credentials()?;
+        let credentials = credentials::get()?;
 
         let (registry, username, password) = (
             &credentials.registry,
@@ -280,7 +290,7 @@ impl BuildCommand {
         );
 
         info!("Logging into the registry, {registry}");
-        Strategy::get_build_strategy().login()?;
+        Driver::get_build_driver().login()?;
 
         trace!("cosign login -u {username} -p [MASKED] {registry}");
         let login_output = Command::new("cosign")
@@ -308,66 +318,53 @@ impl BuildCommand {
         trace!("BuildCommand::generate_full_image_name({recipe:#?})");
         info!("Generating full image name");
 
-        let image_name = if let Some(archive_dir) = &self.archive {
-            format!(
-                "oci-archive:{}/{}.{ARCHIVE_SUFFIX}",
-                archive_dir.to_string_lossy().trim_end_matches('/'),
-                recipe.name.to_lowercase().replace('/', "_"),
-            )
-        } else if self.switch {
-            format!(
-                "oci-archive:{LOCAL_BUILD}/{}.{ARCHIVE_SUFFIX}",
-                recipe.name.to_lowercase().replace('/', "_"),
-            )
-        } else {
-            match (
-                env::var(CI_REGISTRY).ok().map(|s| s.to_lowercase()),
-                env::var(CI_PROJECT_NAMESPACE)
-                    .ok()
-                    .map(|s| s.to_lowercase()),
-                env::var(CI_PROJECT_NAME).ok().map(|s| s.to_lowercase()),
-                env::var(GITHUB_REPOSITORY_OWNER)
-                    .ok()
-                    .map(|s| s.to_lowercase()),
-                self.registry.as_ref().map(|s| s.to_lowercase()),
-                self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
-            ) {
-                (_, _, _, _, Some(registry), Some(registry_path)) => {
-                    trace!("registry={registry}, registry_path={registry_path}");
-                    format!(
-                        "{}/{}/{}",
-                        registry.trim().trim_matches('/'),
-                        registry_path.trim().trim_matches('/'),
-                        recipe.name.trim(),
-                    )
-                }
-                (
-                    Some(ci_registry),
-                    Some(ci_project_namespace),
-                    Some(ci_project_name),
-                    None,
-                    None,
-                    None,
-                ) => {
-                    trace!("CI_REGISTRY={ci_registry}, CI_PROJECT_NAMESPACE={ci_project_namespace}, CI_PROJECT_NAME={ci_project_name}");
-                    warn!("Generating Gitlab Registry image");
-                    format!(
-                        "{ci_registry}/{ci_project_namespace}/{ci_project_name}/{}",
-                        recipe.name.trim().to_lowercase()
-                    )
-                }
-                (None, None, None, Some(github_repository_owner), None, None) => {
-                    trace!("GITHUB_REPOSITORY_OWNER={github_repository_owner}");
-                    warn!("Generating Github Registry image");
-                    format!("ghcr.io/{github_repository_owner}/{}", &recipe.name)
-                }
-                _ => {
-                    trace!("Nothing to indicate an image name with a registry");
-                    if self.push {
-                        bail!("Need '--registry' and '--registry-path' in order to push image");
-                    }
+        let image_name = match (
+            env::var(CI_REGISTRY).ok().map(|s| s.to_lowercase()),
+            env::var(CI_PROJECT_NAMESPACE)
+                .ok()
+                .map(|s| s.to_lowercase()),
+            env::var(CI_PROJECT_NAME).ok().map(|s| s.to_lowercase()),
+            env::var(GITHUB_REPOSITORY_OWNER)
+                .ok()
+                .map(|s| s.to_lowercase()),
+            self.registry.as_ref().map(|s| s.to_lowercase()),
+            self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
+        ) {
+            (_, _, _, _, Some(registry), Some(registry_path)) => {
+                trace!("registry={registry}, registry_path={registry_path}");
+                format!(
+                    "{}/{}/{}",
+                    registry.trim().trim_matches('/'),
+                    registry_path.trim().trim_matches('/'),
+                    recipe.name.trim(),
+                )
+            }
+            (
+                Some(ci_registry),
+                Some(ci_project_namespace),
+                Some(ci_project_name),
+                None,
+                None,
+                None,
+            ) => {
+                trace!("CI_REGISTRY={ci_registry}, CI_PROJECT_NAMESPACE={ci_project_namespace}, CI_PROJECT_NAME={ci_project_name}");
+                warn!("Generating Gitlab Registry image");
+                format!(
+                    "{ci_registry}/{ci_project_namespace}/{ci_project_name}/{}",
                     recipe.name.trim().to_lowercase()
+                )
+            }
+            (None, None, None, Some(github_repository_owner), None, None) => {
+                trace!("GITHUB_REPOSITORY_OWNER={github_repository_owner}");
+                warn!("Generating Github Registry image");
+                format!("ghcr.io/{github_repository_owner}/{}", &recipe.name)
+            }
+            _ => {
+                trace!("Nothing to indicate an image name with a registry");
+                if self.push {
+                    bail!("Need '--registry' and '--registry-namespace' in order to push image");
                 }
+                recipe.name.trim().to_lowercase()
             }
         };
 
@@ -375,68 +372,31 @@ impl BuildCommand {
 
         Ok(image_name)
     }
-
-    /// # Errors
-    ///
-    /// Will return `Err` if the build fails.
-    fn run_build(&self, image_name: &str, tags: &[String]) -> Result<()> {
-        trace!("BuildCommand::run_build({image_name}, {tags:#?})");
-
-        let strat = Strategy::get_build_strategy();
-
-        let full_image = if self.archive.is_some() {
-            image_name.to_string()
-        } else {
-            tags.first()
-                .map_or_else(|| image_name.to_string(), |t| format!("{image_name}:{t}"))
-        };
-
-        info!("Building image {full_image}");
-        strat.build(&full_image)?;
-
-        if tags.len() > 1 && self.archive.is_none() {
-            debug!("Tagging all images");
-
-            for tag in tags {
-                debug!("Tagging {image_name} with {tag}");
-
-                strat.tag(&full_image, image_name, tag)?;
-
-                if self.push {
-                    let retry_count = if !self.no_retry_push {
-                        self.retry_count
-                    } else {
-                        0
-                    };
-
-                    debug!("Pushing all images");
-                    // Push images with retries (1s delay between retries)
-                    blue_build_utils::retry(retry_count, 1000, || {
-                        debug!("Pushing image {image_name}:{tag}");
-
-                        let tag_image = format!("{image_name}:{tag}");
-
-                        strat.push(&tag_image)
-                    })?;
-                }
-            }
-        }
-
-        Ok(())
-    }
 }
 
 // ======================================================== //
 // ========================= Helpers ====================== //
 // ======================================================== //
 
+#[allow(clippy::too_many_lines)]
 fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
     trace!("BuildCommand::sign_images({image_name}, {tag:?})");
 
     env::set_var("COSIGN_PASSWORD", "");
     env::set_var("COSIGN_YES", "true");
 
-    let image_digest = get_image_digest(image_name, tag)?;
+    let inspect_opts = GetMetadataOpts::builder().image(image_name);
+
+    let inspect_opts = if let Some(tag) = tag {
+        inspect_opts.tag(tag).build()
+    } else {
+        inspect_opts.build()
+    };
+
+    let image_digest = Driver::get_inspection_driver()
+        .get_metadata(&inspect_opts)?
+        .digest;
+    let image_name_digest = format!("{image_name}@{image_digest}");
     let image_name_tag = tag.map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));
 
     match (
@@ -456,33 +416,7 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         (_, _, _, _, _, _, _, Ok(cosign_private_key))
             if !cosign_private_key.is_empty() && Path::new(COSIGN_PATH).exists() =>
         {
-            info!("Signing image: {image_digest}");
-
-            trace!("cosign sign --key=env://COSIGN_PRIVATE_KEY {image_digest}");
-
-            if Command::new("cosign")
-                .arg("sign")
-                .arg("--key=env://COSIGN_PRIVATE_KEY")
-                .arg(&image_digest)
-                .status()?
-                .success()
-            {
-                info!("Successfully signed image!");
-            } else {
-                bail!("Failed to sign image: {image_digest}");
-            }
-
-            trace!("cosign verify --key {COSIGN_PATH} {image_name_tag}");
-
-            if !Command::new("cosign")
-                .arg("verify")
-                .arg(format!("--key={COSIGN_PATH}"))
-                .arg(&image_name_tag)
-                .status()?
-                .success()
-            {
-                bail!("Failed to verify image!");
-            }
+            sign_priv_public_pair(&image_name_digest, &image_name_tag)?;
         }
         // Gitlab keyless
         (
@@ -497,19 +431,20 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         ) => {
             trace!("CI_PROJECT_URL={ci_project_url}, CI_DEFAULT_BRANCH={ci_default_branch}, CI_SERVER_PROTOCOL={ci_server_protocol}, CI_SERVER_HOST={ci_server_host}");
 
-            info!("Signing image: {image_digest}");
+            info!("Signing image: {image_name_digest}");
 
-            trace!("cosign sign {image_digest}");
+            trace!("cosign sign {image_name_digest}");
 
             if Command::new("cosign")
                 .arg("sign")
-                .arg(&image_digest)
+                .arg("--recursive")
+                .arg(&image_name_digest)
                 .status()?
                 .success()
             {
                 info!("Successfully signed image!");
             } else {
-                bail!("Failed to sign image: {image_digest}");
+                bail!("Failed to sign image: {image_name_digest}");
             }
 
             let cert_ident =
@@ -536,18 +471,19 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
         (_, _, _, _, _, Ok(_), Ok(github_worflow_ref), _) => {
             trace!("GITHUB_WORKFLOW_REF={github_worflow_ref}");
 
-            info!("Signing image {image_digest}");
+            info!("Signing image {image_name_digest}");
 
-            trace!("cosign sign {image_digest}");
+            trace!("cosign sign {image_name_digest}");
             if Command::new("cosign")
                 .arg("sign")
-                .arg(&image_digest)
+                .arg("--recursive")
+                .arg(&image_name_digest)
                 .status()?
                 .success()
             {
                 info!("Successfully signed image!");
             } else {
-                bail!("Failed to sign image: {image_digest}");
+                bail!("Failed to sign image: {image_name_digest}");
             }
 
             trace!("cosign verify --certificate-identity-regexp {github_worflow_ref} --certificate-oidc-issuer {GITHUB_TOKEN_ISSUER_URL} {image_name_tag}");
@@ -570,28 +506,37 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-fn get_image_digest(image_name: &str, tag: Option<&str>) -> Result<String> {
-    trace!("get_image_digest({image_name}, {tag:?})");
+fn sign_priv_public_pair(image_digest: &str, image_name_tag: &str) -> Result<()> {
+    info!("Signing image: {image_digest}");
 
-    let image_url = tag.map_or_else(
-        || format!("docker://{image_name}"),
-        |tag| format!("docker://{image_name}:{tag}"),
-    );
+    trace!("cosign sign --key=env://{COSIGN_PRIVATE_KEY} {image_digest}");
 
-    trace!("skopeo inspect --format='{{.Digest}}' {image_url}");
-    let image_digest = String::from_utf8(
-        Command::new("skopeo")
-            .arg("inspect")
-            .arg("--format='{{.Digest}}'")
-            .arg(&image_url)
-            .output()?
-            .stdout,
-    )?;
+    if Command::new("cosign")
+        .arg("sign")
+        .arg("--key=env://COSIGN_PRIVATE_KEY")
+        .arg("--recursive")
+        .arg(image_digest)
+        .status()?
+        .success()
+    {
+        info!("Successfully signed image!");
+    } else {
+        bail!("Failed to sign image: {image_digest}");
+    }
 
-    Ok(format!(
-        "{image_name}@{}",
-        image_digest.trim().trim_matches('\'')
-    ))
+    trace!("cosign verify --key {COSIGN_PATH} {image_name_tag}");
+
+    if !Command::new("cosign")
+        .arg("verify")
+        .arg(format!("--key={COSIGN_PATH}"))
+        .arg(image_name_tag)
+        .status()?
+        .success()
+    {
+        bail!("Failed to verify image!");
+    }
+
+    Ok(())
 }
 
 fn check_cosign_files() -> Result<()> {
@@ -616,7 +561,8 @@ fn check_cosign_files() -> Result<()> {
             }
 
             let calculated_pub_key = String::from_utf8(output.stdout)?;
-            let found_pub_key = fs::read_to_string(COSIGN_PATH)?;
+            let found_pub_key =
+                fs::read_to_string(COSIGN_PATH).context(format!("Failed to read {COSIGN_PATH}"))?;
             trace!("calculated_pub_key={calculated_pub_key},found_pub_key={found_pub_key}");
 
             if calculated_pub_key.trim() == found_pub_key.trim() {

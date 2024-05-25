@@ -1,0 +1,37 @@
+type: default-flatpaks
+notify: true
+system:
+  repo-url: https://dl.flathub.org/repo/flathub.flatpakrepo
+  repo-name: flathub-system
+  repo-title: "Flathub (System)" # Optional; this sets the remote's user-facing name in graphical frontends like GNOME Software
+  install:
+    - org.gnome.Boxes
+    - org.gnome.Calculator
+    - org.gnome.Calendar
+    - org.gnome.Snapshot
+    - org.gnome.Contacts
+    - org.gnome.clocks
+    - com.belmoussaoui.Decoder
+    - org.gnome.Evince
+    - org.gnome.Maps
+    - org.gnome.TextEditor
+    - com.github.neithern.g4music
+    - com.github.rafostar.Clapper
+    - org.gnome.Loupe
+    - io.gitlab.librewolf-community
+    - io.missioncenter.MissionCenter
+    - org.gnome.World.Secrets
+    - com.belmoussaoui.Authenticator
+    - com.vixalien.sticky
+    - com.github.flxzt.rnote
+    - org.localsend.localsend_app
+    - com.dec05eba.gpu_screen_recorder
+    - com.github.tchx84.Flatseal
+    - io.github.flattool.Warehouse
+    - io.github.fabrialberio.pinapp
+    - com.mattjakeman.ExtensionManager
+    - com.github.wwmm.easyeffects
+user:
+  repo-url: https://dl.flathub.org/repo/flathub.flatpakrepo
+  repo-name: flathub-user
+  repo-title: "Flathub"

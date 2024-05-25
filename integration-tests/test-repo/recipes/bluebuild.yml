@@ -1,0 +1,12 @@
+stages:
+  - name: blue-build
+    image: rust
+    modules:
+      - type: script
+        scripts:
+          - bluebuild.sh
+modules:
+  - type: copy
+    from: blue-build
+    src: /out/bluebuild
+    dest: /usr/bin/bluebuild

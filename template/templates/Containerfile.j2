@@ -1,27 +1,38 @@
-# This stage is responsible for holding onto
-# your config without copying it directly into
-# the final image
-FROM scratch as stage-config
-COPY ./config /config
+{%- import "modules/modules.j2" as modules -%}
+{%- include "stages.j2" %}
 
-# Copy modules
-# The default modules are inside blue-build/modules
-# Custom modules overwrite defaults
-FROM scratch as stage-modules
-COPY --from=ghcr.io/blue-build/modules:latest /modules /modules
-{%- if self::modules_exists() %}
-COPY ./modules /modules
+# Main image
+FROM {{ recipe.base_image }}:{{ recipe.image_version }} as {{ recipe.name|replace('/', "-") }}
+
+ARG RECIPE={{ recipe_path.display() }}
+ARG IMAGE_REGISTRY={{ registry }}
+
+{%- if self::files_dir_exists() %}
+ARG CONFIG_DIRECTORY="/tmp/files"
+{%- else if self::config_dir_exists() %}
+ARG CONFIG_DIRECTORY="/tmp/config"
 {%- endif %}
+ARG MODULE_DIRECTORY="/tmp/modules"
+ARG IMAGE_NAME="{{ recipe.name }}"
+ARG BASE_IMAGE="{{ recipe.base_image }}"
 
-{%- include "modules/akmods/akmods.j2" %}
+# Key RUN
+RUN --mount=type=bind,from=stage-keys,src=/keys,dst=/tmp/keys \
+  mkdir -p /usr/etc/pki/containers/ \
+  && cp /tmp/keys/* /usr/etc/pki/containers/ \
+  && ostree container commit
 
-# This stage is responsible for holding onto
-# exports like the exports.sh
-FROM docker.io/alpine as stage-exports
-RUN printf {{ export_script.print_script() }} >> /exports.sh && chmod +x /exports.sh
+# Bin RUN
+RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
+  mkdir -p /usr/bin/ \
+  && cp /tmp/bins/* /usr/bin/ \
+  && ostree container commit
 
-FROM {{ recipe.base_image }}:{{ recipe.image_version }}
+{% call modules::main_modules_run(recipe.modules_ext, os_version) %}
 
+RUN rm -fr /tmp/* /var/* && ostree container commit
+
+# Labels are added last since they cause cache misses with buildah
 LABEL {{ blue_build_utils::constants::BUILD_ID_LABEL }}="{{ build_id }}"
 LABEL org.opencontainers.image.title="{{ recipe.name }}"
 LABEL org.opencontainers.image.description="{{ recipe.description }}"
@@ -29,36 +40,3 @@ LABEL org.opencontainers.image.description="{{ recipe.description }}"
 LABEL org.opencontainers.image.source="{{ repo }}"
 {%- endif %}
 LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md
-
-ARG RECIPE={{ recipe_path.display() }}
-
-{%- if let Some(repo_owner) = self::get_github_repo_owner() %}
-ARG IMAGE_REGISTRY=ghcr.io/{{ repo_owner }}
-{%- else if let Some(registry) = self::get_gitlab_registry_path() %}
-ARG IMAGE_REGISTRY={{ registry }}
-{%- else %}
-ARG IMAGE_REGISTRY=localhost
-{%- endif %}
-
-{%- if self::has_cosign_file() %}
-COPY cosign.pub /usr/share/ublue-os/cosign.pub
-{%- endif %}
-
-ARG CONFIG_DIRECTORY="/tmp/config"
-ARG IMAGE_NAME="{{ recipe.name }}"
-ARG BASE_IMAGE="{{ recipe.base_image }}"
-
-COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /usr/bin/cosign
-COPY --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/yq
-COPY --from=ghcr.io/blue-build/cli:
-{%- if let Some(tag) = recipe.blue_build_tag -%}
-{{ tag }}
-{%- else -%}
-latest-installer
-{%- endif %} /out/bluebuild /usr/bin/bluebuild
-
-{%- include "modules/modules.j2" %}
-
-# Added in case a user adds something else using the
-# 'containerfile' module
-RUN rm -fr /tmp/* /var/* && ostree container commit

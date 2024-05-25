@@ -1,8 +1,12 @@
 use blue_build_recipe::Recipe;
 use blue_build_template::{GithubIssueTemplate, Template};
-use blue_build_utils::constants::*;
+use blue_build_utils::constants::{
+    BUG_REPORT_WARNING_MESSAGE, GITHUB_CHAR_LIMIT, LC_TERMINAL, LC_TERMINAL_VERSION, TERM_PROGRAM,
+    TERM_PROGRAM_VERSION, UNKNOWN_SHELL, UNKNOWN_TERMINAL, UNKNOWN_VERSION,
+};
 use clap::Args;
 use clap_complete::Shell;
+use colored::Colorize;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use log::{debug, error, trace};
 use requestty::question::{completions, Completions};
@@ -29,10 +33,7 @@ pub struct BugReportCommand {
 
 impl BlueBuildCommand for BugReportCommand {
     fn try_run(&mut self) -> anyhow::Result<()> {
-        debug!(
-            "Generating bug report for hash: {}\n",
-            shadow::BB_COMMIT_HASH
-        );
+        debug!("Generating bug report for hash: {}\n", shadow::COMMIT_HASH);
         debug!("Shadow Versioning:\n{}", shadow::VERSION.trim());
 
         self.create_bugreport()
@@ -51,8 +52,6 @@ impl BugReportCommand {
     ///
     /// This function will panic if it fails to get the current shell or terminal version.
     pub fn create_bugreport(&self) -> anyhow::Result<()> {
-        use colorized::{Color, Colors};
-
         let os_info = os_info::get();
         let recipe = self.get_recipe();
 
@@ -66,32 +65,27 @@ impl BugReportCommand {
         let issue_body = match generate_github_issue(&environment, &recipe) {
             Ok(body) => body,
             Err(e) => {
-                println!(
-                    "{}: {e}",
-                    "Failed to generate bug report".color(Colors::BrightRedFg)
-                );
+                println!("{}: {e}", "Failed to generate bug report".bright_red());
                 return Err(e);
             }
         };
 
         println!(
             "\n{}\n{}\n",
-            "Generated bug report:".color(Colors::BrightGreenFg),
-            issue_body
-                .color(Colors::BrightBlackBg)
-                .color(Colors::BrightWhiteFg)
+            "Generated bug report:".bright_green(),
+            issue_body.on_bright_black().bright_white()
         );
 
-        const WARNING_MESSAGE: &str = "Please copy the above report and open an issue manually.";
         let question = requestty::Question::confirm("anonymous")
             .message(
                 "Forward the pre-filled report above to GitHub in your browser?"
-                    .color(Colors::BrightYellowFg),
+                    .bright_yellow()
+                    .to_string(),
             )
             .default(true)
             .build();
 
-        println!("{} To avoid any sensitive data from being exposed, please review the included information before proceeding.", "Warning:".color(Colors::BrightRedBg).color(Colors::BrightWhiteFg));
+        println!("{} To avoid any sensitive data from being exposed, please review the included information before proceeding.", "Warning:".on_bright_red().bright_white());
         println!("Data forwarded to GitHub is subject to GitHub's privacy policy. For more information, see https://docs.github.com/en/github/site-policy/github-privacy-statement.\n");
         match requestty::prompt_one(question) {
             Ok(answer) => {
@@ -103,35 +97,29 @@ impl BugReportCommand {
                         return Err(e.into());
                     }
                 } else {
-                    println!("{WARNING_MESSAGE}");
+                    println!("{BUG_REPORT_WARNING_MESSAGE}");
                 }
             }
             Err(_) => {
-                println!("Will not open an issue in your browser! {WARNING_MESSAGE}");
+                println!("Will not open an issue in your browser! {BUG_REPORT_WARNING_MESSAGE}");
             }
         }
 
         println!(
             "\n{}",
-            "Thanks for using the BlueBuild bug report tool!".color(Colors::BrightCyanFg)
+            "Thanks for using the BlueBuild bug report tool!".bright_cyan()
         );
 
         Ok(())
     }
 
     fn get_recipe(&self) -> Option<Recipe> {
-        let recipe_path = self.recipe_path.clone().map_or_else(
-            || {
-                get_config_file("recipe", "Enter path to recipe file").map_or_else(
-                    |_| {
-                        trace!("Failed to get recipe");
-                        String::new()
-                    },
-                    |recipe| recipe,
-                )
-            },
-            |recipe_path| recipe_path,
-        );
+        let recipe_path = self.recipe_path.clone().unwrap_or_else(|| {
+            get_config_file("recipe", "Enter path to recipe file").unwrap_or_else(|_| {
+                trace!("Failed to get recipe");
+                String::new()
+            })
+        });
 
         Recipe::parse(&recipe_path).ok()
     }
@@ -298,7 +286,7 @@ fn generate_github_issue(
         .bb_version(shadow::PKG_VERSION)
         .build_rust_channel(shadow::BUILD_RUST_CHANNEL)
         .build_time(shadow::BUILD_TIME)
-        .git_commit_hash(shadow::BB_COMMIT_HASH)
+        .git_commit_hash(shadow::COMMIT_HASH)
         .os_name(format!("{}", environment.os_type))
         .os_version(format!("{}", environment.os_version))
         .pkg_branch_tag(get_pkg_branch_tag())
