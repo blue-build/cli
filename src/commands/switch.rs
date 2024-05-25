@@ -183,6 +183,7 @@ impl SwitchCommand {
             let files = output
                 .lines()
                 .filter(|line| line.ends_with(ARCHIVE_SUFFIX))
+                .map(|file| local_build_path.join(file).display().to_string())
                 .collect::<Vec<_>>();
 
             if !files.is_empty() {
