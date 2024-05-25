@@ -77,15 +77,6 @@ pub struct BuildCommand {
     #[builder(default, setter(into, strip_option))]
     archive: Option<PathBuf>,
 
-    /// Builds an `oci-archive` of your image
-    /// and runs `rpm-ostree` to switch to it.
-    ///
-    /// `bluebuild` will automatically determine
-    /// whether to rebase or upgrade your image.
-    #[arg(short, long)]
-    #[builder(default)]
-    switch: bool,
-
     /// Can be used with `--switch` to reboot
     /// your system when the build and switch
     /// is finished.
@@ -138,10 +129,13 @@ impl BlueBuildCommand for BuildCommand {
             .build()
             .init()?;
 
-        if (self.switch || self.archive.is_some()) && self.push
-            || self.archive.is_some() && self.switch
-        {
-            bail!("You cannot use '--archive', '--switch', or '--push' at the same time");
+        if self.push && self.archive.is_some() {
+            bail!("You cannot use '--archive' and '--push' at the same time");
+        }
+
+        if self.push {
+            blue_build_utils::check_command_exists("cosign")?;
+            check_cosign_files()?;
         }
 
         // Check if the Containerfile exists
@@ -194,15 +188,6 @@ impl BlueBuildCommand for BuildCommand {
                     }
                 }
             }
-        }
-
-        if self.push && self.archive.is_some() {
-            bail!("You cannot use '--archive' and '--push' at the same time");
-        }
-
-        if self.push {
-            blue_build_utils::check_command_exists("cosign")?;
-            check_cosign_files()?;
         }
 
         let recipe_path = self.recipe.clone().unwrap_or_else(|| {
@@ -266,10 +251,6 @@ impl BuildCommand {
 
         if self.push {
             sign_images(&image_name, tags.first().map(String::as_str))?;
-        }
-
-        if self.switch {
-            todo!()
         }
 
         info!("Build complete!");

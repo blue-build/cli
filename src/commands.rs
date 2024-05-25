@@ -15,7 +15,10 @@ pub mod completions;
 pub mod generate;
 #[cfg(feature = "init")]
 pub mod init;
+#[cfg(not(feature = "new_args"))]
 pub mod local;
+#[cfg(feature = "new_args")]
+pub mod switch;
 
 pub trait BlueBuildCommand {
     /// Runs the command and returns a result
@@ -88,6 +91,18 @@ pub enum CommandArgs {
     /// installed. This image will not be signed.
     #[cfg(not(feature = "new_args"))]
     Rebase(local::RebaseCommand),
+
+    /// Switch your current OS onto the image
+    /// being built.
+    ///
+    /// This will create a tarball of your image at
+    /// `/etc/bluebuild/` and invoke `rpm-ostree` to
+    /// rebase/upgrade onto the image using `oci-archive`.
+    ///
+    /// NOTE: This can only be used if you have `rpm-ostree`
+    /// installed. This image will not be signed.
+    #[cfg(feature = "new_args")]
+    Switch(switch::SwitchCommand),
 
     /// Initialize a new Ublue Starting Point repo
     #[cfg(feature = "init")]
