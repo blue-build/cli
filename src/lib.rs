@@ -8,3 +8,4 @@ pub mod commands;
 pub mod credentials;
 pub mod drivers;
 pub mod image_metadata;
+pub mod rpm_ostree_status;

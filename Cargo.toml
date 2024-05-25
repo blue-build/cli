@@ -16,6 +16,7 @@ clap = { version = "4", features = ["derive", "cargo", "unicode"] }
 colored = "2.1.0"
 env_logger = "0.11"
 format_serde_error = "0.3.0"
+indexmap = { version = "2", features = ["serde"] }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -75,12 +76,14 @@ chrono.workspace = true
 clap.workspace = true
 colored.workspace = true
 env_logger.workspace = true
+indexmap.workspace = true
 log.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 typed-builder.workspace = true
 uuid.workspace = true
+tempdir = "0.3.7"
 
 [features]
 default = []
