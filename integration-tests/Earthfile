@@ -101,6 +101,7 @@ legacy-base:
 
 test-base:
 	FROM ../+blue-build-cli-alpine
+	RUN apk update --no-cache && apk add bash grep jq sudo coreutils
 	ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test.tar.gz
 	ENV CLICOLOR_FORCE=1
 

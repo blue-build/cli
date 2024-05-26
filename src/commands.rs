@@ -15,9 +15,9 @@ pub mod completions;
 pub mod generate;
 #[cfg(feature = "init")]
 pub mod init;
-#[cfg(not(feature = "new_args"))]
+#[cfg(not(feature = "switch"))]
 pub mod local;
-#[cfg(feature = "new_args")]
+#[cfg(feature = "switch")]
 pub mod switch;
 
 pub trait BlueBuildCommand {
@@ -60,12 +60,8 @@ pub enum CommandArgs {
     Build(build::BuildCommand),
 
     /// Generate a Containerfile from a recipe
-    #[cfg(feature = "new_args")]
+    #[clap(visible_alias = "template")]
     Generate(generate::GenerateCommand),
-
-    /// Template a Containerfile from a recipe
-    #[cfg(not(feature = "new_args"))]
-    Template(generate::GenerateCommand),
 
     /// Upgrade your current OS with the
     /// local image saved at `/etc/bluebuild/`.
@@ -77,7 +73,7 @@ pub enum CommandArgs {
     /// NOTE: This can only be used if you have `rpm-ostree`
     /// installed. This image will not be signed.
     #[command(visible_alias("update"))]
-    #[cfg(not(feature = "new_args"))]
+    #[cfg(not(feature = "switch"))]
     Upgrade(local::UpgradeCommand),
 
     /// Rebase your current OS onto the image
@@ -89,7 +85,7 @@ pub enum CommandArgs {
     ///
     /// NOTE: This can only be used if you have `rpm-ostree`
     /// installed. This image will not be signed.
-    #[cfg(not(feature = "new_args"))]
+    #[cfg(not(feature = "switch"))]
     Rebase(local::RebaseCommand),
 
     /// Switch your current OS onto the image
@@ -101,7 +97,7 @@ pub enum CommandArgs {
     ///
     /// NOTE: This can only be used if you have `rpm-ostree`
     /// installed. This image will not be signed.
-    #[cfg(feature = "new_args")]
+    #[cfg(feature = "switch")]
     Switch(switch::SwitchCommand),
 
     /// Initialize a new Ublue Starting Point repo

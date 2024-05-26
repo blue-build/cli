@@ -80,11 +80,11 @@ impl BlueBuildCommand for SwitchCommand {
         let archive_path = Path::new(LOCAL_BUILD).join(&image_file_name);
 
         warn!(
-            "{notice}: {} `{sudo}`. {}",
+            "{notice}: {} {sudo} {}",
             "The next few steps will require".yellow(),
             "You may have to supply your password".yellow(),
             notice = "NOTICE".bright_red().bold(),
-            sudo = "sudo".italic().bright_yellow()
+            sudo = "`sudo`.".italic().bright_red().bold(),
         );
         Self::sudo_clean_local_build_dir()?;
         Self::sudo_move_archive(&temp_file_path, &archive_path)?;
@@ -181,6 +181,8 @@ impl SwitchCommand {
                     .output()?
                     .stdout,
             )?;
+
+            trace!("{output}");
 
             let files = output
                 .lines()

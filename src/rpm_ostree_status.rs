@@ -1,6 +1,7 @@
 use std::{borrow::Cow, path::Path, process::Command};
 
 use anyhow::{bail, Result};
+use log::trace;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -24,6 +25,8 @@ impl<'a> RpmOstreeStatus<'a> {
     /// Errors if the command fails or deserialization fails.
     pub fn try_new() -> Result<Self> {
         blue_build_utils::check_command_exists("rpm-ostree")?;
+
+        trace!("rpm-ostree status --json");
         let output = Command::new("rpm-ostree")
             .args(["status", "--json"])
             .output()?;
@@ -31,6 +34,8 @@ impl<'a> RpmOstreeStatus<'a> {
         if !output.status.success() {
             bail!("Failed to get `rpm-ostree` status!");
         }
+
+        trace!("{}", String::from_utf8_lossy(&output.stdout));
 
         Ok(serde_json::from_slice(&output.stdout)?)
     }
@@ -111,6 +116,7 @@ mod test {
                     )
                     .into(),
                     booted: true,
+                    staged: false,
                 },
                 RpmOstreeDeployments {
                     container_image_reference: format!(
@@ -118,6 +124,7 @@ mod test {
                     )
                     .into(),
                     booted: false,
+                    staged: false,
                 },
             ]
             .into(),
@@ -134,6 +141,7 @@ mod test {
                     )
                     .into(),
                     booted: true,
+                    staged: false,
                 },
                 RpmOstreeDeployments {
                     container_image_reference: format!(
@@ -141,6 +149,7 @@ mod test {
                     )
                     .into(),
                     booted: false,
+                    staged: false,
                 },
             ]
             .into(),
@@ -155,11 +164,40 @@ mod test {
                     container_image_reference:
                         format!("{OSTREE_UNVERIFIED_IMAGE}:{OCI_ARCHIVE}:{LOCAL_BUILD}/cli_test.{ARCHIVE_SUFFIX}").into(),
                     booted: true,
+                    staged: false,
                 },
                 RpmOstreeDeployments {
                     container_image_reference:
                         format!("{OSTREE_IMAGE_SIGNED}:docker://ghcr.io/blue-build/cli/test:last").into(),
                     booted: false,
+                    staged: false,
+                },
+            ]
+            .into(),
+            transactions: None,
+        }
+    }
+
+    fn create_archive_staged_status<'a>() -> RpmOstreeStatus<'a> {
+        RpmOstreeStatus {
+            deployments: vec![
+                RpmOstreeDeployments {
+                    container_image_reference:
+                        format!("{OSTREE_UNVERIFIED_IMAGE}:{OCI_ARCHIVE}:{LOCAL_BUILD}/cli_test.{ARCHIVE_SUFFIX}").into(),
+                    booted: false,
+                    staged: true,
+                },
+                RpmOstreeDeployments {
+                    container_image_reference:
+                        format!("{OSTREE_UNVERIFIED_IMAGE}:{OCI_ARCHIVE}:{LOCAL_BUILD}/cli_test.{ARCHIVE_SUFFIX}").into(),
+                    booted: true,
+                    staged: false,
+                },
+                RpmOstreeDeployments {
+                    container_image_reference:
+                        format!("{OSTREE_IMAGE_SIGNED}:docker://ghcr.io/blue-build/cli/test:last").into(),
+                    booted: false,
+                    staged: false,
                 },
             ]
             .into(),
@@ -176,6 +214,14 @@ mod test {
     }
 
     #[test]
+    fn test_staged_image() {
+        assert!(create_archive_staged_status()
+            .staged_image()
+            .expect("Contains image")
+            .ends_with(&format!("cli_test.{ARCHIVE_SUFFIX}")));
+    }
+
+    #[test]
     fn test_transaction_in_progress() {
         assert!(create_transaction_status().transaction_in_progress());
         assert!(!create_image_status().transaction_in_progress());
@@ -186,6 +232,15 @@ mod test {
         assert!(!create_archive_status()
             .is_booted_on_archive(Path::new(LOCAL_BUILD).join(format!("cli.{ARCHIVE_SUFFIX}"))));
         assert!(create_archive_status().is_booted_on_archive(
+            Path::new(LOCAL_BUILD).join(format!("cli_test.{ARCHIVE_SUFFIX}"))
+        ));
+    }
+
+    #[test]
+    fn test_is_staged_archive() {
+        assert!(!create_archive_staged_status()
+            .is_staged_on_archive(Path::new(LOCAL_BUILD).join(format!("cli.{ARCHIVE_SUFFIX}"))));
+        assert!(create_archive_staged_status().is_staged_on_archive(
             Path::new(LOCAL_BUILD).join(format!("cli_test.{ARCHIVE_SUFFIX}"))
         ));
     }
