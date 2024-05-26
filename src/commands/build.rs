@@ -77,15 +77,6 @@ pub struct BuildCommand {
     #[builder(default, setter(into, strip_option))]
     archive: Option<PathBuf>,
 
-    /// Can be used with `--switch` to reboot
-    /// your system when the build and switch
-    /// is finished.
-    ///
-    /// Arg is ignored unless `--switch` is used.
-    #[arg(short, long)]
-    #[builder(default)]
-    reboot: bool,
-
     /// The registry's domain name.
     #[arg(long)]
     #[builder(default, setter(into, strip_option))]
