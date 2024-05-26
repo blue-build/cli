@@ -10,9 +10,9 @@ license.workspace = true
 
 [dependencies]
 blue-build-utils = { version = "=0.8.9", path = "../utils" }
-chrono = "0.4"
 
 anyhow.workspace = true
+chrono.workspace = true
 colored.workspace = true
 log.workspace = true
 indexmap.workspace = true

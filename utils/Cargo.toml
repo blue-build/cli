@@ -9,10 +9,10 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-atty = "0.2.14"
+atty = "0.2"
 directories = "5"
-process_control = { version = "4.0.3", features = ["crossbeam-channel"] }
-syntect = "5.2.0"
+process_control = { version = "4", features = ["crossbeam-channel"] }
+syntect = "5"
 which = "6"
 
 anyhow.workspace = true

@@ -71,6 +71,17 @@ build:
 
 	RUN bluebuild -vv build recipes/recipe.yml
 
+rebase:
+	FROM +legacy-base
+
+	RUN bluebuild -vv rebase recipes/recipe.yml
+
+upgrade:
+	FROM +legacy-base
+
+	RUN mkdir -p /etc/bluebuild && touch $BB_TEST_LOCAL_IMAGE
+	RUN bluebuild -vv upgrade recipes/recipe.yml
+
 switch:
 	FROM +test-base
 
