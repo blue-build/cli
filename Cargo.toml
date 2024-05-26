@@ -92,11 +92,10 @@ copy = ["blue-build-recipe/copy"]
 switch = []
 
 [dev-dependencies]
-rusty-hook = "0.11.2"
+rusty-hook = "0.11"
 
 [build-dependencies]
 shadow-rs = "0.26"
-dunce = "1.0.4"
 
 [lints]
 workspace = true
