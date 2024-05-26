@@ -6,6 +6,8 @@ all:
 	BUILD +test-secureblue
 	BUILD +test-legacy-image
 	BUILD +build
+	BUILD +rebase
+	BUILD +upgrade
 	BUILD +switch
 
 test-image:
