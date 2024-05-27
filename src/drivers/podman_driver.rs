@@ -1,10 +1,11 @@
-use std::process::{Command, Stdio};
+use std::{process::Command, time::Duration};
 
 use anyhow::{bail, Result};
 use blue_build_utils::{
     constants::SKOPEO_IMAGE,
-    logging::{shorten_image_names, CommandLogging},
+    logging::{shorten_image_names, CommandLogging, Logger},
 };
+use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace};
 use semver::Version;
 use serde::Deserialize;
@@ -156,6 +157,13 @@ impl InspectDriver for PodmanDriver {
             |tag| format!("docker://{}:{tag}", opts.image),
         );
 
+        let progress = Logger::multi_progress().add(
+            ProgressBar::new_spinner()
+                .with_style(ProgressStyle::default_spinner())
+                .with_message(format!("Inspecting metadata for {url}")),
+        );
+        progress.enable_steady_tick(Duration::from_millis(100));
+
         trace!("podman run {SKOPEO_IMAGE} inspect {url}");
         let output = Command::new("podman")
             .arg("run")
@@ -163,8 +171,10 @@ impl InspectDriver for PodmanDriver {
             .arg(SKOPEO_IMAGE)
             .arg("inspect")
             .arg(&url)
-            .stderr(Stdio::inherit())
             .output()?;
+
+        progress.finish();
+        Logger::multi_progress().remove(&progress);
 
         if output.status.success() {
             debug!("Successfully inspected image {url}!");

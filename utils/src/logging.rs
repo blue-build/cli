@@ -8,9 +8,75 @@ use std::{
 use chrono::Local;
 use colored::{control::ShouldColorize, ColoredString, Colorize};
 use env_logger::fmt::Formatter;
+use indicatif::MultiProgress;
+use indicatif_log_bridge::LogWrapper;
 use log::{Level, LevelFilter, Record};
 use nu_ansi_term::Color;
+use once_cell::sync::Lazy;
 use rand::Rng;
+
+static MULTI_PROGRESS: Lazy<MultiProgress> = Lazy::new(MultiProgress::new);
+
+pub struct Logger {
+    modules: Vec<(String, LevelFilter)>,
+    level: LevelFilter,
+}
+
+impl Logger {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn filter_modules<I, S>(&mut self, filter_modules: I) -> &mut Self
+    where
+        I: IntoIterator<Item = (S, LevelFilter)>,
+        S: AsRef<str>,
+    {
+        self.modules = filter_modules
+            .into_iter()
+            .map(|(module, level)| (module.as_ref().to_string(), level))
+            .collect::<Vec<_>>();
+        self
+    }
+
+    pub fn filter_level(&mut self, filter_level: LevelFilter) -> &mut Self {
+        self.level = filter_level;
+        self
+    }
+
+    /// Initializes logging for the application.
+    ///
+    /// # Panics
+    /// Will panic if logging is unable to be initialized.
+    pub fn init(&mut self) {
+        let mut logger_builder = env_logger::builder();
+        logger_builder.format(format_log).filter_level(self.level);
+
+        self.modules.iter().for_each(|(module, level)| {
+            logger_builder.filter_module(module, *level);
+        });
+
+        let logger = logger_builder.build();
+
+        LogWrapper::new(MULTI_PROGRESS.clone(), logger)
+            .try_init()
+            .expect("LogWrapper should initialize");
+    }
+
+    pub fn multi_progress() -> MultiProgress {
+        MULTI_PROGRESS.clone()
+    }
+}
+
+impl Default for Logger {
+    fn default() -> Self {
+        Self {
+            modules: vec![],
+            level: LevelFilter::Info,
+        }
+    }
+}
 
 trait ColoredLevel {
     fn colored(&self) -> ColoredString;

@@ -1,15 +1,14 @@
 use blue_build::commands::{BlueBuildArgs, BlueBuildCommand, CommandArgs};
-use blue_build_utils::logging;
+use blue_build_utils::logging::Logger;
 use clap::Parser;
 use log::LevelFilter;
 
 fn main() {
     let args = BlueBuildArgs::parse();
 
-    env_logger::builder()
+    Logger::new()
         .filter_level(args.verbosity.log_level_filter())
-        .filter_module("hyper::proto", LevelFilter::Info)
-        .format(logging::format_log)
+        .filter_modules([("hyper::proto", LevelFilter::Info)])
         .init();
 
     log::trace!("Parsed arguments: {args:#?}");

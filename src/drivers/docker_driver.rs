@@ -1,14 +1,11 @@
-use std::{
-    env,
-    process::{Command, Stdio},
-    sync::Mutex,
-};
+use std::{env, process::Command, sync::Mutex, time::Duration};
 
 use anyhow::{anyhow, bail, Result};
 use blue_build_utils::{
     constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
-    logging::{shorten_image_names, CommandLogging},
+    logging::{shorten_image_names, CommandLogging, Logger},
 };
+use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
 use once_cell::sync::Lazy;
 use semver::Version;
@@ -300,6 +297,13 @@ impl InspectDriver for DockerDriver {
             |tag| format!("docker://{}:{tag}", opts.image),
         );
 
+        let progress = Logger::multi_progress().add(
+            ProgressBar::new_spinner()
+                .with_style(ProgressStyle::default_spinner())
+                .with_message(format!("Inspecting metadata for {url}")),
+        );
+        progress.enable_steady_tick(Duration::from_millis(100));
+
         trace!("docker run {SKOPEO_IMAGE} inspect {url}");
         let output = Command::new("docker")
             .arg("run")
@@ -307,8 +311,10 @@ impl InspectDriver for DockerDriver {
             .arg(SKOPEO_IMAGE)
             .arg("inspect")
             .arg(&url)
-            .stderr(Stdio::inherit())
             .output()?;
+
+        progress.finish();
+        Logger::multi_progress().remove(&progress);
 
         if output.status.success() {
             info!("Successfully inspected image {url}!");
