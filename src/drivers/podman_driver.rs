@@ -5,7 +5,7 @@ use blue_build_utils::{
     constants::SKOPEO_IMAGE,
     logging::{shorten_image_names, CommandLogging},
 };
-use log::{debug, info, trace};
+use log::{debug, error, info, trace};
 use semver::Version;
 use serde::Deserialize;
 
@@ -47,7 +47,8 @@ impl DriverVersion for PodmanDriver {
             .arg("json")
             .output()?;
 
-        let version_json: PodmanVersionJson = serde_json::from_slice(&output.stdout)?;
+        let version_json: PodmanVersionJson = serde_json::from_slice(&output.stdout)
+            .inspect_err(|e| error!("{e}: {}", String::from_utf8_lossy(&output.stdout)))?;
         trace!("{version_json:#?}");
 
         Ok(version_json.client.version)

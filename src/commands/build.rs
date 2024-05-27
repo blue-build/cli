@@ -22,7 +22,7 @@ use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 
 use crate::{
-    commands::template::TemplateCommand,
+    commands::generate::GenerateCommand,
     credentials,
     drivers::{
         opts::{BuildTagPushOpts, CompressionType, GetMetadataOpts},
@@ -162,7 +162,7 @@ impl BlueBuildCommand for BuildCommand {
             });
 
             recipe_paths.par_iter().try_for_each(|recipe| {
-                TemplateCommand::builder()
+                GenerateCommand::builder()
                     .output(generate_containerfile_path(recipe)?)
                     .recipe(recipe)
                     .drivers(DriverArgs::builder().squash(self.drivers.squash).build())
@@ -186,7 +186,7 @@ impl BlueBuildCommand for BuildCommand {
                 }
             });
 
-            TemplateCommand::builder()
+            GenerateCommand::builder()
                 .output(generate_containerfile_path(&recipe_path)?)
                 .recipe(&recipe_path)
                 .drivers(DriverArgs::builder().squash(self.drivers.squash).build())

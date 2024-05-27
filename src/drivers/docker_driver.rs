@@ -214,7 +214,6 @@ impl BuildDriver for DockerDriver {
         );
         command
             .arg("build")
-            .arg("--progress=plain")
             .arg("--pull")
             .arg("-f")
             .arg(opts.containerfile.as_ref());

@@ -9,14 +9,14 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-atty = "0.2.14"
+atty = "0.2"
 base64 = "0.22.1"
 blake2 = "0.10.6"
 directories = "5"
-nu-ansi-term = { version = "0.50.0", features = ["gnu_legacy"] }
-process_control = { version = "4.0.3", features = ["crossbeam-channel"] }
 rand = "0.8.5"
-syntect = "5.2.0"
+nu-ansi-term = { version = "0.50.0", features = ["gnu_legacy"] }
+process_control = { version = "4", features = ["crossbeam-channel"] }
+syntect = "5"
 which = "6"
 
 anyhow.workspace = true

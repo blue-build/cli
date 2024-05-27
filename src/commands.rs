@@ -12,10 +12,13 @@ use crate::{
 pub mod bug_report;
 pub mod build;
 pub mod completions;
+pub mod generate;
 #[cfg(feature = "init")]
 pub mod init;
+#[cfg(not(feature = "switch"))]
 pub mod local;
-pub mod template;
+#[cfg(feature = "switch")]
+pub mod switch;
 
 pub trait BlueBuildCommand {
     /// Runs the command and returns a result
@@ -57,7 +60,8 @@ pub enum CommandArgs {
     Build(build::BuildCommand),
 
     /// Generate a Containerfile from a recipe
-    Template(template::TemplateCommand),
+    #[clap(visible_alias = "template")]
+    Generate(generate::GenerateCommand),
 
     /// Upgrade your current OS with the
     /// local image saved at `/etc/bluebuild/`.
@@ -69,6 +73,7 @@ pub enum CommandArgs {
     /// NOTE: This can only be used if you have `rpm-ostree`
     /// installed. This image will not be signed.
     #[command(visible_alias("update"))]
+    #[cfg(not(feature = "switch"))]
     Upgrade(local::UpgradeCommand),
 
     /// Rebase your current OS onto the image
@@ -80,7 +85,20 @@ pub enum CommandArgs {
     ///
     /// NOTE: This can only be used if you have `rpm-ostree`
     /// installed. This image will not be signed.
+    #[cfg(not(feature = "switch"))]
     Rebase(local::RebaseCommand),
+
+    /// Switch your current OS onto the image
+    /// being built.
+    ///
+    /// This will create a tarball of your image at
+    /// `/etc/bluebuild/` and invoke `rpm-ostree` to
+    /// rebase/upgrade onto the image using `oci-archive`.
+    ///
+    /// NOTE: This can only be used if you have `rpm-ostree`
+    /// installed. This image will not be signed.
+    #[cfg(feature = "switch")]
+    Switch(switch::SwitchCommand),
 
     /// Initialize a new Ublue Starting Point repo
     #[cfg(feature = "init")]
