@@ -19,7 +19,7 @@ use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 
 use crate::{
-    commands::template::TemplateCommand,
+    commands::generate::GenerateCommand,
     credentials,
     drivers::{
         opts::{BuildTagPushOpts, CompressionType, GetMetadataOpts},
@@ -120,6 +120,15 @@ impl BlueBuildCommand for BuildCommand {
             .build()
             .init()?;
 
+        if self.push && self.archive.is_some() {
+            bail!("You cannot use '--archive' and '--push' at the same time");
+        }
+
+        if self.push {
+            blue_build_utils::check_command_exists("cosign")?;
+            check_cosign_files()?;
+        }
+
         // Check if the Containerfile exists
         //   - If doesn't => *Build*
         //   - If it does:
@@ -172,10 +181,6 @@ impl BlueBuildCommand for BuildCommand {
             }
         }
 
-        if self.push && self.archive.is_some() {
-            bail!("You cannot use '--archive' and '--push' at the same time");
-        }
-
         let recipe_path = self.recipe.clone().unwrap_or_else(|| {
             let legacy_path = Path::new(CONFIG_PATH);
             let recipe_path = Path::new(RECIPE_PATH);
@@ -187,17 +192,11 @@ impl BlueBuildCommand for BuildCommand {
             }
         });
 
-        TemplateCommand::builder()
+        GenerateCommand::builder()
             .recipe(&recipe_path)
             .output(PathBuf::from("Containerfile"))
-            .drivers(DriverArgs::builder().squash(self.drivers.squash).build())
             .build()
             .try_run()?;
-
-        if self.push {
-            blue_build_utils::check_command_exists("cosign")?;
-            check_cosign_files()?;
-        }
 
         info!("Building image for recipe at {}", recipe_path.display());
 

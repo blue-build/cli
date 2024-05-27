@@ -191,6 +191,18 @@ sudo bluebuild upgrade recipes/recipe.yml
 
 The `--reboot` argument can be used with this command as well.
 
+##### Switch
+
+> NOTE: This is an unstable feature and can only be used when installing from the `main` image or with the `switch` feature flag when compiling.
+
+With the switch command, you can build and boot an image locally using an `oci-archive` tarball. The `switch` command can be run as a normal user and will only ask for `sudo` permissions when moving the archive into `/etc/bluebuild`.
+
+```bash
+bluebuild switch recipes/recipe.yml
+```
+
+You can initiate an immediate restart by adding the `--reboot/-r` option.
+
 #### CI Builds
 
 ##### GitHub

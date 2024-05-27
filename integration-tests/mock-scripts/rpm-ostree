@@ -1,8 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 
 set -euo pipefail
-
-echo 'Running rpm-ostree'
 
 if [ "$1" = "rebase" ]; then
   if [ "$2" = "ostree-unverified-image:oci-archive:$BB_TEST_LOCAL_IMAGE" ]; then
@@ -13,6 +11,23 @@ if [ "$1" = "rebase" ]; then
   fi
 elif [ "$1" = "upgrade" ]; then
   echo "Performing upgrade for $BB_TEST_LOCAL_IMAGE"
+elif [ "$1" = "status" ]; then
+  cat <<EOF
+{
+  "deployments": [
+    {
+      "container-image-reference": "ostree-image-signed:docker://ghcr.io/blue-build/cli/test",
+      "booted": true,
+      "staged": false
+    },
+    {
+      "container-image-reference": "ostree-image-signed:docker://ghcr.io/blue-build/cli/test:last",
+      "booted": false,
+      "staged": false
+    }
+  ]
+}
+EOF
 else
   echo "Arg $1 is not recognized"
   exit 1

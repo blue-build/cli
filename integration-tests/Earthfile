@@ -8,6 +8,7 @@ all:
 	BUILD +build
 	BUILD +rebase
 	BUILD +upgrade
+	BUILD +switch
 
 test-image:
 	FROM +build-template --src=template-containerfile
@@ -45,7 +46,7 @@ build-template:
 
 template-containerfile:
 	FROM +test-base
-	RUN bluebuild -vv template recipes/recipe.yml | tee Containerfile
+	RUN bluebuild -vv generate recipes/recipe.yml | tee Containerfile
 
 	SAVE ARTIFACT /test
 
@@ -57,13 +58,13 @@ template-legacy-containerfile:
 
 template-secureblue:
 	FROM +secureblue-base
-	RUN bluebuild -vv template -o Containerfile recipes/general/recipe-silverblue-nvidia.yml
+	RUN bluebuild -vv generate -o Containerfile recipes/general/recipe-silverblue-nvidia.yml
 
 	SAVE ARTIFACT /test
 
 template-secureblue-ucore:
 	FROM +secureblue-base
-	RUN bluebuild -vv template -o Containerfile recipes/server/recipe-server-main.yml
+	RUN bluebuild -vv generate -o Containerfile recipes/server/recipe-server-main.yml
 
 	SAVE ARTIFACT /test
 
@@ -73,15 +74,21 @@ build:
 	RUN bluebuild -vv build recipes/recipe.yml
 
 rebase:
-	FROM +test-base
+	FROM +legacy-base
 
-	RUN bluebuild -vv rebase recipes/recipe.yml
+	RUN bluebuild -vv rebase config/recipe.yml
 
 upgrade:
+	FROM +legacy-base
+
+	RUN mkdir -p /etc/bluebuild && touch $BB_TEST_LOCAL_IMAGE
+	RUN bluebuild -vv upgrade config/recipe.yml
+
+switch:
 	FROM +test-base
 
 	RUN mkdir -p /etc/bluebuild && touch $BB_TEST_LOCAL_IMAGE
-	RUN bluebuild -vv upgrade recipes/recipe.yml
+	RUN bluebuild -vv switch recipes/recipe.yml
 
 secureblue-base:
 	FROM +test-base
@@ -93,7 +100,8 @@ secureblue-base:
 
 legacy-base:
 	FROM ../+blue-build-cli-alpine
-	ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test.tar.gz
+	RUN apk update --no-cache && apk add bash grep jq sudo coreutils
+	ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test-legacy.tar.gz
 	ENV CLICOLOR_FORCE=1
 
 	COPY ./mock-scripts/ /usr/bin/
@@ -107,6 +115,7 @@ legacy-base:
 
 test-base:
 	FROM ../+blue-build-cli-alpine
+	RUN apk update --no-cache && apk add bash grep jq sudo coreutils
 	ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test.tar.gz
 	ENV CLICOLOR_FORCE=1
 
