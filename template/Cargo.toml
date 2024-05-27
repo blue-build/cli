@@ -1,6 +1,6 @@
 [package]
 name = "blue-build-template"
-version = "0.8.3"
+version.workspace = true
 edition.workspace = true
 description.workspace = true
 repository.workspace = true
@@ -10,8 +10,8 @@ license.workspace = true
 
 [dependencies]
 askama = { version = "0.12", features = ["serde-json", "serde-yaml"] }
-blue-build-recipe = { version = "=0.8.3", path = "../recipe" }
-blue-build-utils = { version = "=0.8.3", path = "../utils" }
+blue-build-recipe = { version = "=0.8.9", path = "../recipe" }
+blue-build-utils = { version = "=0.8.9", path = "../utils" }
 
 log.workspace = true
 serde.workspace = true

@@ -1,11 +1,15 @@
 use std::{
     env,
     process::{Command, Stdio},
+    sync::Mutex,
 };
 
-use anyhow::{bail, Result};
-use blue_build_utils::constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, SKOPEO_IMAGE};
+use anyhow::{anyhow, bail, Result};
+use blue_build_utils::constants::{
+    BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE,
+};
 use log::{info, trace, warn};
+use once_cell::sync::Lazy;
 use semver::Version;
 use serde::Deserialize;
 
@@ -29,8 +33,59 @@ struct DockerVersionJson {
     pub client: DockerVerisonJsonClient,
 }
 
+static DOCKER_SETUP: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
+
 #[derive(Debug)]
 pub struct DockerDriver;
+
+impl DockerDriver {
+    fn setup() -> Result<()> {
+        trace!("DockerDriver::setup()");
+
+        let mut lock = DOCKER_SETUP
+            .lock()
+            .map_err(|e| anyhow!("Failed to lock DOCKER_SETUP: {e}"))?;
+
+        if *lock {
+            drop(lock);
+            return Ok(());
+        }
+
+        trace!("docker buildx ls --format={}", "{{.Name}}");
+        let ls_out = Command::new("docker")
+            .arg("buildx")
+            .arg("ls")
+            .arg("--format={{.Name}}")
+            .output()?;
+
+        if !ls_out.status.success() {
+            bail!("{}", String::from_utf8_lossy(&ls_out.stderr));
+        }
+
+        let ls_out = String::from_utf8(ls_out.stdout)?;
+
+        trace!("{ls_out}");
+
+        if !ls_out.lines().any(|line| line == "bluebuild") {
+            trace!("docker buildx create --bootstrap --driver=docker-container --name=bluebuild");
+            let create_out = Command::new("docker")
+                .arg("buildx")
+                .arg("create")
+                .arg("--bootstrap")
+                .arg("--driver=docker-container")
+                .arg("--name=bluebuild")
+                .output()?;
+
+            if create_out.status.success() {
+                *lock = true;
+            } else {
+                bail!("{}", String::from_utf8_lossy(&create_out.stderr));
+            }
+        }
+        drop(lock);
+        Ok(())
+    }
+}
 
 impl DriverVersion for DockerDriver {
     // First docker verison to use buildkit
@@ -141,12 +196,21 @@ impl BuildDriver for DockerDriver {
             warn!("Squash is deprecated for docker so this build will not squash");
         }
 
+        trace!("docker buildx");
         let mut command = Command::new("docker");
+        command.arg("buildx");
 
-        trace!("docker buildx build -f {CONTAINER_FILE}");
+        if !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty()) {
+            Self::setup()?;
+
+            trace!("--builder=bluebuild");
+            command.arg("--builder=bluebuild");
+        }
+
+        trace!("build --progress=plain --pull -f {CONTAINER_FILE}",);
         command
-            .arg("buildx")
             .arg("build")
+            .arg("--pull")
             .arg("-f")
             .arg(CONTAINER_FILE);
 

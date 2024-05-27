@@ -1,4 +1,4 @@
-name: cli/test
+name: cli/test-legacy
 description: This is my personal OS image.
 base-image: ghcr.io/ublue-os/silverblue-surface
 image-version: 39
@@ -37,3 +37,8 @@ modules:
 
   - type: test-module
 
+  - type: containerfile
+    containerfiles:
+      - labels
+    snippets:
+      - RUN echo "This is a snippet" && ostree container commit

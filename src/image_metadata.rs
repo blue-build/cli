@@ -13,15 +13,14 @@ pub struct ImageMetadata {
 }
 
 impl ImageMetadata {
-    pub fn get_version(&self) -> Option<String> {
+    #[must_use]
+    pub fn get_version(&self) -> Option<u64> {
         Some(
             self.labels
                 .get(IMAGE_VERSION_LABEL)?
                 .as_str()
-                .map(std::string::ToString::to_string)?
-                .split('.')
-                .take(1)
-                .collect(),
+                .and_then(|v| lenient_semver::parse(v).ok())?
+                .major,
         )
     }
 }

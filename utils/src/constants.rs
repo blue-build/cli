@@ -1,14 +1,15 @@
 // Paths
 pub const ARCHIVE_SUFFIX: &str = "tar.gz";
+pub const CONFIG_PATH: &str = "./config";
+pub const CONTAINERFILES_PATH: &str = "./containerfiles";
+pub const CONTAINER_FILE: &str = "Containerfile";
 pub const COSIGN_PATH: &str = "./cosign.pub";
+pub const FILES_PATH: &str = "./files";
 pub const GITIGNORE_PATH: &str = ".gitignore";
 pub const LOCAL_BUILD: &str = "/etc/bluebuild";
-pub const CONTAINER_FILE: &str = "Containerfile";
 pub const MODULES_PATH: &str = "./config/modules";
-pub const RECIPE_PATH: &str = "./config/recipe.yml";
-pub const RUN_PODMAN_SOCK: &str = "/run/podman/podman.sock";
-pub const VAR_RUN_PODMAN_PODMAN_SOCK: &str = "/var/run/podman/podman.sock";
-pub const VAR_RUN_PODMAN_SOCK: &str = "/var/run/podman.sock";
+pub const RECIPE_FILE: &str = "recipe.yml";
+pub const RECIPE_PATH: &str = "./recipes";
 
 // Labels
 pub const BUILD_ID_LABEL: &str = "org.blue-build.build-id";
@@ -16,6 +17,9 @@ pub const IMAGE_VERSION_LABEL: &str = "org.opencontainers.image.version";
 
 // BlueBuild vars
 pub const BB_BUILDKIT_CACHE_GHA: &str = "BB_BUILDKIT_CACHE_GHA";
+
+// Docker vars
+pub const DOCKER_HOST: &str = "DOCKER_HOST";
 
 // Cosign vars
 pub const COSIGN_PRIVATE_KEY: &str = "COSIGN_PRIVATE_KEY";
@@ -58,6 +62,9 @@ pub const LC_TERMINAL_VERSION: &str = "LC_TERMINAL_VERSION";
 pub const XDG_RUNTIME_DIR: &str = "XDG_RUNTIME_DIR";
 
 // Misc
+pub const OCI_ARCHIVE: &str = "oci-archive";
+pub const OSTREE_IMAGE_SIGNED: &str = "ostree-image-signed";
+pub const OSTREE_UNVERIFIED_IMAGE: &str = "ostree-unverified-image";
 pub const SKOPEO_IMAGE: &str = "quay.io/skopeo/stable:latest";
 pub const UNKNOWN_SHELL: &str = "<unknown shell>";
 pub const UNKNOWN_VERSION: &str = "<unknown version>";

@@ -1,21 +1,28 @@
-use std::{env, path::PathBuf};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
-use blue_build_utils::constants::{
-    CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, GITHUB_REPOSITORY_OWNER, RECIPE_PATH,
+use blue_build_utils::{
+    constants::{
+        CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CONFIG_PATH, GITHUB_REPOSITORY_OWNER,
+        RECIPE_FILE, RECIPE_PATH,
+    },
+    syntax_highlighting::{self, DefaultThemes},
 };
-use clap::Args;
-use log::{debug, info, trace};
+use clap::{crate_version, Args};
+use log::{debug, info, trace, warn};
 use typed_builder::TypedBuilder;
 
-use crate::drivers::Driver;
+use crate::{drivers::Driver, shadow};
 
 use super::{BlueBuildCommand, DriverArgs};
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
-pub struct TemplateCommand {
+pub struct GenerateCommand {
     /// The recipe file to create a template from
     #[arg()]
     #[builder(default, setter(into, strip_option))]
@@ -42,21 +49,30 @@ pub struct TemplateCommand {
     #[builder(default, setter(into, strip_option))]
     registry_namespace: Option<String>,
 
+    /// Instead of creating a Containerfile, display
+    /// the full recipe after traversing all `from-file` properties.
+    ///
+    /// This can be used to help debug the order
+    /// you defined your recipe.
+    #[arg(short, long)]
+    #[builder(default)]
+    display_full_recipe: bool,
+
+    /// Choose a theme for the syntax highlighting
+    /// for the Containerfile or Yaml.
+    ///
+    /// The default is `mocha-dark`.
+    #[arg(short = 't', long)]
+    #[builder(default, setter(strip_option))]
+    syntax_theme: Option<DefaultThemes>,
+
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,
 }
 
-impl BlueBuildCommand for TemplateCommand {
+impl BlueBuildCommand for GenerateCommand {
     fn try_run(&mut self) -> Result<()> {
-        info!(
-            "Templating for recipe at {}",
-            self.recipe
-                .clone()
-                .unwrap_or_else(|| PathBuf::from(RECIPE_PATH))
-                .display()
-        );
-
         Driver::builder()
             .build_driver(self.drivers.build_driver)
             .inspect_driver(self.drivers.inspect_driver)
@@ -67,18 +83,35 @@ impl BlueBuildCommand for TemplateCommand {
     }
 }
 
-impl TemplateCommand {
+impl GenerateCommand {
     fn template_file(&self) -> Result<()> {
         trace!("TemplateCommand::template_file()");
 
-        let recipe_path = self
-            .recipe
-            .clone()
-            .unwrap_or_else(|| PathBuf::from(RECIPE_PATH));
+        let recipe_path = self.recipe.clone().unwrap_or_else(|| {
+            let legacy_path = Path::new(CONFIG_PATH);
+            let recipe_path = Path::new(RECIPE_PATH);
+            if recipe_path.exists() && recipe_path.is_dir() {
+                recipe_path.join(RECIPE_FILE)
+            } else {
+                warn!("Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}");
+                legacy_path.join(RECIPE_FILE)
+            }
+        });
 
         debug!("Deserializing recipe");
         let recipe_de = Recipe::parse(&recipe_path)?;
         trace!("recipe_de: {recipe_de:#?}");
+
+        if self.display_full_recipe {
+            if let Some(output) = self.output.as_ref() {
+                std::fs::write(output, serde_yaml::to_string(&recipe_de)?)?;
+            } else {
+                syntax_highlighting::print_ser(&recipe_de, "yml", self.syntax_theme)?;
+            }
+            return Ok(());
+        }
+
+        info!("Templating for recipe at {}", recipe_path.display());
 
         let template = ContainerFileTemplate::builder()
             .os_version(Driver::get_os_version(&recipe_de)?)
@@ -86,6 +119,14 @@ impl TemplateCommand {
             .recipe(&recipe_de)
             .recipe_path(recipe_path.as_path())
             .registry(self.get_registry())
+            .exports_tag(if shadow::COMMIT_HASH.is_empty() {
+                // This is done for users who install via
+                // cargo. Cargo installs do not carry git
+                // information via shadow
+                format!("v{}", crate_version!())
+            } else {
+                shadow::COMMIT_HASH.to_string()
+            })
             .build();
 
         let output_str = template.render()?;
@@ -96,10 +137,9 @@ impl TemplateCommand {
             std::fs::write(output, output_str)?;
         } else {
             debug!("Templating to stdout");
-            println!("{output_str}");
+            syntax_highlighting::print(&output_str, "Dockerfile", self.syntax_theme)?;
         }
 
-        info!("Finished templating Containerfile");
         Ok(())
     }
 

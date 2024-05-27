@@ -1,42 +1,66 @@
-# Key RUN
-RUN --mount=type=bind,from=stage-keys,src=/keys,dst=/tmp/keys \
-  mkdir -p /usr/etc/pki/containers/ \
-  && cp /tmp/keys/* /usr/etc/pki/containers/ \
-  && ostree container commit
-
-# Bin RUN
-RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
-  mkdir -p /usr/bin/ \
-  && cp /tmp/bins/* /usr/bin/ \
-  && ostree container commit
-
+{% macro main_modules_run(modules_ext, os_version) %}
 # Module RUNs
-{%- for module in recipe.modules_ext.modules %}
-  {%- if let Some(type) = module.module_type %}
-    {%- if type == "containerfile" %}
-      {%- include "modules/containerfile/containerfile.j2" %}
-    {%- else %}
-RUN \
-  --mount=type=tmpfs,target=/var \
-  --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
-      {%- if let Some(source) = module.source %}
-  --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
+  {%- for module in modules_ext.modules %}
+    {%- if let Some(module) = module.required_fields %}
+      {%- if module.no_cache %}
+ARG CACHEBUST="{{ build_id }}"
+      {%- endif %}
+
+      {%- if module.module_type == "containerfile" %}
+        {%- include "modules/containerfile/containerfile.j2" %}
+      {%- else if module.module_type == "copy" %}
+        {%- include "modules/copy/copy.j2" %}
       {%- else %}
+RUN \
+        {%- if self::files_dir_exists() %}
+  --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,rw \
+        {%- else if self::config_dir_exists() %}
+  --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
+        {%- endif %}
+        {%- if let Some(source) = module.source %}
+  --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
+        {%- else %}
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
-      {%- endif %}
-      {%- if type == "akmods" %}
+        {%- endif %}
+        {%- if module.module_type == "akmods" %}
   --mount=type=bind,from=stage-akmods-{{ module.generate_akmods_info(os_version).stage_name }},src=/rpms,dst=/tmp/rpms,rw \
-      {%- endif %}
-  --mount=type=bind,from=ghcr.io/blue-build/cli:exports,src=/exports.sh,dst=/tmp/exports.sh \
+        {%- endif %}
+  --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
-  echo "========== Start {{ type|capitalize }} module ==========" \
-  && chmod +x /tmp/modules/{{ type }}/{{ type }}.sh \
-  && source /tmp/exports.sh \
-  && /tmp/modules/{{ type }}/{{ type }}.sh '{{ module.print_module_context() }}' \
-  && echo "========== End {{ type|capitalize }} module ==========" \
+  /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module.print_module_context() }}' \
   && ostree container commit
+      {%- endif %}
     {%- endif %}
-  {%- endif %}
-{%- endfor %}
+  {%- endfor %}
+{% endmacro %}
+{% macro stage_modules_run(modules_ext, os_version) %}
+# Module RUNs
+  {%- for module in modules_ext.modules %}
+    {%- if let Some(module) = module.required_fields %}
 
+      {%- if module.no_cache %}
+ARG CACHEBUST="{{ build_id }}"
+      {%- endif %}
 
+      {%- if module.module_type == "containerfile" %}
+        {%- include "modules/containerfile/containerfile.j2" %}
+      {%- else if module.module_type == "copy" %}
+        {%- include "modules/copy/copy.j2" %}
+      {%- else %}
+RUN \
+        {%- if self::files_dir_exists() %}
+  --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,rw \
+        {%- else if self::config_dir_exists() %}
+  --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
+        {%- endif %}
+        {%- if let Some(source) = module.source %}
+  --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
+        {%- else %}
+  --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
+        {%- endif %}
+  --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
+  /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module.print_module_context() }}'
+      {%- endif %}
+    {%- endif %}
+  {%- endfor %}
+{% endmacro %}

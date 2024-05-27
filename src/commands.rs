@@ -12,10 +12,13 @@ use crate::{
 pub mod bug_report;
 pub mod build;
 pub mod completions;
+pub mod generate;
 #[cfg(feature = "init")]
 pub mod init;
+#[cfg(not(feature = "switch"))]
 pub mod local;
-pub mod template;
+#[cfg(feature = "switch")]
+pub mod switch;
 
 pub trait BlueBuildCommand {
     /// Runs the command and returns a result
@@ -57,7 +60,8 @@ pub enum CommandArgs {
     Build(build::BuildCommand),
 
     /// Generate a Containerfile from a recipe
-    Template(template::TemplateCommand),
+    #[clap(visible_alias = "template")]
+    Generate(generate::GenerateCommand),
 
     /// Upgrade your current OS with the
     /// local image saved at `/etc/bluebuild/`.
@@ -67,9 +71,9 @@ pub enum CommandArgs {
     /// subcommand.
     ///
     /// NOTE: This can only be used if you have `rpm-ostree`
-    /// installed and if the `--push` and `--rebase` option isn't
-    /// used. This image will not be signed.
+    /// installed. This image will not be signed.
     #[command(visible_alias("update"))]
+    #[cfg(not(feature = "switch"))]
     Upgrade(local::UpgradeCommand),
 
     /// Rebase your current OS onto the image
@@ -80,8 +84,21 @@ pub enum CommandArgs {
     /// rebase onto the image using `oci-archive`.
     ///
     /// NOTE: This can only be used if you have `rpm-ostree`
-    /// installed.
+    /// installed. This image will not be signed.
+    #[cfg(not(feature = "switch"))]
     Rebase(local::RebaseCommand),
+
+    /// Switch your current OS onto the image
+    /// being built.
+    ///
+    /// This will create a tarball of your image at
+    /// `/etc/bluebuild/` and invoke `rpm-ostree` to
+    /// rebase/upgrade onto the image using `oci-archive`.
+    ///
+    /// NOTE: This can only be used if you have `rpm-ostree`
+    /// installed. This image will not be signed.
+    #[cfg(feature = "switch")]
+    Switch(switch::SwitchCommand),
 
     /// Initialize a new Ublue Starting Point repo
     #[cfg(feature = "init")]
@@ -99,15 +116,13 @@ pub enum CommandArgs {
 
 #[derive(Default, Clone, Copy, Debug, TypedBuilder, Args)]
 pub struct DriverArgs {
-    /// Puts the build in a `squash-stage` and
-    /// COPY's the results to the final stage
-    /// as one layer.
+    /// Runs all instructions inside one layer of the final image.
     ///
     /// WARN: This doesn't work with the
     /// docker driver as it has been deprecated.
     ///
     /// NOTE: Squash has a performance benefit for
-    /// the newer versions of podman and buildah.
+    /// podman and buildah when running inside a container.
     #[arg(short, long)]
     #[builder(default)]
     squash: bool,

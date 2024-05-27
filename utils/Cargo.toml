@@ -1,6 +1,6 @@
 [package]
 name = "blue-build-utils"
-version = "0.8.3"
+version.workspace = true
 edition.workspace = true
 description.workspace = true
 repository.workspace = true
@@ -9,8 +9,10 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+atty = "0.2"
 directories = "5"
-process_control = { version = "4.0.3", features = ["crossbeam-channel"] }
+process_control = { version = "4", features = ["crossbeam-channel"] }
+syntect = "5"
 which = "6"
 
 anyhow.workspace = true
@@ -22,6 +24,13 @@ log.workspace = true
 serde.workspace = true
 serde_yaml.workspace = true
 serde_json.workspace = true
+
+[dependencies.clap]
+workspace = true
+features = ["derive"]
+
+[build-dependencies]
+syntect = "5.2.0"
 
 [lints]
 workspace = true

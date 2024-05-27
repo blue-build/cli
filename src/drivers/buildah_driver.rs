@@ -1,7 +1,7 @@
 use std::process::Command;
 
 use anyhow::{bail, Result};
-use log::{info, trace};
+use log::{error, info, trace};
 use semver::Version;
 use serde::Deserialize;
 
@@ -34,7 +34,8 @@ impl DriverVersion for BuildahDriver {
             .arg("--json")
             .output()?;
 
-        let version_json: BuildahVersionJson = serde_json::from_slice(&output.stdout)?;
+        let version_json: BuildahVersionJson = serde_json::from_slice(&output.stdout)
+            .inspect_err(|e| error!("{e}: {}", String::from_utf8_lossy(&output.stdout)))?;
         trace!("{version_json:#?}");
 
         Ok(version_json.version)

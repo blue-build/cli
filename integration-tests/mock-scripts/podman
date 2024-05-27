@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 print_version_json() {
   local version="4.0.0"
@@ -8,6 +8,11 @@ print_version_json() {
 main() {
   if [[ "$1" == "version" && "$2" == "-f" && "$3" == "json" ]]; then
     print_version_json
+  elif [[ "$1" == "build" && "$6" == *"cli_test.tar.gz" ]]; then
+    tarpath=$(echo "$6" | awk -F ':' '{print $2}')
+    echo "Exporting image to a tarball (JK JUST A MOCK!)"
+    echo "${tarpath}"
+    touch $tarpath
   else
     echo 'Running podman'
   fi

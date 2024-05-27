@@ -37,7 +37,7 @@ pub struct PushOpts<'a> {
 pub struct BuildTagPushOpts<'a> {
     /// The base image name.
     ///
-    /// NOTE: You cannot have this set with archive_path set.
+    /// NOTE: You cannot have this set with `archive_path` set.
     #[builder(default, setter(into, strip_option))]
     pub image: Option<Cow<'a, str>>,
 
