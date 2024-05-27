@@ -59,7 +59,7 @@ impl BlueBuildCommand for UpgradeCommand {
         let build = BuildCommand::builder();
 
         #[cfg(feature = "multi-recipe")]
-        let build = build.recipe(vec![self.common.recipe.clone()]);
+        let build = build.recipe([self.common.recipe.clone()]);
 
         #[cfg(not(feature = "multi-recipe"))]
         let build = build.recipe(self.common.recipe.clone());
@@ -118,7 +118,7 @@ impl BlueBuildCommand for RebaseCommand {
         let build = BuildCommand::builder();
 
         #[cfg(feature = "multi-recipe")]
-        let build = build.recipe(vec![self.common.recipe.clone()]);
+        let build = build.recipe([self.common.recipe.clone()]);
 
         #[cfg(not(feature = "multi-recipe"))]
         let build = build.recipe(self.common.recipe.clone());
