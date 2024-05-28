@@ -9,7 +9,7 @@ use std::{
 use chrono::Local;
 use colored::{control::ShouldColorize, ColoredString, Colorize};
 use env_logger::fmt::Formatter;
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar};
 use indicatif_log_bridge::LogWrapper;
 use log::{Level, LevelFilter, Record};
 use nu_ansi_term::Color;
@@ -122,11 +122,8 @@ impl CommandLogging for Command {
 
         self.stdout(writer.try_clone()?).stderr(writer);
 
-        let progress = Logger::multi_progress().add(
-            ProgressBar::new_spinner()
-                .with_style(ProgressStyle::default_spinner())
-                .with_message(format!("{} {name}", message.as_ref())),
-        );
+        let progress = Logger::multi_progress()
+            .add(ProgressBar::new_spinner().with_message(format!("{} {name}", message.as_ref())));
         progress.enable_steady_tick(Duration::from_millis(100));
 
         let mut child = self.spawn()?;

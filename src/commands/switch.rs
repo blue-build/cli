@@ -1,6 +1,7 @@
 use std::{
     path::{Path, PathBuf},
     process::Command,
+    time::Duration,
 };
 
 use anyhow::{bail, Result};
@@ -10,6 +11,7 @@ use blue_build_utils::constants::{
 };
 use clap::Args;
 use colored::Colorize;
+use indicatif::ProgressBar;
 use log::{debug, trace, warn};
 use tempdir::TempDir;
 use typed_builder::TypedBuilder;
@@ -104,7 +106,12 @@ impl SwitchCommand {
             archive_path.display()
         );
 
-        let status = if status.is_booted_on_archive(archive_path)
+        let image_ref = format!(
+            "{OSTREE_UNVERIFIED_IMAGE}:{OCI_ARCHIVE}:{path}",
+            path = archive_path.display()
+        );
+
+        let mut command = if status.is_booted_on_archive(archive_path)
             || status.is_staged_on_archive(archive_path)
         {
             let mut command = Command::new("rpm-ostree");
@@ -120,10 +127,6 @@ impl SwitchCommand {
             );
             command
         } else {
-            let image_ref = format!(
-                "{OSTREE_UNVERIFIED_IMAGE}:{OCI_ARCHIVE}:{path}",
-                path = archive_path.display()
-            );
             let mut command = Command::new("rpm-ostree");
             command.arg("rebase").arg(&image_ref);
 
@@ -136,8 +139,15 @@ impl SwitchCommand {
                 self.reboot.then_some(" --reboot").unwrap_or_default()
             );
             command
-        }
-        .status()?;
+        };
+
+        let progress = ProgressBar::new_spinner();
+        progress.enable_steady_tick(Duration::from_millis(100));
+        progress.set_message(format!("Switching to {image_ref}"));
+
+        let status = command.status()?;
+
+        progress.finish_and_clear();
 
         if !status.success() {
             bail!("Failed to switch to new image!");
@@ -152,8 +162,14 @@ impl SwitchCommand {
             to.display()
         );
 
+        let progress = ProgressBar::new_spinner();
+        progress.enable_steady_tick(Duration::from_millis(100));
+        progress.set_message(format!("Moving image archive to {}...", to.display()));
+
         trace!("sudo mv {} {}", from.display(), to.display());
         let status = Command::new("sudo").arg("mv").args([from, to]).status()?;
+
+        progress.finish_and_clear();
 
         if !status.success() {
             bail!(
@@ -193,11 +209,17 @@ impl SwitchCommand {
             if !files.is_empty() {
                 let files = files.join(" ");
 
+                let progress = ProgressBar::new_spinner();
+                progress.enable_steady_tick(Duration::from_millis(100));
+                progress.set_message("Removing old image archive files...");
+
                 trace!("sudo rm -f {files}");
                 let status = Command::new("sudo")
                     .args(["rm", "-f"])
                     .arg(files)
                     .status()?;
+
+                progress.finish_and_clear();
 
                 if !status.success() {
                     bail!("Failed to clean out archives in {LOCAL_BUILD}");
