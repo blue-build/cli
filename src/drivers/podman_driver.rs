@@ -3,7 +3,7 @@ use std::{process::Command, time::Duration};
 use anyhow::{bail, Result};
 use blue_build_utils::{
     constants::SKOPEO_IMAGE,
-    logging::{shorten_image_names, CommandLogging, Logger},
+    logging::{CommandLogging, Logger},
 };
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace};
@@ -76,7 +76,7 @@ impl BuildDriver for PodmanDriver {
             .arg("-t")
             .arg(opts.image.as_ref())
             .arg(".");
-        let status = command.status_log_prefix(shorten_image_names(&opts.image))?;
+        let status = command.status_image_ref_progress(&opts.image, "Building Image")?;
 
         if status.success() {
             info!("Successfully built {}", opts.image);
@@ -116,8 +116,7 @@ impl BuildDriver for PodmanDriver {
                 opts.compression_type.unwrap_or_default()
             ))
             .arg(opts.image.as_ref());
-        let status =
-            command.status_log_prefix(format!("push - {}", shorten_image_names(&opts.image)))?;
+        let status = command.status_image_ref_progress(&opts.image, "Pushing Image")?;
 
         if status.success() {
             info!("Successfully pushed {}!", opts.image);

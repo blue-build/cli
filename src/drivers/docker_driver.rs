@@ -3,7 +3,7 @@ use std::{env, process::Command, sync::Mutex, time::Duration};
 use anyhow::{anyhow, bail, Result};
 use blue_build_utils::{
     constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
-    logging::{shorten_image_names, CommandLogging, Logger},
+    logging::{CommandLogging, Logger},
 };
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
@@ -273,7 +273,7 @@ impl BuildDriver for DockerDriver {
         command.arg(".");
 
         if command
-            .status_log_prefix(shorten_image_names(&final_image))?
+            .status_image_ref_progress(&final_image, "Building Image")?
             .success()
         {
             if opts.push {

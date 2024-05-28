@@ -3,12 +3,13 @@ use std::{
     process::{Command, ExitStatus},
     sync::Arc,
     thread,
+    time::Duration,
 };
 
 use chrono::Local;
 use colored::{control::ShouldColorize, ColoredString, Colorize};
 use env_logger::fmt::Formatter;
-use indicatif::MultiProgress;
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use indicatif_log_bridge::LogWrapper;
 use log::{Level, LevelFilter, Record};
 use nu_ansi_term::Color;
@@ -95,50 +96,67 @@ impl ColoredLevel for Level {
 }
 
 pub trait CommandLogging {
-    /// Prints each line of stdout with a prefix string
-    /// that is given a random color.
+    /// Prints each line of stdout/stderr with an image ref string
+    /// and a progress spinner. This helps to keep track of every
+    /// build running in parallel.
     ///
     /// # Errors
     /// Will error if there was an issue executing the process.
-    fn status_log_prefix<T: AsRef<str>>(self, log_prefix: T) -> Result<ExitStatus>;
+    fn status_image_ref_progress<T, U>(self, image_ref: T, message: U) -> Result<ExitStatus>
+    where
+        T: AsRef<str>,
+        U: AsRef<str>;
 }
 
 impl CommandLogging for Command {
-    fn status_log_prefix<T: AsRef<str>>(mut self, log_prefix: T) -> Result<ExitStatus> {
-        // ANSI extended color range
-        // https://www.ditig.com/publications/256-colors-cheat-sheet
-        const LOW_END: u8 = 21; // Blue1 #0000ff rgb(0,0,255) hsl(240,100%,50%)
-        const HIGH_END: u8 = 230; // Cornsilk1 #ffffd7 rgb(255,255,215) hsl(60,100%,92%)
-
-        let log_prefix = Arc::new(log_header(
-            if ShouldColorize::from_env().should_colorize() {
-                Color::Fixed(rand::thread_rng().gen_range(LOW_END..=HIGH_END))
-                    .paint(log_prefix.as_ref().to_string())
-                    .to_string()
-            } else {
-                log_prefix.as_ref().to_string()
-            },
-        ));
-
+    fn status_image_ref_progress<T, U>(mut self, image_ref: T, message: U) -> Result<ExitStatus>
+    where
+        T: AsRef<str>,
+        U: AsRef<str>,
+    {
+        let ansi_color = gen_random_ansi_color();
+        let name = color_str(&image_ref, ansi_color);
+        let short_name = color_str(shorten_name(&image_ref), ansi_color);
+        let log_prefix = Arc::new(log_header(short_name));
         let (reader, writer) = os_pipe::pipe()?;
 
         self.stdout(writer.try_clone()?).stderr(writer);
 
+        let progress = Logger::multi_progress().add(
+            ProgressBar::new_spinner()
+                .with_style(ProgressStyle::default_spinner())
+                .with_message(format!("{} {name}", message.as_ref())),
+        );
+        progress.enable_steady_tick(Duration::from_millis(100));
+
         let mut child = self.spawn()?;
 
+        // We drop the `Command` to prevent blocking on writer
+        // https://docs.rs/os_pipe/latest/os_pipe/#examples
         drop(self);
 
         let reader = BufReader::new(reader);
 
         thread::spawn(move || {
+            let mp = Logger::multi_progress();
             reader.lines().for_each(|line| {
                 if let Ok(l) = line {
-                    eprintln!("{log_prefix} {l}");
+                    let text = format!("{log_prefix} {l}");
+                    if mp.is_hidden() {
+                        eprintln!("{text}");
+                    } else {
+                        mp.println(text).unwrap();
+                    }
                 }
             });
         });
 
-        child.wait()
+        let status = child.wait()?;
+
+        progress.finish();
+        Logger::multi_progress().remove(&progress);
+
+        Ok(status)
     }
 }
 
@@ -148,7 +166,7 @@ impl CommandLogging for Command {
 ///
 /// # Errors
 /// Errors if the buffer cannot be written to.
-pub fn format_log(buf: &mut Formatter, record: &Record) -> Result<()> {
+fn format_log(buf: &mut Formatter, record: &Record) -> Result<()> {
     match log::max_level() {
         LevelFilter::Error | LevelFilter::Warn | LevelFilter::Info => {
             writeln!(
@@ -220,7 +238,12 @@ fn log_header<T: AsRef<str>>(text: T) -> String {
 /// `ghcr.io/blue-build/cli:latest` -> `g.i/b/cli:latest`
 /// `registry.gitlab.com/some/namespace/image:latest` -> `r.g.c/s/n/image:latest`
 #[must_use]
-pub fn shorten_image_names(text: &str) -> String {
+fn shorten_name<T>(text: T) -> String
+where
+    T: AsRef<str>,
+{
+    let text = text.as_ref();
+
     // Split the reference by colon to separate the tag or digest
     let mut parts = text.split(':');
 
@@ -258,5 +281,27 @@ pub fn shorten_image_names(text: &str) -> String {
     match tag {
         Some(t) => format!("{joined_path}:{t}"),
         None => joined_path,
+    }
+}
+
+fn gen_random_ansi_color() -> u8 {
+    // ANSI extended color range
+    // https://www.ditig.com/publications/256-colors-cheat-sheet
+    const LOW_END: u8 = 21; // Blue1 #0000ff rgb(0,0,255) hsl(240,100%,50%)
+    const HIGH_END: u8 = 230; // Cornsilk1 #ffffd7 rgb(255,255,215) hsl(60,100%,92%)
+
+    rand::thread_rng().gen_range(LOW_END..=HIGH_END)
+}
+
+fn color_str<T>(text: T, ansi_color: u8) -> String
+where
+    T: AsRef<str>,
+{
+    if ShouldColorize::from_env().should_colorize() {
+        Color::Fixed(ansi_color)
+            .paint(text.as_ref().to_string())
+            .to_string()
+    } else {
+        text.as_ref().to_string()
     }
 }
