@@ -6,8 +6,9 @@ use std::{
 
 use anyhow::{bail, Result};
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::{
-    ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_UNVERIFIED_IMAGE,
+use blue_build_utils::{
+    constants::{ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_UNVERIFIED_IMAGE},
+    logging::CommandLogging,
 };
 use clap::Args;
 use colored::Colorize;
@@ -106,12 +107,7 @@ impl SwitchCommand {
             archive_path.display()
         );
 
-        let image_ref = format!(
-            "{OSTREE_UNVERIFIED_IMAGE}:{OCI_ARCHIVE}:{path}",
-            path = archive_path.display()
-        );
-
-        let mut command = if status.is_booted_on_archive(archive_path)
+        let status = if status.is_booted_on_archive(archive_path)
             || status.is_staged_on_archive(archive_path)
         {
             let mut command = Command::new("rpm-ostree");
@@ -127,6 +123,11 @@ impl SwitchCommand {
             );
             command
         } else {
+            let image_ref = format!(
+                "{OSTREE_UNVERIFIED_IMAGE}:{OCI_ARCHIVE}:{path}",
+                path = archive_path.display()
+            );
+
             let mut command = Command::new("rpm-ostree");
             command.arg("rebase").arg(&image_ref);
 
@@ -139,15 +140,11 @@ impl SwitchCommand {
                 self.reboot.then_some(" --reboot").unwrap_or_default()
             );
             command
-        };
-
-        let progress = ProgressBar::new_spinner();
-        progress.enable_steady_tick(Duration::from_millis(100));
-        progress.set_message(format!("Switching to {image_ref}"));
-
-        let status = command.status()?;
-
-        progress.finish_and_clear();
+        }
+        .status_image_ref_progress(
+            format!("{}", archive_path.display()),
+            "Switching to new image",
+        )?;
 
         if !status.success() {
             bail!("Failed to switch to new image!");
