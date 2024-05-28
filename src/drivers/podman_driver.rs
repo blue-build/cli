@@ -66,7 +66,8 @@ impl BuildDriver for PodmanDriver {
             opts.containerfile.display(),
             opts.image,
         );
-        let status = Command::new("podman")
+        let mut command = Command::new("podman");
+        command
             .arg("build")
             .arg("--pull=true")
             .arg(format!("--layers={}", !opts.squash))
@@ -74,8 +75,8 @@ impl BuildDriver for PodmanDriver {
             .arg(opts.containerfile.as_ref())
             .arg("-t")
             .arg(opts.image.as_ref())
-            .arg(".")
-            .status_log_prefix(&shorten_image_names(&opts.image))?;
+            .arg(".");
+        let status = command.status_log_prefix(shorten_image_names(&opts.image))?;
 
         if status.success() {
             info!("Successfully built {}", opts.image);
@@ -107,14 +108,16 @@ impl BuildDriver for PodmanDriver {
         trace!("PodmanDriver::push({opts:#?})");
 
         trace!("podman push {}", opts.image);
-        let status = Command::new("podman")
+        let mut command = Command::new("podman");
+        command
             .arg("push")
             .arg(format!(
                 "--compression-format={}",
                 opts.compression_type.unwrap_or_default()
             ))
-            .arg(opts.image.as_ref())
-            .status_log_prefix(&format!("push - {}", shorten_image_names(&opts.image)))?;
+            .arg(opts.image.as_ref());
+        let status =
+            command.status_log_prefix(format!("push - {}", shorten_image_names(&opts.image)))?;
 
         if status.success() {
             info!("Successfully pushed {}!", opts.image);

@@ -299,6 +299,7 @@ dependencies = [
  "log",
  "nu-ansi-term",
  "once_cell",
+ "os_pipe",
  "process_control",
  "rand 0.8.5",
  "serde",
@@ -1237,6 +1238,16 @@ checksum = "ae99c7fa6dd38c7cafe1ec085e804f8f555a2f8659b0dbe03f1f9963a9b51092"
 dependencies = [
  "log",
  "serde",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "os_pipe"
+version = "1.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57119c3b893986491ec9aa85056780d3a0f3cf4da7cc09dd3650dbd6c6738fb9"
+dependencies = [
+ "libc",
  "windows-sys 0.52.0",
 ]
 

@@ -1,6 +1,6 @@
 use std::{
     io::{BufRead, BufReader, Result, Write},
-    process::{Command, ExitStatus, Stdio},
+    process::{Command, ExitStatus},
     sync::Arc,
     thread,
 };
@@ -100,11 +100,11 @@ pub trait CommandLogging {
     ///
     /// # Errors
     /// Will error if there was an issue executing the process.
-    fn status_log_prefix<T: AsRef<str>>(&mut self, log_prefix: T) -> Result<ExitStatus>;
+    fn status_log_prefix<T: AsRef<str>>(self, log_prefix: T) -> Result<ExitStatus>;
 }
 
 impl CommandLogging for Command {
-    fn status_log_prefix<T: AsRef<str>>(&mut self, log_prefix: T) -> Result<ExitStatus> {
+    fn status_log_prefix<T: AsRef<str>>(mut self, log_prefix: T) -> Result<ExitStatus> {
         // ANSI extended color range
         // https://www.ditig.com/publications/256-colors-cheat-sheet
         const LOW_END: u8 = 21; // Blue1 #0000ff rgb(0,0,255) hsl(240,100%,50%)
@@ -120,32 +120,23 @@ impl CommandLogging for Command {
             },
         ));
 
-        let mut child = self.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+        let (reader, writer) = os_pipe::pipe()?;
 
-        if let Some(stdout) = child.stdout.take() {
-            let reader = BufReader::new(stdout);
-            let log_prefix = log_prefix.clone();
+        self.stdout(writer.try_clone()?).stderr(writer);
 
-            thread::spawn(move || {
-                reader.lines().for_each(|line| {
-                    if let Ok(l) = line {
-                        eprintln!("{log_prefix} {l}");
-                    }
-                });
+        let mut child = self.spawn()?;
+
+        drop(self);
+
+        let reader = BufReader::new(reader);
+
+        thread::spawn(move || {
+            reader.lines().for_each(|line| {
+                if let Ok(l) = line {
+                    eprintln!("{log_prefix} {l}");
+                }
             });
-        }
-
-        if let Some(stderr) = child.stderr.take() {
-            let reader = BufReader::new(stderr);
-
-            thread::spawn(move || {
-                reader.lines().for_each(|line| {
-                    if let Ok(l) = line {
-                        eprintln!("{log_prefix} {l}");
-                    }
-                });
-            });
-        }
+        });
 
         child.wait()
     }

@@ -15,6 +15,7 @@ blake2 = "0.10.6"
 directories = "5"
 rand = "0.8.5"
 nu-ansi-term = { version = "0.50.0", features = ["gnu_legacy"] }
+os_pipe = { version = "1", features = ["io_safety"] }
 process_control = { version = "4", features = ["crossbeam-channel"] }
 syntect = "5"
 which = "6"

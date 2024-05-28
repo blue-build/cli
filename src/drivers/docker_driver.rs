@@ -273,7 +273,7 @@ impl BuildDriver for DockerDriver {
         command.arg(".");
 
         if command
-            .status_log_prefix(&shorten_image_names(&final_image))?
+            .status_log_prefix(shorten_image_names(&final_image))?
             .success()
         {
             if opts.push {
