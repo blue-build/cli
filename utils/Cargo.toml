@@ -17,6 +17,7 @@ which = "6"
 
 anyhow.workspace = true
 chrono.workspace = true
+clap = { workspace = true, features = ["derive"] }
 colored.workspace = true
 env_logger.workspace = true
 format_serde_error.workspace = true
@@ -24,10 +25,6 @@ log.workspace = true
 serde.workspace = true
 serde_yaml.workspace = true
 serde_json.workspace = true
-
-[dependencies.clap]
-workspace = true
-features = ["derive"]
 
 [build-dependencies]
 syntect = "5.2.0"

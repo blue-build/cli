@@ -17,6 +17,10 @@ pub const IMAGE_VERSION_LABEL: &str = "org.opencontainers.image.version";
 
 // BlueBuild vars
 pub const BB_BUILDKIT_CACHE_GHA: &str = "BB_BUILDKIT_CACHE_GHA";
+pub const BB_PASSWORD: &str = "BB_PASSWORD";
+pub const BB_REGISTRY: &str = "BB_REGISTRY";
+pub const BB_REGISTRY_NAMESPACE: &str = "BB_REGISTRY_NAMESPACE";
+pub const BB_USERNAME: &str = "BB_USERNAME";
 
 // Docker vars
 pub const DOCKER_HOST: &str = "DOCKER_HOST";

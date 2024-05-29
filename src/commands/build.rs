@@ -7,11 +7,12 @@ use std::{
 use anyhow::{bail, Context, Result};
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::{
-    ARCHIVE_SUFFIX, BUILD_ID_LABEL, CI_DEFAULT_BRANCH, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE,
-    CI_PROJECT_URL, CI_REGISTRY, CI_SERVER_HOST, CI_SERVER_PROTOCOL, CONFIG_PATH, CONTAINER_FILE,
-    COSIGN_PATH, COSIGN_PRIVATE_KEY, GITHUB_REPOSITORY_OWNER, GITHUB_TOKEN,
-    GITHUB_TOKEN_ISSUER_URL, GITHUB_WORKFLOW_REF, GITIGNORE_PATH, LABELED_ERROR_MESSAGE,
-    NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH, SIGSTORE_ID_TOKEN,
+    ARCHIVE_SUFFIX, BB_PASSWORD, BB_REGISTRY, BB_REGISTRY_NAMESPACE, BB_USERNAME, BUILD_ID_LABEL,
+    CI_DEFAULT_BRANCH, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_PROJECT_URL, CI_REGISTRY,
+    CI_SERVER_HOST, CI_SERVER_PROTOCOL, CONFIG_PATH, CONTAINER_FILE, COSIGN_PATH,
+    COSIGN_PRIVATE_KEY, GITHUB_REPOSITORY_OWNER, GITHUB_TOKEN, GITHUB_TOKEN_ISSUER_URL,
+    GITHUB_WORKFLOW_REF, GITIGNORE_PATH, LABELED_ERROR_MESSAGE, NO_LABEL_ERROR_MESSAGE,
+    RECIPE_FILE, RECIPE_PATH, SIGSTORE_ID_TOKEN,
 };
 use clap::Args;
 use colored::Colorize;
@@ -20,7 +21,7 @@ use typed_builder::TypedBuilder;
 
 use crate::{
     commands::generate::GenerateCommand,
-    credentials,
+    credentials::{self, Credentials},
     drivers::{
         opts::{BuildTagPushOpts, CompressionType, GetMetadataOpts},
         Driver,
@@ -78,26 +79,26 @@ pub struct BuildCommand {
     archive: Option<PathBuf>,
 
     /// The registry's domain name.
-    #[arg(long)]
+    #[arg(long, env = BB_REGISTRY)]
     #[builder(default, setter(into, strip_option))]
     registry: Option<String>,
 
     /// The url path to your base
     /// project images.
-    #[arg(long)]
+    #[arg(long, env = BB_REGISTRY_NAMESPACE)]
     #[builder(default, setter(into, strip_option))]
     #[arg(visible_alias("registry-path"))]
     registry_namespace: Option<String>,
 
     /// The username to login to the
     /// container registry.
-    #[arg(short = 'U', long)]
+    #[arg(short = 'U', long, env = BB_USERNAME, hide_env_values = true)]
     #[builder(default, setter(into, strip_option))]
     username: Option<String>,
 
     /// The password to login to the
     /// container registry.
-    #[arg(short = 'P', long)]
+    #[arg(short = 'P', long, env = BB_PASSWORD, hide_env_values = true)]
     #[builder(default, setter(into, strip_option))]
     password: Option<String>,
 
@@ -128,6 +129,8 @@ impl BlueBuildCommand for BuildCommand {
             blue_build_utils::check_command_exists("cosign")?;
             check_cosign_files()?;
         }
+
+        Self::login()?;
 
         // Check if the Containerfile exists
         //   - If doesn't => *Build*
@@ -213,10 +216,6 @@ impl BuildCommand {
         let tags = recipe.generate_tags(os_version);
         let image_name = self.generate_full_image_name(&recipe)?;
 
-        if self.push {
-            Self::login()?;
-        }
-
         let opts = if let Some(archive_dir) = self.archive.as_ref() {
             BuildTagPushOpts::builder()
                 .archive_path(format!(
@@ -253,32 +252,31 @@ impl BuildCommand {
         trace!("BuildCommand::login()");
         info!("Attempting to login to the registry");
 
-        let credentials = credentials::get()?;
+        if let Some(Credentials {
+            registry,
+            username,
+            password,
+        }) = credentials::get()
+        {
+            info!("Logging into the registry, {registry}");
+            Driver::get_build_driver().login()?;
 
-        let (registry, username, password) = (
-            &credentials.registry,
-            &credentials.username,
-            &credentials.password,
-        );
+            trace!("cosign login -u {username} -p [MASKED] {registry}");
+            let login_output = Command::new("cosign")
+                .arg("login")
+                .arg("-u")
+                .arg(username)
+                .arg("-p")
+                .arg(password)
+                .arg(registry)
+                .output()?;
 
-        info!("Logging into the registry, {registry}");
-        Driver::get_build_driver().login()?;
-
-        trace!("cosign login -u {username} -p [MASKED] {registry}");
-        let login_output = Command::new("cosign")
-            .arg("login")
-            .arg("-u")
-            .arg(username)
-            .arg("-p")
-            .arg(password)
-            .arg(registry)
-            .output()?;
-
-        if !login_output.status.success() {
-            let err_output = String::from_utf8_lossy(&login_output.stderr);
-            bail!("Failed to login for cosign: {err_output}");
+            if !login_output.status.success() {
+                let err_output = String::from_utf8_lossy(&login_output.stderr);
+                bail!("Failed to login for cosign: {err_output}");
+            }
+            info!("Login success at {registry}");
         }
-        info!("Login success at {registry}");
 
         Ok(())
     }
