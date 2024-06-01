@@ -420,7 +420,7 @@ impl BuildCommand {
                     }
                 }
                 _ => {
-                    bail!("Unable to find private/public key pair. Make sure you have a `{COSIGN_PUB_PATH}` in the root of your repo and have either {COSIGN_PRIVATE_KEY} set in your env variables or a `{COSIGN_PRIV_PATH}` file in the root of your repo. If you don't want to sign your image, use the `--no-sign` flag.");
+                    bail!("Unable to find private/public key pair.\n\nMake sure you have a `{COSIGN_PUB_PATH}` in the root of your repo and have either {COSIGN_PRIVATE_KEY} set in your env variables or a `{COSIGN_PRIV_PATH}` file in the root of your repo.\n\nSee https://blue-build.org/how-to/cosign/ for more information.\n\nIf you don't want to sign your image, use the `--no-sign` flag.");
                 }
             }
         }
