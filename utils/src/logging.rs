@@ -1,5 +1,6 @@
 use std::{
-    io::{BufRead, BufReader, Result, Write},
+    env,
+    io::{BufRead, BufReader, Result},
     process::{Command, ExitStatus},
     sync::Arc,
     thread,
@@ -8,10 +9,23 @@ use std::{
 
 use chrono::Local;
 use colored::{control::ShouldColorize, ColoredString, Colorize};
-use env_logger::fmt::Formatter;
 use indicatif::{MultiProgress, ProgressBar};
 use indicatif_log_bridge::LogWrapper;
 use log::{Level, LevelFilter, Record};
+use log4rs::{
+    append::{
+        console::ConsoleAppender,
+        rolling_file::{
+            policy::compound::{
+                roll::fixed_window::FixedWindowRoller, trigger::size::SizeTrigger, CompoundPolicy,
+            },
+            RollingFileAppender,
+        },
+    },
+    config::{Appender, Root},
+    encode::{pattern::PatternEncoder, Encode, Write},
+    Config, Logger as L4RSLogger,
+};
 use nu_ansi_term::Color;
 use once_cell::sync::Lazy;
 use rand::Rng;
@@ -24,6 +38,11 @@ pub struct Logger {
 }
 
 impl Logger {
+    const TRIGGER_FILE_SIZE: u64 = 10 * 1024;
+    const ARCHIVE_FILENAME_PATTERN: &'static str = "bluebuild-log.{}.log";
+    const LOG_FILENAME: &'static str = "bluebuild-log.log";
+    const LOG_FILE_COUNT: u32 = 4;
+
     #[must_use]
     pub fn new() -> Self {
         Self::default()
@@ -51,14 +70,44 @@ impl Logger {
     /// # Panics
     /// Will panic if logging is unable to be initialized.
     pub fn init(&mut self) {
-        let mut logger_builder = env_logger::builder();
-        logger_builder.format(format_log).filter_level(self.level);
+        let home = env::var("HOME").expect("$HOME should be defined");
+        let log_dir = format!("{home}/.local/share/bluebuild");
+        let log_out_path = format!("{log_dir}/{}", Self::LOG_FILENAME);
+        let log_archive_pattern = format!("{log_dir}/{}", Self::ARCHIVE_FILENAME_PATTERN);
 
-        self.modules.iter().for_each(|(module, level)| {
-            logger_builder.filter_module(module, *level);
-        });
+        let stderr = ConsoleAppender::builder()
+            .encoder(Box::new(CustomPatternEncoder))
+            .target(log4rs::append::console::Target::Stderr)
+            .tty_only(true)
+            .build();
 
-        let logger = logger_builder.build();
+        let file = RollingFileAppender::builder()
+            .encoder(Box::new(PatternEncoder::new("{d} - {l} - {m}{n}")))
+            .build(
+                log_out_path,
+                Box::new(CompoundPolicy::new(
+                    Box::new(SizeTrigger::new(Self::TRIGGER_FILE_SIZE)),
+                    Box::new(
+                        FixedWindowRoller::builder()
+                            .build(&log_archive_pattern, Self::LOG_FILE_COUNT)
+                            .expect("Roller should be created"),
+                    ),
+                )),
+            )
+            .expect("Must be able to create log FileAppender");
+
+        let config = Config::builder()
+            .appender(Appender::builder().build("stderr", Box::new(stderr)))
+            .appender(Appender::builder().build("file", Box::new(file)))
+            .build(
+                Root::builder()
+                    .appender("stderr")
+                    .appender("file")
+                    .build(self.level),
+            )
+            .expect("Logger config should build");
+
+        let logger = L4RSLogger::new(config);
 
         LogWrapper::new(MULTI_PROGRESS.clone(), logger)
             .try_init()
@@ -157,17 +206,14 @@ impl CommandLogging for Command {
     }
 }
 
-/// Given a `LevelFilter`, returns the function
-/// used to format logs. The more verbose the log level,
-/// the more info is displayed in each log header.
-///
-/// # Errors
-/// Errors if the buffer cannot be written to.
-fn format_log(buf: &mut Formatter, record: &Record) -> Result<()> {
-    match log::max_level() {
-        LevelFilter::Error | LevelFilter::Warn | LevelFilter::Info => {
-            writeln!(
-                buf,
+#[derive(Debug)]
+struct CustomPatternEncoder;
+
+impl Encode for CustomPatternEncoder {
+    fn encode(&self, w: &mut dyn Write, record: &Record) -> anyhow::Result<()> {
+        match log::max_level() {
+            LevelFilter::Error | LevelFilter::Warn | LevelFilter::Info => Ok(writeln!(
+                w,
                 "{prefix} {args}",
                 prefix = log_header(format!(
                     "{level:width$}",
@@ -175,37 +221,37 @@ fn format_log(buf: &mut Formatter, record: &Record) -> Result<()> {
                     width = 5,
                 )),
                 args = record.args(),
-            )
+            )?),
+            LevelFilter::Debug => Ok(writeln!(
+                w,
+                "{prefix} {args}",
+                prefix = log_header(format!(
+                    "{level:>width$}",
+                    level = record.level().colored(),
+                    width = 5,
+                )),
+                args = record.args(),
+            )?),
+            LevelFilter::Trace => Ok(writeln!(
+                w,
+                "{prefix} {args}",
+                prefix = log_header(format!(
+                    "{level:width$} {module}:{line}",
+                    level = record.level().colored(),
+                    width = 5,
+                    module = record
+                        .module_path()
+                        .map_or_else(|| "", |p| p)
+                        .bright_yellow(),
+                    line = record
+                        .line()
+                        .map_or_else(String::new, |l| l.to_string())
+                        .bright_green(),
+                )),
+                args = record.args(),
+            )?),
+            LevelFilter::Off => Ok(()),
         }
-        LevelFilter::Debug => writeln!(
-            buf,
-            "{prefix} {args}",
-            prefix = log_header(format!(
-                "{level:>width$}",
-                level = record.level().colored(),
-                width = 5,
-            )),
-            args = record.args(),
-        ),
-        LevelFilter::Trace => writeln!(
-            buf,
-            "{prefix} {args}",
-            prefix = log_header(format!(
-                "{level:width$} {module}:{line}",
-                level = record.level().colored(),
-                width = 5,
-                module = record
-                    .module_path()
-                    .map_or_else(|| "", |p| p)
-                    .bright_yellow(),
-                line = record
-                    .line()
-                    .map_or_else(String::new, |l| l.to_string())
-                    .bright_green(),
-            )),
-            args = record.args(),
-        ),
-        LevelFilter::Off => Ok(()),
     }
 }
 
