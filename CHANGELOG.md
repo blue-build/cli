@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.10] - 2024-05-29
+
+### Bug Fixes
+
+- Allow both files or config directory to not exist (#185)
+- Remove extra setup call
+- Remove hard requirement for login creds to be able to push (#187)
+
+### Features
+
+- Stages (#173)
+
+### Miscellaneous Tasks
+
+- Don't use satellites for integration tests
+
+### Refactor
+
+- [**breaking**] Rename `template` to `generate` and move `rebase/upgrade` under `switch` (#116)
+
 ## [0.8.9] - 2024-05-17
 
 ### Bug Fixes
@@ -18,6 +38,7 @@ All notable changes to this project will be documented in this file.
 
 - Fix checkout for podman-build
 - Remove a pre-release-replacement
+- Release
 
 ## [0.8.8] - 2024-05-14
 

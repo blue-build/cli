@@ -7,12 +7,12 @@ edition = "2021"
 repository = "https://github.com/blue-build/cli"
 license = "Apache-2.0"
 categories = ["command-line-utilities"]
-version = "0.8.9"
+version = "0.8.10"
 
 [workspace.dependencies]
 anyhow = "1"
 chrono = "0.4"
-clap = { version = "4", features = ["derive", "cargo", "unicode"] }
+clap = "4"
 colored = "2"
 env_logger = "0.11"
 format_serde_error = "0.3"
@@ -56,9 +56,9 @@ pre-release-replacements = [
 ]
 
 [dependencies]
-blue-build-recipe = { version = "=0.8.9", path = "./recipe" }
-blue-build-template = { version = "=0.8.9", path = "./template" }
-blue-build-utils = { version = "=0.8.9", path = "./utils" }
+blue-build-recipe = { version = "=0.8.10", path = "./recipe" }
+blue-build-template = { version = "=0.8.10", path = "./template" }
+blue-build-utils = { version = "=0.8.10", path = "./utils" }
 clap-verbosity-flag = "2"
 clap_complete = "4"
 clap_complete_nushell = "4"
@@ -77,7 +77,7 @@ users = "0.11"
 # Workspace dependencies
 anyhow.workspace = true
 chrono.workspace = true
-clap.workspace = true
+clap = { workspace = true, features = ["derive", "cargo", "unicode", "env"] }
 colored.workspace = true
 env_logger.workspace = true
 indexmap.workspace = true

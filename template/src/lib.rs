@@ -3,7 +3,7 @@ use std::{borrow::Cow, env, fs, path::Path, process};
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::{
     CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_SERVER_HOST, CI_SERVER_PROTOCOL, CONFIG_PATH,
-    CONTAINERFILES_PATH, CONTAINER_FILE, COSIGN_PATH, FILES_PATH, GITHUB_RESPOSITORY,
+    CONTAINERFILES_PATH, CONTAINER_FILE, COSIGN_PUB_PATH, FILES_PATH, GITHUB_RESPOSITORY,
     GITHUB_SERVER_URL,
 };
 use log::{debug, error, trace, warn};
@@ -81,7 +81,7 @@ pub struct GithubIssueTemplate<'a> {
 fn has_cosign_file() -> bool {
     trace!("has_cosign_file()");
     std::env::current_dir()
-        .map(|p| p.join(COSIGN_PATH).exists())
+        .map(|p| p.join(COSIGN_PUB_PATH).exists())
         .unwrap_or(false)
 }
 

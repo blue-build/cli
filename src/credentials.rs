@@ -128,9 +128,7 @@ pub fn set_user_creds(
 ///
 /// # Errors
 /// Will error if there aren't any credentials available.
-pub fn get() -> Result<&'static Credentials> {
+pub fn get() -> Option<&'static Credentials> {
     trace!("credentials::get()");
-    ENV_CREDENTIALS
-        .as_ref()
-        .ok_or_else(|| anyhow!("No credentials available"))
+    ENV_CREDENTIALS.as_ref()
 }

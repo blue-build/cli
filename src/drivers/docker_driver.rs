@@ -11,7 +11,7 @@ use once_cell::sync::Lazy;
 use semver::Version;
 use serde::Deserialize;
 
-use crate::image_metadata::ImageMetadata;
+use crate::{credentials::Credentials, image_metadata::ImageMetadata};
 
 use super::{
     credentials,
@@ -167,22 +167,26 @@ impl BuildDriver for DockerDriver {
     fn login(&self) -> Result<()> {
         trace!("DockerDriver::login()");
 
-        let (registry, username, password) =
-            credentials::get().map(|c| (&c.registry, &c.username, &c.password))?;
+        if let Some(Credentials {
+            registry,
+            username,
+            password,
+        }) = credentials::get()
+        {
+            trace!("docker login -u {username} -p [MASKED] {registry}");
+            let output = Command::new("docker")
+                .arg("login")
+                .arg("-u")
+                .arg(username)
+                .arg("-p")
+                .arg(password)
+                .arg(registry)
+                .output()?;
 
-        trace!("docker login -u {username} -p [MASKED] {registry}");
-        let output = Command::new("docker")
-            .arg("login")
-            .arg("-u")
-            .arg(username)
-            .arg("-p")
-            .arg(password)
-            .arg(registry)
-            .output()?;
-
-        if !output.status.success() {
-            let err_out = String::from_utf8_lossy(&output.stderr);
-            bail!("Failed to login for docker: {err_out}");
+            if !output.status.success() {
+                let err_out = String::from_utf8_lossy(&output.stderr);
+                bail!("Failed to login for docker: {err_out}");
+            }
         }
         Ok(())
     }
