@@ -256,7 +256,20 @@ impl Driver<'_> {
     pub fn init(self) -> Result<()> {
         trace!("Driver::init()");
         let init = INIT.lock().map_err(|e| anyhow!("{e}"))?;
-        credentials::set_user_creds(self.username, self.password, self.registry)?;
+        credentials::set_user_creds(
+            match self.username {
+                Some(username) if !username.is_empty() => Some(username),
+                _ => None,
+            },
+            match self.password {
+                Some(password) if !password.is_empty() => Some(password),
+                _ => None,
+            },
+            match self.registry {
+                Some(registry) if !registry.is_empty() => Some(registry),
+                _ => None,
+            },
+        )?;
 
         let mut build_driver = SELECTED_BUILD_DRIVER.lock().map_err(|e| anyhow!("{e}"))?;
         let mut inspect_driver = SELECTED_INSPECT_DRIVER.lock().map_err(|e| anyhow!("{e}"))?;
