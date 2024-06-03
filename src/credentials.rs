@@ -59,8 +59,8 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
         env::var(CI_REGISTRY).ok(),
         env::var(GITHUB_ACTIONS).ok(),
     ) {
-        (Some(registry), _, _) => registry,
-        (None, Some(ci_registry), None) => ci_registry,
+        (Some(registry), _, _) if !registry.is_empty() => registry,
+        (None, Some(ci_registry), None) if !ci_registry.is_empty() => ci_registry,
         (None, None, Some(_)) => "ghcr.io".to_string(),
         _ => return None,
     };
@@ -71,9 +71,9 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
         env::var(CI_REGISTRY_USER).ok(),
         env::var(GITHUB_ACTOR).ok(),
     ) {
-        (Some(username), _, _) => username,
-        (None, Some(ci_registry_user), None) => ci_registry_user,
-        (None, None, Some(github_actor)) => github_actor,
+        (Some(username), _, _) if !username.is_empty() => username,
+        (None, Some(ci_registry_user), None) if !ci_registry_user.is_empty() => ci_registry_user,
+        (None, None, Some(github_actor)) if !github_actor.is_empty() => github_actor,
         _ => return None,
     };
     trace!("Username: {username}");
@@ -83,9 +83,11 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
         env::var(CI_REGISTRY_PASSWORD).ok(),
         env::var(GITHUB_TOKEN).ok(),
     ) {
-        (Some(password), _, _) => password,
-        (None, Some(ci_registry_password), None) => ci_registry_password,
-        (None, None, Some(registry_token)) => registry_token,
+        (Some(password), _, _) if !password.is_empty() => password,
+        (None, Some(ci_registry_password), None) if !ci_registry_password.is_empty() => {
+            ci_registry_password
+        }
+        (None, None, Some(registry_token)) if !registry_token.is_empty() => registry_token,
         _ => return None,
     };
 
@@ -128,9 +130,7 @@ pub fn set_user_creds(
 ///
 /// # Errors
 /// Will error if there aren't any credentials available.
-pub fn get() -> Result<&'static Credentials> {
+pub fn get() -> Option<&'static Credentials> {
     trace!("credentials::get()");
-    ENV_CREDENTIALS
-        .as_ref()
-        .ok_or_else(|| anyhow!("No credentials available"))
+    ENV_CREDENTIALS.as_ref()
 }

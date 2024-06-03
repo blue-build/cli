@@ -5,7 +5,7 @@ use log::{error, info, trace};
 use semver::Version;
 use serde::Deserialize;
 
-use crate::credentials;
+use crate::credentials::{self, Credentials};
 
 use super::{
     opts::{BuildOpts, PushOpts, TagOpts},
@@ -109,22 +109,26 @@ impl BuildDriver for BuildahDriver {
     fn login(&self) -> Result<()> {
         trace!("BuildahDriver::login()");
 
-        let (registry, username, password) =
-            credentials::get().map(|c| (&c.registry, &c.username, &c.password))?;
+        if let Some(Credentials {
+            registry,
+            username,
+            password,
+        }) = credentials::get()
+        {
+            trace!("buildah login -u {username} -p [MASKED] {registry}");
+            let output = Command::new("buildah")
+                .arg("login")
+                .arg("-u")
+                .arg(username)
+                .arg("-p")
+                .arg(password)
+                .arg(registry)
+                .output()?;
 
-        trace!("buildah login -u {username} -p [MASKED] {registry}");
-        let output = Command::new("buildah")
-            .arg("login")
-            .arg("-u")
-            .arg(username)
-            .arg("-p")
-            .arg(password)
-            .arg(registry)
-            .output()?;
-
-        if !output.status.success() {
-            let err_out = String::from_utf8_lossy(&output.stderr);
-            bail!("Failed to login for buildah: {err_out}");
+            if !output.status.success() {
+                let err_out = String::from_utf8_lossy(&output.stderr);
+                bail!("Failed to login for buildah: {err_out}");
+            }
         }
         Ok(())
     }
