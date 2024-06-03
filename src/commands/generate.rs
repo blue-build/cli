@@ -22,7 +22,7 @@ use crate::{drivers::Driver, shadow};
 use super::{BlueBuildCommand, DriverArgs};
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
-pub struct TemplateCommand {
+pub struct GenerateCommand {
     /// The recipe file to create a template from
     #[arg()]
     #[builder(default, setter(into, strip_option))]
@@ -71,7 +71,7 @@ pub struct TemplateCommand {
     drivers: DriverArgs,
 }
 
-impl BlueBuildCommand for TemplateCommand {
+impl BlueBuildCommand for GenerateCommand {
     fn try_run(&mut self) -> Result<()> {
         Driver::builder()
             .build_driver(self.drivers.build_driver)
@@ -83,7 +83,7 @@ impl BlueBuildCommand for TemplateCommand {
     }
 }
 
-impl TemplateCommand {
+impl GenerateCommand {
     fn template_file(&self) -> Result<()> {
         trace!("TemplateCommand::template_file()");
 

@@ -1,21 +1,34 @@
-{%- set files_dir_exists = self::files_dir_exists() %}
+{%- import "modules/modules.j2" as modules -%}
 {%- include "stages.j2" %}
 
-FROM {{ recipe.base_image }}:{{ recipe.image_version }}
+# Main image
+FROM {{ recipe.base_image }}:{{ recipe.image_version }} as {{ recipe.name|replace('/', "-") }}
 
 ARG RECIPE={{ recipe_path.display() }}
 ARG IMAGE_REGISTRY={{ registry }}
 
-{%- if files_dir_exists %}
+{%- if self::files_dir_exists() %}
 ARG CONFIG_DIRECTORY="/tmp/files"
-{%- else %}
+{%- else if self::config_dir_exists() %}
 ARG CONFIG_DIRECTORY="/tmp/config"
 {%- endif %}
 ARG MODULE_DIRECTORY="/tmp/modules"
 ARG IMAGE_NAME="{{ recipe.name }}"
 ARG BASE_IMAGE="{{ recipe.base_image }}"
 
-{% include "modules/modules.j2" %}
+# Key RUN
+RUN --mount=type=bind,from=stage-keys,src=/keys,dst=/tmp/keys \
+  mkdir -p /usr/etc/pki/containers/ \
+  && cp /tmp/keys/* /usr/etc/pki/containers/ \
+  && ostree container commit
+
+# Bin RUN
+RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
+  mkdir -p /usr/bin/ \
+  && cp /tmp/bins/* /usr/bin/ \
+  && ostree container commit
+
+{% call modules::main_modules_run(recipe.modules_ext, os_version) %}
 
 RUN rm -fr /tmp/* /var/* && ostree container commit
 

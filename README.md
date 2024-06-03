@@ -18,6 +18,32 @@ The `bluebuild` tool takes advantage of newer build features. Specifically bind,
 
 ## Installation
 
+### Cargo
+
+This is the best way to install as it gives you the opportunity to build for your specific environment.
+
+```bash
+cargo install --locked blue-build
+```
+
+### Podman/Docker
+
+This will install the binary on your system in `/usr/local/bin`. This is only a `linux-gnu` version.
+
+```bash
+podman run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
+```
+
+```bash
+docker run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
+```
+
+### Github Install Script
+
+```bash
+bash <(curl -s https://raw.githubusercontent.com/blue-build/cli/main/install.sh)
+```
+
 ### Distrobox
 
 [distrobox-export-documentation]: https://distrobox.it/usage/distrobox-export/
@@ -54,26 +80,6 @@ A CLI tool built for creating Containerfile templates based on the Ublue Communi
 [user@host]$ bluebuild help
 A CLI tool built for creating Containerfile templates based on the Ublue Community Project
 ...
-```
-
-### Cargo
-
-This is the best way to install as it gives you the opportunity to build for your specific environment.
-
-```bash
-cargo install --locked blue-build
-```
-
-### Podman/Docker
-
-This will install the binary on your system in `/usr/local/bin`. This is only a `linux-gnu` version.
-
-```bash
-podman run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
-```
-
-```bash
-docker run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
 ```
 
 ### Nix Flake
@@ -119,20 +125,14 @@ in {
 
 You can also use `nix develop .#` in this repos directory to run a nix shell with development dependencies and some helful utilities for building BlueBuild!
 
-### Github Install Script
-
-```bash
-bash <(curl -s https://raw.githubusercontent.com/blue-build/cli/main/install.sh)
-```
-
 ## How to use
 
-### Templating
+### Generating `Containerfile`
 
 Once you have the CLI tool installed, you can run the following to pull in your recipe file to generate a `Containerfile`.
 
 ```bash
-bluebuild template -o <CONTAINERFILE> <RECIPE_FILE>
+bluebuild generate -o <CONTAINERFILE> <RECIPE_FILE>
 ```
 
 You can then use this with `podman` or `buildah` to build and publish your image. Further options can be viewed by running `bluebuild template --help`
@@ -190,6 +190,18 @@ sudo bluebuild upgrade recipes/recipe.yml
 ```
 
 The `--reboot` argument can be used with this command as well.
+
+##### Switch
+
+> NOTE: This is an unstable feature and can only be used when installing from the `main` image or with the `switch` feature flag when compiling.
+
+With the switch command, you can build and boot an image locally using an `oci-archive` tarball. The `switch` command can be run as a normal user and will only ask for `sudo` permissions when moving the archive into `/etc/bluebuild`.
+
+```bash
+bluebuild switch recipes/recipe.yml
+```
+
+You can initiate an immediate restart by adding the `--reboot/-r` option.
 
 #### CI Builds
 

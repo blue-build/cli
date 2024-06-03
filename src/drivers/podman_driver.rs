@@ -2,11 +2,11 @@ use std::process::{Command, Stdio};
 
 use anyhow::{bail, Result};
 use blue_build_utils::constants::SKOPEO_IMAGE;
-use log::{debug, info, trace};
+use log::{debug, error, info, trace};
 use semver::Version;
 use serde::Deserialize;
 
-use crate::image_metadata::ImageMetadata;
+use crate::{credentials::Credentials, image_metadata::ImageMetadata};
 
 use super::{
     credentials,
@@ -44,7 +44,8 @@ impl DriverVersion for PodmanDriver {
             .arg("json")
             .output()?;
 
-        let version_json: PodmanVersionJson = serde_json::from_slice(&output.stdout)?;
+        let version_json: PodmanVersionJson = serde_json::from_slice(&output.stdout)
+            .inspect_err(|e| error!("{e}: {}", String::from_utf8_lossy(&output.stdout)))?;
         trace!("{version_json:#?}");
 
         Ok(version_json.client.version)
@@ -119,22 +120,26 @@ impl BuildDriver for PodmanDriver {
     fn login(&self) -> Result<()> {
         trace!("PodmanDriver::login()");
 
-        let (registry, username, password) =
-            credentials::get().map(|c| (&c.registry, &c.username, &c.password))?;
+        if let Some(Credentials {
+            registry,
+            username,
+            password,
+        }) = credentials::get()
+        {
+            trace!("podman login -u {username} -p [MASKED] {registry}");
+            let output = Command::new("podman")
+                .arg("login")
+                .arg("-u")
+                .arg(username)
+                .arg("-p")
+                .arg(password)
+                .arg(registry)
+                .output()?;
 
-        trace!("podman login -u {username} -p [MASKED] {registry}");
-        let output = Command::new("podman")
-            .arg("login")
-            .arg("-u")
-            .arg(username)
-            .arg("-p")
-            .arg(password)
-            .arg(registry)
-            .output()?;
-
-        if !output.status.success() {
-            let err_out = String::from_utf8_lossy(&output.stderr);
-            bail!("Failed to login for podman: {err_out}");
+            if !output.status.success() {
+                let err_out = String::from_utf8_lossy(&output.stderr);
+                bail!("Failed to login for podman: {err_out}");
+            }
         }
         Ok(())
     }

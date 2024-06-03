@@ -3,7 +3,8 @@ pub const ARCHIVE_SUFFIX: &str = "tar.gz";
 pub const CONFIG_PATH: &str = "./config";
 pub const CONTAINERFILES_PATH: &str = "./containerfiles";
 pub const CONTAINER_FILE: &str = "Containerfile";
-pub const COSIGN_PATH: &str = "./cosign.pub";
+pub const COSIGN_PUB_PATH: &str = "./cosign.pub";
+pub const COSIGN_PRIV_PATH: &str = "./cosign.key";
 pub const FILES_PATH: &str = "./files";
 pub const GITIGNORE_PATH: &str = ".gitignore";
 pub const LOCAL_BUILD: &str = "/etc/bluebuild";
@@ -17,6 +18,10 @@ pub const IMAGE_VERSION_LABEL: &str = "org.opencontainers.image.version";
 
 // BlueBuild vars
 pub const BB_BUILDKIT_CACHE_GHA: &str = "BB_BUILDKIT_CACHE_GHA";
+pub const BB_PASSWORD: &str = "BB_PASSWORD";
+pub const BB_REGISTRY: &str = "BB_REGISTRY";
+pub const BB_REGISTRY_NAMESPACE: &str = "BB_REGISTRY_NAMESPACE";
+pub const BB_USERNAME: &str = "BB_USERNAME";
 
 // Docker vars
 pub const DOCKER_HOST: &str = "DOCKER_HOST";
@@ -62,6 +67,9 @@ pub const LC_TERMINAL_VERSION: &str = "LC_TERMINAL_VERSION";
 pub const XDG_RUNTIME_DIR: &str = "XDG_RUNTIME_DIR";
 
 // Misc
+pub const OCI_ARCHIVE: &str = "oci-archive";
+pub const OSTREE_IMAGE_SIGNED: &str = "ostree-image-signed";
+pub const OSTREE_UNVERIFIED_IMAGE: &str = "ostree-unverified-image";
 pub const SKOPEO_IMAGE: &str = "quay.io/skopeo/stable:latest";
 pub const UNKNOWN_SHELL: &str = "<unknown shell>";
 pub const UNKNOWN_VERSION: &str = "<unknown version>";

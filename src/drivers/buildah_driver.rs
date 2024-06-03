@@ -1,11 +1,11 @@
 use std::process::Command;
 
 use anyhow::{bail, Result};
-use log::{info, trace};
+use log::{error, info, trace};
 use semver::Version;
 use serde::Deserialize;
 
-use crate::credentials;
+use crate::credentials::{self, Credentials};
 
 use super::{
     opts::{BuildOpts, PushOpts, TagOpts},
@@ -34,7 +34,8 @@ impl DriverVersion for BuildahDriver {
             .arg("--json")
             .output()?;
 
-        let version_json: BuildahVersionJson = serde_json::from_slice(&output.stdout)?;
+        let version_json: BuildahVersionJson = serde_json::from_slice(&output.stdout)
+            .inspect_err(|e| error!("{e}: {}", String::from_utf8_lossy(&output.stdout)))?;
         trace!("{version_json:#?}");
 
         Ok(version_json.version)
@@ -108,22 +109,26 @@ impl BuildDriver for BuildahDriver {
     fn login(&self) -> Result<()> {
         trace!("BuildahDriver::login()");
 
-        let (registry, username, password) =
-            credentials::get().map(|c| (&c.registry, &c.username, &c.password))?;
+        if let Some(Credentials {
+            registry,
+            username,
+            password,
+        }) = credentials::get()
+        {
+            trace!("buildah login -u {username} -p [MASKED] {registry}");
+            let output = Command::new("buildah")
+                .arg("login")
+                .arg("-u")
+                .arg(username)
+                .arg("-p")
+                .arg(password)
+                .arg(registry)
+                .output()?;
 
-        trace!("buildah login -u {username} -p [MASKED] {registry}");
-        let output = Command::new("buildah")
-            .arg("login")
-            .arg("-u")
-            .arg(username)
-            .arg("-p")
-            .arg(password)
-            .arg(registry)
-            .output()?;
-
-        if !output.status.success() {
-            let err_out = String::from_utf8_lossy(&output.stderr);
-            bail!("Failed to login for buildah: {err_out}");
+            if !output.status.success() {
+                let err_out = String::from_utf8_lossy(&output.stderr);
+                bail!("Failed to login for buildah: {err_out}");
+            }
         }
         Ok(())
     }

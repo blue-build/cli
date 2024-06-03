@@ -3,7 +3,7 @@ use std::{borrow::Cow, env, fs, path::Path, process};
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::{
     CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_SERVER_HOST, CI_SERVER_PROTOCOL, CONFIG_PATH,
-    CONTAINERFILES_PATH, CONTAINER_FILE, COSIGN_PATH, FILES_PATH, GITHUB_RESPOSITORY,
+    CONTAINERFILES_PATH, CONTAINER_FILE, COSIGN_PUB_PATH, FILES_PATH, GITHUB_RESPOSITORY,
     GITHUB_SERVER_URL,
 };
 use log::{debug, error, trace, warn};
@@ -13,7 +13,7 @@ use uuid::Uuid;
 pub use askama::Template;
 
 #[derive(Debug, Clone, Template, TypedBuilder)]
-#[template(path = "Containerfile.j2", escape = "none")]
+#[template(path = "Containerfile.j2", escape = "none", whitespace = "minimize")]
 pub struct ContainerFileTemplate<'a> {
     recipe: &'a Recipe<'a>,
 
@@ -81,7 +81,7 @@ pub struct GithubIssueTemplate<'a> {
 fn has_cosign_file() -> bool {
     trace!("has_cosign_file()");
     std::env::current_dir()
-        .map(|p| p.join(COSIGN_PATH).exists())
+        .map(|p| p.join(COSIGN_PUB_PATH).exists())
         .unwrap_or(false)
 }
 
@@ -149,9 +149,14 @@ fn modules_exists() -> bool {
 
 fn files_dir_exists() -> bool {
     let path = Path::new(FILES_PATH);
+    path.exists() && path.is_dir()
+}
+
+fn config_dir_exists() -> bool {
+    let path = Path::new(CONFIG_PATH);
     let exists = path.exists() && path.is_dir();
 
-    if !exists {
+    if exists {
         warn!("Use of the {CONFIG_PATH} directory is deprecated. Please move your non-recipe files into {FILES_PATH}");
     }
 
