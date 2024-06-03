@@ -88,7 +88,10 @@ blue-build-cli:
 			docker-compose-plugin \
 			buildah \
 			podman \
-			skopeo
+			skopeo \
+			systemd
+
+	COPY rootless_containers.conf /etc/containers/containers.conf
 
 	LABEL org.opencontainers.image.base.digest="$(skopeo inspect "docker://$BASE_IMAGE" | jq -r '.Digest')"
 
@@ -107,7 +110,8 @@ blue-build-cli-alpine:
 	FROM $BASE_IMAGE
 	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
 
-	RUN apk update && apk add buildah podman skopeo fuse-overlayfs jq
+	RUN apk update && apk add buildah podman skopeo fuse-overlayfs jq shadow
+	COPY rootless_containers.conf /etc/containers/containers.conf
 
 	LABEL org.opencontainers.image.base.digest="$(skopeo inspect "docker://$BASE_IMAGE" | jq -r '.Digest')"
 
