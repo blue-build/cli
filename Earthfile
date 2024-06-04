@@ -107,7 +107,7 @@ blue-build-cli-prebuild:
 	COPY +cosign/cosign /usr/bin/cosign
 	ARG EARTHLY_GIT_HASH
 	ARG TARGETARCH
-	SAVE IMAGE "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
+	SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
 
 blue-build-cli:
 	ARG EARTHLY_GIT_HASH
@@ -140,7 +140,7 @@ blue-build-cli-alpine-prebuild:
 
 	ARG EARTHLY_GIT_HASH
 	ARG TARGETARCH
-	SAVE IMAGE "$IMAGE:$EARTHLY_GIT_HASH-alpine-prebuild-$TARGETARCH"
+	SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-alpine-prebuild-$TARGETARCH"
 
 blue-build-cli-alpine:
 	ARG EARTHLY_GIT_HASH
