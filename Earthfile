@@ -16,11 +16,17 @@ build:
 	WAIT
 		BUILD --platform=linux/amd64 --platform=linux/arm64 +build-scripts
 	END
+	BUILD +run-checks
+	BUILD --platform=linux/amd64 --platform=linux/arm64 +build-images
+
+run-checks:
 	BUILD +lint
 	BUILD +test
-	BUILD --platform=linux/amd64 --platform=linux/arm64 +blue-build-cli
-	BUILD --platform=linux/amd64 --platform=linux/arm64 +blue-build-cli-alpine
-	BUILD --platform=linux/amd64 --platform=linux/arm64 +installer
+
+build-images:
+	BUILD +blue-build-cli
+	BUILD +blue-build-cli-alpine
+	BUILD +installer
 
 prebuild:
 	BUILD +blue-build-cli-prebuild
