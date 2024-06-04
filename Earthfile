@@ -6,6 +6,9 @@ IMPORT github.com/earthly/lib/rust AS rust
 ARG --global IMAGE=ghcr.io/blue-build/cli
 
 all:
+	WAIT
+		BUILD --platform=linux/amd64 --platform=linux/arm64 +prebuild
+	END
 	BUILD +build
 	BUILD ./integration-tests+all
 
@@ -18,6 +21,10 @@ build:
 	BUILD --platform=linux/amd64 --platform=linux/arm64 +blue-build-cli
 	BUILD --platform=linux/amd64 --platform=linux/arm64 +blue-build-cli-alpine
 	BUILD --platform=linux/amd64 --platform=linux/arm64 +installer
+
+prebuild:
+	BUILD +blue-build-cli-prebuild
+	BUILD +blue-build-cli-alpine-prebuild
 
 lint:
 	FROM +common
@@ -48,7 +55,7 @@ install-all-features:
 	SAVE ARTIFACT target/$BUILD_TARGET/release/bluebuild
 
 common:
-	FROM ghcr.io/blue-build/earthly-lib/cargo-builder
+	FROM --platform=native ghcr.io/blue-build/earthly-lib/cargo-builder
 
 	WORKDIR /app
 	COPY --keep-ts --dir src/ template/ recipe/ utils/ /app
@@ -62,8 +69,13 @@ common:
 	DO rust+INIT --keep_fingerprints=true
 
 build-scripts:
-	FROM alpine
-	LABEL org.opencontainers.image.source="https://github.com/blue-build/cli"
+	ARG BASE_IMAGE="alpine"
+	FROM $BASE_IMAGE
+
+	COPY (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
+	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
+	LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
+
 	COPY --dir scripts/ /
 	FOR script IN "$(ls /scripts | grep -e '.*\.sh$')"
 		RUN echo "Making ${script} executable" && \
@@ -72,15 +84,17 @@ build-scripts:
 
 	DO --pass-args +SAVE_IMAGE --SUFFIX="-build-scripts"
 
-blue-build-cli:
+blue-build-cli-prebuild:
 	ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
 	FROM $BASE_IMAGE
+
+	COPY (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
 	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
+	LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
 	RUN dnf -y install dnf-plugins-core \
 		&& dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo \
 		&& dnf install --refresh -y \
-			jq \
 			docker-ce \
 			docker-ce-cli \
 			containerd.io \
@@ -90,11 +104,16 @@ blue-build-cli:
 			podman \
 			skopeo
 
-	LABEL org.opencontainers.image.base.digest="$(skopeo inspect "docker://$BASE_IMAGE" | jq -r '.Digest')"
-
 	COPY +cosign/cosign /usr/bin/cosign
-
+	ARG EARTHLY_GIT_HASH
 	ARG TARGETARCH
+	SAVE IMAGE "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
+
+blue-build-cli:
+	ARG EARTHLY_GIT_HASH
+	ARG TARGETARCH
+	FROM "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
+
 	IF [ "$TARGETARCH" = "arm64" ]
 		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-gnu"
 	ELSE
@@ -107,18 +126,27 @@ blue-build-cli:
 
 	DO --pass-args +SAVE_IMAGE
 
-blue-build-cli-alpine:
+blue-build-cli-alpine-prebuild:
 	ARG BASE_IMAGE="alpine"
 	FROM $BASE_IMAGE
+
+	COPY (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
 	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
+	LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
-	RUN apk update && apk add buildah podman skopeo fuse-overlayfs jq
-
-	LABEL org.opencontainers.image.base.digest="$(skopeo inspect "docker://$BASE_IMAGE" | jq -r '.Digest')"
+	RUN apk update && apk add buildah podman skopeo fuse-overlayfs
 
 	COPY +cosign/cosign /usr/bin/cosign
 
+	ARG EARTHLY_GIT_HASH
 	ARG TARGETARCH
+	SAVE IMAGE "$IMAGE:$EARTHLY_GIT_HASH-alpine-prebuild-$TARGETARCH"
+
+blue-build-cli-alpine:
+	ARG EARTHLY_GIT_HASH
+	ARG TARGETARCH
+	FROM "$IMAGE:$EARTHLY_GIT_HASH-alpine-prebuild-$TARGETARCH"
+
 	IF [ "$TARGETARCH" = "arm64" ]
 		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-musl"
 	ELSE
@@ -134,11 +162,10 @@ blue-build-cli-alpine:
 installer:
 	ARG BASE_IMAGE="alpine"
 	FROM $BASE_IMAGE
+
+	COPY (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
 	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
-
-	RUN apk update && apk add skopeo jq
-
-	LABEL org.opencontainers.image.base.digest="$(skopeo inspect "docker://$BASE_IMAGE" | jq -r '.Digest')"
+	LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
 	ARG TARGETARCH
 	IF [ "$TARGETARCH" = "arm64" ]
@@ -158,6 +185,14 @@ cosign:
 	FROM gcr.io/projectsigstore/cosign
 	SAVE ARTIFACT /ko-app/cosign
 
+digest:
+	FROM alpine
+	RUN apk update && apk add skopeo jq
+
+	ARG --required BASE_IMAGE
+	RUN skopeo inspect "docker://$BASE_IMAGE" | jq -r '.Digest' > /base-image-digest
+	SAVE ARTIFACT /base-image-digest
+	
 version:
 	FROM rust
 
