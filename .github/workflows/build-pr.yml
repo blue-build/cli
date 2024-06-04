@@ -53,10 +53,10 @@ jobs:
         id: build
         run: |
           if [ -n "${{ github.token }}" ]; then
-            earthly --ci --push +build
+            earthly --ci --push -P +build
             echo "push=true" >> "$GITHUB_OUTPUT"
           else 
-            earthly --ci +build
+            earthly --ci -P +build
           fi
 
   integration-tests:
@@ -126,7 +126,7 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          earthly -a +installer/bluebuild /usr/local/bin/bluebuild
+          earthly -a -P +installer/bluebuild /usr/local/bin/bluebuild
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@v3
@@ -188,7 +188,7 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          earthly -a +installer/bluebuild /usr/local/bin/bluebuild
+          earthly -a -P +installer/bluebuild /usr/local/bin/bluebuild
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@v3
@@ -251,7 +251,7 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          earthly -a +installer/bluebuild /usr/local/bin/bluebuild
+          earthly -a -P +installer/bluebuild /usr/local/bin/bluebuild
 
       - name: Run Build
         env:
@@ -311,7 +311,7 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          earthly -a +installer/bluebuild /usr/local/bin/bluebuild
+          earthly -a -P +installer/bluebuild /usr/local/bin/bluebuild
 
       - name: Run Build
         env:

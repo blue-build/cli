@@ -11,13 +11,13 @@ all:
 
 build:
 	WAIT
-		BUILD +build-scripts
+		BUILD --platform=linux/amd64 --platform=linux/arm64 +build-scripts
 	END
 	BUILD +lint
 	BUILD +test
-	BUILD +blue-build-cli
-	BUILD +blue-build-cli-alpine
-	BUILD +installer
+	BUILD --platform=linux/amd64 --platform=linux/arm64 +blue-build-cli
+	BUILD --platform=linux/amd64 --platform=linux/arm64 +blue-build-cli-alpine
+	BUILD --platform=linux/amd64 --platform=linux/arm64 +installer
 
 lint:
 	FROM +common
@@ -35,7 +35,7 @@ install:
 	FROM +common
 	ARG --required BUILD_TARGET
 
-	DO rust+CARGO --args="build --release --target $BUILD_TARGET" --output="$BUILD_TARGET/release/[^\./]+"
+	DO rust+CROSS --target="$BUILD_TARGET" --output="$BUILD_TARGET/release/[^\./]+"
 
 	SAVE ARTIFACT target/$BUILD_TARGET/release/bluebuild
 
@@ -43,7 +43,7 @@ install-all-features:
 	FROM +common
 	ARG --required BUILD_TARGET
 
-	DO rust+CARGO --args="build --all-features --release --target $BUILD_TARGET" --output="$BUILD_TARGET/release/[^\./]+"
+	DO rust+CROSS --args="build --all-features --release" --target="$BUILD_TARGET" --output="$BUILD_TARGET/release/[^\./]+"
 
 	SAVE ARTIFACT target/$BUILD_TARGET/release/bluebuild
 
@@ -94,7 +94,12 @@ blue-build-cli:
 
 	COPY +cosign/cosign /usr/bin/cosign
 
-	DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-gnu"
+	ARG TARGETARCH
+	IF [ "$TARGETARCH" = "arm64" ]
+		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-gnu"
+	ELSE
+		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-gnu"
+	END
 
 	RUN mkdir -p /bluebuild
 	WORKDIR /bluebuild
@@ -112,7 +117,13 @@ blue-build-cli-alpine:
 	LABEL org.opencontainers.image.base.digest="$(skopeo inspect "docker://$BASE_IMAGE" | jq -r '.Digest')"
 
 	COPY +cosign/cosign /usr/bin/cosign
-	DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl"
+
+	ARG TARGETARCH
+	IF [ "$TARGETARCH" = "arm64" ]
+		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-musl"
+	ELSE
+		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl"
+	END
 
 	RUN mkdir -p /bluebuild
 	WORKDIR /bluebuild
@@ -129,7 +140,13 @@ installer:
 
 	LABEL org.opencontainers.image.base.digest="$(skopeo inspect "docker://$BASE_IMAGE" | jq -r '.Digest')"
 
-	DO --pass-args +INSTALL --OUT_DIR="/out/" --BUILD_TARGET="x86_64-unknown-linux-musl"
+	ARG TARGETARCH
+	IF [ "$TARGETARCH" = "arm64" ]
+		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-musl"
+	ELSE
+		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl"
+	END
+
 	COPY install.sh /install.sh
 
 	CMD ["cat", "/install.sh"]
@@ -171,7 +188,7 @@ SAVE_IMAGE:
 	ARG SUFFIX=""
 	ARG TAGGED="false"
 
-	COPY +version/version /
+	COPY --platform=native +version/version /
 	ARG VERSION="$(cat /version)"
 	ARG MAJOR_VERSION="$(echo "$VERSION" | cut -d'.' -f1)"
 	ARG MINOR_VERSION="$(echo "$VERSION" | cut -d'.' -f2)"
