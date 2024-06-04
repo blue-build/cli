@@ -137,7 +137,7 @@ jobs:
 
       - name: Run build
         if: github.repository == 'blue-build/cli'
-        run: earthly --push --ci +build
+        run: earthly --push --ci -P +build
 
       - name: Run build fork
         if: github.repository != 'blue-build/cli'
