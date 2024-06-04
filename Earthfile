@@ -6,18 +6,31 @@ IMPORT github.com/earthly/lib/rust AS rust
 ARG --global IMAGE=ghcr.io/blue-build/cli
 
 all:
+	WAIT
+		BUILD --platform=linux/amd64 --platform=linux/arm64 +prebuild
+	END
 	BUILD +build
 	BUILD ./integration-tests+all
 
 build:
 	WAIT
-		BUILD +build-scripts
+		BUILD --platform=linux/amd64 --platform=linux/arm64 +build-scripts
 	END
+	BUILD +run-checks
+	BUILD --platform=linux/amd64 --platform=linux/arm64 +build-images
+
+run-checks:
 	BUILD +lint
 	BUILD +test
+
+build-images:
 	BUILD +blue-build-cli
 	BUILD +blue-build-cli-alpine
 	BUILD +installer
+
+prebuild:
+	BUILD +blue-build-cli-prebuild
+	BUILD +blue-build-cli-alpine-prebuild
 
 lint:
 	FROM +common
@@ -35,7 +48,7 @@ install:
 	FROM +common
 	ARG --required BUILD_TARGET
 
-	DO rust+CARGO --args="build --release --target $BUILD_TARGET" --output="$BUILD_TARGET/release/[^\./]+"
+	DO rust+CROSS --target="$BUILD_TARGET" --output="$BUILD_TARGET/release/[^\./]+"
 
 	SAVE ARTIFACT target/$BUILD_TARGET/release/bluebuild
 
@@ -43,12 +56,12 @@ install-all-features:
 	FROM +common
 	ARG --required BUILD_TARGET
 
-	DO rust+CARGO --args="build --all-features --release --target $BUILD_TARGET" --output="$BUILD_TARGET/release/[^\./]+"
+	DO rust+CROSS --args="build --all-features --release" --target="$BUILD_TARGET" --output="$BUILD_TARGET/release/[^\./]+"
 
 	SAVE ARTIFACT target/$BUILD_TARGET/release/bluebuild
 
 common:
-	FROM ghcr.io/blue-build/earthly-lib/cargo-builder
+	FROM --platform=native ghcr.io/blue-build/earthly-lib/cargo-builder
 
 	WORKDIR /app
 	COPY --keep-ts --dir src/ template/ recipe/ utils/ /app
@@ -62,8 +75,13 @@ common:
 	DO rust+INIT --keep_fingerprints=true
 
 build-scripts:
-	FROM alpine
-	LABEL org.opencontainers.image.source="https://github.com/blue-build/cli"
+	ARG BASE_IMAGE="alpine"
+	FROM $BASE_IMAGE
+
+	COPY (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
+	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
+	LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
+
 	COPY --dir scripts/ /
 	FOR script IN "$(ls /scripts | grep -e '.*\.sh$')"
 		RUN echo "Making ${script} executable" && \
@@ -72,15 +90,17 @@ build-scripts:
 
 	DO --pass-args +SAVE_IMAGE --SUFFIX="-build-scripts"
 
-blue-build-cli:
+blue-build-cli-prebuild:
 	ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
 	FROM $BASE_IMAGE
+
+	COPY (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
 	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
+	LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
 	RUN dnf -y install dnf-plugins-core \
 		&& dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo \
 		&& dnf install --refresh -y \
-			jq \
 			docker-ce \
 			docker-ce-cli \
 			containerd.io \
@@ -90,11 +110,21 @@ blue-build-cli:
 			podman \
 			skopeo
 
-	LABEL org.opencontainers.image.base.digest="$(skopeo inspect "docker://$BASE_IMAGE" | jq -r '.Digest')"
-
 	COPY +cosign/cosign /usr/bin/cosign
+	ARG EARTHLY_GIT_HASH
+	ARG TARGETARCH
+	SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
 
-	DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-gnu"
+blue-build-cli:
+	ARG EARTHLY_GIT_HASH
+	ARG TARGETARCH
+	FROM "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
+
+	IF [ "$TARGETARCH" = "arm64" ]
+		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-gnu"
+	ELSE
+		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-gnu"
+	END
 
 	RUN mkdir -p /bluebuild
 	WORKDIR /bluebuild
@@ -102,17 +132,32 @@ blue-build-cli:
 
 	DO --pass-args +SAVE_IMAGE
 
-blue-build-cli-alpine:
+blue-build-cli-alpine-prebuild:
 	ARG BASE_IMAGE="alpine"
 	FROM $BASE_IMAGE
+
+	COPY (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
 	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
+	LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
-	RUN apk update && apk add buildah podman skopeo fuse-overlayfs jq
-
-	LABEL org.opencontainers.image.base.digest="$(skopeo inspect "docker://$BASE_IMAGE" | jq -r '.Digest')"
+	RUN apk update && apk add buildah podman skopeo fuse-overlayfs
 
 	COPY +cosign/cosign /usr/bin/cosign
-	DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl"
+
+	ARG EARTHLY_GIT_HASH
+	ARG TARGETARCH
+	SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-alpine-prebuild-$TARGETARCH"
+
+blue-build-cli-alpine:
+	ARG EARTHLY_GIT_HASH
+	ARG TARGETARCH
+	FROM "$IMAGE:$EARTHLY_GIT_HASH-alpine-prebuild-$TARGETARCH"
+
+	IF [ "$TARGETARCH" = "arm64" ]
+		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-musl"
+	ELSE
+		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl"
+	END
 
 	RUN mkdir -p /bluebuild
 	WORKDIR /bluebuild
@@ -123,13 +168,18 @@ blue-build-cli-alpine:
 installer:
 	ARG BASE_IMAGE="alpine"
 	FROM $BASE_IMAGE
+
+	COPY (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
 	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
+	LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
-	RUN apk update && apk add skopeo jq
+	ARG TARGETARCH
+	IF [ "$TARGETARCH" = "arm64" ]
+		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-musl"
+	ELSE
+		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl"
+	END
 
-	LABEL org.opencontainers.image.base.digest="$(skopeo inspect "docker://$BASE_IMAGE" | jq -r '.Digest')"
-
-	DO --pass-args +INSTALL --OUT_DIR="/out/" --BUILD_TARGET="x86_64-unknown-linux-musl"
 	COPY install.sh /install.sh
 
 	CMD ["cat", "/install.sh"]
@@ -141,6 +191,14 @@ cosign:
 	FROM gcr.io/projectsigstore/cosign
 	SAVE ARTIFACT /ko-app/cosign
 
+digest:
+	FROM alpine
+	RUN apk update && apk add skopeo jq
+
+	ARG --required BASE_IMAGE
+	RUN skopeo inspect "docker://$BASE_IMAGE" | jq -r '.Digest' > /base-image-digest
+	SAVE ARTIFACT /base-image-digest
+	
 version:
 	FROM rust
 
@@ -171,7 +229,7 @@ SAVE_IMAGE:
 	ARG SUFFIX=""
 	ARG TAGGED="false"
 
-	COPY +version/version /
+	COPY --platform=native +version/version /
 	ARG VERSION="$(cat /version)"
 	ARG MAJOR_VERSION="$(echo "$VERSION" | cut -d'.' -f1)"
 	ARG MINOR_VERSION="$(echo "$VERSION" | cut -d'.' -f2)"

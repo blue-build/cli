@@ -14,11 +14,96 @@ env:
   FORCE_COLOR: 1
 
 jobs:
+  arm64-prebuild:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    if: github.repository == 'blue-build/cli'
+
+    steps:
+      - name: Maximize build space
+        uses: ublue-os/remove-unwanted-software@v6
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN == null
+
+      - uses: earthly/actions-setup@v1
+
+      - name: Earthly login
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN != null
+        run: |
+          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
+          earthly org s blue-build
+          earthly sat s arm
+
+      # Setup repo and add caching
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        if: github.token != null
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Run build
+        id: build
+        run: |
+          earthly --ci --push -P +prebuild
+
+  amd64-prebuild:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    if: github.repository == 'blue-build/cli'
+
+    steps:
+      - name: Maximize build space
+        uses: ublue-os/remove-unwanted-software@v6
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN == null
+
+      - uses: earthly/actions-setup@v1
+
+      - name: Earthly login
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN != null
+        run: |
+          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
+          earthly org s blue-build
+          earthly sat s amd
+
+      # Setup repo and add caching
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        if: github.token != null
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Run build
+        id: build
+        run: |
+          earthly --ci --push -P +prebuild
+
   build:
     permissions:
       packages: write
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    needs:
+      - arm64-prebuild
+      - amd64-prebuild
 
     steps:
       - name: Maximize build space
@@ -56,7 +141,7 @@ jobs:
 
       - name: Run build fork
         if: github.repository != 'blue-build/cli'
-        run: earthly --ci +build
+        run: earthly --ci -P +build
 
   integration-tests:
     permissions:
@@ -100,29 +185,23 @@ jobs:
         uses: ublue-os/remove-unwanted-software@v6
 
       - uses: sigstore/cosign-installer@v3.3.0
-      - uses: earthly/actions-setup@v1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           install: true
 
-      - name: Earthly login
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN != null
-        run: |
-          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
-          earthly org s blue-build
-          earthly sat s main
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - uses: actions/checkout@v4
         with:
-          ref: main
+          fetch-depth: 0
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
 
       - name: Install bluebuild
         run: |
-          earthly -a +installer/bluebuild /usr/local/bin/bluebuild
+          cargo install --path . --debug
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@v3
@@ -155,7 +234,6 @@ jobs:
         uses: ublue-os/remove-unwanted-software@v6
 
       - uses: sigstore/cosign-installer@v3.3.0
-      - uses: earthly/actions-setup@v1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -169,22 +247,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Earthly login
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN != null
-        run: |
-          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
-          earthly org s blue-build
-          earthly sat s main
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - uses: actions/checkout@v4
         with:
-          ref: main
+          fetch-depth: 0
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
 
       - name: Install bluebuild
         run: |
-          earthly -a +installer/bluebuild /usr/local/bin/bluebuild
+          cargo install --path . --debug
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@v3
@@ -216,7 +289,6 @@ jobs:
         uses: ublue-os/remove-unwanted-software@v6
 
       - uses: sigstore/cosign-installer@v3.3.0
-      - uses: earthly/actions-setup@v1
 
       - name: Setup Podman
         shell: bash
@@ -230,22 +302,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y podman
 
-      - name: Earthly login
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN != null
-        run: |
-          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
-          earthly org s blue-build
-          earthly sat s main
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - uses: actions/checkout@v4
         with:
-          ref: main
+          fetch-depth: 0
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
 
       - name: Install bluebuild
         run: |
-          earthly -a +installer/bluebuild /usr/local/bin/bluebuild
+          cargo install --path . --debug
 
       - name: Run Build
         env:
@@ -303,7 +370,7 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          earthly -a +installer/bluebuild /usr/local/bin/bluebuild
+          earthly -a -P +installer/bluebuild /usr/local/bin/bluebuild
 
       - name: Run Build
         env:
