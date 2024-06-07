@@ -9,6 +9,7 @@ fn main() {
     Logger::new()
         .filter_level(args.verbosity.log_level_filter())
         .filter_modules([("hyper::proto", LevelFilter::Info)])
+        .log_out_dir(args.log_out.clone())
         .init();
 
     log::trace!("Parsed arguments: {args:#?}");

@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use log::error;
 
 use clap::{command, crate_authors, Args, Parser, Subcommand};
@@ -49,6 +51,10 @@ pub trait BlueBuildCommand {
 pub struct BlueBuildArgs {
     #[command(subcommand)]
     pub command: CommandArgs,
+
+    /// The directory to output build logs.
+    #[arg(long)]
+    pub log_out: Option<PathBuf>,
 
     #[clap(flatten)]
     pub verbosity: Verbosity<InfoLevel>,

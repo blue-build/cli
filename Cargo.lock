@@ -302,6 +302,7 @@ dependencies = [
  "serde_json",
  "serde_yaml 0.9.34+deprecated",
  "syntect",
+ "typed-builder",
  "which",
 ]
 

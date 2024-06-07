@@ -203,7 +203,7 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          cargo install --path . --debug
+          cargo install --path . --debug --all-features
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@v3
@@ -259,7 +259,7 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          cargo install --path . --debug
+          cargo install --path . --debug --all-features
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@v3
@@ -314,7 +314,7 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          cargo install --path . --debug
+          cargo install --path . --debug --all-features
 
       - name: Run Build
         env:
@@ -366,7 +366,7 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          cargo install --path . --debug
+          cargo install --path . --debug --all-features
 
       - name: Run Build
         env:

@@ -1,8 +1,10 @@
 use std::{
     env,
-    io::{BufRead, BufReader, Result},
+    fs::OpenOptions,
+    io::{BufRead, BufReader, Result, Write as IoWrite},
+    path::{Path, PathBuf},
     process::{Command, ExitStatus},
-    sync::Arc,
+    sync::{Arc, Mutex},
     thread,
     time::Duration,
 };
@@ -11,7 +13,7 @@ use chrono::Local;
 use colored::{control::ShouldColorize, ColoredString, Colorize};
 use indicatif::{MultiProgress, ProgressBar};
 use indicatif_log_bridge::LogWrapper;
-use log::{Level, LevelFilter, Record};
+use log::{warn, Level, LevelFilter, Record};
 use log4rs::{
     append::{
         console::ConsoleAppender,
@@ -29,12 +31,16 @@ use log4rs::{
 use nu_ansi_term::Color;
 use once_cell::sync::Lazy;
 use rand::Rng;
+use typed_builder::TypedBuilder;
 
 static MULTI_PROGRESS: Lazy<MultiProgress> = Lazy::new(MultiProgress::new);
+static LOG_DIR: Lazy<Mutex<PathBuf>> = Lazy::new(|| Mutex::new(PathBuf::new()));
 
+#[derive(Debug, Clone)]
 pub struct Logger {
     modules: Vec<(String, LevelFilter)>,
     level: LevelFilter,
+    log_dir: Option<PathBuf>,
 }
 
 impl Logger {
@@ -65,18 +71,39 @@ impl Logger {
         self
     }
 
+    pub fn log_out_dir<P>(&mut self, path: Option<P>) -> &mut Self
+    where
+        P: AsRef<Path>,
+    {
+        self.log_dir = path.map(|p| p.as_ref().to_path_buf());
+        self
+    }
+
     /// Initializes logging for the application.
     ///
     /// # Panics
     /// Will panic if logging is unable to be initialized.
     pub fn init(&mut self) {
         let home = env::var("HOME").expect("$HOME should be defined");
-        let log_dir = format!("{home}/.local/share/bluebuild");
-        let log_out_path = format!("{log_dir}/{}", Self::LOG_FILENAME);
-        let log_archive_pattern = format!("{log_dir}/{}", Self::ARCHIVE_FILENAME_PATTERN);
+        let log_dir = self.log_dir.as_ref().map_or_else(
+            || Path::new(home.as_str()).join(".local/share/bluebuild"),
+            Clone::clone,
+        );
+
+        let mut lock = LOG_DIR.lock().expect("Should lock LOG_DIR");
+        lock.clone_from(&log_dir);
+        drop(lock);
+
+        let log_out_path = log_dir.join(Self::LOG_FILENAME);
+        let log_archive_pattern =
+            format!("{}/{}", log_dir.display(), Self::ARCHIVE_FILENAME_PATTERN);
 
         let stderr = ConsoleAppender::builder()
-            .encoder(Box::new(CustomPatternEncoder))
+            .encoder(Box::new(
+                CustomPatternEncoder::builder()
+                    .filter_modules(self.modules.clone())
+                    .build(),
+            ))
             .target(log4rs::append::console::Target::Stderr)
             .tty_only(true)
             .build();
@@ -124,6 +151,7 @@ impl Default for Logger {
         Self {
             modules: vec![],
             level: LevelFilter::Info,
+            log_dir: None,
         }
     }
 }
@@ -182,6 +210,17 @@ impl CommandLogging for Command {
         drop(self);
 
         let reader = BufReader::new(reader);
+        let log_file_path = {
+            let lock = LOG_DIR.lock().expect("Should lock LOG_DIR");
+            lock.join(format!(
+                "{}.log",
+                image_ref.as_ref().replace(['/', ':', '.'], "_")
+            ))
+        };
+        let log_file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(log_file_path.as_path())?;
 
         thread::spawn(move || {
             let mp = Logger::multi_progress();
@@ -192,6 +231,12 @@ impl CommandLogging for Command {
                         eprintln!("{text}");
                     } else {
                         mp.println(text).unwrap();
+                    }
+                    if let Err(e) = writeln!(&log_file, "{l}") {
+                        warn!(
+                            "Failed to write to log for build {}: {e:?}",
+                            log_file_path.display()
+                        );
                     }
                 }
             });
@@ -206,51 +251,62 @@ impl CommandLogging for Command {
     }
 }
 
-#[derive(Debug)]
-struct CustomPatternEncoder;
+#[derive(Debug, TypedBuilder)]
+struct CustomPatternEncoder {
+    #[builder(default, setter(into))]
+    filter_modules: Vec<(String, LevelFilter)>,
+}
 
 impl Encode for CustomPatternEncoder {
     fn encode(&self, w: &mut dyn Write, record: &Record) -> anyhow::Result<()> {
-        match log::max_level() {
-            LevelFilter::Error | LevelFilter::Warn | LevelFilter::Info => Ok(writeln!(
-                w,
-                "{prefix} {args}",
-                prefix = log_header(format!(
-                    "{level:width$}",
-                    level = record.level().colored(),
-                    width = 5,
-                )),
-                args = record.args(),
-            )?),
-            LevelFilter::Debug => Ok(writeln!(
-                w,
-                "{prefix} {args}",
-                prefix = log_header(format!(
-                    "{level:>width$}",
-                    level = record.level().colored(),
-                    width = 5,
-                )),
-                args = record.args(),
-            )?),
-            LevelFilter::Trace => Ok(writeln!(
-                w,
-                "{prefix} {args}",
-                prefix = log_header(format!(
-                    "{level:width$} {module}:{line}",
-                    level = record.level().colored(),
-                    width = 5,
-                    module = record
-                        .module_path()
-                        .map_or_else(|| "", |p| p)
-                        .bright_yellow(),
-                    line = record
-                        .line()
-                        .map_or_else(String::new, |l| l.to_string())
-                        .bright_green(),
-                )),
-                args = record.args(),
-            )?),
-            LevelFilter::Off => Ok(()),
+        if record.module_path().is_some_and(|mp| {
+            self.filter_modules
+                .iter()
+                .any(|(module, level)| mp.contains(module) && *level <= record.level())
+        }) {
+            Ok(())
+        } else {
+            match log::max_level() {
+                LevelFilter::Error | LevelFilter::Warn | LevelFilter::Info => Ok(writeln!(
+                    w,
+                    "{prefix} {args}",
+                    prefix = log_header(format!(
+                        "{level:width$}",
+                        level = record.level().colored(),
+                        width = 5,
+                    )),
+                    args = record.args(),
+                )?),
+                LevelFilter::Debug => Ok(writeln!(
+                    w,
+                    "{prefix} {args}",
+                    prefix = log_header(format!(
+                        "{level:>width$}",
+                        level = record.level().colored(),
+                        width = 5,
+                    )),
+                    args = record.args(),
+                )?),
+                LevelFilter::Trace => Ok(writeln!(
+                    w,
+                    "{prefix} {args}",
+                    prefix = log_header(format!(
+                        "{level:width$} {module}:{line}",
+                        level = record.level().colored(),
+                        width = 5,
+                        module = record
+                            .module_path()
+                            .map_or_else(|| "", |p| p)
+                            .bright_yellow(),
+                        line = record
+                            .line()
+                            .map_or_else(String::new, |l| l.to_string())
+                            .bright_green(),
+                    )),
+                    args = record.args(),
+                )?),
+                LevelFilter::Off => Ok(()),
+            }
         }
     }
 }
