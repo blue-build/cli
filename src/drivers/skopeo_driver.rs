@@ -1,6 +1,11 @@
-use std::process::{Command, Stdio};
+use std::{
+    process::{Command, Stdio},
+    time::Duration,
+};
 
 use anyhow::{bail, Result};
+use blue_build_utils::logging::Logger;
+use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, trace};
 
 use crate::image_metadata::ImageMetadata;
@@ -19,12 +24,22 @@ impl InspectDriver for SkopeoDriver {
             |tag| format!("docker://{}:{tag}", opts.image),
         );
 
+        let progress = Logger::multi_progress().add(
+            ProgressBar::new_spinner()
+                .with_style(ProgressStyle::default_spinner())
+                .with_message(format!("Inspecting metadata for {url}")),
+        );
+        progress.enable_steady_tick(Duration::from_millis(100));
+
         trace!("skopeo inspect {url}");
         let output = Command::new("skopeo")
             .arg("inspect")
             .arg(&url)
             .stderr(Stdio::inherit())
             .output()?;
+
+        progress.finish();
+        Logger::multi_progress().remove(&progress);
 
         if output.status.success() {
             debug!("Successfully inspected image {url}!");

@@ -1,7 +1,11 @@
-use std::process::{Command, Stdio};
+use std::{process::Command, time::Duration};
 
 use anyhow::{bail, Result};
-use blue_build_utils::constants::SKOPEO_IMAGE;
+use blue_build_utils::{
+    constants::SKOPEO_IMAGE,
+    logging::{CommandLogging, Logger},
+};
+use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace};
 use semver::Version;
 use serde::Deserialize;
@@ -57,18 +61,22 @@ impl BuildDriver for PodmanDriver {
         trace!("PodmanDriver::build({opts:#?})");
 
         trace!(
-            "podman build --pull=true --layers={} . -t {}",
+            "podman build --pull=true --layers={} -f {} -t {} .",
             !opts.squash,
+            opts.containerfile.display(),
             opts.image,
         );
-        let status = Command::new("podman")
+        let mut command = Command::new("podman");
+        command
             .arg("build")
             .arg("--pull=true")
             .arg(format!("--layers={}", !opts.squash))
-            .arg(".")
+            .arg("-f")
+            .arg(opts.containerfile.as_ref())
             .arg("-t")
             .arg(opts.image.as_ref())
-            .status()?;
+            .arg(".");
+        let status = command.status_image_ref_progress(&opts.image, "Building Image")?;
 
         if status.success() {
             info!("Successfully built {}", opts.image);
@@ -100,14 +108,15 @@ impl BuildDriver for PodmanDriver {
         trace!("PodmanDriver::push({opts:#?})");
 
         trace!("podman push {}", opts.image);
-        let status = Command::new("podman")
+        let mut command = Command::new("podman");
+        command
             .arg("push")
             .arg(format!(
                 "--compression-format={}",
                 opts.compression_type.unwrap_or_default()
             ))
-            .arg(opts.image.as_ref())
-            .status()?;
+            .arg(opts.image.as_ref());
+        let status = command.status_image_ref_progress(&opts.image, "Pushing Image")?;
 
         if status.success() {
             info!("Successfully pushed {}!", opts.image);
@@ -154,6 +163,13 @@ impl InspectDriver for PodmanDriver {
             |tag| format!("docker://{}:{tag}", opts.image),
         );
 
+        let progress = Logger::multi_progress().add(
+            ProgressBar::new_spinner()
+                .with_style(ProgressStyle::default_spinner())
+                .with_message(format!("Inspecting metadata for {url}")),
+        );
+        progress.enable_steady_tick(Duration::from_millis(100));
+
         trace!("podman run {SKOPEO_IMAGE} inspect {url}");
         let output = Command::new("podman")
             .arg("run")
@@ -161,8 +177,10 @@ impl InspectDriver for PodmanDriver {
             .arg(SKOPEO_IMAGE)
             .arg("inspect")
             .arg(&url)
-            .stderr(Stdio::inherit())
             .output()?;
+
+        progress.finish();
+        Logger::multi_progress().remove(&progress);
 
         if output.status.success() {
             debug!("Successfully inspected image {url}!");

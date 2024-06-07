@@ -1,6 +1,7 @@
 use std::process::Command;
 
 use anyhow::{bail, Result};
+use blue_build_utils::logging::CommandLogging;
 use log::{error, info, trace};
 use semver::Version;
 use serde::Deserialize;
@@ -47,17 +48,21 @@ impl BuildDriver for BuildahDriver {
         trace!("BuildahDriver::build({opts:#?})");
 
         trace!(
-            "buildah build --pull=true --layers={} -t {}",
+            "buildah build --pull=true --layers={} -f {} -t {}",
             !opts.squash,
+            opts.containerfile.display(),
             opts.image,
         );
-        let status = Command::new("buildah")
+        let mut command = Command::new("buildah");
+        command
             .arg("build")
             .arg("--pull=true")
             .arg(format!("--layers={}", !opts.squash))
+            .arg("-f")
+            .arg(opts.containerfile.as_ref())
             .arg("-t")
-            .arg(opts.image.as_ref())
-            .status()?;
+            .arg(opts.image.as_ref());
+        let status = command.status_image_ref_progress(&opts.image, "Building Image")?;
 
         if status.success() {
             info!("Successfully built {}", opts.image);
@@ -89,14 +94,15 @@ impl BuildDriver for BuildahDriver {
         trace!("BuildahDriver::push({opts:#?})");
 
         trace!("buildah push {}", opts.image);
-        let status = Command::new("buildah")
+        let mut command = Command::new("buildah");
+        command
             .arg("push")
             .arg(format!(
                 "--compression-format={}",
                 opts.compression_type.unwrap_or_default()
             ))
-            .arg(opts.image.as_ref())
-            .status()?;
+            .arg(opts.image.as_ref());
+        let status = command.status_image_ref_progress(&opts.image, "Pushing Image")?;
 
         if status.success() {
             info!("Successfully pushed {}!", opts.image);

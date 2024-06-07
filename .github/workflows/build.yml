@@ -12,6 +12,8 @@ on:
 
 env:
   FORCE_COLOR: 1
+  CLICOLOR_FORCE: 1
+  RUST_LOG_STYLE: always
 
 jobs:
   arm64-prebuild:
@@ -201,7 +203,7 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          cargo install --path . --debug
+          cargo install --path . --debug --all-features
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@v3
@@ -216,7 +218,7 @@ jobs:
           cd integration-tests/test-repo
           bluebuild template -vv | tee Containerfile
           grep -q 'ARG IMAGE_REGISTRY=ghcr.io/blue-build' Containerfile || exit 1
-          bluebuild build --push -vv
+          bluebuild build --push -vv recipes/recipe.yml recipes/recipe-39.yml
 
   docker-build-external-login:
     timeout-minutes: 60
@@ -257,7 +259,7 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          cargo install --path . --debug
+          cargo install --path . --debug --all-features
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@v3
@@ -271,7 +273,7 @@ jobs:
           cd integration-tests/test-repo
           bluebuild template -vv | tee Containerfile
           grep -q 'ARG IMAGE_REGISTRY=ghcr.io/blue-build' Containerfile || exit 1
-          bluebuild build --push -vv
+          bluebuild build --push -vv recipes/recipe.yml recipes/recipe-39.yml
 
   podman-build:
     timeout-minutes: 60
@@ -312,7 +314,7 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          cargo install --path . --debug
+          cargo install --path . --debug --all-features
 
       - name: Run Build
         env:
@@ -323,7 +325,7 @@ jobs:
           cd integration-tests/test-repo
           bluebuild template -vv | tee Containerfile
           grep -q 'ARG IMAGE_REGISTRY=ghcr.io/blue-build' Containerfile || exit 1
-          bluebuild build -B podman --push -vv
+          bluebuild build -B podman --push -vv recipes/recipe.yml recipes/recipe-39.yml
 
   buildah-build:
     timeout-minutes: 60
@@ -364,7 +366,7 @@ jobs:
 
       - name: Install bluebuild
         run: |
-          cargo install --path . --debug
+          cargo install --path . --debug --all-features
 
       - name: Run Build
         env:
@@ -375,4 +377,4 @@ jobs:
           cd integration-tests/test-repo
           bluebuild template -vv | tee Containerfile
           grep -q 'ARG IMAGE_REGISTRY=ghcr.io/blue-build' Containerfile || exit 1
-          bluebuild build -B buildah --push -vv
+          bluebuild build -B buildah --push -vv recipes/recipe.yml recipes/recipe-39.yml
