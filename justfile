@@ -27,3 +27,4 @@ release *args:
   echo "Pushing tag: v${VERSION}"
   git tag "v${VERSION}"
   git push origin "v${VERSION}"
+  gh release create --generate-notes --latest "v${VERSION}"
