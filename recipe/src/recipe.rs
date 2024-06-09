@@ -58,7 +58,7 @@ pub struct Recipe<'a> {
     /// Any user input will override the `latest` and timestamp tags.
     #[serde(alias = "alt-tags", skip_serializing_if = "Option::is_none")]
     #[builder(default, setter(into, strip_option))]
-    pub alt_tags: Option<Vec<Cow<'a, str>>>,
+    pub alt_tags: Option<Cow<'a, [Cow<'a, str>]>>,
 
     /// The stages extension of the recipe.
     ///

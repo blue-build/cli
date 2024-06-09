@@ -13,3 +13,9 @@ pub enum BuildDriverType {
     Podman,
     Docker,
 }
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum RunDriverType {
+    Podman,
+    Docker,
+}

@@ -134,7 +134,7 @@ impl BlueBuildCommand for BuildCommand {
             .build_driver(self.drivers.build_driver)
             .inspect_driver(self.drivers.inspect_driver)
             .build()
-            .init()?;
+            .init();
 
         self.update_gitignore()?;
 

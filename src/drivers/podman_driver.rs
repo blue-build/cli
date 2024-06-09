@@ -1,4 +1,7 @@
-use std::{process::Command, time::Duration};
+use std::{
+    process::{Command, ExitStatus},
+    time::Duration,
+};
 
 use anyhow::{bail, Result};
 use blue_build_utils::{
@@ -14,8 +17,8 @@ use crate::{credentials::Credentials, image_metadata::ImageMetadata};
 
 use super::{
     credentials,
-    opts::{BuildOpts, GetMetadataOpts, PushOpts, TagOpts},
-    BuildDriver, DriverVersion, InspectDriver,
+    opts::{BuildOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
+    BuildDriver, DriverVersion, InspectDriver, RunDriver,
 };
 
 #[derive(Debug, Deserialize)]
@@ -188,5 +191,11 @@ impl InspectDriver for PodmanDriver {
             bail!("Failed to inspect image {url}");
         }
         Ok(serde_json::from_slice(&output.stdout)?)
+    }
+}
+
+impl RunDriver for PodmanDriver {
+    fn run(&self, _opts: &RunOpts) -> Result<ExitStatus> {
+        todo!()
     }
 }

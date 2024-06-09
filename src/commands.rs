@@ -15,6 +15,8 @@ pub mod bug_report;
 pub mod build;
 pub mod completions;
 pub mod generate;
+#[cfg(feature = "iso")]
+pub mod generate_iso;
 #[cfg(feature = "init")]
 pub mod init;
 #[cfg(not(feature = "switch"))]
@@ -112,6 +114,10 @@ pub enum CommandArgs {
 
     #[cfg(feature = "init")]
     New(init::NewCommand),
+
+    /// Create an ISO image of your recipe.
+    #[cfg(feature = "iso")]
+    GenerateIso(generate_iso::GenerateIsoCommand),
 
     /// Create a pre-populated GitHub issue with information about your configuration
     BugReport(bug_report::BugReportCommand),

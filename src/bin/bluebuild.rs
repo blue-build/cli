@@ -34,6 +34,9 @@ fn main() {
         #[cfg(not(feature = "switch"))]
         CommandArgs::Upgrade(mut command) => command.run(),
 
+        #[cfg(feature = "iso")]
+        CommandArgs::GenerateIso(mut command) => command.run(),
+
         CommandArgs::BugReport(mut command) => command.run(),
 
         CommandArgs::Completions(mut command) => command.run(),
