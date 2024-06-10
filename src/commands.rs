@@ -7,7 +7,7 @@ use clap_verbosity_flag::{InfoLevel, Verbosity};
 use typed_builder::TypedBuilder;
 
 use crate::{
-    drivers::types::{BuildDriverType, InspectDriverType},
+    drivers::types::{BuildDriverType, InspectDriverType, RunDriverType},
     shadow,
 };
 
@@ -150,4 +150,9 @@ pub struct DriverArgs {
     #[builder(default)]
     #[arg(short = 'I', long)]
     inspect_driver: Option<InspectDriverType>,
+
+    /// Select which driver to use to run containers.
+    #[builder(default)]
+    #[arg(short = 'R', long)]
+    run_driver: Option<RunDriverType>,
 }

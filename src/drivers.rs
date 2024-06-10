@@ -249,7 +249,7 @@ pub trait RunDriver: Sync + Send {
     ///
     /// # Errors
     /// Will error if there is an issue running the container.
-    fn run(&self, opts: &RunOpts) -> Result<ExitStatus>;
+    fn run(&self, opts: &RunOpts) -> std::io::Result<ExitStatus>;
 }
 
 /// Allows agnostic inspection of images.

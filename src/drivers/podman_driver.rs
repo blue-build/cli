@@ -8,8 +8,9 @@ use blue_build_utils::{
     constants::SKOPEO_IMAGE,
     logging::{CommandLogging, Logger},
 };
+use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
-use log::{debug, error, info, trace};
+use log::{debug, error, info, trace, warn};
 use semver::Version;
 use serde::Deserialize;
 
@@ -195,7 +196,46 @@ impl InspectDriver for PodmanDriver {
 }
 
 impl RunDriver for PodmanDriver {
-    fn run(&self, _opts: &RunOpts) -> Result<ExitStatus> {
-        todo!()
+    fn run(&self, opts: &RunOpts) -> std::io::Result<ExitStatus> {
+        trace!("PodmanDriver::run({opts:#?})");
+
+        let mut command = if opts.privileged {
+            warn!(
+                "Running 'podman' in privileged mode requires '{}'",
+                "sudo".bold().red()
+            );
+            Command::new("sudo")
+        } else {
+            Command::new("podman")
+        };
+
+        command.arg("run");
+
+        if opts.privileged {
+            command.args(["podman", "--privileged"]);
+        }
+
+        if opts.remove {
+            command.arg("--rm");
+        }
+
+        opts.volumes.iter().for_each(|volume| {
+            command.arg("--volume");
+            command.arg(format!(
+                "{}:{}",
+                volume.path_or_vol_name, volume.container_path,
+            ));
+        });
+
+        opts.env_vars.iter().for_each(|env| {
+            command.arg("--env");
+            command.arg(format!("{}={}", env.key, env.value));
+        });
+
+        command.arg(opts.image.as_ref());
+
+        command.args(opts.args.iter().map(AsRef::as_ref));
+
+        command.status_image_ref_progress(opts.image.as_ref(), "Running container")
     }
 }

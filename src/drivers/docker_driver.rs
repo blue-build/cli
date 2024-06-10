@@ -336,7 +336,38 @@ impl InspectDriver for DockerDriver {
 }
 
 impl RunDriver for DockerDriver {
-    fn run(&self, _opts: &RunOpts) -> Result<ExitStatus> {
-        todo!()
+    fn run(&self, opts: &RunOpts) -> std::io::Result<ExitStatus> {
+        trace!("DockerDriver::run({opts:#?})");
+
+        let mut command = Command::new("docker");
+
+        command.arg("run");
+
+        if opts.privileged {
+            command.arg("--privileged");
+        }
+
+        if opts.remove {
+            command.arg("--rm");
+        }
+
+        opts.volumes.iter().for_each(|volume| {
+            command.arg("--volume");
+            command.arg(format!(
+                "{}:{}",
+                volume.path_or_vol_name, volume.container_path,
+            ));
+        });
+
+        opts.env_vars.iter().for_each(|env| {
+            command.arg("--env");
+            command.arg(format!("{}={}", env.key, env.value));
+        });
+
+        command.arg(opts.image.as_ref());
+
+        command.args(opts.args.iter().map(AsRef::as_ref));
+
+        command.status_image_ref_progress(opts.image.as_ref(), "Running container")
     }
 }
