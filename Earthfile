@@ -175,9 +175,9 @@ installer:
 
 	ARG TARGETARCH
 	IF [ "$TARGETARCH" = "arm64" ]
-		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-musl"
+		DO --pass-args +INSTALL --OUT_DIR="/out/" --BUILD_TARGET="aarch64-unknown-linux-musl"
 	ELSE
-		DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl"
+		DO --pass-args +INSTALL --OUT_DIR="/out/" --BUILD_TARGET="x86_64-unknown-linux-musl"
 	END
 
 	COPY install.sh /install.sh
