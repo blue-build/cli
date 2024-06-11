@@ -234,7 +234,7 @@ impl RunDriver for PodmanDriver {
 
         command.arg(opts.image.as_ref());
 
-        command.args(opts.args.iter().map(AsRef::as_ref));
+        command.args(opts.args.iter());
 
         command.status_image_ref_progress(opts.image.as_ref(), "Running container")
     }

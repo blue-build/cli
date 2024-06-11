@@ -8,7 +8,7 @@ pub struct RunOpts<'a> {
     pub image: Cow<'a, str>,
 
     #[builder(default, setter(into))]
-    pub args: Cow<'a, [Cow<'a, str>]>,
+    pub args: Cow<'a, [String]>,
 
     #[builder(default, setter(into))]
     pub env_vars: Cow<'a, [RunOptsEnv<'a>]>,

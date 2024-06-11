@@ -5,7 +5,7 @@ use clap::Args;
 use typed_builder::TypedBuilder;
 
 use crate::drivers::{
-    opts::{RunOpts, RunOptsEnv, RunOptsVolume},
+    opts::{RunOpts, RunOptsVolume},
     Driver,
 };
 
@@ -13,8 +13,11 @@ use super::{BlueBuildCommand, DriverArgs};
 
 #[derive(Default, Clone, Debug, TypedBuilder, Args)]
 pub struct GenerateIsoCommand {
+    #[arg(long)]
+    image_tar: String,
+
     #[arg(short = 'r', long)]
-    image_repo: String,
+    image_repo: Option<String>,
 
     #[arg(short = 'n', long)]
     image_name: String,
@@ -57,34 +60,28 @@ impl BlueBuildCommand for GenerateIsoCommand {
                 .path_or_vol_name("dnf-cache")
                 .container_path("/cache/dnf")
                 .build(),
-        ];
-
-        let envs = [
-            RunOptsEnv::builder()
-                .key("IMAGE_REPO")
-                .value(&self.image_repo)
-                .build(),
-            RunOptsEnv::builder()
-                .key("IMAGE_NAME")
-                .value(&self.image_name)
-                .build(),
-            RunOptsEnv::builder()
-                .key("IMAGE_TAG")
-                .value(&self.image_tag)
-                .build(),
-            RunOptsEnv::builder()
-                .key("VARIANT")
-                .value(&self.variant)
-                .build(),
-            RunOptsEnv::builder()
-                .key("DNF_CACHE")
-                .value("/cache/dnf")
+            RunOptsVolume::builder()
+                .path_or_vol_name(&self.image_tar)
+                .container_path("/image.tar.gz")
                 .build(),
         ];
 
+        let args = [
+            "IMAGE_TAR=/image.tar.gz".to_string(),
+            // format!("IMAGE_REPO={}", self.image_repo),
+            format!("IMAGE_NAME={}", self.image_name),
+            format!("IMAGE_TAG={}", self.image_tag),
+            format!("VARIANT={}", self.variant),
+            "DNF_CACHE=/cache/dnf".to_string(),
+        ];
+
+        // Currently testing local tarball builds
         let opts = RunOpts::builder()
-            .image("ghcr.io/jasonn3/build-container-installer")
-            .env_vars(&envs)
+            // .image("ghcr.io/jasonn3/build-container-installer")
+            .image("iso-builder")
+            .privileged(true)
+            .remove(true)
+            .args(&args)
             .volumes(&volumes)
             .build();
 
