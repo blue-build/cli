@@ -20,6 +20,9 @@ pub struct RunOpts<'a> {
     pub privileged: bool,
 
     #[builder(default)]
+    pub pull: bool,
+
+    #[builder(default)]
     pub remove: bool,
 }
 

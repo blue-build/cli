@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{bail, Result};
+use blue_build_utils::constants::OCI_ARCHIVE;
 use clap::Args;
 use typed_builder::TypedBuilder;
 
@@ -67,7 +68,7 @@ impl BlueBuildCommand for GenerateIsoCommand {
         ];
 
         let args = [
-            "IMAGE_TAR=/image.tar.gz".to_string(),
+            format!("IMAGE_SRC={OCI_ARCHIVE}/image.tar.gz"),
             // format!("IMAGE_REPO={}", self.image_repo),
             format!("IMAGE_NAME={}", self.image_name),
             format!("IMAGE_TAG={}", self.image_tag),
@@ -77,8 +78,7 @@ impl BlueBuildCommand for GenerateIsoCommand {
 
         // Currently testing local tarball builds
         let opts = RunOpts::builder()
-            // .image("ghcr.io/jasonn3/build-container-installer")
-            .image("iso-builder")
+            .image("ghcr.io/jasonn3/build-container-installer")
             .privileged(true)
             .remove(true)
             .args(&args)

@@ -351,6 +351,10 @@ impl RunDriver for DockerDriver {
             command.arg("--rm");
         }
 
+        if opts.pull {
+            command.arg("--pull=always");
+        }
+
         opts.volumes.iter().for_each(|volume| {
             command.arg("--volume");
             command.arg(format!(
