@@ -1,7 +1,6 @@
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
 use anyhow::{bail, Result};
-use blue_build_utils::constants::OCI_ARCHIVE;
 use clap::Args;
 use typed_builder::TypedBuilder;
 
@@ -15,7 +14,7 @@ use super::{BlueBuildCommand, DriverArgs};
 #[derive(Default, Clone, Debug, TypedBuilder, Args)]
 pub struct GenerateIsoCommand {
     #[arg(long)]
-    image_tar: String,
+    image_tar: Option<String>,
 
     #[arg(short = 'r', long)]
     image_repo: Option<String>,
@@ -28,6 +27,9 @@ pub struct GenerateIsoCommand {
 
     #[arg(short = 'V', long)]
     variant: String,
+
+    #[arg(long)]
+    iso_name: Option<String>,
 
     #[arg(short, long)]
     output_dir: PathBuf,
@@ -46,8 +48,22 @@ impl BlueBuildCommand for GenerateIsoCommand {
             .build()
             .init();
 
-        if !self.output_dir.exists() || !self.output_dir.is_dir() {
-            bail!("The '--output-dir' arg must be a directory that exists");
+        if self.output_dir.exists() && !self.output_dir.is_dir() {
+            bail!("The '--output-dir' arg must be a directory");
+        }
+
+        let iso_name = self
+            .iso_name
+            .as_ref()
+            .map_or_else(|| "build.iso", |name| name.as_str());
+        let iso_path = self.output_dir.join(iso_name);
+
+        if !self.output_dir.exists() {
+            fs::create_dir(&self.output_dir)?;
+        }
+
+        if iso_path.exists() {
+            fs::remove_file(iso_path)?;
         }
 
         let run_driver = Driver::get_run_driver();
@@ -61,18 +77,17 @@ impl BlueBuildCommand for GenerateIsoCommand {
                 .path_or_vol_name("dnf-cache")
                 .container_path("/cache/dnf")
                 .build(),
-            RunOptsVolume::builder()
-                .path_or_vol_name(&self.image_tar)
-                .container_path("/image.tar.gz")
-                .build(),
+            // RunOptsVolume::builder()
+            //     .path_or_vol_name(&self.image_tar)
+            //     .container_path("/image.tar.gz")
+            //     .build(),
         ];
 
         let args = [
-            format!("IMAGE_SRC={OCI_ARCHIVE}/image.tar.gz"),
-            // format!("IMAGE_REPO={}", self.image_repo),
             format!("IMAGE_NAME={}", self.image_name),
             format!("IMAGE_TAG={}", self.image_tag),
             format!("VARIANT={}", self.variant),
+            format!("ISO_NAME={iso_name}"),
             "DNF_CACHE=/cache/dnf".to_string(),
         ];
 

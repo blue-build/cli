@@ -6,6 +6,7 @@ use std::{
 use anyhow::{bail, Result};
 use blue_build_utils::{
     constants::SKOPEO_IMAGE,
+    ctrlc_handler::{add_cid, remove_cid, ContainerId},
     logging::{CommandLogging, Logger},
 };
 use colored::Colorize;
@@ -13,8 +14,11 @@ use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace, warn};
 use semver::Version;
 use serde::Deserialize;
+use tempdir::TempDir;
 
-use crate::{credentials::Credentials, image_metadata::ImageMetadata};
+use crate::{
+    credentials::Credentials, drivers::types::RunDriverType, image_metadata::ImageMetadata,
+};
 
 use super::{
     credentials,
@@ -199,6 +203,9 @@ impl RunDriver for PodmanDriver {
     fn run(&self, opts: &RunOpts) -> std::io::Result<ExitStatus> {
         trace!("PodmanDriver::run({opts:#?})");
 
+        let cid_path = TempDir::new("podman")?;
+        let cid_file = cid_path.path().join("cid");
+
         let mut command = if opts.privileged {
             warn!(
                 "Running 'podman' in privileged mode requires '{}'",
@@ -209,10 +216,16 @@ impl RunDriver for PodmanDriver {
             Command::new("podman")
         };
 
-        command.arg("run");
+        if opts.privileged {
+            command.arg("podman");
+        }
+
+        command
+            .arg("run")
+            .arg(format!("--cidfile={}", cid_file.display()));
 
         if opts.privileged {
-            command.args(["podman", "--privileged"]);
+            command.arg("--privileged");
         }
 
         if opts.remove {
@@ -240,6 +253,14 @@ impl RunDriver for PodmanDriver {
 
         command.args(opts.args.iter());
 
-        command.status_image_ref_progress(opts.image.as_ref(), "Running container")
+        let cid = ContainerId::new(cid_file, RunDriverType::Podman, opts.privileged);
+
+        add_cid(&cid);
+
+        let status = command.status_image_ref_progress(opts.image.as_ref(), "Running container")?;
+
+        remove_cid(&cid);
+
+        Ok(status)
     }
 }

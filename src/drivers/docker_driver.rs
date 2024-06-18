@@ -8,6 +8,7 @@ use std::{
 use anyhow::{anyhow, bail, Result};
 use blue_build_utils::{
     constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
+    ctrlc_handler::{add_cid, remove_cid, ContainerId},
     logging::{CommandLogging, Logger},
 };
 use indicatif::{ProgressBar, ProgressStyle};
@@ -15,8 +16,11 @@ use log::{info, trace, warn};
 use once_cell::sync::Lazy;
 use semver::Version;
 use serde::Deserialize;
+use tempdir::TempDir;
 
-use crate::{credentials::Credentials, image_metadata::ImageMetadata};
+use crate::{
+    credentials::Credentials, drivers::types::RunDriverType, image_metadata::ImageMetadata,
+};
 
 use super::{
     credentials,
@@ -339,9 +343,13 @@ impl RunDriver for DockerDriver {
     fn run(&self, opts: &RunOpts) -> std::io::Result<ExitStatus> {
         trace!("DockerDriver::run({opts:#?})");
 
+        let cid_path = TempDir::new("docker")?;
+        let cid_file = cid_path.path().join("cid");
         let mut command = Command::new("docker");
 
-        command.arg("run");
+        command
+            .arg("run")
+            .arg(format!("--cidfile={}", cid_file.display()));
 
         if opts.privileged {
             command.arg("--privileged");
@@ -372,6 +380,14 @@ impl RunDriver for DockerDriver {
 
         command.args(opts.args.iter());
 
-        command.status_image_ref_progress(opts.image.as_ref(), "Running container")
+        let cid = ContainerId::new(cid_file, RunDriverType::Docker, false);
+
+        add_cid(&cid);
+
+        let status = command.status_image_ref_progress(opts.image.as_ref(), "Running container")?;
+
+        remove_cid(&cid);
+
+        Ok(status)
     }
 }

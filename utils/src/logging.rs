@@ -3,7 +3,7 @@ use std::{
     fs::OpenOptions,
     io::{BufRead, BufReader, Result, Write as IoWrite},
     path::{Path, PathBuf},
-    process::{Command, ExitStatus},
+    process::{Command, ExitStatus, Stdio},
     sync::{Arc, Mutex},
     thread,
     time::Duration,
@@ -199,7 +199,9 @@ impl CommandLogging for Command {
         let log_prefix = Arc::new(log_header(short_name));
         let (reader, writer) = os_pipe::pipe()?;
 
-        self.stdout(writer.try_clone()?).stderr(writer);
+        self.stdout(writer.try_clone()?)
+            .stderr(writer)
+            .stdin(Stdio::piped());
 
         let progress = Logger::multi_progress()
             .add(ProgressBar::new_spinner().with_message(format!("{} {name}", message.as_ref())));
