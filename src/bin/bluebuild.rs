@@ -1,5 +1,5 @@
 use blue_build::commands::{BlueBuildArgs, BlueBuildCommand, CommandArgs};
-use blue_build_utils::logging::Logger;
+use blue_build_utils::{ctrlc_handler, logging::Logger};
 use clap::Parser;
 use log::LevelFilter;
 
@@ -11,6 +11,8 @@ fn main() {
         .filter_modules([("hyper::proto", LevelFilter::Info)])
         .log_out_dir(args.log_out.clone())
         .init();
+
+    ctrlc_handler::init();
 
     log::trace!("Parsed arguments: {args:#?}");
 
