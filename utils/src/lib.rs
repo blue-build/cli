@@ -1,5 +1,6 @@
 pub mod command_output;
 pub mod constants;
+pub mod ctrlc_handler;
 pub mod logging;
 pub mod syntax_highlighting;
 

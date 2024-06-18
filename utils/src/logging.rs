@@ -33,6 +33,8 @@ use once_cell::sync::Lazy;
 use rand::Rng;
 use typed_builder::TypedBuilder;
 
+use crate::ctrlc_handler::{add_pid, remove_pid};
+
 static MULTI_PROGRESS: Lazy<MultiProgress> = Lazy::new(MultiProgress::new);
 static LOG_DIR: Lazy<Mutex<PathBuf>> = Lazy::new(|| Mutex::new(PathBuf::new()));
 
@@ -205,6 +207,9 @@ impl CommandLogging for Command {
 
         let mut child = self.spawn()?;
 
+        let child_pid = child.id();
+        add_pid(child_pid);
+
         // We drop the `Command` to prevent blocking on writer
         // https://docs.rs/os_pipe/latest/os_pipe/#examples
         drop(self);
@@ -243,6 +248,7 @@ impl CommandLogging for Command {
         });
 
         let status = child.wait()?;
+        remove_pid(child_pid);
 
         progress.finish();
         Logger::multi_progress().remove(&progress);
