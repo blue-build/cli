@@ -53,6 +53,12 @@ pub fn init() {
                 });
                 drop(pid_list);
                 process::exit(1);
+            } else {
+                error!(
+                    "Singal recieved {}",
+                    Signal::try_from(sig).unwrap().to_string()
+                );
+                process::exit(2);
             }
         });
     });
