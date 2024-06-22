@@ -1,6 +1,9 @@
 ARG BASE_IMAGE="alpine"
 FROM $BASE_IMAGE
 
-RUN apk update && apk add buildah podman skopeo fuse-overlayfs
+RUN apk update && apk add buildah podman skopeo fuse-overlayfs gpg tini dumb-init
+
+# ENTRYPOINT ["/tini", "-g", "--"]
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
 STOPSIGNAL SIGTERM

@@ -116,7 +116,7 @@ blue-build-cli:
 
 	RUN mkdir -p /bluebuild
 	WORKDIR /bluebuild
-	ENTRYPOINT ["bluebuild"]
+	CMD ["bluebuild"]
 
 	DO --pass-args +SAVE_IMAGE
 
@@ -147,7 +147,7 @@ blue-build-cli-alpine:
 
 	RUN mkdir -p /bluebuild
 	WORKDIR /bluebuild
-	ENTRYPOINT ["bluebuild"]
+	CMD ["bluebuild"]
 
 	DO --pass-args +SAVE_IMAGE --SUFFIX="-alpine"
 
