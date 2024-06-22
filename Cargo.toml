@@ -87,6 +87,7 @@ serde_json.workspace = true
 serde_yaml.workspace = true
 typed-builder.workspace = true
 uuid.workspace = true
+# signal-hook = "0.3.17"
 
 [features]
 default = []
