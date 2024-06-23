@@ -10,18 +10,7 @@ use nix::{
     unistd::Pid,
 };
 use once_cell::sync::Lazy;
-use signal_hook::{
-    consts::{
-        signal::{
-            SIGABRT, SIGALRM, SIGBUS, SIGCONT, SIGHUP, SIGINT, SIGPIPE, SIGPROF, SIGQUIT, SIGSYS,
-            SIGTERM, SIGTRAP, SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGUSR1, SIGUSR2, SIGVTALRM,
-            SIGWINCH, SIGXCPU, SIGXFSZ,
-        },
-        TERM_SIGNALS,
-    },
-    flag,
-    iterator::Signals,
-};
+use signal_hook::{consts::TERM_SIGNALS, flag, iterator::Signals};
 
 use crate::logging::Logger;
 
@@ -49,17 +38,12 @@ where
         flag::register(*sig, Arc::clone(&term_now)).expect("Register signal");
     }
 
-    let signals = [
-        SIGABRT, SIGALRM, SIGBUS, SIGCONT, SIGHUP, SIGINT, SIGPIPE, SIGPROF, SIGQUIT, SIGSYS,
-        SIGTERM, SIGTRAP, SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGUSR1, SIGUSR2, SIGVTALRM, SIGWINCH,
-        SIGXCPU, SIGXFSZ,
-    ];
-    let mut signals = Signals::new(signals).expect("Need signal info");
+    let mut signals = Signals::new(TERM_SIGNALS).expect("Need signal info");
 
     let app_thread = thread::spawn(app_exec);
     for sig in &mut signals {
         if TERM_SIGNALS.contains(&sig) {
-            warn!("Terminating...");
+            warn!("Received termination signal, cleaning up...");
             Logger::multi_progress().clear().unwrap();
             let pid_list = PID_LIST.clone();
             let pid_list = pid_list.lock().expect("Should lock mutex");
@@ -71,6 +55,7 @@ where
                 }
             });
             drop(pid_list);
+
             if let Err(e) = app_thread.join() {
                 error!("{e:?}");
                 process::exit(1);
@@ -78,12 +63,11 @@ where
                 info!("Process ended");
                 process::exit(0);
             }
-        } else {
-            trace!(
-                "Singal recieved {}",
-                Signal::try_from(sig).unwrap().to_string()
-            );
         }
+        trace!(
+            "Singal recieved {}",
+            Signal::try_from(sig).unwrap().to_string()
+        );
     }
 }
 
