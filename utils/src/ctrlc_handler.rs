@@ -4,13 +4,24 @@ use std::{
     thread,
 };
 
-use log::{error, trace, warn};
+use log::{error, info, trace, warn};
 use nix::{
     sys::signal::{kill, Signal},
     unistd::Pid,
 };
 use once_cell::sync::Lazy;
-use signal_hook::{consts::TERM_SIGNALS, flag, iterator::Signals};
+use signal_hook::{
+    consts::{
+        signal::{
+            SIGABRT, SIGALRM, SIGBUS, SIGCONT, SIGHUP, SIGINT, SIGPIPE, SIGPROF, SIGQUIT, SIGSYS,
+            SIGTERM, SIGTRAP, SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGUSR1, SIGUSR2, SIGVTALRM,
+            SIGWINCH, SIGXCPU, SIGXFSZ,
+        },
+        TERM_SIGNALS,
+    },
+    flag,
+    iterator::Signals,
+};
 
 use crate::logging::Logger;
 
@@ -21,7 +32,10 @@ static PID_LIST: Lazy<Arc<Mutex<Vec<i32>>>> = Lazy::new(|| Arc::new(Mutex::new(v
 ///
 /// # Panics
 /// Will panic if initialized more than once.
-pub fn init() {
+pub fn init<F>(app_exec: F)
+where
+    F: FnOnce() + Send + 'static,
+{
     // Make sure double CTRL+C and similar kills
     let term_now = Arc::new(AtomicBool::new(false));
     for sig in TERM_SIGNALS {
@@ -35,33 +49,42 @@ pub fn init() {
         flag::register(*sig, Arc::clone(&term_now)).expect("Register signal");
     }
 
-    let mut signals = Signals::new(TERM_SIGNALS).expect("Need signal info");
+    let signals = [
+        SIGABRT, SIGALRM, SIGBUS, SIGCONT, SIGHUP, SIGINT, SIGPIPE, SIGPROF, SIGQUIT, SIGSYS,
+        SIGTERM, SIGTRAP, SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGUSR1, SIGUSR2, SIGVTALRM, SIGWINCH,
+        SIGXCPU, SIGXFSZ,
+    ];
+    let mut signals = Signals::new(signals).expect("Need signal info");
 
-    thread::spawn(move || {
-        signals.forever().for_each(|sig| {
-            if TERM_SIGNALS.contains(&sig) {
-                warn!("Terminating...");
-                Logger::multi_progress().clear().unwrap();
-                let pid_list = PID_LIST.clone();
-                let pid_list = pid_list.lock().expect("Should lock mutex");
-                pid_list.iter().for_each(|pid| {
-                    if let Err(e) = kill(Pid::from_raw(*pid), Signal::SIGTERM) {
-                        error!("Failed to kill process {pid}: Error {e}");
-                    } else {
-                        trace!("Killed process {pid}");
-                    }
-                });
-                drop(pid_list);
+    let app_thread = thread::spawn(app_exec);
+    for sig in &mut signals {
+        if TERM_SIGNALS.contains(&sig) {
+            warn!("Terminating...");
+            Logger::multi_progress().clear().unwrap();
+            let pid_list = PID_LIST.clone();
+            let pid_list = pid_list.lock().expect("Should lock mutex");
+            pid_list.iter().for_each(|pid| {
+                if let Err(e) = kill(Pid::from_raw(*pid), Signal::SIGTERM) {
+                    error!("Failed to kill process {pid}: Error {e}");
+                } else {
+                    trace!("Killed process {pid}");
+                }
+            });
+            drop(pid_list);
+            if let Err(e) = app_thread.join() {
+                error!("{e:?}");
                 process::exit(1);
             } else {
-                error!(
-                    "Singal recieved {}",
-                    Signal::try_from(sig).unwrap().to_string()
-                );
-                process::exit(2);
+                info!("Process ended");
+                process::exit(0);
             }
-        });
-    });
+        } else {
+            trace!(
+                "Singal recieved {}",
+                Signal::try_from(sig).unwrap().to_string()
+            );
+        }
+    }
 }
 
 /// Add a pid to the list to kill when the program
