@@ -4,13 +4,19 @@ use std::{
     thread,
 };
 
-use log::{error, info, trace, warn};
+use log::{error, trace, warn};
 use nix::{
+    libc::{SIGABRT, SIGCONT, SIGHUP, SIGTSTP},
     sys::signal::{kill, Signal},
     unistd::Pid,
 };
 use once_cell::sync::Lazy;
-use signal_hook::{consts::TERM_SIGNALS, flag, iterator::Signals};
+use signal_hook::{
+    consts::TERM_SIGNALS,
+    flag,
+    iterator::{exfiltrator::WithOrigin, SignalsInfo},
+    low_level,
+};
 
 use crate::logging::Logger;
 
@@ -38,37 +44,56 @@ where
         flag::register(*sig, Arc::clone(&term_now)).expect("Register signal");
     }
 
-    let mut signals = Signals::new(TERM_SIGNALS).expect("Need signal info");
+    let mut signals = vec![SIGABRT, SIGHUP, SIGTSTP, SIGCONT];
+    signals.extend(TERM_SIGNALS);
+    let mut signals = SignalsInfo::<WithOrigin>::new(signals).expect("Need signal info");
 
-    let app_thread = thread::spawn(app_exec);
-    for sig in &mut signals {
-        if TERM_SIGNALS.contains(&sig) {
-            warn!("Received termination signal, cleaning up...");
-            Logger::multi_progress().clear().unwrap();
-            let pid_list = PID_LIST.clone();
-            let pid_list = pid_list.lock().expect("Should lock mutex");
-            pid_list.iter().for_each(|pid| {
-                if let Err(e) = kill(Pid::from_raw(*pid), Signal::SIGTERM) {
-                    error!("Failed to kill process {pid}: Error {e}");
-                } else {
-                    trace!("Killed process {pid}");
-                }
-            });
-            drop(pid_list);
+    thread::spawn(app_exec);
 
-            if let Err(e) = app_thread.join() {
-                error!("{e:?}");
+    let mut has_terminal = true;
+    for info in &mut signals {
+        match info.signal {
+            termsig if TERM_SIGNALS.contains(&termsig) => {
+                warn!("Received termination signal, cleaning up...");
+                trace!("{info:#?}");
+
+                Logger::multi_progress().clear().unwrap();
+
+                send_signal_processes(termsig);
+
                 process::exit(1);
-            } else {
-                info!("Process ended");
-                process::exit(0);
+            }
+            SIGTSTP => {
+                if has_terminal {
+                    send_signal_processes(SIGTSTP);
+                    has_terminal = false;
+                    low_level::emulate_default_handler(SIGTSTP).expect("Should stop");
+                }
+            }
+            SIGCONT => {
+                if !has_terminal {
+                    send_signal_processes(SIGCONT);
+                    has_terminal = true;
+                }
+            }
+            _ => {
+                trace!("Received signal {info:#?}");
             }
         }
-        trace!(
-            "Singal recieved {}",
-            Signal::try_from(sig).unwrap().to_string()
-        );
     }
+}
+
+fn send_signal_processes(sig: i32) {
+    let pid_list = PID_LIST.clone();
+    let pid_list = pid_list.lock().expect("Should lock mutex");
+    pid_list.iter().for_each(|pid| {
+        if let Err(e) = kill(Pid::from_raw(*pid), Signal::try_from(sig).unwrap()) {
+            error!("Failed to kill process {pid}: Error {e}");
+        } else {
+            trace!("Killed process {pid}");
+        }
+    });
+    drop(pid_list);
 }
 
 /// Add a pid to the list to kill when the program

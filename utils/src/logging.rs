@@ -33,7 +33,7 @@ use once_cell::sync::Lazy;
 use rand::Rng;
 use typed_builder::TypedBuilder;
 
-use crate::ctrlc_handler::{add_pid, remove_pid};
+use crate::signal_handler::{add_pid, remove_pid};
 
 static MULTI_PROGRESS: Lazy<MultiProgress> = Lazy::new(MultiProgress::new);
 static LOG_DIR: Lazy<Mutex<PathBuf>> = Lazy::new(|| Mutex::new(PathBuf::new()));

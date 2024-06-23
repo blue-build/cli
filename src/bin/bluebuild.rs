@@ -1,5 +1,5 @@
 use blue_build::commands::{BlueBuildArgs, BlueBuildCommand, CommandArgs};
-use blue_build_utils::{ctrlc_handler, logging::Logger};
+use blue_build_utils::{logging::Logger, signal_handler};
 use clap::Parser;
 use log::LevelFilter;
 
@@ -13,7 +13,7 @@ fn main() {
         .init();
     log::trace!("Parsed arguments: {args:#?}");
 
-    ctrlc_handler::init(|| match args.command {
+    signal_handler::init(|| match args.command {
         #[cfg(feature = "init")]
         CommandArgs::Init(mut command) => command.run(),
 
