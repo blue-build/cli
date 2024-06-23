@@ -8,8 +8,8 @@ use std::{
 use anyhow::{anyhow, bail, Result};
 use blue_build_utils::{
     constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
-    ctrlc_handler::{add_cid, remove_cid, ContainerId},
     logging::{CommandLogging, Logger},
+    signal_handler::{add_cid, remove_cid, ContainerId},
 };
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};

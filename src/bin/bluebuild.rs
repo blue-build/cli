@@ -1,5 +1,5 @@
 use blue_build::commands::{BlueBuildArgs, BlueBuildCommand, CommandArgs};
-use blue_build_utils::{ctrlc_handler, logging::Logger};
+use blue_build_utils::{logging::Logger, signal_handler};
 use clap::Parser;
 use log::LevelFilter;
 
@@ -11,12 +11,9 @@ fn main() {
         .filter_modules([("hyper::proto", LevelFilter::Info)])
         .log_out_dir(args.log_out.clone())
         .init();
-
-    ctrlc_handler::init();
-
     log::trace!("Parsed arguments: {args:#?}");
 
-    match args.command {
+    signal_handler::init(|| match args.command {
         #[cfg(feature = "init")]
         CommandArgs::Init(mut command) => command.run(),
 
@@ -42,5 +39,5 @@ fn main() {
         CommandArgs::BugReport(mut command) => command.run(),
 
         CommandArgs::Completions(mut command) => command.run(),
-    }
+    });
 }

@@ -6,8 +6,8 @@ use std::{
 use anyhow::{bail, Result};
 use blue_build_utils::{
     constants::SKOPEO_IMAGE,
-    ctrlc_handler::{add_cid, remove_cid, ContainerId},
     logging::{CommandLogging, Logger},
+    signal_handler::{add_cid, remove_cid, ContainerId},
 };
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};

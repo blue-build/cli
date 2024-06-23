@@ -2,7 +2,7 @@
 {%- include "stages.j2" %}
 
 # Main image
-FROM {{ recipe.base_image }}:{{ recipe.image_version }} as {{ recipe.name|replace('/', "-") }}
+FROM {{ recipe.base_image }}:{{ recipe.image_version }} AS {{ recipe.name|replace('/', "-") }}
 
 ARG RECIPE={{ recipe_path.display() }}
 ARG IMAGE_REGISTRY={{ registry }}
