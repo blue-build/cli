@@ -87,6 +87,28 @@ where
 
                 send_signal_processes(termsig);
 
+                let cid_list = CID_LIST.clone();
+                let cid_list = cid_list.lock().expect("Should lock mutex");
+                cid_list.iter().for_each(|cid| {
+                    if let Ok(id) = fs::read_to_string(&cid.cid_path) {
+                        let id = id.trim();
+                        debug!("Killing container {id}");
+
+                        if let Err(e) = if cid.requires_sudo {
+                            Command::new("sudo")
+                                .arg(&cid.crt)
+                                .arg("stop")
+                                .arg(id)
+                                .status()
+                        } else {
+                            Command::new(&cid.crt).arg("stop").arg(id).status()
+                        } {
+                            error!("Failed to kill container {id}: Error {e}");
+                        }
+                    }
+                });
+                drop(cid_list);
+
                 process::exit(1);
             }
             SIGTSTP => {
@@ -111,38 +133,19 @@ where
 
 fn send_signal_processes(sig: i32) {
     let pid_list = PID_LIST.clone();
-    let cid_list = CID_LIST.clone();
     let pid_list = pid_list.lock().expect("Should lock mutex");
-    let cid_list = cid_list.lock().expect("Should lock mutex");
 
     pid_list.iter().for_each(|pid| {
-        if let Err(e) = kill(Pid::from_raw(*pid), Signal::try_from(sig).unwrap()) {
+        if let Err(e) = kill(
+            Pid::from_raw(*pid),
+            Signal::try_from(sig).expect("Should be valid signal"),
+        ) {
             error!("Failed to kill process {pid}: Error {e}");
         } else {
             trace!("Killed process {pid}");
         }
     });
     drop(pid_list);
-
-    cid_list.iter().for_each(|cid| {
-        if let Ok(id) = fs::read_to_string(&cid.cid_path) {
-            let id = id.trim();
-            debug!("Killing container {id}");
-
-            if let Err(e) = if cid.requires_sudo {
-                Command::new("sudo")
-                    .arg(&cid.crt)
-                    .arg("kill")
-                    .arg(id)
-                    .status()
-            } else {
-                Command::new(&cid.crt).arg("kill").arg(id).status()
-            } {
-                error!("Failed to kill container {id}: Error {e}");
-            }
-        }
-    });
-    drop(cid_list);
 }
 
 /// Add a pid to the list to kill when the program
