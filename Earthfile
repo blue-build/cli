@@ -92,23 +92,11 @@ build-scripts:
 
 blue-build-cli-prebuild:
 	ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
-	FROM $BASE_IMAGE
+	FROM DOCKERFILE -f Dockerfile.fedora .
 
 	COPY (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
 	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
 	LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
-
-	RUN dnf -y install dnf-plugins-core \
-		&& dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo \
-		&& dnf install --refresh -y \
-			docker-ce \
-			docker-ce-cli \
-			containerd.io \
-			docker-buildx-plugin \
-			docker-compose-plugin \
-			buildah \
-			podman \
-			skopeo
 
 	COPY +cosign/cosign /usr/bin/cosign
 	ARG EARTHLY_GIT_HASH
@@ -128,19 +116,17 @@ blue-build-cli:
 
 	RUN mkdir -p /bluebuild
 	WORKDIR /bluebuild
-	ENTRYPOINT ["bluebuild"]
+	CMD ["bluebuild"]
 
 	DO --pass-args +SAVE_IMAGE
 
 blue-build-cli-alpine-prebuild:
 	ARG BASE_IMAGE="alpine"
-	FROM $BASE_IMAGE
+	FROM DOCKERFILE -f Dockerfile.alpine .
 
 	COPY (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
 	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
 	LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
-
-	RUN apk update && apk add buildah podman skopeo fuse-overlayfs
 
 	COPY +cosign/cosign /usr/bin/cosign
 
@@ -161,7 +147,7 @@ blue-build-cli-alpine:
 
 	RUN mkdir -p /bluebuild
 	WORKDIR /bluebuild
-	ENTRYPOINT ["bluebuild"]
+	CMD ["bluebuild"]
 
 	DO --pass-args +SAVE_IMAGE --SUFFIX="-alpine"
 
