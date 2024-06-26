@@ -83,7 +83,9 @@ where
                 warn!("Received termination signal, cleaning up...");
                 trace!("{info:#?}");
 
-                Logger::multi_progress().clear().unwrap();
+                Logger::multi_progress()
+                    .clear()
+                    .expect("Should clear multi_progress");
 
                 send_signal_processes(termsig);
 
