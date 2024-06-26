@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.11] - 2024-06-03
+
+### Bug Fixes
+
+- Fail if cosign private/public key can't be verified (#190)
+- Make sure username, password, and registry are not empty
+- Move creds empty check to credentials module
+
+### Documentation
+
+- Update README to put preferred method of installation higher up
+
+### Miscellaneous Tasks
+
+- Add action to test external login
+- Add registry for external login test
+- Add external login job and buildah jobs
+
 ## [0.8.10] - 2024-05-29
 
 ### Bug Fixes
@@ -17,6 +35,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Don't use satellites for integration tests
+- Release
 
 ### Refactor
 

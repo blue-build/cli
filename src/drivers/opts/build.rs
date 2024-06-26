@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, path::Path};
 
 use typed_builder::TypedBuilder;
 
@@ -12,6 +12,9 @@ pub struct BuildOpts<'a> {
 
     #[builder(default)]
     pub squash: bool,
+
+    #[builder(setter(into))]
+    pub containerfile: Cow<'a, Path>,
 }
 
 #[derive(Debug, Clone, TypedBuilder)]
@@ -33,6 +36,7 @@ pub struct PushOpts<'a> {
 }
 
 /// Options for building, tagging, and pusing images.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, TypedBuilder)]
 pub struct BuildTagPushOpts<'a> {
     /// The base image name.
@@ -46,6 +50,10 @@ pub struct BuildTagPushOpts<'a> {
     /// NOTE: You cannot have this set with image set.
     #[builder(default, setter(into, strip_option))]
     pub archive_path: Option<Cow<'a, str>>,
+
+    /// The path to the Containerfile to build.
+    #[builder(setter(into))]
+    pub containerfile: Cow<'a, Path>,
 
     /// The list of tags for the image being built.
     #[builder(default, setter(into))]
@@ -65,9 +73,11 @@ pub struct BuildTagPushOpts<'a> {
     #[builder(default = 1)]
     pub retry_count: u8,
 
+    /// The compression type to use when pushing.
     #[builder(default)]
     pub compression: CompressionType,
 
+    /// Run all steps in a single layer.
     #[builder(default)]
     pub squash: bool,
 }

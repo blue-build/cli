@@ -1,22 +1,19 @@
 use blue_build::commands::{BlueBuildArgs, BlueBuildCommand, CommandArgs};
-use blue_build_utils::logging;
+use blue_build_utils::{logging::Logger, signal_handler};
 use clap::Parser;
 use log::LevelFilter;
 
 fn main() {
     let args = BlueBuildArgs::parse();
 
-    let log_level = args.verbosity.log_level_filter();
-
-    env_logger::builder()
+    Logger::new()
         .filter_level(args.verbosity.log_level_filter())
-        .filter_module("hyper::proto", LevelFilter::Info)
-        .format(logging::format_log(log_level))
+        .filter_modules([("hyper::proto", LevelFilter::Info)])
+        .log_out_dir(args.log_out.clone())
         .init();
-
     log::trace!("Parsed arguments: {args:#?}");
 
-    match args.command {
+    signal_handler::init(|| match args.command {
         #[cfg(feature = "init")]
         CommandArgs::Init(mut command) => command.run(),
 
@@ -39,5 +36,5 @@ fn main() {
         CommandArgs::BugReport(mut command) => command.run(),
 
         CommandArgs::Completions(mut command) => command.run(),
-    }
+    });
 }

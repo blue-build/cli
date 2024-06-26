@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION=v0.8.10
+VERSION=v0.8.11
 
 # Container runtime
 function cr() {

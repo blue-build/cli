@@ -1,13 +1,11 @@
-use std::{
-    env,
-    process::{Command, Stdio},
-    sync::Mutex,
-};
+use std::{env, process::Command, sync::Mutex, time::Duration};
 
 use anyhow::{anyhow, bail, Result};
-use blue_build_utils::constants::{
-    BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE,
+use blue_build_utils::{
+    constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
+    logging::{CommandLogging, Logger},
 };
+use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
 use once_cell::sync::Lazy;
 use semver::Version;
@@ -76,12 +74,12 @@ impl DockerDriver {
                 .arg("--name=bluebuild")
                 .output()?;
 
-            if create_out.status.success() {
-                *lock = true;
-            } else {
+            if !create_out.status.success() {
                 bail!("{}", String::from_utf8_lossy(&create_out.stderr));
             }
         }
+
+        *lock = true;
         drop(lock);
         Ok(())
     }
@@ -119,7 +117,7 @@ impl BuildDriver for DockerDriver {
             .arg("-t")
             .arg(opts.image.as_ref())
             .arg("-f")
-            .arg(CONTAINER_FILE)
+            .arg(opts.containerfile.as_ref())
             .arg(".")
             .status()?;
 
@@ -211,12 +209,15 @@ impl BuildDriver for DockerDriver {
             command.arg("--builder=bluebuild");
         }
 
-        trace!("build --progress=plain --pull -f {CONTAINER_FILE}",);
+        trace!(
+            "build --progress=plain --pull -f {}",
+            opts.containerfile.display()
+        );
         command
             .arg("build")
             .arg("--pull")
             .arg("-f")
-            .arg(CONTAINER_FILE);
+            .arg(opts.containerfile.as_ref());
 
         // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
         if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
@@ -228,18 +229,25 @@ impl BuildDriver for DockerDriver {
                 .arg("type=gha");
         }
 
+        let mut final_image = String::new();
+
         match (opts.image.as_ref(), opts.archive_path.as_ref()) {
             (Some(image), None) => {
                 if opts.tags.is_empty() {
+                    final_image.push_str(image);
+
                     trace!("-t {image}");
                     command.arg("-t").arg(image.as_ref());
                 } else {
-                    for tag in opts.tags.as_ref() {
+                    final_image
+                        .push_str(format!("{image}:{}", opts.tags.first().unwrap_or(&"")).as_str());
+
+                    opts.tags.iter().for_each(|tag| {
                         let full_image = format!("{image}:{tag}");
 
                         trace!("-t {full_image}");
                         command.arg("-t").arg(full_image);
-                    }
+                    });
                 }
 
                 if opts.push {
@@ -254,6 +262,8 @@ impl BuildDriver for DockerDriver {
                 }
             }
             (None, Some(archive_path)) => {
+                final_image.push_str(archive_path);
+
                 trace!("--output type=oci,dest={archive_path}");
                 command
                     .arg("--output")
@@ -266,14 +276,17 @@ impl BuildDriver for DockerDriver {
         trace!(".");
         command.arg(".");
 
-        if command.status()?.success() {
+        if command
+            .status_image_ref_progress(&final_image, "Building Image")?
+            .success()
+        {
             if opts.push {
-                info!("Successfully built and pushed image");
+                info!("Successfully built and pushed image {}", final_image);
             } else {
-                info!("Successfully built image");
+                info!("Successfully built image {}", final_image);
             }
         } else {
-            bail!("Failed to build image");
+            bail!("Failed to build image {}", final_image);
         }
         Ok(())
     }
@@ -288,6 +301,13 @@ impl InspectDriver for DockerDriver {
             |tag| format!("docker://{}:{tag}", opts.image),
         );
 
+        let progress = Logger::multi_progress().add(
+            ProgressBar::new_spinner()
+                .with_style(ProgressStyle::default_spinner())
+                .with_message(format!("Inspecting metadata for {url}")),
+        );
+        progress.enable_steady_tick(Duration::from_millis(100));
+
         trace!("docker run {SKOPEO_IMAGE} inspect {url}");
         let output = Command::new("docker")
             .arg("run")
@@ -295,8 +315,10 @@ impl InspectDriver for DockerDriver {
             .arg(SKOPEO_IMAGE)
             .arg("inspect")
             .arg(&url)
-            .stderr(Stdio::inherit())
             .output()?;
+
+        progress.finish();
+        Logger::multi_progress().remove(&progress);
 
         if output.status.success() {
             info!("Successfully inspected image {url}!");

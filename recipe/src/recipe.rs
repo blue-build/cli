@@ -198,7 +198,7 @@ impl<'a> Recipe<'a> {
     /// # Errors
     /// Errors when a yaml file cannot be deserialized,
     /// or a linked module yaml file does not exist.
-    pub fn parse<P: AsRef<Path>>(path: &P) -> Result<Self> {
+    pub fn parse<P: AsRef<Path>>(path: P) -> Result<Self> {
         trace!("Recipe::parse({})", path.as_ref().display());
 
         let file_path = if Path::new(path.as_ref()).is_absolute() {
