@@ -4,9 +4,10 @@ use std::{
     process::Command,
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{bail, Context, Result};
+use blue_build_utils::constants::TEMPLATE_REPO_URL;
 use clap::Args;
-use serde::{Deserialize, Serialize};
+use log::{debug, info, trace};
 use typed_builder::TypedBuilder;
 
 use crate::commands::BlueBuildCommand;
@@ -17,16 +18,7 @@ pub struct NewInitCommon {
     #[builder(default)]
     no_git: bool,
 
-    #[arg(long)]
-    #[builder(default)]
-    github_setup: bool,
-
-    /// GitHub authentication token for setting up the repository
-    #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
-    github_token: Option<String>,
-
-    /// Name of the GitHub repository to create or fork
+    /// Name of the GitHub repository to create
     #[arg(long)]
     #[builder(default, setter(into, strip_option))]
     repo_name: Option<String>,
@@ -35,18 +27,12 @@ pub struct NewInitCommon {
     #[arg(long)]
     #[builder(default, setter(into, strip_option))]
     repo_description: Option<String>,
-
-    /// Whether to use a template repository for creating the new repo
-    #[arg(long)]
-    #[builder(default)]
-    use_template: bool,
 }
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct InitCommand {
-    /// The directory to extract the files into. Defaults to the current directory
-    #[arg()]
-    #[builder(setter(strip_option, into), default)]
+    #[clap(skip)]
+    #[builder(setter(into), default)]
     dir: Option<PathBuf>,
 
     #[clap(flatten)]
@@ -54,120 +40,73 @@ pub struct InitCommand {
     common: NewInitCommon,
 }
 
-#[derive(Serialize, Debug, Clone, TypedBuilder)]
-struct GitHubRepoRequest {
-    #[builder(setter(into))]
-    name: String,
-
-    #[builder(setter(into))]
-    description: String,
-
-    #[builder(default)]
-    private: bool,
-}
-
-#[derive(Deserialize, Debug, Clone, TypedBuilder)]
-struct GitHubRepoResponse {
-    html_url: String,
-    clone_url: String,
-}
-
 impl BlueBuildCommand for InitCommand {
     fn try_run(&mut self) -> Result<()> {
-        let base_dir = self.dir.clone().unwrap_or_else(|| PathBuf::from("./"));
+        let base_dir = self.dir.get_or_insert(PathBuf::from("./"));
 
-        if self.common.github_setup {
-            let token = self
-                .common
-                .github_token
-                .as_ref()
-                .ok_or_else(|| anyhow!("GitHub token is required for setup"))?;
-            let repo_name = self
-                .common
-                .repo_name
-                .as_ref()
-                .ok_or_else(|| anyhow!("Repository name is required for GitHub setup"))?;
+        if base_dir.exists() && fs::read_dir(&base_dir).is_ok_and(|dir| dir.count() != 0) {
+            bail!("Must be in an empty directory!");
+        }
 
-            let api_url = "https://api.github.com/user/repos"; // Direct repo creation URL
+        // Clone the template repository
+        Self::clone_repository(base_dir)?;
 
-            let repo_request = GitHubRepoRequest::builder()
-                .name(repo_name.clone())
-                .description(
-                    self.common
-                        .repo_description
-                        .as_ref()
-                        .map_or_else(|| "This is my personal OS image.", |d| d),
-                )
-                .private(true)
-                .build();
-
-            let response: GitHubRepoResponse = ureq::post(api_url)
-                .set("Authorization", &format!("token {token}"))
-                .set("Accept", "application/vnd.github.v3+json")
-                .send_json(ureq::json!(repo_request))?
-                .into_json()?;
-
-            println!("Repository created: {}", response.html_url);
-
-            clone_repository(&response.clone_url, &base_dir)?;
+        if self.common.no_git {
+            // If no_git is true, remove the .git directory to disable git
+            Self::remove_git_directory(base_dir)?;
         } else {
-            let template_repo_url = "https://github.com/blue-build/template.git"; // Replace with your template repo URL
-
-            // Clone the template repository
-            clone_repository(template_repo_url, &base_dir)?;
-
-            if self.common.no_git {
-                // If no_git is true, remove the .git directory to disable git
-                remove_git_directory(&base_dir)?;
-            } else {
-                // Remove any existing remotes if not using GitHub setup
-                remove_git_remotes(&base_dir)?;
-            }
+            // Remove any existing remotes if not using GitHub setup
+            Self::remove_git_remotes(base_dir)?;
         }
 
         Ok(())
     }
 }
 
-fn clone_repository(repo_url: &str, dir: &Path) -> Result<()> {
-    Command::new("git")
-        .args([
-            "clone",
-            repo_url,
-            dir.to_str()
-                .ok_or_else(|| anyhow::anyhow!("Invalid directory path"))?,
-        ])
-        .status()
-        .context("Failed to execute git clone")?;
+impl InitCommand {
+    fn clone_repository(dir: &Path) -> Result<()> {
+        let dir_display = dir.display();
+        trace!("clone_repository({dir_display})");
 
-    println!("Repository cloned successfully into {}", dir.display());
-    Ok(())
-}
+        trace!("git clone {TEMPLATE_REPO_URL} {dir_display}");
+        let status = Command::new("git")
+            .args(["clone", TEMPLATE_REPO_URL])
+            .arg(dir)
+            .status()
+            .context("Failed to execute git clone")?;
 
-fn remove_git_directory(dir: &Path) -> Result<()> {
-    let git_path = dir.join(".git");
-    if git_path.exists() {
-        fs::remove_dir_all(&git_path).context("Failed to remove .git directory")?;
-        println!(".git directory removed for local only development.");
+        if !status.success() {
+            bail!("Failed to clone template repo");
+        }
+
+        info!("Repository cloned successfully into {dir_display}");
+        Ok(())
     }
-    Ok(())
-}
 
-fn remove_git_remotes(dir: &Path) -> Result<()> {
-    Command::new("git")
-        .args([
-            "-C",
-            dir.to_str()
-                .ok_or_else(|| anyhow::anyhow!("Invalid directory path"))?,
-            "remote",
-            "remove",
-            "origin",
-        ])
-        .status()
-        .context("Failed to remove git remote")?;
+    fn remove_git_directory(dir: &Path) -> Result<()> {
+        let git_path = dir.join(".git");
+        if git_path.exists() {
+            fs::remove_dir_all(&git_path).context("Failed to remove .git directory")?;
+            debug!(".git directory removed for local only development.");
+        }
+        Ok(())
+    }
 
-    println!("Git remote removed.");
-    Ok(())
+    fn remove_git_remotes(dir: &Path) -> Result<()> {
+        let status = Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(["remote", "remove", "origin"])
+            .status()
+            .context("Failed to remove git remote")?;
+
+        if !status.success() {
+            bail!("Couldn't remove origin");
+        }
+
+        debug!("Git remote removed.");
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
