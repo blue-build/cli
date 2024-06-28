@@ -6,6 +6,7 @@
 
 use std::{
     collections::{hash_map::Entry, HashMap},
+    path::PathBuf,
     sync::{Arc, Mutex},
 };
 
@@ -30,6 +31,7 @@ use self::{
 };
 
 mod buildah_driver;
+mod cosign_driver;
 mod docker_driver;
 pub mod opts;
 mod podman_driver;
@@ -225,6 +227,21 @@ pub trait InspectDriver: Sync + Send {
     /// # Errors
     /// Will error if it is unable to get the labels.
     fn get_metadata(&self, opts: &GetMetadataOpts) -> Result<ImageMetadata>;
+}
+
+pub trait SigningDriver: Sync + Send {
+    /// Generate a new private/public key pair.
+    ///
+    /// # Errors
+    /// Will error if a key-pair couldn't be generated.
+    fn generate_key_pair(&self) -> Result<(PathBuf, PathBuf)>;
+
+    /// Checks the signing key files to ensure
+    /// they match.
+    ///
+    /// # Errors
+    /// Will error if the files cannot be verified.
+    fn check_signing_files(&self) -> Result<()>;
 }
 
 #[derive(Debug, TypedBuilder)]

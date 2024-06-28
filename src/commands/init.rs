@@ -1,8 +1,4 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::{env, fs, path::PathBuf, process::Command};
 
 use anyhow::{bail, Context, Result};
 use blue_build_utils::constants::TEMPLATE_REPO_URL;
@@ -42,35 +38,28 @@ pub struct InitCommand {
 
 impl BlueBuildCommand for InitCommand {
     fn try_run(&mut self) -> Result<()> {
-        let base_dir = self.dir.get_or_insert(PathBuf::from("./"));
+        let base_dir = self.dir.get_or_insert(env::current_dir()?);
 
         if base_dir.exists() && fs::read_dir(&base_dir).is_ok_and(|dir| dir.count() != 0) {
             bail!("Must be in an empty directory!");
         }
 
         // Clone the template repository
-        Self::clone_repository(base_dir)?;
-
-        if self.common.no_git {
-            // If no_git is true, remove the .git directory to disable git
-            Self::remove_git_directory(base_dir)?;
-        } else {
-            // Remove any existing remotes if not using GitHub setup
-            Self::remove_git_remotes(base_dir)?;
-        }
+        self.clone_repository()?;
 
         Ok(())
     }
 }
 
 impl InitCommand {
-    fn clone_repository(dir: &Path) -> Result<()> {
+    fn clone_repository(&self) -> Result<()> {
+        let dir = self.dir.as_ref().unwrap();
         let dir_display = dir.display();
         trace!("clone_repository({dir_display})");
 
         trace!("git clone {TEMPLATE_REPO_URL} {dir_display}");
         let status = Command::new("git")
-            .args(["clone", TEMPLATE_REPO_URL])
+            .args(["clone", "-q", TEMPLATE_REPO_URL])
             .arg(dir)
             .status()
             .context("Failed to execute git clone")?;
@@ -79,32 +68,52 @@ impl InitCommand {
             bail!("Failed to clone template repo");
         }
 
-        info!("Repository cloned successfully into {dir_display}");
+        self.remove_git_directory()?;
+        self.remove_codeowners_file()?;
+
+        if !self.common.no_git {
+            self.initialize_git()?;
+        }
+
+        info!("Created new BlueBuild project in {dir_display}");
         Ok(())
     }
 
-    fn remove_git_directory(dir: &Path) -> Result<()> {
+    fn remove_git_directory(&self) -> Result<()> {
+        let dir = self.dir.as_ref().unwrap();
         let git_path = dir.join(".git");
+
         if git_path.exists() {
             fs::remove_dir_all(&git_path).context("Failed to remove .git directory")?;
-            debug!(".git directory removed for local only development.");
+            debug!(".git directory removed.");
         }
         Ok(())
     }
 
-    fn remove_git_remotes(dir: &Path) -> Result<()> {
-        let status = Command::new("git")
-            .arg("-C")
-            .arg(dir)
-            .args(["remote", "remove", "origin"])
-            .status()
-            .context("Failed to remove git remote")?;
+    fn remove_codeowners_file(&self) -> Result<()> {
+        let dir = self.dir.as_ref().unwrap();
+        let codeowners_path = dir.join(".github/CODEOWNERS");
 
-        if !status.success() {
-            bail!("Couldn't remove origin");
+        if codeowners_path.exists() {
+            fs::remove_file(codeowners_path).context("Failed to remove CODEOWNERS file")?;
+            debug!("CODEOWNERS file removed.");
         }
 
-        debug!("Git remote removed.");
+        Ok(())
+    }
+
+    fn initialize_git(&self) -> Result<()> {
+        let dir = self.dir.as_ref().unwrap();
+        let status = Command::new("git")
+            .args(["init", "-q", "-b=main"])
+            .arg(dir)
+            .status()
+            .context("Failed to execute git init")?;
+
+        if !status.success() {
+            bail!("Error initializing git");
+        }
+
         Ok(())
     }
 }

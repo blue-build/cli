@@ -78,6 +78,19 @@ pub struct GithubIssueTemplate<'a> {
     terminal_version: Cow<'a, str>,
 }
 
+#[derive(Debug, Clone, Template, TypedBuilder)]
+#[template(path = "init/README.j2", escape = "md")]
+pub struct InitReadmeTemplate<'a> {
+    #[builder(setter(into))]
+    username: Cow<'a, str>,
+
+    #[builder(setter(into))]
+    registry: Cow<'a, str>,
+
+    #[builder(setter(into))]
+    image_name: Cow<'a, str>,
+}
+
 fn has_cosign_file() -> bool {
     trace!("has_cosign_file()");
     std::env::current_dir()
