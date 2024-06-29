@@ -1,6 +1,7 @@
 use std::{env, fs, path::PathBuf, process::Command};
 
 use anyhow::{bail, Context, Result};
+use blue_build_template::{InitReadmeTemplate, Template};
 use blue_build_utils::constants::TEMPLATE_REPO_URL;
 use clap::Args;
 use log::{debug, info, trace};
@@ -16,13 +17,17 @@ pub struct NewInitCommon {
 
     /// Name of the GitHub repository to create
     #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(default, setter(into))]
     repo_name: Option<String>,
 
     /// Optional description for the GitHub repository
     #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(default, setter(into))]
     repo_description: Option<String>,
+
+    #[arg(long)]
+    #[builder(default, setter(into))]
+    image_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
@@ -70,6 +75,7 @@ impl InitCommand {
 
         self.remove_git_directory()?;
         self.remove_codeowners_file()?;
+        self.template_readme()?;
 
         if !self.common.no_git {
             self.initialize_git()?;
@@ -113,6 +119,30 @@ impl InitCommand {
         if !status.success() {
             bail!("Error initializing git");
         }
+
+        Ok(())
+    }
+
+    fn template_readme(&self) -> Result<()> {
+        let readme = InitReadmeTemplate::builder()
+            .repo_name(
+                self.common
+                    .repo_name
+                    .as_ref()
+                    .map_or("image_repo", String::as_str),
+            )
+            .image_name(
+                self.common
+                    .image_name
+                    .as_ref()
+                    .map_or("template", String::as_str),
+            )
+            .registry("registry.example.io")
+            .build();
+
+        let readme = readme.render()?;
+
+        fs::write(self.dir.as_ref().unwrap().join("README.md"), readme)?;
 
         Ok(())
     }

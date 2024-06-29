@@ -82,7 +82,7 @@ pub struct GithubIssueTemplate<'a> {
 #[template(path = "init/README.j2", escape = "md")]
 pub struct InitReadmeTemplate<'a> {
     #[builder(setter(into))]
-    username: Cow<'a, str>,
+    repo_name: Cow<'a, str>,
 
     #[builder(setter(into))]
     registry: Cow<'a, str>,
