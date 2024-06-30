@@ -3,7 +3,6 @@ PROJECT blue-build/cli
 
 all:
 	BUILD +test-image
-	BUILD +test-secureblue
 	BUILD +test-legacy-image
 	BUILD +build
 	BUILD +rebase
@@ -24,20 +23,6 @@ test-legacy-image:
 
 	DO +RUN_TESTS
 
-test-secureblue:
-	FROM +build-template --src=template-secureblue
-	WORKDIR /tmp/test
-	COPY ./test-scripts/secureblue/*.sh ./
-
-	DO +RUN_TESTS
-
-test-secureblue-ucore:
-	FROM +build-template --src=template-secureblue-ucore
-	WORKDIR /tmp/test
-	COPY ./test-scripts/secureblue/*.sh ./
-
-	DO +RUN_TESTS
-
 build-template:
 	ARG --required src
 	FROM DOCKERFILE \
@@ -53,18 +38,6 @@ template-containerfile:
 template-legacy-containerfile:
 	FROM +legacy-base
 	RUN bluebuild -vv template config/recipe.yml | tee Containerfile
-
-	SAVE ARTIFACT /test
-
-template-secureblue:
-	FROM +secureblue-base
-	RUN bluebuild -vv generate -o Containerfile recipes/general/recipe-silverblue-nvidia.yml
-
-	SAVE ARTIFACT /test
-
-template-secureblue-ucore:
-	FROM +secureblue-base
-	RUN bluebuild -vv generate -o Containerfile recipes/server/recipe-server-main.yml
 
 	SAVE ARTIFACT /test
 
@@ -89,14 +62,6 @@ switch:
 
 	RUN mkdir -p /etc/bluebuild && touch $BB_TEST_LOCAL_IMAGE
 	RUN bluebuild -vv switch recipes/recipe.yml
-
-secureblue-base:
-	FROM +test-base
-
-	RUN rm -fr /test
-	GIT CLONE https://github.com/secureblue/secureblue.git /test
-
-	DO +GEN_KEYPAIR
 
 legacy-base:
 	FROM ../+blue-build-cli-alpine
