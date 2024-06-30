@@ -79,6 +79,7 @@ impl InitCommand {
 
         if !self.common.no_git {
             self.initialize_git()?;
+            self.initial_commit()?;
         }
 
         info!("Created new BlueBuild project in {dir_display}");
@@ -86,6 +87,8 @@ impl InitCommand {
     }
 
     fn remove_git_directory(&self) -> Result<()> {
+        trace!("remove_git_directory()");
+
         let dir = self.dir.as_ref().unwrap();
         let git_path = dir.join(".git");
 
@@ -97,6 +100,8 @@ impl InitCommand {
     }
 
     fn remove_codeowners_file(&self) -> Result<()> {
+        trace!("remove_codeowners_file()");
+
         let dir = self.dir.as_ref().unwrap();
         let codeowners_path = dir.join(".github/CODEOWNERS");
 
@@ -109,7 +114,11 @@ impl InitCommand {
     }
 
     fn initialize_git(&self) -> Result<()> {
+        trace!("initialize_git()");
+
         let dir = self.dir.as_ref().unwrap();
+
+        trace!("git init -q -b=main {}", dir.display());
         let status = Command::new("git")
             .args(["init", "-q", "-b=main"])
             .arg(dir)
@@ -120,10 +129,35 @@ impl InitCommand {
             bail!("Error initializing git");
         }
 
+        debug!("Initialized git in {}", dir.display());
+
+        Ok(())
+    }
+
+    fn initial_commit(&self) -> Result<()> {
+        trace!("initial_commit()");
+
+        let dir = self.dir.as_ref().unwrap();
+
+        let status = Command::new("git")
+            .current_dir(dir)
+            .args(["commit", "-a", "-m", "chore: Initial Commit"])
+            .status()?;
+
+        if !status.success() {
+            bail!("Failed to commit initial changes");
+        }
+
+        debug!("Created initial commit");
+
         Ok(())
     }
 
     fn template_readme(&self) -> Result<()> {
+        trace!("template_readme()");
+
+        let readme_path = self.dir.as_ref().unwrap().join("README.md");
+
         let readme = InitReadmeTemplate::builder()
             .repo_name(
                 self.common
@@ -140,9 +174,11 @@ impl InitCommand {
             .registry("registry.example.io")
             .build();
 
+        debug!("Templating README");
         let readme = readme.render()?;
 
-        fs::write(self.dir.as_ref().unwrap().join("README.md"), readme)?;
+        debug!("Writing README to {}", readme_path.display());
+        fs::write(readme_path, readme)?;
 
         Ok(())
     }
