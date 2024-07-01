@@ -104,7 +104,7 @@ impl DriverVersion for DockerDriver {
 }
 
 impl BuildDriver for DockerDriver {
-    fn build(&self, opts: &BuildOpts) -> Result<()> {
+    fn build(opts: &BuildOpts) -> Result<()> {
         trace!("DockerDriver::build({opts:#?})");
 
         if opts.squash {
@@ -129,7 +129,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn tag(&self, opts: &TagOpts) -> Result<()> {
+    fn tag(opts: &TagOpts) -> Result<()> {
         trace!("DockerDriver::tag({opts:#?})");
 
         trace!("docker tag {} {}", opts.src_image, opts.dest_image);
@@ -147,7 +147,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn push(&self, opts: &PushOpts) -> Result<()> {
+    fn push(opts: &PushOpts) -> Result<()> {
         trace!("DockerDriver::push({opts:#?})");
 
         trace!("docker push {}", opts.image);
@@ -164,7 +164,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn login(&self) -> Result<()> {
+    fn login() -> Result<()> {
         trace!("DockerDriver::login()");
 
         if let Some(Credentials {
@@ -191,7 +191,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn build_tag_push(&self, opts: &BuildTagPushOpts) -> Result<()> {
+    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<()> {
         trace!("DockerDriver::build_tag_push({opts:#?})");
 
         if opts.squash {
@@ -293,7 +293,7 @@ impl BuildDriver for DockerDriver {
 }
 
 impl InspectDriver for DockerDriver {
-    fn get_metadata(&self, opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+    fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
         trace!("DockerDriver::get_labels({opts:#?})");
 
         let url = opts.tag.as_ref().map_or_else(

@@ -87,7 +87,6 @@ serde_json.workspace = true
 serde_yaml.workspace = true
 typed-builder.workspace = true
 uuid.workspace = true
-ureq = { version = "2.9.6", features = ["json"] }
 
 [features]
 # Top level features

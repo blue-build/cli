@@ -6,8 +6,9 @@
 
 use std::{
     collections::{hash_map::Entry, HashMap},
+    fmt::Debug,
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::Mutex,
 };
 
 use anyhow::{anyhow, bail, Result};
@@ -19,15 +20,16 @@ use semver::{Version, VersionReq};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
-use crate::{credentials, image_metadata::ImageMetadata};
+use crate::{credentials, drivers::types::DetermineDriver, image_metadata::ImageMetadata};
 
 use self::{
     buildah_driver::BuildahDriver,
+    cosign_driver::CosignDriver,
     docker_driver::DockerDriver,
     opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, TagOpts},
     podman_driver::PodmanDriver,
     skopeo_driver::SkopeoDriver,
-    types::{BuildDriverType, InspectDriverType},
+    types::{BuildDriverType, InspectDriverType, SigningDriverType},
 };
 
 mod buildah_driver;
@@ -42,56 +44,8 @@ static INIT: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 static SELECTED_BUILD_DRIVER: Lazy<Mutex<Option<BuildDriverType>>> = Lazy::new(|| Mutex::new(None));
 static SELECTED_INSPECT_DRIVER: Lazy<Mutex<Option<InspectDriverType>>> =
     Lazy::new(|| Mutex::new(None));
-
-/// Stores the build driver.
-///
-/// This will, on load, find the best way to build in the
-/// current environment. Once that strategy is determined,
-/// it will be available for any part of the program to call
-/// on to perform builds.
-///
-/// # Panics
-///
-/// This will cause a panic if a build strategy could
-/// not be determined.
-static BUILD_DRIVER: Lazy<Arc<dyn BuildDriver>> = Lazy::new(|| {
-    let driver = SELECTED_BUILD_DRIVER.lock().unwrap();
-    driver.map_or_else(
-        || panic!("Driver needs to be initialized"),
-        |driver| -> Arc<dyn BuildDriver> {
-            match driver {
-                BuildDriverType::Buildah => Arc::new(BuildahDriver),
-                BuildDriverType::Podman => Arc::new(PodmanDriver),
-                BuildDriverType::Docker => Arc::new(DockerDriver),
-            }
-        },
-    )
-});
-
-/// Stores the inspection driver.
-///
-/// This will, on load, find the best way to inspect images in the
-/// current environment. Once that strategy is determined,
-/// it will be available for any part of the program to call
-/// on to perform inspections.
-///
-/// # Panics
-///
-/// This will cause a panic if a build strategy could
-/// not be determined.
-static INSPECT_DRIVER: Lazy<Arc<dyn InspectDriver>> = Lazy::new(|| {
-    let driver = SELECTED_INSPECT_DRIVER.lock().unwrap();
-    driver.map_or_else(
-        || panic!("Driver needs to be initialized"),
-        |driver| -> Arc<dyn InspectDriver> {
-            match driver {
-                InspectDriverType::Skopeo => Arc::new(SkopeoDriver),
-                InspectDriverType::Podman => Arc::new(PodmanDriver),
-                InspectDriverType::Docker => Arc::new(DockerDriver),
-            }
-        },
-    )
-});
+static SELECTED_SIGNING_DRIVER: Lazy<Mutex<Option<SigningDriverType>>> =
+    Lazy::new(|| Mutex::new(None));
 
 /// UUID used to mark the current builds
 static BUILD_ID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
@@ -121,36 +75,36 @@ pub trait DriverVersion {
 
 /// Allows agnostic building, tagging
 /// pushing, and login.
-pub trait BuildDriver: Sync + Send {
+pub trait BuildDriver {
     /// Runs the build logic for the strategy.
     ///
     /// # Errors
     /// Will error if the build fails.
-    fn build(&self, opts: &BuildOpts) -> Result<()>;
+    fn build(opts: &BuildOpts) -> Result<()>;
 
     /// Runs the tag logic for the strategy.
     ///
     /// # Errors
     /// Will error if the tagging fails.
-    fn tag(&self, opts: &TagOpts) -> Result<()>;
+    fn tag(opts: &TagOpts) -> Result<()>;
 
     /// Runs the push logic for the strategy
     ///
     /// # Errors
     /// Will error if the push fails.
-    fn push(&self, opts: &PushOpts) -> Result<()>;
+    fn push(opts: &PushOpts) -> Result<()>;
 
     /// Runs the login logic for the strategy.
     ///
     /// # Errors
     /// Will error if login fails.
-    fn login(&self) -> Result<()>;
+    fn login() -> Result<()>;
 
     /// Runs the logic for building, tagging, and pushing an image.
     ///
     /// # Errors
     /// Will error if building, tagging, or pusing fails.
-    fn build_tag_push(&self, opts: &BuildTagPushOpts) -> Result<()> {
+    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<()> {
         trace!("BuildDriver::build_tag_push({opts:#?})");
 
         let full_image = match (opts.archive_path.as_ref(), opts.image.as_ref()) {
@@ -172,7 +126,7 @@ pub trait BuildDriver: Sync + Send {
             .build();
 
         info!("Building image {full_image}");
-        self.build(&build_opts)?;
+        Self::build(&build_opts)?;
 
         if !opts.tags.is_empty() && opts.archive_path.is_none() {
             let image = opts
@@ -189,7 +143,7 @@ pub trait BuildDriver: Sync + Send {
                     .dest_image(format!("{image}:{tag}"))
                     .build();
 
-                self.tag(&tag_opts)?;
+                Self::tag(&tag_opts)?;
 
                 if opts.push {
                     let retry_count = if opts.no_retry_push {
@@ -210,7 +164,7 @@ pub trait BuildDriver: Sync + Send {
                             .compression_type(opts.compression)
                             .build();
 
-                        self.push(&push_opts)
+                        Self::push(&push_opts)
                     })?;
                 }
             }
@@ -221,27 +175,36 @@ pub trait BuildDriver: Sync + Send {
 }
 
 /// Allows agnostic inspection of images.
-pub trait InspectDriver: Sync + Send {
+pub trait InspectDriver {
     /// Gets the metadata on an image tag.
     ///
     /// # Errors
     /// Will error if it is unable to get the labels.
-    fn get_metadata(&self, opts: &GetMetadataOpts) -> Result<ImageMetadata>;
+    fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata>;
 }
 
-pub trait SigningDriver: Sync + Send {
+pub trait SigningDriver {
     /// Generate a new private/public key pair.
     ///
     /// # Errors
     /// Will error if a key-pair couldn't be generated.
-    fn generate_key_pair(&self) -> Result<(PathBuf, PathBuf)>;
+    fn generate_key_pair() -> Result<(PathBuf, PathBuf)>;
 
     /// Checks the signing key files to ensure
     /// they match.
     ///
     /// # Errors
     /// Will error if the files cannot be verified.
-    fn check_signing_files(&self) -> Result<()>;
+    fn check_signing_files() -> Result<()>;
+
+    /// Sign an image given the image name and tag.
+    ///
+    /// # Errors
+    /// Will error if the image fails to be signed.
+    fn sign_images<S, T>(image_name: S, tag: Option<T>) -> Result<()>
+    where
+        S: AsRef<str>,
+        T: AsRef<str> + Debug;
 }
 
 #[derive(Debug, TypedBuilder)]
@@ -260,6 +223,9 @@ pub struct Driver<'a> {
 
     #[builder(default)]
     inspect_driver: Option<InspectDriverType>,
+
+    #[builder(default)]
+    signing_driver: Option<SigningDriverType>,
 }
 
 impl Driver<'_> {
@@ -271,29 +237,29 @@ impl Driver<'_> {
     ///
     /// # Errors
     /// Will error if it is unable to set the user credentials.
-    pub fn init(self) -> Result<()> {
+    ///
+    /// # Panics
+    /// Will panic if mutexes couldn't be locked.
+    pub fn init(mut self) -> Result<()> {
         trace!("Driver::init()");
-        let init = INIT.lock().map_err(|e| anyhow!("{e}"))?;
+        let init = INIT.lock().expect("Should lock");
         credentials::set_user_creds(self.username, self.password, self.registry)?;
 
-        let mut build_driver = SELECTED_BUILD_DRIVER.lock().map_err(|e| anyhow!("{e}"))?;
-        let mut inspect_driver = SELECTED_INSPECT_DRIVER.lock().map_err(|e| anyhow!("{e}"))?;
+        let mut build_driver = SELECTED_BUILD_DRIVER.lock().expect("Should lock");
+        let mut inspect_driver = SELECTED_INSPECT_DRIVER.lock().expect("Should lock");
+        let mut signing_driver = SELECTED_SIGNING_DRIVER.lock().expect("Should lock");
 
-        *build_driver = Some(match self.build_driver {
-            None => Self::determine_build_driver()?,
-            Some(driver) => driver,
-        });
-        trace!("Build driver set to {:?}", *build_driver);
-        drop(build_driver);
-        let _ = Self::get_build_driver();
+        *signing_driver = Some(self.signing_driver.determine_driver());
+        trace!("Inspect driver set to {:?}", *signing_driver);
+        drop(signing_driver);
 
-        *inspect_driver = Some(match self.inspect_driver {
-            None => Self::determine_inspect_driver()?,
-            Some(driver) => driver,
-        });
+        *inspect_driver = Some(self.inspect_driver.determine_driver());
         trace!("Inspect driver set to {:?}", *inspect_driver);
         drop(inspect_driver);
-        let _ = Self::get_inspection_driver();
+
+        *build_driver = Some(self.build_driver.determine_driver());
+        trace!("Build driver set to {:?}", *build_driver);
+        drop(build_driver);
 
         drop(init);
 
@@ -305,18 +271,6 @@ impl Driver<'_> {
     pub fn get_build_id() -> Uuid {
         trace!("Driver::get_build_id()");
         *BUILD_ID
-    }
-
-    /// Gets the current run's build strategy
-    pub fn get_build_driver() -> Arc<dyn BuildDriver> {
-        trace!("Driver::get_build_driver()");
-        BUILD_DRIVER.clone()
-    }
-
-    /// Gets the current run's inspectioin strategy
-    pub fn get_inspection_driver() -> Arc<dyn InspectDriver> {
-        trace!("Driver::get_inspection_driver()");
-        INSPECT_DRIVER.clone()
     }
 
     /// Retrieve the `os_version` for an image.
@@ -344,7 +298,7 @@ impl Driver<'_> {
                     .image(recipe.base_image.as_ref())
                     .tag(recipe.image_version.as_ref())
                     .build();
-                let inspection = INSPECT_DRIVER.get_metadata(&inspect_opts)?;
+                let inspection = Self::get_metadata(&inspect_opts)?;
 
                 let os_version = inspection.get_version().ok_or_else(|| {
                     anyhow!(
@@ -369,44 +323,100 @@ impl Driver<'_> {
         Ok(os_version)
     }
 
-    fn determine_inspect_driver() -> Result<InspectDriverType> {
-        trace!("Driver::determine_inspect_driver()");
-
-        Ok(match (
-            blue_build_utils::check_command_exists("skopeo"),
-            blue_build_utils::check_command_exists("docker"),
-            blue_build_utils::check_command_exists("podman"),
-        ) {
-            (Ok(_skopeo), _, _) => InspectDriverType::Skopeo,
-            (_, Ok(_docker), _) => InspectDriverType::Docker,
-            (_, _, Ok(_podman)) => InspectDriverType::Podman,
-            _ => bail!("Could not determine inspection strategy. You need either skopeo, docker, or podman"),
-        })
+    fn get_build_driver() -> BuildDriverType {
+        let lock = SELECTED_BUILD_DRIVER.lock().expect("Should lock");
+        lock.expect("Driver should have initialized build driver")
     }
 
-    fn determine_build_driver() -> Result<BuildDriverType> {
-        trace!("Driver::determine_build_driver()");
+    fn get_inspect_driver() -> InspectDriverType {
+        let lock = SELECTED_INSPECT_DRIVER.lock().expect("Should lock");
+        lock.expect("Driver should have initialized inspect driver")
+    }
 
-        Ok(match (
-            blue_build_utils::check_command_exists("docker"),
-            blue_build_utils::check_command_exists("podman"),
-            blue_build_utils::check_command_exists("buildah"),
-        ) {
-            (Ok(_docker), _, _) if DockerDriver::is_supported_version() => {
-                BuildDriverType::Docker
-            }
-            (_, Ok(_podman), _) if PodmanDriver::is_supported_version() => {
-                BuildDriverType::Podman
-            }
-            (_, _, Ok(_buildah)) if BuildahDriver::is_supported_version() => {
-                BuildDriverType::Buildah
-            }
-            _ => bail!(
-                "Could not determine strategy, need either docker version {}, podman version {}, or buildah version {} to continue",
-                DockerDriver::VERSION_REQ,
-                PodmanDriver::VERSION_REQ,
-                BuildahDriver::VERSION_REQ,
-            ),
-        })
+    fn get_signing_driver() -> SigningDriverType {
+        let lock = SELECTED_SIGNING_DRIVER.lock().expect("Should lock");
+        lock.expect("Driver should have initialized signing driver")
+    }
+}
+
+impl BuildDriver for Driver<'_> {
+    fn build(opts: &BuildOpts) -> Result<()> {
+        match Self::get_build_driver() {
+            BuildDriverType::Buildah => BuildahDriver::build(opts),
+            BuildDriverType::Podman => PodmanDriver::build(opts),
+            BuildDriverType::Docker => DockerDriver::build(opts),
+        }
+    }
+
+    fn tag(opts: &TagOpts) -> Result<()> {
+        match Self::get_build_driver() {
+            BuildDriverType::Buildah => BuildahDriver::tag(opts),
+            BuildDriverType::Podman => PodmanDriver::tag(opts),
+            BuildDriverType::Docker => DockerDriver::tag(opts),
+        }
+    }
+
+    fn push(opts: &PushOpts) -> Result<()> {
+        match Self::get_build_driver() {
+            BuildDriverType::Buildah => BuildahDriver::push(opts),
+            BuildDriverType::Podman => PodmanDriver::push(opts),
+            BuildDriverType::Docker => DockerDriver::push(opts),
+        }
+    }
+
+    fn login() -> Result<()> {
+        match Self::get_build_driver() {
+            BuildDriverType::Buildah => BuildahDriver::login(),
+            BuildDriverType::Podman => PodmanDriver::login(),
+            BuildDriverType::Docker => DockerDriver::login(),
+        }
+    }
+
+    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<()> {
+        match Self::get_build_driver() {
+            BuildDriverType::Buildah => BuildahDriver::build_tag_push(opts),
+            BuildDriverType::Podman => PodmanDriver::build_tag_push(opts),
+            BuildDriverType::Docker => DockerDriver::build_tag_push(opts),
+        }
+    }
+}
+
+impl SigningDriver for Driver<'_> {
+    fn generate_key_pair() -> Result<(PathBuf, PathBuf)> {
+        match Self::get_signing_driver() {
+            SigningDriverType::Cosign => CosignDriver::generate_key_pair(),
+            SigningDriverType::Podman => todo!(),
+            SigningDriverType::Docker => todo!(),
+        }
+    }
+
+    fn check_signing_files() -> Result<()> {
+        match Self::get_signing_driver() {
+            SigningDriverType::Cosign => CosignDriver::check_signing_files(),
+            SigningDriverType::Podman => todo!(),
+            SigningDriverType::Docker => todo!(),
+        }
+    }
+
+    fn sign_images<S, T>(image_name: S, tag: Option<T>) -> Result<()>
+    where
+        S: AsRef<str>,
+        T: AsRef<str> + Debug,
+    {
+        match Self::get_signing_driver() {
+            SigningDriverType::Cosign => CosignDriver::sign_images(image_name, tag),
+            SigningDriverType::Podman => todo!(),
+            SigningDriverType::Docker => todo!(),
+        }
+    }
+}
+
+impl InspectDriver for Driver<'_> {
+    fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+        match Self::get_inspect_driver() {
+            InspectDriverType::Skopeo => SkopeoDriver::get_metadata(opts),
+            InspectDriverType::Podman => PodmanDriver::get_metadata(opts),
+            InspectDriverType::Docker => DockerDriver::get_metadata(opts),
+        }
     }
 }

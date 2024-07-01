@@ -16,7 +16,7 @@ use super::{opts::GetMetadataOpts, InspectDriver};
 pub struct SkopeoDriver;
 
 impl InspectDriver for SkopeoDriver {
-    fn get_metadata(&self, opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+    fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
         trace!("SkopeoDriver::get_metadata({opts:#?})");
 
         let url = opts.tag.as_ref().map_or_else(

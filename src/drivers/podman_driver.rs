@@ -57,7 +57,7 @@ impl DriverVersion for PodmanDriver {
 }
 
 impl BuildDriver for PodmanDriver {
-    fn build(&self, opts: &BuildOpts) -> Result<()> {
+    fn build(opts: &BuildOpts) -> Result<()> {
         trace!("PodmanDriver::build({opts:#?})");
 
         trace!(
@@ -86,7 +86,7 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
-    fn tag(&self, opts: &TagOpts) -> Result<()> {
+    fn tag(opts: &TagOpts) -> Result<()> {
         trace!("PodmanDriver::tag({opts:#?})");
 
         trace!("podman tag {} {}", opts.src_image, opts.dest_image);
@@ -104,7 +104,7 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
-    fn push(&self, opts: &PushOpts) -> Result<()> {
+    fn push(opts: &PushOpts) -> Result<()> {
         trace!("PodmanDriver::push({opts:#?})");
 
         trace!("podman push {}", opts.image);
@@ -126,7 +126,7 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
-    fn login(&self) -> Result<()> {
+    fn login() -> Result<()> {
         trace!("PodmanDriver::login()");
 
         if let Some(Credentials {
@@ -155,7 +155,7 @@ impl BuildDriver for PodmanDriver {
 }
 
 impl InspectDriver for PodmanDriver {
-    fn get_metadata(&self, opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+    fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
         trace!("PodmanDriver::get_metadata({opts:#?})");
 
         let url = opts.tag.as_ref().map_or_else(
