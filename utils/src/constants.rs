@@ -71,6 +71,7 @@ pub const OCI_ARCHIVE: &str = "oci-archive";
 pub const OSTREE_IMAGE_SIGNED: &str = "ostree-image-signed";
 pub const OSTREE_UNVERIFIED_IMAGE: &str = "ostree-unverified-image";
 pub const SKOPEO_IMAGE: &str = "quay.io/skopeo/stable:latest";
+pub const TEMPLATE_REPO_URL: &str = "https://github.com/blue-build/template.git";
 pub const UNKNOWN_SHELL: &str = "<unknown shell>";
 pub const UNKNOWN_VERSION: &str = "<unknown version>";
 pub const UNKNOWN_TERMINAL: &str = "<unknown terminal>";
