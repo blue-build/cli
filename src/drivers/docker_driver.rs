@@ -1,22 +1,31 @@
-use std::{env, process::Command, sync::Mutex, time::Duration};
+use std::{
+    env,
+    process::{Command, ExitStatus},
+    sync::Mutex,
+    time::Duration,
+};
 
 use anyhow::{anyhow, bail, Result};
 use blue_build_utils::{
     constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
     logging::{CommandLogging, Logger},
+    signal_handler::{add_cid, remove_cid, ContainerId},
 };
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
 use once_cell::sync::Lazy;
 use semver::Version;
 use serde::Deserialize;
+use tempdir::TempDir;
 
-use crate::{credentials::Credentials, image_metadata::ImageMetadata};
+use crate::{
+    credentials::Credentials, drivers::types::RunDriverType, image_metadata::ImageMetadata,
+};
 
 use super::{
     credentials,
-    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, TagOpts},
-    BuildDriver, DriverVersion, InspectDriver,
+    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
+    BuildDriver, DriverVersion, InspectDriver, RunDriver,
 };
 
 #[derive(Debug, Deserialize)]
@@ -327,5 +336,58 @@ impl InspectDriver for DockerDriver {
         }
 
         Ok(serde_json::from_slice(&output.stdout)?)
+    }
+}
+
+impl RunDriver for DockerDriver {
+    fn run(&self, opts: &RunOpts) -> std::io::Result<ExitStatus> {
+        trace!("DockerDriver::run({opts:#?})");
+
+        let cid_path = TempDir::new("docker")?;
+        let cid_file = cid_path.path().join("cid");
+        let mut command = Command::new("docker");
+
+        command
+            .arg("run")
+            .arg(format!("--cidfile={}", cid_file.display()));
+
+        if opts.privileged {
+            command.arg("--privileged");
+        }
+
+        if opts.remove {
+            command.arg("--rm");
+        }
+
+        if opts.pull {
+            command.arg("--pull=always");
+        }
+
+        opts.volumes.iter().for_each(|volume| {
+            command.arg("--volume");
+            command.arg(format!(
+                "{}:{}",
+                volume.path_or_vol_name, volume.container_path,
+            ));
+        });
+
+        opts.env_vars.iter().for_each(|env| {
+            command.arg("--env");
+            command.arg(format!("{}={}", env.key, env.value));
+        });
+
+        command.arg(opts.image.as_ref());
+
+        command.args(opts.args.iter());
+
+        let cid = ContainerId::new(cid_file, RunDriverType::Docker, false);
+
+        add_cid(&cid);
+
+        let status = command.status_image_ref_progress(opts.image.as_ref(), "Running container")?;
+
+        remove_cid(&cid);
+
+        Ok(status)
     }
 }

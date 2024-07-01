@@ -1,21 +1,29 @@
-use std::{process::Command, time::Duration};
+use std::{
+    process::{Command, ExitStatus},
+    time::Duration,
+};
 
 use anyhow::{bail, Result};
 use blue_build_utils::{
     constants::SKOPEO_IMAGE,
     logging::{CommandLogging, Logger},
+    signal_handler::{add_cid, remove_cid, ContainerId},
 };
+use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
-use log::{debug, error, info, trace};
+use log::{debug, error, info, trace, warn};
 use semver::Version;
 use serde::Deserialize;
+use tempdir::TempDir;
 
-use crate::{credentials::Credentials, image_metadata::ImageMetadata};
+use crate::{
+    credentials::Credentials, drivers::types::RunDriverType, image_metadata::ImageMetadata,
+};
 
 use super::{
     credentials,
-    opts::{BuildOpts, GetMetadataOpts, PushOpts, TagOpts},
-    BuildDriver, DriverVersion, InspectDriver,
+    opts::{BuildOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
+    BuildDriver, DriverVersion, InspectDriver, RunDriver,
 };
 
 #[derive(Debug, Deserialize)]
@@ -188,5 +196,71 @@ impl InspectDriver for PodmanDriver {
             bail!("Failed to inspect image {url}");
         }
         Ok(serde_json::from_slice(&output.stdout)?)
+    }
+}
+
+impl RunDriver for PodmanDriver {
+    fn run(&self, opts: &RunOpts) -> std::io::Result<ExitStatus> {
+        trace!("PodmanDriver::run({opts:#?})");
+
+        let cid_path = TempDir::new("podman")?;
+        let cid_file = cid_path.path().join("cid");
+
+        let mut command = if opts.privileged {
+            warn!(
+                "Running 'podman' in privileged mode requires '{}'",
+                "sudo".bold().red()
+            );
+            Command::new("sudo")
+        } else {
+            Command::new("podman")
+        };
+
+        if opts.privileged {
+            command.arg("podman");
+        }
+
+        command
+            .arg("run")
+            .arg(format!("--cidfile={}", cid_file.display()));
+
+        if opts.privileged {
+            command.arg("--privileged");
+        }
+
+        if opts.remove {
+            command.arg("--rm");
+        }
+
+        if opts.pull {
+            command.arg("--pull=always");
+        }
+
+        opts.volumes.iter().for_each(|volume| {
+            command.arg("--volume");
+            command.arg(format!(
+                "{}:{}",
+                volume.path_or_vol_name, volume.container_path,
+            ));
+        });
+
+        opts.env_vars.iter().for_each(|env| {
+            command.arg("--env");
+            command.arg(format!("{}={}", env.key, env.value));
+        });
+
+        command.arg(opts.image.as_ref());
+
+        command.args(opts.args.iter());
+
+        let cid = ContainerId::new(cid_file, RunDriverType::Podman, opts.privileged);
+
+        add_cid(&cid);
+
+        let status = command.status_image_ref_progress(opts.image.as_ref(), "Running container")?;
+
+        remove_cid(&cid);
+
+        Ok(status)
     }
 }
