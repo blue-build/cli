@@ -1,7 +1,6 @@
 use std::{
     env, fs,
     path::{Path, PathBuf},
-    process::Command,
 };
 
 use anyhow::{bail, Context, Result};
@@ -9,11 +8,9 @@ use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{
         ARCHIVE_SUFFIX, BB_PASSWORD, BB_REGISTRY, BB_REGISTRY_NAMESPACE, BB_USERNAME,
-        BUILD_ID_LABEL, CI_DEFAULT_BRANCH, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_PROJECT_URL,
-        CI_REGISTRY, CI_SERVER_HOST, CI_SERVER_PROTOCOL, CONFIG_PATH, CONTAINER_FILE,
-        COSIGN_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PUB_PATH, GITHUB_REPOSITORY_OWNER,
-        GITHUB_TOKEN, GITHUB_TOKEN_ISSUER_URL, GITHUB_WORKFLOW_REF, GITIGNORE_PATH,
-        LABELED_ERROR_MESSAGE, NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH, SIGSTORE_ID_TOKEN,
+        BUILD_ID_LABEL, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CONFIG_PATH,
+        CONTAINER_FILE, GITHUB_REPOSITORY_OWNER, GITIGNORE_PATH, LABELED_ERROR_MESSAGE,
+        NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH,
     },
     generate_containerfile_path,
 };
@@ -24,10 +21,9 @@ use typed_builder::TypedBuilder;
 
 use crate::{
     commands::generate::GenerateCommand,
-    credentials::{self, Credentials},
     drivers::{
-        opts::{BuildTagPushOpts, CompressionType, GetMetadataOpts},
-        Driver,
+        opts::{BuildTagPushOpts, CompressionType},
+        BuildDriver, Driver, SigningDriver,
     },
 };
 
@@ -144,8 +140,8 @@ impl BlueBuildCommand for BuildCommand {
 
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
-            self.check_cosign_files()?;
-            Self::login()?;
+            Driver::check_signing_files()?;
+            Driver::login()?;
         }
 
         #[cfg(feature = "multi-recipe")]
@@ -208,6 +204,8 @@ impl BuildCommand {
     #[cfg(feature = "multi-recipe")]
     fn start(&self, recipe_paths: &[PathBuf]) -> Result<()> {
         use rayon::prelude::*;
+
+        use crate::drivers::BuildDriver;
         trace!("BuildCommand::build_image()");
 
         recipe_paths
@@ -242,10 +240,10 @@ impl BuildCommand {
                         .build()
                 };
 
-                Driver::get_build_driver().build_tag_push(&opts)?;
+                Driver::build_tag_push(&opts)?;
 
                 if self.push && !self.no_sign {
-                    sign_images(&image_name, tags.first().map(String::as_str))?;
+                    Driver::sign_images(&image_name, tags.first().map(String::as_str))?;
                 }
 
                 Ok(())
@@ -288,46 +286,13 @@ impl BuildCommand {
                 .build()
         };
 
-        Driver::get_build_driver().build_tag_push(&opts)?;
+        Driver::build_tag_push(&opts)?;
 
         if self.push && !self.no_sign {
-            sign_images(&image_name, tags.first().map(String::as_str))?;
+            Driver::sign_images(&image_name, tags.first().map(String::as_str))?;
         }
 
         info!("Build complete!");
-        Ok(())
-    }
-
-    fn login() -> Result<()> {
-        trace!("BuildCommand::login()");
-        info!("Attempting to login to the registry");
-
-        if let Some(Credentials {
-            registry,
-            username,
-            password,
-        }) = credentials::get()
-        {
-            info!("Logging into the registry, {registry}");
-            Driver::get_build_driver().login()?;
-
-            trace!("cosign login -u {username} -p [MASKED] {registry}");
-            let login_output = Command::new("cosign")
-                .arg("login")
-                .arg("-u")
-                .arg(username)
-                .arg("-p")
-                .arg(password)
-                .arg(registry)
-                .output()?;
-
-            if !login_output.status.success() {
-                let err_output = String::from_utf8_lossy(&login_output.stderr);
-                bail!("Failed to login for cosign: {err_output}");
-            }
-            info!("Login success at {registry}");
-        }
-
         Ok(())
     }
 
@@ -462,284 +427,8 @@ impl BuildCommand {
 
         Ok(())
     }
-    /// Checks the cosign private/public key pair to ensure they match.
-    ///
-    /// # Errors
-    /// Will error if it's unable to verify key pairs.
-    fn check_cosign_files(&self) -> Result<()> {
-        trace!("check_for_cosign_files()");
-
-        if self.no_sign {
-            Ok(())
-        } else {
-            env::set_var("COSIGN_PASSWORD", "");
-            env::set_var("COSIGN_YES", "true");
-
-            match (
-                env::var(COSIGN_PRIVATE_KEY).ok(),
-                Path::new(COSIGN_PRIV_PATH),
-            ) {
-                (Some(cosign_priv_key), _)
-                    if !cosign_priv_key.is_empty() && Path::new(COSIGN_PUB_PATH).exists() =>
-                {
-                    trace!("cosign public-key --key env://COSIGN_PRIVATE_KEY");
-                    let output = Command::new("cosign")
-                        .arg("public-key")
-                        .arg("--key=env://COSIGN_PRIVATE_KEY")
-                        .output()?;
-
-                    if !output.status.success() {
-                        bail!(
-                            "Failed to run cosign public-key: {}",
-                            String::from_utf8_lossy(&output.stderr)
-                        );
-                    }
-
-                    let calculated_pub_key = String::from_utf8(output.stdout)?;
-                    let found_pub_key = fs::read_to_string(COSIGN_PUB_PATH)
-                        .context(format!("Failed to read {COSIGN_PUB_PATH}"))?;
-                    trace!("calculated_pub_key={calculated_pub_key},found_pub_key={found_pub_key}");
-
-                    if calculated_pub_key.trim() == found_pub_key.trim() {
-                        debug!("Cosign files match, continuing build");
-                        Ok(())
-                    } else {
-                        bail!("Public key '{COSIGN_PUB_PATH}' does not match private key")
-                    }
-                }
-                (None, cosign_priv_key_path) if cosign_priv_key_path.exists() => {
-                    trace!("cosign public-key --key {COSIGN_PRIV_PATH}");
-                    let output = Command::new("cosign")
-                        .arg("public-key")
-                        .arg(format!("--key={COSIGN_PRIV_PATH}"))
-                        .output()?;
-
-                    if !output.status.success() {
-                        bail!(
-                            "Failed to run cosign public-key: {}",
-                            String::from_utf8_lossy(&output.stderr)
-                        );
-                    }
-
-                    let calculated_pub_key = String::from_utf8(output.stdout)?;
-                    let found_pub_key = fs::read_to_string(COSIGN_PUB_PATH)
-                        .context(format!("Failed to read {COSIGN_PUB_PATH}"))?;
-                    trace!("calculated_pub_key={calculated_pub_key},found_pub_key={found_pub_key}");
-
-                    if calculated_pub_key.trim() == found_pub_key.trim() {
-                        debug!("Cosign files match, continuing build");
-                        Ok(())
-                    } else {
-                        bail!("Public key '{COSIGN_PUB_PATH}' does not match private key")
-                    }
-                }
-                _ => {
-                    bail!("Unable to find private/public key pair.\n\nMake sure you have a `{COSIGN_PUB_PATH}` in the root of your repo and have either {COSIGN_PRIVATE_KEY} set in your env variables or a `{COSIGN_PRIV_PATH}` file in the root of your repo.\n\nSee https://blue-build.org/how-to/cosign/ for more information.\n\nIf you don't want to sign your image, use the `--no-sign` flag.");
-                }
-            }
-        }
-    }
 }
 
 // ======================================================== //
 // ========================= Helpers ====================== //
 // ======================================================== //
-
-#[allow(clippy::too_many_lines)]
-fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
-    trace!("BuildCommand::sign_images({image_name}, {tag:?})");
-
-    env::set_var("COSIGN_PASSWORD", "");
-    env::set_var("COSIGN_YES", "true");
-
-    let inspect_opts = GetMetadataOpts::builder().image(image_name);
-
-    let inspect_opts = if let Some(tag) = tag {
-        inspect_opts.tag(tag).build()
-    } else {
-        inspect_opts.build()
-    };
-
-    let image_digest = Driver::get_inspection_driver()
-        .get_metadata(&inspect_opts)?
-        .digest;
-    let image_name_digest = format!("{image_name}@{image_digest}");
-    let image_name_tag = tag.map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));
-
-    match (
-        // GitLab specific vars
-        env::var(CI_DEFAULT_BRANCH),
-        env::var(CI_PROJECT_URL),
-        env::var(CI_SERVER_PROTOCOL),
-        env::var(CI_SERVER_HOST),
-        env::var(SIGSTORE_ID_TOKEN),
-        // GitHub specific vars
-        env::var(GITHUB_TOKEN),
-        env::var(GITHUB_WORKFLOW_REF),
-        // Cosign public/private key pair
-        env::var(COSIGN_PRIVATE_KEY),
-        Path::new(COSIGN_PRIV_PATH),
-    ) {
-        // Cosign public/private key pair
-        (_, _, _, _, _, _, _, Ok(cosign_private_key), _)
-            if !cosign_private_key.is_empty() && Path::new(COSIGN_PUB_PATH).exists() =>
-        {
-            sign_priv_public_pair_env(&image_name_digest, &image_name_tag)?;
-        }
-        (_, _, _, _, _, _, _, _, cosign_priv_key_path) if cosign_priv_key_path.exists() => {
-            sign_priv_public_pair_file(&image_name_digest, &image_name_tag)?;
-        }
-        // Gitlab keyless
-        (
-            Ok(ci_default_branch),
-            Ok(ci_project_url),
-            Ok(ci_server_protocol),
-            Ok(ci_server_host),
-            Ok(_),
-            _,
-            _,
-            _,
-            _,
-        ) => {
-            trace!("CI_PROJECT_URL={ci_project_url}, CI_DEFAULT_BRANCH={ci_default_branch}, CI_SERVER_PROTOCOL={ci_server_protocol}, CI_SERVER_HOST={ci_server_host}");
-
-            info!("Signing image: {image_name_digest}");
-
-            trace!("cosign sign {image_name_digest}");
-
-            if Command::new("cosign")
-                .arg("sign")
-                .arg("--recursive")
-                .arg(&image_name_digest)
-                .status()?
-                .success()
-            {
-                info!("Successfully signed image!");
-            } else {
-                bail!("Failed to sign image: {image_name_digest}");
-            }
-
-            let cert_ident =
-                format!("{ci_project_url}//.gitlab-ci.yml@refs/heads/{ci_default_branch}");
-
-            let cert_oidc = format!("{ci_server_protocol}://{ci_server_host}");
-
-            trace!("cosign verify --certificate-identity {cert_ident} --certificate-oidc-issuer {cert_oidc} {image_name_tag}");
-
-            if !Command::new("cosign")
-                .arg("verify")
-                .arg("--certificate-identity")
-                .arg(&cert_ident)
-                .arg("--certificate-oidc-issuer")
-                .arg(&cert_oidc)
-                .arg(&image_name_tag)
-                .status()?
-                .success()
-            {
-                bail!("Failed to verify image!");
-            }
-        }
-        // GitHub keyless
-        (_, _, _, _, _, Ok(_), Ok(github_worflow_ref), _, _) => {
-            trace!("GITHUB_WORKFLOW_REF={github_worflow_ref}");
-
-            info!("Signing image {image_name_digest}");
-
-            trace!("cosign sign {image_name_digest}");
-            if Command::new("cosign")
-                .arg("sign")
-                .arg("--recursive")
-                .arg(&image_name_digest)
-                .status()?
-                .success()
-            {
-                info!("Successfully signed image!");
-            } else {
-                bail!("Failed to sign image: {image_name_digest}");
-            }
-
-            trace!("cosign verify --certificate-identity-regexp {github_worflow_ref} --certificate-oidc-issuer {GITHUB_TOKEN_ISSUER_URL} {image_name_tag}");
-            if !Command::new("cosign")
-                .arg("verify")
-                .arg("--certificate-identity-regexp")
-                .arg(&github_worflow_ref)
-                .arg("--certificate-oidc-issuer")
-                .arg(GITHUB_TOKEN_ISSUER_URL)
-                .arg(&image_name_tag)
-                .status()?
-                .success()
-            {
-                bail!("Failed to verify image!");
-            }
-        }
-        _ => warn!("Not running in CI with cosign variables, not signing"),
-    }
-
-    Ok(())
-}
-
-fn sign_priv_public_pair_env(image_digest: &str, image_name_tag: &str) -> Result<()> {
-    info!("Signing image: {image_digest}");
-
-    trace!("cosign sign --key=env://{COSIGN_PRIVATE_KEY} {image_digest}");
-
-    if Command::new("cosign")
-        .arg("sign")
-        .arg("--key=env://COSIGN_PRIVATE_KEY")
-        .arg("--recursive")
-        .arg(image_digest)
-        .status()?
-        .success()
-    {
-        info!("Successfully signed image!");
-    } else {
-        bail!("Failed to sign image: {image_digest}");
-    }
-
-    trace!("cosign verify --key {COSIGN_PUB_PATH} {image_name_tag}");
-
-    if !Command::new("cosign")
-        .arg("verify")
-        .arg(format!("--key={COSIGN_PUB_PATH}"))
-        .arg(image_name_tag)
-        .status()?
-        .success()
-    {
-        bail!("Failed to verify image!");
-    }
-
-    Ok(())
-}
-
-fn sign_priv_public_pair_file(image_digest: &str, image_name_tag: &str) -> Result<()> {
-    info!("Signing image: {image_digest}");
-
-    trace!("cosign sign --key={COSIGN_PRIV_PATH} {image_digest}");
-
-    if Command::new("cosign")
-        .arg("sign")
-        .arg(format!("--key={COSIGN_PRIV_PATH}"))
-        .arg("--recursive")
-        .arg(image_digest)
-        .status()?
-        .success()
-    {
-        info!("Successfully signed image!");
-    } else {
-        bail!("Failed to sign image: {image_digest}");
-    }
-
-    trace!("cosign verify --key {COSIGN_PUB_PATH} {image_name_tag}");
-
-    if !Command::new("cosign")
-        .arg("verify")
-        .arg(format!("--key={COSIGN_PUB_PATH}"))
-        .arg(image_name_tag)
-        .status()?
-        .success()
-    {
-        bail!("Failed to verify image!");
-    }
-
-    Ok(())
-}
