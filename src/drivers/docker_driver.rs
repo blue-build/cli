@@ -1,22 +1,32 @@
-use std::{env, process::Command, sync::Mutex, time::Duration};
+use std::{
+    env,
+    path::Path,
+    process::{Command, ExitStatus},
+    sync::Mutex,
+    time::Duration,
+};
 
 use anyhow::{anyhow, bail, Result};
 use blue_build_utils::{
     constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
     logging::{CommandLogging, Logger},
+    signal_handler::{add_cid, remove_cid, ContainerId},
 };
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
 use once_cell::sync::Lazy;
 use semver::Version;
 use serde::Deserialize;
+use tempdir::TempDir;
 
-use crate::{credentials::Credentials, image_metadata::ImageMetadata};
+use crate::{
+    credentials::Credentials, drivers::types::RunDriverType, image_metadata::ImageMetadata,
+};
 
 use super::{
     credentials,
-    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, TagOpts},
-    BuildDriver, DriverVersion, InspectDriver,
+    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
+    BuildDriver, DriverVersion, InspectDriver, RunDriver,
 };
 
 #[derive(Debug, Deserialize)]
@@ -308,14 +318,12 @@ impl InspectDriver for DockerDriver {
         );
         progress.enable_steady_tick(Duration::from_millis(100));
 
-        trace!("docker run {SKOPEO_IMAGE} inspect {url}");
-        let output = Command::new("docker")
-            .arg("run")
-            .arg("--rm")
-            .arg(SKOPEO_IMAGE)
-            .arg("inspect")
-            .arg(&url)
-            .output()?;
+        let output = self.run_output(
+            &RunOpts::builder()
+                .image(SKOPEO_IMAGE)
+                .args(&["inspect".to_string(), url.clone()])
+                .build(),
+        )?;
 
         progress.finish();
         Logger::multi_progress().remove(&progress);
@@ -328,4 +336,79 @@ impl InspectDriver for DockerDriver {
 
         Ok(serde_json::from_slice(&output.stdout)?)
     }
+}
+
+impl RunDriver for DockerDriver {
+    fn run(&self, opts: &RunOpts) -> std::io::Result<ExitStatus> {
+        trace!("DockerDriver::run({opts:#?})");
+
+        let cid_path = TempDir::new("docker")?;
+        let cid_file = cid_path.path().join("cid");
+        let cid = ContainerId::new(&cid_file, RunDriverType::Docker, false);
+
+        add_cid(&cid);
+
+        let status = docker_run(opts, &cid_file)
+            .status_image_ref_progress(opts.image.as_ref(), "Running container")?;
+
+        remove_cid(&cid);
+
+        Ok(status)
+    }
+
+    fn run_output(&self, opts: &RunOpts) -> std::io::Result<std::process::Output> {
+        trace!("DockerDriver::run({opts:#?})");
+
+        let cid_path = TempDir::new("docker")?;
+        let cid_file = cid_path.path().join("cid");
+        let cid = ContainerId::new(&cid_file, RunDriverType::Docker, false);
+
+        add_cid(&cid);
+
+        let output = docker_run(opts, &cid_file).output()?;
+
+        remove_cid(&cid);
+
+        Ok(output)
+    }
+}
+
+fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
+    let mut command = Command::new("docker");
+
+    command
+        .arg("run")
+        .arg(format!("--cidfile={}", cid_file.display()));
+
+    if opts.privileged {
+        command.arg("--privileged");
+    }
+
+    if opts.remove {
+        command.arg("--rm");
+    }
+
+    if opts.pull {
+        command.arg("--pull=always");
+    }
+
+    opts.volumes.iter().for_each(|volume| {
+        command.arg("--volume");
+        command.arg(format!(
+            "{}:{}",
+            volume.path_or_vol_name, volume.container_path,
+        ));
+    });
+
+    opts.env_vars.iter().for_each(|env| {
+        command.arg("--env");
+        command.arg(format!("{}={}", env.key, env.value));
+    });
+
+    command.arg(opts.image.as_ref());
+
+    command.args(opts.args.iter());
+
+    trace!("{command:?}");
+    command
 }

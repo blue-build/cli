@@ -1,6 +1,5 @@
 use std::{env, sync::Mutex};
 
-use anyhow::{anyhow, Result};
 use blue_build_utils::constants::{
     CI_REGISTRY, CI_REGISTRY_PASSWORD, CI_REGISTRY_USER, GITHUB_ACTIONS, GITHUB_ACTOR, GITHUB_TOKEN,
 };
@@ -107,29 +106,23 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
 /// any strategy that requires credentials as
 /// the environment credentials are lazy allocated.
 ///
-/// # Errors
-/// Will error if it can't lock the mutex.
+/// # Panics
+/// Will panic if it can't lock the mutex.
 pub fn set_user_creds(
     username: Option<&String>,
     password: Option<&String>,
     registry: Option<&String>,
-) -> Result<()> {
+) {
     trace!("credentials::set({username:?}, password, {registry:?})");
-    let mut creds_lock = USER_CREDS
-        .lock()
-        .map_err(|e| anyhow!("Failed to set credentials: {e}"))?;
+    let mut creds_lock = USER_CREDS.lock().expect("Must lock USER_CREDS");
     creds_lock.username = username.map(ToOwned::to_owned);
     creds_lock.password = password.map(ToOwned::to_owned);
     creds_lock.registry = registry.map(ToOwned::to_owned);
     drop(creds_lock);
     let _ = ENV_CREDENTIALS.as_ref();
-    Ok(())
 }
 
 /// Get the credentials for the current set of actions.
-///
-/// # Errors
-/// Will error if there aren't any credentials available.
 pub fn get() -> Option<&'static Credentials> {
     trace!("credentials::get()");
     ENV_CREDENTIALS.as_ref()
