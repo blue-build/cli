@@ -16,15 +16,21 @@ use super::SigningDriver;
 pub struct CosignDriver;
 
 impl SigningDriver for CosignDriver {
-    fn generate_key_pair() -> anyhow::Result<(std::path::PathBuf, std::path::PathBuf)> {
-        // let status =
-        todo!()
+    fn generate_key_pair() -> Result<()> {
+        let status = Command::new("cosign")
+            .env("COSIGN_PASSWORD", "")
+            .env("COSIGN_YES", "true")
+            .arg("genereate-key-pair")
+            .status()?;
+
+        if !status.success() {
+            bail!("Failed to generate cosign key-pair!");
+        }
+
+        Ok(())
     }
 
     fn check_signing_files() -> anyhow::Result<()> {
-        env::set_var("COSIGN_PASSWORD", "");
-        env::set_var("COSIGN_YES", "true");
-
         match (
             env::var(COSIGN_PRIVATE_KEY).ok(),
             Path::new(COSIGN_PRIV_PATH),
@@ -38,15 +44,16 @@ impl SigningDriver for CosignDriver {
                 Self::check_priv(cosign_priv_key_path.display().to_string())
             }
             _ => {
-                bail!(concat!(
+                bail!(
+                    "{}{}{}{}{}{}{}",
                     "Unable to find private/public key pair.\n\n",
-                    "Make sure you have a `{COSIGN_PUB_PATH}` ",
-                    "in the root of your repo and have either {COSIGN_PRIVATE_KEY} ",
-                    "set in your env variables or a `{COSIGN_PRIV_PATH}` ",
+                    format_args!("Make sure you have a `{COSIGN_PUB_PATH}` "),
+                    format_args!("in the root of your repo and have either {COSIGN_PRIVATE_KEY} "),
+                    format_args!("set in your env variables or a `{COSIGN_PRIV_PATH}` "),
                     "file in the root of your repo.\n\n",
                     "See https://blue-build.org/how-to/cosign/ for more information.\n\n",
                     "If you don't want to sign your image, use the `--no-sign` flag."
-                ));
+                )
             }
         }
     }
@@ -200,6 +207,8 @@ impl CosignDriver {
 
         trace!("cosign public-key --key {priv_key}");
         let output = Command::new("cosign")
+            .env("COSIGN_PASSWORD", "")
+            .env("COSIGN_YES", "true")
             .arg("public-key")
             .arg(format!("--key={priv_key}"))
             .output()?;

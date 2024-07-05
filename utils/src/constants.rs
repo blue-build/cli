@@ -27,7 +27,9 @@ pub const BB_USERNAME: &str = "BB_USERNAME";
 pub const DOCKER_HOST: &str = "DOCKER_HOST";
 
 // Cosign vars
+pub const COSIGN_PASSWORD: &str = "COSIGN_PASSWORD";
 pub const COSIGN_PRIVATE_KEY: &str = "COSIGN_PRIVATE_KEY";
+pub const COSIGN_YES: &str = "COSIGN_YES";
 pub const GITHUB_TOKEN_ISSUER_URL: &str = "https://token.actions.githubusercontent.com";
 pub const SIGSTORE_ID_TOKEN: &str = "SIGSTORE_ID_TOKEN";
 

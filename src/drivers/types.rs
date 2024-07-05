@@ -24,10 +24,11 @@ impl DetermineDriver<InspectDriverType> for Option<InspectDriverType> {
                 (Ok(_skopeo), _, _) => InspectDriverType::Skopeo,
                 (_, Ok(_docker), _) => InspectDriverType::Docker,
                 (_, _, Ok(_podman)) => InspectDriverType::Podman,
-                _ => panic!(concat!(
+                _ => panic!(
+                    "{}{}",
                     "Could not determine inspection strategy. ",
-                    "You need either skopeo, docker, or podman"
-                )),
+                    "You need either skopeo, docker, or podman",
+                ),
             },
         )
     }
@@ -58,15 +59,14 @@ impl DetermineDriver<BuildDriverType> for Option<BuildDriverType> {
                     BuildDriverType::Buildah
                 }
                 _ => panic!(
-                    concat!(
-                        "Could not determine strategy, ",
-                        "need either docker version {}, ",
-                        "podman version {}, ",
-                        "or buildah version {} to continue"
+                    "{}{}{}{}",
+                    "Could not determine strategy, ",
+                    format_args!("need either docker version {}, ", DockerDriver::VERSION_REQ,),
+                    format_args!("podman version {}, ", PodmanDriver::VERSION_REQ,),
+                    format_args!(
+                        "or buildah version {} to continue",
+                        BuildahDriver::VERSION_REQ,
                     ),
-                    DockerDriver::VERSION_REQ,
-                    PodmanDriver::VERSION_REQ,
-                    BuildahDriver::VERSION_REQ,
                 ),
             },
         )
