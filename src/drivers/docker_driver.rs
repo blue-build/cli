@@ -318,14 +318,12 @@ impl InspectDriver for DockerDriver {
         );
         progress.enable_steady_tick(Duration::from_millis(100));
 
-        trace!("docker run {SKOPEO_IMAGE} inspect {url}");
-        let output = Command::new("docker")
-            .arg("run")
-            .arg("--rm")
-            .arg(SKOPEO_IMAGE)
-            .arg("inspect")
-            .arg(&url)
-            .output()?;
+        let output = self.run_output(
+            &RunOpts::builder()
+                .image(SKOPEO_IMAGE)
+                .args(&["inspect".to_string(), url.clone()])
+                .build(),
+        )?;
 
         progress.finish();
         Logger::multi_progress().remove(&progress);
