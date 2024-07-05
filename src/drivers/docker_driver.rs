@@ -365,11 +365,11 @@ impl RunDriver for DockerDriver {
 
         add_cid(&cid);
 
-        let status = docker_run(opts, &cid_file).output()?;
+        let output = docker_run(opts, &cid_file).output()?;
 
         remove_cid(&cid);
 
-        Ok(status)
+        Ok(output)
     }
 }
 

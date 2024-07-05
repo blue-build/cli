@@ -227,11 +227,11 @@ impl RunDriver for PodmanDriver {
 
         add_cid(&cid);
 
-        let status = podman_run(opts, &cid_file).output()?;
+        let output = podman_run(opts, &cid_file).output()?;
 
         remove_cid(&cid);
 
-        Ok(status)
+        Ok(output)
     }
 }
 
