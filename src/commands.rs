@@ -135,3 +135,15 @@ pub struct DriverArgs {
     #[arg(short = 'I', long)]
     inspect_driver: Option<InspectDriverType>,
 }
+
+#[cfg(test)]
+mod test {
+    use clap::CommandFactory;
+
+    use super::BlueBuildArgs;
+
+    #[test]
+    fn test_cli() {
+        BlueBuildArgs::command().debug_assert();
+    }
+}
