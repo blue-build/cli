@@ -27,7 +27,7 @@ pub struct StageRequiredFields<'a> {
     /// The shell to use in the stage.
     #[builder(default, setter(into, strip_option))]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub shell: Option<Cow<'a, [Cow<'a, str>]>>,
+    pub shell: Option<Vec<Cow<'a, str>>>,
 
     /// The modules extension for the stage
     #[serde(flatten)]

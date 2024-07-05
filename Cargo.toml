@@ -95,7 +95,6 @@ stages = ["blue-build-recipe/stages"]
 copy = ["blue-build-recipe/copy"]
 multi-recipe = ["rayon", "indicatif/rayon"]
 switch = []
-iso = []
 
 [dev-dependencies]
 rusty-hook = "0.11"

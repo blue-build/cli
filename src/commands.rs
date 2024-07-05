@@ -7,7 +7,7 @@ use clap_verbosity_flag::{InfoLevel, Verbosity};
 use typed_builder::TypedBuilder;
 
 use crate::{
-    drivers::types::{BuildDriverType, InspectDriverType, RunDriverType},
+    drivers::types::{BuildDriverType, InspectDriverType},
     shadow,
 };
 
@@ -15,8 +15,6 @@ pub mod bug_report;
 pub mod build;
 pub mod completions;
 pub mod generate;
-#[cfg(feature = "iso")]
-pub mod generate_iso;
 #[cfg(feature = "init")]
 pub mod init;
 #[cfg(not(feature = "switch"))]
@@ -116,10 +114,6 @@ pub enum CommandArgs {
     #[cfg(feature = "init")]
     New(init::NewCommand),
 
-    /// Create an ISO image of your recipe.
-    #[cfg(feature = "iso")]
-    GenerateIso(generate_iso::GenerateIsoCommand),
-
     /// Create a pre-populated GitHub issue with information about your configuration
     BugReport(bug_report::BugReportCommand),
 
@@ -129,6 +123,17 @@ pub enum CommandArgs {
 
 #[derive(Default, Clone, Copy, Debug, TypedBuilder, Args)]
 pub struct DriverArgs {
+    /// Runs all instructions inside one layer of the final image.
+    ///
+    /// WARN: This doesn't work with the
+    /// docker driver as it has been deprecated.
+    ///
+    /// NOTE: Squash has a performance benefit for
+    /// podman and buildah when running inside a container.
+    #[arg(short, long)]
+    #[builder(default)]
+    squash: bool,
+
     /// Select which driver to use to build
     /// your image.
     #[builder(default)]
@@ -140,9 +145,4 @@ pub struct DriverArgs {
     #[builder(default)]
     #[arg(short = 'I', long)]
     inspect_driver: Option<InspectDriverType>,
-
-    /// Select which driver to use to run containers.
-    #[builder(default)]
-    #[arg(short = 'R', long)]
-    run_driver: Option<RunDriverType>,
 }
