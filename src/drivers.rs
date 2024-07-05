@@ -459,17 +459,18 @@ impl Driver<'_> {
             blue_build_utils::check_command_exists("docker"),
             blue_build_utils::check_command_exists("podman"),
         ) {
-            (Ok(_docker), _) if DockerDriver::is_supported_version() => {
-                RunDriverType::Docker
-            }
-            (_, Ok(_podman)) if PodmanDriver::is_supported_version() => {
-                RunDriverType::Podman
-            }
-            _ => panic!(                "Could not determine strategy, need either docker version {}, podman version {}, or buildah version {} to continue",
-                DockerDriver::VERSION_REQ,
-                PodmanDriver::VERSION_REQ,
-                BuildahDriver::VERSION_REQ,
-)
+            (Ok(_docker), _) if DockerDriver::is_supported_version() => RunDriverType::Docker,
+            (_, Ok(_podman)) if PodmanDriver::is_supported_version() => RunDriverType::Podman,
+            _ => panic!(
+                "{}{}{}{}",
+                "Could not determine strategy, ",
+                format_args!("need either docker version {}, ", DockerDriver::VERSION_REQ),
+                format_args!("podman version {}, ", PodmanDriver::VERSION_REQ),
+                format_args!(
+                    "or buildah version {} to continue",
+                    BuildahDriver::VERSION_REQ
+                ),
+            ),
         }
     }
 }

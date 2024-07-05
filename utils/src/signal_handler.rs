@@ -96,7 +96,7 @@ where
                         let id = id.trim();
                         debug!("Killing container {id}");
 
-                        if let Err(e) = if cid.requires_sudo {
+                        let status = if cid.requires_sudo {
                             Command::new("sudo")
                                 .arg(&cid.crt)
                                 .arg("stop")
@@ -104,7 +104,9 @@ where
                                 .status()
                         } else {
                             Command::new(&cid.crt).arg("stop").arg(id).status()
-                        } {
+                        };
+
+                        if let Err(e) = status {
                             error!("Failed to kill container {id}: Error {e}");
                         }
                     }
