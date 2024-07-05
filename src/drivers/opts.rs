@@ -2,10 +2,11 @@ use clap::ValueEnum;
 
 pub use build::*;
 pub use inspect::*;
-// pub use signing::*;
+pub use run::*;
 
 mod build;
 mod inspect;
+mod run;
 mod signing;
 
 #[derive(Debug, Copy, Clone, Default, ValueEnum)]

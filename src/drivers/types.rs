@@ -6,6 +6,10 @@ use crate::drivers::{
     DriverVersion,
 };
 
+pub(super) trait DetermineDriver<T> {
+    fn determine_driver(&mut self) -> T;
+}
+
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum InspectDriverType {
     Skopeo,
@@ -103,6 +107,41 @@ impl DetermineDriver<SigningDriverType> for Option<SigningDriverType> {
     }
 }
 
-pub(super) trait DetermineDriver<T> {
-    fn determine_driver(&mut self) -> T;
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum RunDriverType {
+    Podman,
+    Docker,
+}
+
+impl From<RunDriverType> for String {
+    fn from(value: RunDriverType) -> Self {
+        match value {
+            RunDriverType::Podman => "podman".to_string(),
+            RunDriverType::Docker => "docker".to_string(),
+        }
+    }
+}
+
+impl DetermineDriver<RunDriverType> for Option<RunDriverType> {
+    fn determine_driver(&mut self) -> RunDriverType {
+        trace!("RunDriver::determine_driver()");
+
+        match (
+            blue_build_utils::check_command_exists("docker"),
+            blue_build_utils::check_command_exists("podman"),
+        ) {
+            (Ok(_docker), _) if DockerDriver::is_supported_version() => RunDriverType::Docker,
+            (_, Ok(_podman)) if PodmanDriver::is_supported_version() => RunDriverType::Podman,
+            _ => panic!(
+                "{}{}{}{}",
+                "Could not determine strategy, ",
+                format_args!("need either docker version {}, ", DockerDriver::VERSION_REQ),
+                format_args!("podman version {}, ", PodmanDriver::VERSION_REQ),
+                format_args!(
+                    "or buildah version {} to continue",
+                    BuildahDriver::VERSION_REQ
+                ),
+            ),
+        }
+    }
 }

@@ -1,4 +1,7 @@
-use std::fmt::Debug;
+use std::{
+    fmt::Debug,
+    process::{ExitStatus, Output},
+};
 
 use anyhow::{anyhow, bail, Result};
 use log::{debug, info, trace};
@@ -6,7 +9,7 @@ use semver::{Version, VersionReq};
 
 use crate::image_metadata::ImageMetadata;
 
-use super::opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, TagOpts};
+use super::opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts};
 
 /// Trait for retrieving version of a driver.
 pub trait DriverVersion {
@@ -136,6 +139,20 @@ pub trait InspectDriver {
     /// # Errors
     /// Will error if it is unable to get the labels.
     fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata>;
+}
+
+pub trait RunDriver: Sync + Send {
+    /// Run a container to perform an action.
+    ///
+    /// # Errors
+    /// Will error if there is an issue running the container.
+    fn run(opts: &RunOpts) -> std::io::Result<ExitStatus>;
+
+    /// Run a container to perform an action and capturing output.
+    ///
+    /// # Errors
+    /// Will error if there is an issue running the container.
+    fn run_output(opts: &RunOpts) -> std::io::Result<Output>;
 }
 
 pub trait SigningDriver {

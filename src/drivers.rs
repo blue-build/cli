@@ -7,6 +7,7 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
     fmt::Debug,
+    process::{ExitStatus, Output},
     sync::Mutex,
 };
 
@@ -24,11 +25,13 @@ use self::{
     buildah_driver::BuildahDriver,
     cosign_driver::CosignDriver,
     docker_driver::DockerDriver,
-    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, TagOpts},
+    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
     podman_driver::PodmanDriver,
     skopeo_driver::SkopeoDriver,
-    types::{BuildDriverType, InspectDriverType, SigningDriverType},
+    types::{BuildDriverType, InspectDriverType, RunDriverType, SigningDriverType},
 };
+
+pub use traits::*;
 
 mod buildah_driver;
 mod cosign_driver;
@@ -39,12 +42,11 @@ mod skopeo_driver;
 mod traits;
 pub mod types;
 
-pub use traits::*;
-
-static INIT: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static INIT: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
 static SELECTED_BUILD_DRIVER: Lazy<Mutex<Option<BuildDriverType>>> = Lazy::new(|| Mutex::new(None));
 static SELECTED_INSPECT_DRIVER: Lazy<Mutex<Option<InspectDriverType>>> =
     Lazy::new(|| Mutex::new(None));
+static SELECTED_RUN_DRIVER: Lazy<Mutex<Option<RunDriverType>>> = Lazy::new(|| Mutex::new(None));
 static SELECTED_SIGNING_DRIVER: Lazy<Mutex<Option<SigningDriverType>>> =
     Lazy::new(|| Mutex::new(None));
 
@@ -73,6 +75,9 @@ pub struct Driver<'a> {
 
     #[builder(default)]
     signing_driver: Option<SigningDriverType>,
+
+    #[builder(default)]
+    run_driver: Option<RunDriverType>,
 }
 
 impl Driver<'_> {
@@ -82,35 +87,38 @@ impl Driver<'_> {
     /// you will want to run init before trying to use any of
     /// the strategies.
     ///
-    /// # Errors
-    /// Will error if it is unable to set the user credentials.
-    ///
     /// # Panics
-    /// Will panic if mutexes couldn't be locked.
-    pub fn init(mut self) -> Result<()> {
+    /// Will panic if it is unable to initialize drivers.
+    pub fn init(mut self) {
         trace!("Driver::init()");
-        let init = INIT.lock().expect("Should lock");
-        credentials::set_user_creds(self.username, self.password, self.registry)?;
+        let mut initialized = INIT.lock().expect("Must lock INIT");
 
-        let mut build_driver = SELECTED_BUILD_DRIVER.lock().expect("Should lock");
-        let mut inspect_driver = SELECTED_INSPECT_DRIVER.lock().expect("Should lock");
-        let mut signing_driver = SELECTED_SIGNING_DRIVER.lock().expect("Should lock");
+        if !*initialized {
+            credentials::set_user_creds(self.username, self.password, self.registry);
 
-        *signing_driver = Some(self.signing_driver.determine_driver());
-        trace!("Inspect driver set to {:?}", *signing_driver);
-        drop(signing_driver);
+            let mut build_driver = SELECTED_BUILD_DRIVER.lock().expect("Should lock");
+            let mut inspect_driver = SELECTED_INSPECT_DRIVER.lock().expect("Should lock");
+            let mut run_driver = SELECTED_RUN_DRIVER.lock().expect("Should lock");
+            let mut signing_driver = SELECTED_SIGNING_DRIVER.lock().expect("Should lock");
 
-        *inspect_driver = Some(self.inspect_driver.determine_driver());
-        trace!("Inspect driver set to {:?}", *inspect_driver);
-        drop(inspect_driver);
+            *signing_driver = Some(self.signing_driver.determine_driver());
+            trace!("Inspect driver set to {:?}", *signing_driver);
+            drop(signing_driver);
 
-        *build_driver = Some(self.build_driver.determine_driver());
-        trace!("Build driver set to {:?}", *build_driver);
-        drop(build_driver);
+            *run_driver = Some(self.run_driver.determine_driver());
+            trace!("Run driver set to {:?}", *run_driver);
+            drop(run_driver);
 
-        drop(init);
+            *inspect_driver = Some(self.inspect_driver.determine_driver());
+            trace!("Inspect driver set to {:?}", *inspect_driver);
+            drop(inspect_driver);
 
-        Ok(())
+            *build_driver = Some(self.build_driver.determine_driver());
+            trace!("Build driver set to {:?}", *build_driver);
+            drop(build_driver);
+
+            *initialized = true;
+        }
     }
 
     /// Gets the current build's UUID
@@ -186,6 +194,11 @@ impl Driver<'_> {
     fn get_signing_driver() -> SigningDriverType {
         let lock = SELECTED_SIGNING_DRIVER.lock().expect("Should lock");
         lock.expect("Driver should have initialized signing driver")
+    }
+
+    fn get_run_driver() -> RunDriverType {
+        let lock = SELECTED_RUN_DRIVER.lock().expect("Should lock");
+        lock.expect("Driver should have initialized run driver")
     }
 }
 
@@ -267,6 +280,22 @@ impl InspectDriver for Driver<'_> {
             InspectDriverType::Skopeo => SkopeoDriver::get_metadata(opts),
             InspectDriverType::Podman => PodmanDriver::get_metadata(opts),
             InspectDriverType::Docker => DockerDriver::get_metadata(opts),
+        }
+    }
+}
+
+impl RunDriver for Driver<'_> {
+    fn run(opts: &RunOpts) -> std::io::Result<ExitStatus> {
+        match Self::get_run_driver() {
+            RunDriverType::Podman => PodmanDriver::run(opts),
+            RunDriverType::Docker => DockerDriver::run(opts),
+        }
+    }
+
+    fn run_output(opts: &RunOpts) -> std::io::Result<Output> {
+        match Self::get_run_driver() {
+            RunDriverType::Podman => PodmanDriver::run_output(opts),
+            RunDriverType::Docker => DockerDriver::run_output(opts),
         }
     }
 }

@@ -55,7 +55,7 @@ impl BlueBuildCommand for SwitchCommand {
             .build_driver(self.drivers.build_driver)
             .inspect_driver(self.drivers.inspect_driver)
             .build()
-            .init()?;
+            .init();
 
         let status = RpmOstreeStatus::try_new()?;
         trace!("{status:?}");

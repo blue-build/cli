@@ -113,6 +113,17 @@ pub struct BuildCommand {
     #[builder(default)]
     no_sign: bool,
 
+    /// Runs all instructions inside one layer of the final image.
+    ///
+    /// WARN: This doesn't work with the
+    /// docker driver as it has been deprecated.
+    ///
+    /// NOTE: Squash has a performance benefit for
+    /// podman and buildah when running inside a container.
+    #[arg(short, long)]
+    #[builder(default)]
+    squash: bool,
+
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,
@@ -130,7 +141,7 @@ impl BlueBuildCommand for BuildCommand {
             .build_driver(self.drivers.build_driver)
             .inspect_driver(self.drivers.inspect_driver)
             .build()
-            .init()?;
+            .init();
 
         self.update_gitignore()?;
 
@@ -167,7 +178,7 @@ impl BlueBuildCommand for BuildCommand {
                 GenerateCommand::builder()
                     .output(generate_containerfile_path(recipe)?)
                     .recipe(recipe)
-                    .drivers(DriverArgs::builder().squash(self.drivers.squash).build())
+                    .drivers(self.drivers)
                     .build()
                     .try_run()
             })?;
@@ -191,7 +202,7 @@ impl BlueBuildCommand for BuildCommand {
             GenerateCommand::builder()
                 .output(generate_containerfile_path(&recipe_path)?)
                 .recipe(&recipe_path)
-                .drivers(DriverArgs::builder().squash(self.drivers.squash).build())
+                .drivers(self.drivers)
                 .build()
                 .try_run()?;
 
@@ -225,7 +236,7 @@ impl BuildCommand {
                             archive_dir.to_string_lossy().trim_end_matches('/'),
                             recipe.name.to_lowercase().replace('/', "_"),
                         ))
-                        .squash(self.drivers.squash)
+                        .squash(self.squash)
                         .build()
                 } else {
                     BuildTagPushOpts::builder()
@@ -236,7 +247,7 @@ impl BuildCommand {
                         .no_retry_push(self.no_retry_push)
                         .retry_count(self.retry_count)
                         .compression(self.compression_format)
-                        .squash(self.drivers.squash)
+                        .squash(self.squash)
                         .build()
                 };
 
@@ -271,7 +282,7 @@ impl BuildCommand {
                     archive_dir.to_string_lossy().trim_end_matches('/'),
                     recipe.name.to_lowercase().replace('/', "_"),
                 ))
-                .squash(self.drivers.squash)
+                .squash(self.squash)
                 .build()
         } else {
             BuildTagPushOpts::builder()
@@ -282,7 +293,7 @@ impl BuildCommand {
                 .no_retry_push(self.no_retry_push)
                 .retry_count(self.retry_count)
                 .compression(self.compression_format)
-                .squash(self.drivers.squash)
+                .squash(self.squash)
                 .build()
         };
 
