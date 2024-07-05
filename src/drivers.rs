@@ -6,7 +6,7 @@
 
 use std::{
     collections::{hash_map::Entry, HashMap},
-    process::ExitStatus,
+    process::{ExitStatus, Output},
     sync::{Arc, Mutex},
 };
 
@@ -250,6 +250,12 @@ pub trait RunDriver: Sync + Send {
     /// # Errors
     /// Will error if there is an issue running the container.
     fn run(&self, opts: &RunOpts) -> std::io::Result<ExitStatus>;
+
+    /// Run a container to perform an action and capturing output.
+    ///
+    /// # Errors
+    /// Will error if there is an issue running the container.
+    fn run_output(&self, opts: &RunOpts) -> std::io::Result<Output>;
 }
 
 /// Allows agnostic inspection of images.

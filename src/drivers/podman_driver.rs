@@ -1,4 +1,5 @@
 use std::{
+    path::Path,
     process::{Command, ExitStatus},
     time::Duration,
 };
@@ -206,61 +207,82 @@ impl RunDriver for PodmanDriver {
         let cid_path = TempDir::new("podman")?;
         let cid_file = cid_path.path().join("cid");
 
-        let mut command = if opts.privileged {
-            warn!(
-                "Running 'podman' in privileged mode requires '{}'",
-                "sudo".bold().red()
-            );
-            Command::new("sudo")
-        } else {
-            Command::new("podman")
-        };
-
-        if opts.privileged {
-            command.arg("podman");
-        }
-
-        command
-            .arg("run")
-            .arg(format!("--cidfile={}", cid_file.display()));
-
-        if opts.privileged {
-            command.arg("--privileged");
-        }
-
-        if opts.remove {
-            command.arg("--rm");
-        }
-
-        if opts.pull {
-            command.arg("--pull=always");
-        }
-
-        opts.volumes.iter().for_each(|volume| {
-            command.arg("--volume");
-            command.arg(format!(
-                "{}:{}",
-                volume.path_or_vol_name, volume.container_path,
-            ));
-        });
-
-        opts.env_vars.iter().for_each(|env| {
-            command.arg("--env");
-            command.arg(format!("{}={}", env.key, env.value));
-        });
-
-        command.arg(opts.image.as_ref());
-
-        command.args(opts.args.iter());
-
-        let cid = ContainerId::new(cid_file, RunDriverType::Podman, opts.privileged);
+        let cid = ContainerId::new(&cid_file, RunDriverType::Podman, opts.privileged);
 
         add_cid(&cid);
 
-        let status = command.status_image_ref_progress(opts.image.as_ref(), "Running container")?;
+        let status = podman_run(opts, &cid_file)
+            .status_image_ref_progress(opts.image.as_ref(), "Running container")?;
 
         remove_cid(&cid);
 
         Ok(status)
     }
+
+    fn run_output(&self, opts: &RunOpts) -> std::io::Result<std::process::Output> {
+        trace!("PodmanDriver::run_output({opts:#?})");
+
+        let cid_path = TempDir::new("podman")?;
+        let cid_file = cid_path.path().join("cid");
+
+        let cid = ContainerId::new(&cid_file, RunDriverType::Podman, opts.privileged);
+
+        add_cid(&cid);
+
+        let status = podman_run(opts, &cid_file).output()?;
+
+        remove_cid(&cid);
+
+        Ok(status)
+    }
+}
+
+fn podman_run(opts: &RunOpts, cid_file: &Path) -> Command {
+    let mut command = if opts.privileged {
+        warn!(
+            "Running 'podman' in privileged mode requires '{}'",
+            "sudo".bold().red()
+        );
+        Command::new("sudo")
+    } else {
+        Command::new("podman")
+    };
+
+    if opts.privileged {
+        command.arg("podman");
+    }
+
+    command
+        .arg("run")
+        .arg(format!("--cidfile={}", cid_file.display()));
+
+    if opts.privileged {
+        command.arg("--privileged");
+    }
+
+    if opts.remove {
+        command.arg("--rm");
+    }
+
+    if opts.pull {
+        command.arg("--pull=always");
+    }
+
+    opts.volumes.iter().for_each(|volume| {
+        command.arg("--volume");
+        command.arg(format!(
+            "{}:{}",
+            volume.path_or_vol_name, volume.container_path,
+        ));
+    });
+
+    opts.env_vars.iter().for_each(|env| {
+        command.arg("--env");
+        command.arg(format!("{}={}", env.key, env.value));
+    });
+
+    command.arg(opts.image.as_ref());
+    command.args(opts.args.iter());
+
+    command
 }

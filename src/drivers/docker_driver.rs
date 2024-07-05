@@ -1,5 +1,6 @@
 use std::{
     env,
+    path::Path,
     process::{Command, ExitStatus},
     sync::Mutex,
     time::Duration,
@@ -345,49 +346,69 @@ impl RunDriver for DockerDriver {
 
         let cid_path = TempDir::new("docker")?;
         let cid_file = cid_path.path().join("cid");
-        let mut command = Command::new("docker");
-
-        command
-            .arg("run")
-            .arg(format!("--cidfile={}", cid_file.display()));
-
-        if opts.privileged {
-            command.arg("--privileged");
-        }
-
-        if opts.remove {
-            command.arg("--rm");
-        }
-
-        if opts.pull {
-            command.arg("--pull=always");
-        }
-
-        opts.volumes.iter().for_each(|volume| {
-            command.arg("--volume");
-            command.arg(format!(
-                "{}:{}",
-                volume.path_or_vol_name, volume.container_path,
-            ));
-        });
-
-        opts.env_vars.iter().for_each(|env| {
-            command.arg("--env");
-            command.arg(format!("{}={}", env.key, env.value));
-        });
-
-        command.arg(opts.image.as_ref());
-
-        command.args(opts.args.iter());
-
-        let cid = ContainerId::new(cid_file, RunDriverType::Docker, false);
+        let cid = ContainerId::new(&cid_file, RunDriverType::Docker, false);
 
         add_cid(&cid);
 
-        let status = command.status_image_ref_progress(opts.image.as_ref(), "Running container")?;
+        let status = docker_run(opts, &cid_file)
+            .status_image_ref_progress(opts.image.as_ref(), "Running container")?;
 
         remove_cid(&cid);
 
         Ok(status)
     }
+
+    fn run_output(&self, opts: &RunOpts) -> std::io::Result<std::process::Output> {
+        trace!("DockerDriver::run({opts:#?})");
+
+        let cid_path = TempDir::new("docker")?;
+        let cid_file = cid_path.path().join("cid");
+        let cid = ContainerId::new(&cid_file, RunDriverType::Docker, false);
+
+        add_cid(&cid);
+
+        let status = docker_run(opts, &cid_file).output()?;
+
+        remove_cid(&cid);
+
+        Ok(status)
+    }
+}
+
+fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
+    let mut command = Command::new("docker");
+
+    command
+        .arg("run")
+        .arg(format!("--cidfile={}", cid_file.display()));
+
+    if opts.privileged {
+        command.arg("--privileged");
+    }
+
+    if opts.remove {
+        command.arg("--rm");
+    }
+
+    if opts.pull {
+        command.arg("--pull=always");
+    }
+
+    opts.volumes.iter().for_each(|volume| {
+        command.arg("--volume");
+        command.arg(format!(
+            "{}:{}",
+            volume.path_or_vol_name, volume.container_path,
+        ));
+    });
+
+    opts.env_vars.iter().for_each(|env| {
+        command.arg("--env");
+        command.arg(format!("{}={}", env.key, env.value));
+    });
+
+    command.arg(opts.image.as_ref());
+
+    command.args(opts.args.iter());
+    command
 }
