@@ -90,9 +90,7 @@ typed-builder.workspace = true
 uuid.workspace = true
 
 [features]
-# Top level features
 default = []
-init = []
 stages = ["blue-build-recipe/stages"]
 copy = ["blue-build-recipe/copy"]
 multi-recipe = ["rayon", "indicatif/rayon"]
