@@ -123,17 +123,6 @@ pub enum CommandArgs {
 
 #[derive(Default, Clone, Copy, Debug, TypedBuilder, Args)]
 pub struct DriverArgs {
-    /// Runs all instructions inside one layer of the final image.
-    ///
-    /// WARN: This doesn't work with the
-    /// docker driver as it has been deprecated.
-    ///
-    /// NOTE: Squash has a performance benefit for
-    /// podman and buildah when running inside a container.
-    #[arg(short, long)]
-    #[builder(default)]
-    squash: bool,
-
     /// Select which driver to use to build
     /// your image.
     #[builder(default)]

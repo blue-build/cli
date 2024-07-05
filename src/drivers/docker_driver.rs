@@ -408,5 +408,7 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
     command.arg(opts.image.as_ref());
 
     command.args(opts.args.iter());
+
+    trace!("{command:?}");
     command
 }
