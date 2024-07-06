@@ -9,6 +9,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1"
 atty = "0.2"
 base64 = "0.22.1"
 blake2 = "0.10.6"
@@ -23,7 +24,6 @@ signal-hook = { version = "0.3.17", features = ["extended-siginfo"] }
 syntect = "5"
 which = "6"
 
-anyhow.workspace = true
 chrono.workspace = true
 clap = { workspace = true, features = ["derive"] }
 colored.workspace = true
@@ -31,6 +31,7 @@ format_serde_error.workspace = true
 indicatif.workspace = true
 indicatif-log-bridge.workspace = true
 log.workspace = true
+miette.workspace = true
 once_cell.workspace = true
 tempdir.workspace = true
 serde.workspace = true

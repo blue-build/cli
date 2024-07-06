@@ -1,8 +1,8 @@
 use std::{borrow::Cow, path::PathBuf};
 
-use anyhow::{bail, Result};
 use blue_build_utils::syntax_highlighting::highlight_ser;
 use colored::Colorize;
+use miette::{bail, Result};
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 
