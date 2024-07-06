@@ -4,7 +4,6 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{bail, Result};
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_UNVERIFIED_IMAGE},
@@ -14,6 +13,7 @@ use clap::Args;
 use colored::Colorize;
 use indicatif::ProgressBar;
 use log::{debug, trace, warn};
+use miette::{bail, IntoDiagnostic, Result};
 use tempdir::TempDir;
 use typed_builder::TypedBuilder;
 
@@ -64,7 +64,7 @@ impl BlueBuildCommand for SwitchCommand {
             bail!("There is a transaction in progress. Please cancel it using `rpm-ostree cancel`");
         }
 
-        let tempdir = TempDir::new("oci-archive")?;
+        let tempdir = TempDir::new("oci-archive").into_diagnostic()?;
         trace!("{tempdir:?}");
 
         BuildCommand::builder()
@@ -144,7 +144,8 @@ impl SwitchCommand {
         .status_image_ref_progress(
             format!("{}", archive_path.display()),
             "Switching to new image",
-        )?;
+        )
+        .into_diagnostic()?;
 
         if !status.success() {
             bail!("Failed to switch to new image!");
@@ -164,7 +165,11 @@ impl SwitchCommand {
         progress.set_message(format!("Moving image archive to {}...", to.display()));
 
         trace!("sudo mv {} {}", from.display(), to.display());
-        let status = Command::new("sudo").arg("mv").args([from, to]).status()?;
+        let status = Command::new("sudo")
+            .arg("mv")
+            .args([from, to])
+            .status()
+            .into_diagnostic()?;
 
         progress.finish_and_clear();
 
@@ -191,9 +196,11 @@ impl SwitchCommand {
             let output = String::from_utf8(
                 Command::new("sudo")
                     .args(["ls", LOCAL_BUILD])
-                    .output()?
+                    .output()
+                    .into_diagnostic()?
                     .stdout,
-            )?;
+            )
+            .into_diagnostic()?;
 
             trace!("{output}");
 
@@ -214,7 +221,8 @@ impl SwitchCommand {
                 let status = Command::new("sudo")
                     .args(["rm", "-f"])
                     .arg(files)
-                    .status()?;
+                    .status()
+                    .into_diagnostic()?;
 
                 progress.finish_and_clear();
 
@@ -230,7 +238,8 @@ impl SwitchCommand {
 
             let status = Command::new("sudo")
                 .args(["mkdir", "-p", LOCAL_BUILD])
-                .status()?;
+                .status()
+                .into_diagnostic()?;
 
             if !status.success() {
                 bail!("Failed to create directory {LOCAL_BUILD}");

@@ -12,7 +12,6 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{anyhow, Result};
 use base64::prelude::*;
 use blake2::{
     digest::{Update, VariableOutput},
@@ -20,6 +19,7 @@ use blake2::{
 };
 use format_serde_error::SerdeError;
 use log::trace;
+use miette::{miette, IntoDiagnostic, Result};
 
 use crate::constants::CONTAINER_FILE;
 
@@ -35,14 +35,15 @@ pub fn check_command_exists(command: &str) -> Result<()> {
     trace!("which {command}");
     if Command::new("which")
         .arg(command)
-        .output()?
+        .output()
+        .into_diagnostic()?
         .status
         .success()
     {
         trace!("Command {command} does exist");
         Ok(())
     } else {
-        Err(anyhow!(
+        Err(miette!(
             "Command {command} doesn't exist and is required to build the image"
         ))
     }
@@ -69,9 +70,9 @@ pub fn serde_yaml_err(contents: &str) -> impl Fn(serde_yaml::Error) -> SerdeErro
 ///
 /// # Errors
 /// Will error when retries have been expended.
-pub fn retry<V, F>(attempts: u8, delay: u64, f: F) -> anyhow::Result<V>
+pub fn retry<V, F>(attempts: u8, delay: u64, f: F) -> miette::Result<V>
 where
-    F: Fn() -> anyhow::Result<V>,
+    F: Fn() -> miette::Result<V>,
 {
     let mut attempts = attempts;
     loop {
@@ -100,9 +101,9 @@ pub fn generate_containerfile_path<T: AsRef<Path>>(path: T) -> Result<PathBuf> {
     const HASH_SIZE: usize = 8;
     let mut buf = [0u8; HASH_SIZE];
 
-    let mut hasher = Blake2bVar::new(HASH_SIZE)?;
+    let mut hasher = Blake2bVar::new(HASH_SIZE).into_diagnostic()?;
     hasher.update(path.as_ref().as_os_str().as_bytes());
-    hasher.finalize_variable(&mut buf)?;
+    hasher.finalize_variable(&mut buf).into_diagnostic()?;
 
     Ok(PathBuf::from(format!(
         "{CONTAINER_FILE}.{}",

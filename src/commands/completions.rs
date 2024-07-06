@@ -1,5 +1,6 @@
 use clap::{Args, CommandFactory};
 use clap_complete::{generate, Shell as CompletionShell};
+use miette::Result;
 
 use crate::commands::BlueBuildArgs;
 
@@ -12,7 +13,7 @@ pub struct CompletionsCommand {
 }
 
 impl BlueBuildCommand for CompletionsCommand {
-    fn try_run(&mut self) -> anyhow::Result<()> {
+    fn try_run(&mut self) -> Result<()> {
         log::debug!("Generating completions for {}", self.shell);
 
         generate(

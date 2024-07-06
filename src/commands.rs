@@ -28,12 +28,12 @@ pub trait BlueBuildCommand {
     ///
     /// # Errors
     /// Can return an `anyhow` Error
-    fn try_run(&mut self) -> anyhow::Result<()>;
+    fn try_run(&mut self) -> miette::Result<()>;
 
     /// Runs the command and exits if there is an error.
     fn run(&mut self) {
         if let Err(e) = self.try_run() {
-            error!("{e}");
+            error!("Failed:\n{e:?}");
             std::process::exit(1);
         }
         std::process::exit(0);

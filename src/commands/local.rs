@@ -4,11 +4,11 @@ use std::{
     process::Command,
 };
 
-use anyhow::{bail, Result};
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::{ARCHIVE_SUFFIX, LOCAL_BUILD};
 use clap::Args;
 use log::{debug, info, trace};
+use miette::{bail, IntoDiagnostic, Result};
 use typed_builder::TypedBuilder;
 use users::{Users, UsersCache};
 
@@ -84,12 +84,16 @@ impl BlueBuildCommand for UpgradeCommand {
             Command::new("rpm-ostree")
                 .arg("upgrade")
                 .arg("--reboot")
-                .status()?
+                .status()
+                .into_diagnostic()?
         } else {
             info!("Upgrading image {image_name}");
 
             trace!("rpm-ostree upgrade");
-            Command::new("rpm-ostree").arg("upgrade").status()?
+            Command::new("rpm-ostree")
+                .arg("upgrade")
+                .status()
+                .into_diagnostic()?
         };
 
         if status.success() {
@@ -146,7 +150,8 @@ impl BlueBuildCommand for RebaseCommand {
                 .arg("rebase")
                 .arg("--reboot")
                 .arg(rebase_url)
-                .status()?
+                .status()
+                .into_diagnostic()?
         } else {
             info!("Rebasing image {image_name}");
 
@@ -154,7 +159,8 @@ impl BlueBuildCommand for RebaseCommand {
             Command::new("rpm-ostree")
                 .arg("rebase")
                 .arg(rebase_url)
-                .status()?
+                .status()
+                .into_diagnostic()?
         };
 
         if status.success() {
@@ -198,10 +204,10 @@ fn clean_local_build_dir(image_name: &str, rebase: bool) -> Result<()> {
     if local_build_path.exists() {
         debug!("Cleaning out build dir {LOCAL_BUILD}");
 
-        let entries = fs::read_dir(LOCAL_BUILD)?;
+        let entries = fs::read_dir(LOCAL_BUILD).into_diagnostic()?;
 
         for entry in entries {
-            let entry = entry?;
+            let entry = entry.into_diagnostic()?;
             let path = entry.path();
             trace!("Found {}", path.display());
 
@@ -211,7 +217,7 @@ fn clean_local_build_dir(image_name: &str, rebase: bool) -> Result<()> {
                     continue;
                 }
                 trace!("Removing {}", path.display());
-                fs::remove_file(path)?;
+                fs::remove_file(path).into_diagnostic()?;
             }
         }
     } else {
@@ -219,7 +225,7 @@ fn clean_local_build_dir(image_name: &str, rebase: bool) -> Result<()> {
             "Creating build output dir at {}",
             local_build_path.display()
         );
-        fs::create_dir_all(local_build_path)?;
+        fs::create_dir_all(local_build_path).into_diagnostic()?;
     }
 
     Ok(())

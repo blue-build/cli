@@ -4,7 +4,6 @@ use std::{
     process::Command,
 };
 
-use anyhow::{bail, Context, Result};
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{
@@ -20,6 +19,7 @@ use blue_build_utils::{
 use clap::Args;
 use colored::Colorize;
 use log::{debug, info, trace, warn};
+use miette::{bail, Context, IntoDiagnostic, Result};
 use typed_builder::TypedBuilder;
 
 use crate::{
@@ -330,7 +330,8 @@ impl BuildCommand {
                 .arg("-p")
                 .arg(password)
                 .arg(registry)
-                .output()?;
+                .output()
+                .into_diagnostic()?;
 
             if !login_output.status.success() {
                 let err_output = String::from_utf8_lossy(&login_output.stderr);
@@ -421,7 +422,8 @@ impl BuildCommand {
         if !self.force && container_file_path.exists() {
             let to_ignore_lines = [format!("/{CONTAINER_FILE}"), format!("/{CONTAINER_FILE}.*")];
             let gitignore = fs::read_to_string(GITIGNORE_PATH)
-                .context(format!("Failed to read {GITIGNORE_PATH}"))?;
+                .into_diagnostic()
+                .with_context(|| format!("Failed to read {GITIGNORE_PATH}"))?;
 
             let mut edited_gitignore = gitignore.clone();
 
@@ -434,7 +436,10 @@ impl BuildCommand {
                 })
                 .try_for_each(|to_ignore| -> Result<()> {
                     let containerfile = fs::read_to_string(container_file_path)
-                        .context(format!("Failed to read {}", container_file_path.display()))?;
+                        .into_diagnostic()
+                        .with_context(|| {
+                        format!("Failed to read {}", container_file_path.display())
+                    })?;
 
                     let has_label = containerfile
                         .lines()
@@ -467,7 +472,7 @@ impl BuildCommand {
                 })?;
 
             if edited_gitignore != gitignore {
-                fs::write(GITIGNORE_PATH, edited_gitignore.as_str())?;
+                fs::write(GITIGNORE_PATH, edited_gitignore.as_str()).into_diagnostic()?;
             }
         }
 
@@ -497,7 +502,8 @@ impl BuildCommand {
                     let output = Command::new("cosign")
                         .arg("public-key")
                         .arg("--key=env://COSIGN_PRIVATE_KEY")
-                        .output()?;
+                        .output()
+                        .into_diagnostic()?;
 
                     if !output.status.success() {
                         bail!(
@@ -506,9 +512,10 @@ impl BuildCommand {
                         );
                     }
 
-                    let calculated_pub_key = String::from_utf8(output.stdout)?;
+                    let calculated_pub_key = String::from_utf8(output.stdout).into_diagnostic()?;
                     let found_pub_key = fs::read_to_string(COSIGN_PUB_PATH)
-                        .context(format!("Failed to read {COSIGN_PUB_PATH}"))?;
+                        .into_diagnostic()
+                        .with_context(|| format!("Failed to read {COSIGN_PUB_PATH}"))?;
                     trace!("calculated_pub_key={calculated_pub_key},found_pub_key={found_pub_key}");
 
                     if calculated_pub_key.trim() == found_pub_key.trim() {
@@ -523,7 +530,8 @@ impl BuildCommand {
                     let output = Command::new("cosign")
                         .arg("public-key")
                         .arg(format!("--key={COSIGN_PRIV_PATH}"))
-                        .output()?;
+                        .output()
+                        .into_diagnostic()?;
 
                     if !output.status.success() {
                         bail!(
@@ -532,9 +540,10 @@ impl BuildCommand {
                         );
                     }
 
-                    let calculated_pub_key = String::from_utf8(output.stdout)?;
+                    let calculated_pub_key = String::from_utf8(output.stdout).into_diagnostic()?;
                     let found_pub_key = fs::read_to_string(COSIGN_PUB_PATH)
-                        .context(format!("Failed to read {COSIGN_PUB_PATH}"))?;
+                        .into_diagnostic()
+                        .with_context(|| format!("Failed to read {COSIGN_PUB_PATH}"))?;
                     trace!("calculated_pub_key={calculated_pub_key},found_pub_key={found_pub_key}");
 
                     if calculated_pub_key.trim() == found_pub_key.trim() {
@@ -622,7 +631,8 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
                 .arg("sign")
                 .arg("--recursive")
                 .arg(&image_name_digest)
-                .status()?
+                .status()
+                .into_diagnostic()?
                 .success()
             {
                 info!("Successfully signed image!");
@@ -644,7 +654,8 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
                 .arg("--certificate-oidc-issuer")
                 .arg(&cert_oidc)
                 .arg(&image_name_tag)
-                .status()?
+                .status()
+                .into_diagnostic()?
                 .success()
             {
                 bail!("Failed to verify image!");
@@ -661,7 +672,8 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
                 .arg("sign")
                 .arg("--recursive")
                 .arg(&image_name_digest)
-                .status()?
+                .status()
+                .into_diagnostic()?
                 .success()
             {
                 info!("Successfully signed image!");
@@ -677,7 +689,8 @@ fn sign_images(image_name: &str, tag: Option<&str>) -> Result<()> {
                 .arg("--certificate-oidc-issuer")
                 .arg(GITHUB_TOKEN_ISSUER_URL)
                 .arg(&image_name_tag)
-                .status()?
+                .status()
+                .into_diagnostic()?
                 .success()
             {
                 bail!("Failed to verify image!");
@@ -699,7 +712,8 @@ fn sign_priv_public_pair_env(image_digest: &str, image_name_tag: &str) -> Result
         .arg("--key=env://COSIGN_PRIVATE_KEY")
         .arg("--recursive")
         .arg(image_digest)
-        .status()?
+        .status()
+        .into_diagnostic()?
         .success()
     {
         info!("Successfully signed image!");
@@ -713,7 +727,8 @@ fn sign_priv_public_pair_env(image_digest: &str, image_name_tag: &str) -> Result
         .arg("verify")
         .arg(format!("--key={COSIGN_PUB_PATH}"))
         .arg(image_name_tag)
-        .status()?
+        .status()
+        .into_diagnostic()?
         .success()
     {
         bail!("Failed to verify image!");
@@ -732,7 +747,8 @@ fn sign_priv_public_pair_file(image_digest: &str, image_name_tag: &str) -> Resul
         .arg(format!("--key={COSIGN_PRIV_PATH}"))
         .arg("--recursive")
         .arg(image_digest)
-        .status()?
+        .status()
+        .into_diagnostic()?
         .success()
     {
         info!("Successfully signed image!");
@@ -746,7 +762,8 @@ fn sign_priv_public_pair_file(image_digest: &str, image_name_tag: &str) -> Resul
         .arg("verify")
         .arg(format!("--key={COSIGN_PUB_PATH}"))
         .arg(image_name_tag)
-        .status()?
+        .status()
+        .into_diagnostic()?
         .success()
     {
         bail!("Failed to verify image!");
