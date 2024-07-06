@@ -4,7 +4,6 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{bail, Result};
 use blue_build_utils::{
     constants::SKOPEO_IMAGE,
     logging::{CommandLogging, Logger},
@@ -13,6 +12,7 @@ use blue_build_utils::{
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace, warn};
+use miette::{bail, IntoDiagnostic, Result};
 use semver::Version;
 use serde::Deserialize;
 use tempdir::TempDir;
@@ -55,10 +55,12 @@ impl DriverVersion for PodmanDriver {
             .arg("version")
             .arg("-f")
             .arg("json")
-            .output()?;
+            .output()
+            .into_diagnostic()?;
 
         let version_json: PodmanVersionJson = serde_json::from_slice(&output.stdout)
-            .inspect_err(|e| error!("{e}: {}", String::from_utf8_lossy(&output.stdout)))?;
+            .inspect_err(|e| error!("{e}: {}", String::from_utf8_lossy(&output.stdout)))
+            .into_diagnostic()?;
         trace!("{version_json:#?}");
 
         Ok(version_json.client.version)
@@ -85,7 +87,9 @@ impl BuildDriver for PodmanDriver {
             .arg("-t")
             .arg(opts.image.as_ref())
             .arg(".");
-        let status = command.status_image_ref_progress(&opts.image, "Building Image")?;
+        let status = command
+            .status_image_ref_progress(&opts.image, "Building Image")
+            .into_diagnostic()?;
 
         if status.success() {
             info!("Successfully built {}", opts.image);
@@ -103,7 +107,8 @@ impl BuildDriver for PodmanDriver {
             .arg("tag")
             .arg(opts.src_image.as_ref())
             .arg(opts.dest_image.as_ref())
-            .status()?;
+            .status()
+            .into_diagnostic()?;
 
         if status.success() {
             info!("Successfully tagged {}!", opts.dest_image);
@@ -125,7 +130,9 @@ impl BuildDriver for PodmanDriver {
                 opts.compression_type.unwrap_or_default()
             ))
             .arg(opts.image.as_ref());
-        let status = command.status_image_ref_progress(&opts.image, "Pushing Image")?;
+        let status = command
+            .status_image_ref_progress(&opts.image, "Pushing Image")
+            .into_diagnostic()?;
 
         if status.success() {
             info!("Successfully pushed {}!", opts.image);
@@ -152,7 +159,8 @@ impl BuildDriver for PodmanDriver {
                 .arg("-p")
                 .arg(password)
                 .arg(registry)
-                .output()?;
+                .output()
+                .into_diagnostic()?;
 
             if !output.status.success() {
                 let err_out = String::from_utf8_lossy(&output.stderr);
@@ -184,7 +192,8 @@ impl InspectDriver for PodmanDriver {
                 .image(SKOPEO_IMAGE)
                 .args(&["inspect".to_string(), url.clone()])
                 .build(),
-        )?;
+        )
+        .into_diagnostic()?;
 
         progress.finish();
         Logger::multi_progress().remove(&progress);
@@ -194,7 +203,7 @@ impl InspectDriver for PodmanDriver {
         } else {
             bail!("Failed to inspect image {url}");
         }
-        Ok(serde_json::from_slice(&output.stdout)?)
+        serde_json::from_slice(&output.stdout).into_diagnostic()
     }
 }
 

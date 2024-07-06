@@ -3,10 +3,10 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{bail, Result};
 use blue_build_utils::logging::Logger;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, trace};
+use miette::{bail, IntoDiagnostic, Result};
 
 use crate::image_metadata::ImageMetadata;
 
@@ -36,7 +36,8 @@ impl InspectDriver for SkopeoDriver {
             .arg("inspect")
             .arg(&url)
             .stderr(Stdio::inherit())
-            .output()?;
+            .output()
+            .into_diagnostic()?;
 
         progress.finish();
         Logger::multi_progress().remove(&progress);
@@ -46,6 +47,6 @@ impl InspectDriver for SkopeoDriver {
         } else {
             bail!("Failed to inspect image {url}")
         }
-        Ok(serde_json::from_slice(&output.stdout)?)
+        serde_json::from_slice(&output.stdout).into_diagnostic()
     }
 }

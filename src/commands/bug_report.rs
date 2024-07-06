@@ -9,6 +9,7 @@ use clap_complete::Shell;
 use colored::Colorize;
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use log::{debug, error, trace};
+use miette::{IntoDiagnostic, Result};
 use requestty::question::{completions, Completions};
 use std::time::Duration;
 use typed_builder::TypedBuilder;
@@ -32,7 +33,7 @@ pub struct BugReportCommand {
 }
 
 impl BlueBuildCommand for BugReportCommand {
-    fn try_run(&mut self) -> anyhow::Result<()> {
+    fn try_run(&mut self) -> Result<()> {
         debug!("Generating bug report for hash: {}\n", shadow::COMMIT_HASH);
         debug!("Shadow Versioning:\n{}", shadow::VERSION.trim());
 
@@ -51,7 +52,7 @@ impl BugReportCommand {
     /// # Panics
     ///
     /// This function will panic if it fails to get the current shell or terminal version.
-    pub fn create_bugreport(&self) -> anyhow::Result<()> {
+    pub fn create_bugreport(&self) -> Result<()> {
         let os_info = os_info::get();
         let recipe = self.get_recipe();
 
@@ -94,7 +95,7 @@ impl BugReportCommand {
                     if let Err(e) = open::that(&link) {
                         println!("Failed to open issue report in your browser: {e}");
                         println!("Please copy the above report and open an issue manually, or try opening the following link:\n{link}");
-                        return Err(e.into());
+                        return Err(e).into_diagnostic();
                     }
                 } else {
                     println!("{BUG_REPORT_WARNING_MESSAGE}");
@@ -125,7 +126,7 @@ impl BugReportCommand {
     }
 }
 
-fn get_config_file(title: &str, message: &str) -> anyhow::Result<String> {
+fn get_config_file(title: &str, message: &str) -> Result<String> {
     use std::path::Path;
 
     let question = requestty::Question::input(title)
@@ -147,7 +148,7 @@ fn get_config_file(title: &str, message: &str) -> anyhow::Result<String> {
         Ok(_) => unreachable!(),
         Err(e) => {
             trace!("Failed to get file: {}", e);
-            Err(e.into())
+            Err(e).into_diagnostic()
         }
     }
 }
@@ -276,11 +277,8 @@ fn get_pkg_branch_tag() -> String {
     format!("{} ({})", shadow::BRANCH, shadow::LAST_TAG)
 }
 
-fn generate_github_issue(
-    environment: &Environment,
-    recipe: &Option<Recipe>,
-) -> anyhow::Result<String> {
-    let recipe = serde_yaml::to_string(recipe)?;
+fn generate_github_issue(environment: &Environment, recipe: &Option<Recipe>) -> Result<String> {
+    let recipe = serde_yaml::to_string(recipe).into_diagnostic()?;
 
     let github_template = GithubIssueTemplate::builder()
         .bb_version(shadow::PKG_VERSION)
@@ -299,7 +297,7 @@ fn generate_github_issue(
         .terminal_version(environment.terminal_info.version.clone())
         .build();
 
-    Ok(github_template.render()?)
+    github_template.render().into_diagnostic()
 }
 
 fn make_github_issue_link(body: &str) -> String {

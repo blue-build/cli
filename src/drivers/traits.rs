@@ -3,8 +3,8 @@ use std::{
     process::{ExitStatus, Output},
 };
 
-use anyhow::{anyhow, bail, Result};
 use log::{debug, info, trace};
+use miette::{bail, miette, Result};
 use semver::{Version, VersionReq};
 
 use crate::image_metadata::ImageMetadata;
@@ -90,7 +90,7 @@ pub trait BuildDriver {
             let image = opts
                 .image
                 .as_ref()
-                .ok_or_else(|| anyhow!("Image is required in order to tag"))?;
+                .ok_or_else(|| miette!("Image is required in order to tag"))?;
             debug!("Tagging all images");
 
             for tag in opts.tags.as_ref() {

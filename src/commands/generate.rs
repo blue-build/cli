@@ -3,7 +3,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::Result;
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
@@ -15,6 +14,7 @@ use blue_build_utils::{
 };
 use clap::{crate_version, Args};
 use log::{debug, info, trace, warn};
+use miette::{IntoDiagnostic, Result};
 use typed_builder::TypedBuilder;
 
 use crate::{drivers::Driver, shadow};
@@ -104,7 +104,8 @@ impl GenerateCommand {
 
         if self.display_full_recipe {
             if let Some(output) = self.output.as_ref() {
-                std::fs::write(output, serde_yaml::to_string(&recipe_de)?)?;
+                std::fs::write(output, serde_yaml::to_string(&recipe_de).into_diagnostic()?)
+                    .into_diagnostic()?;
             } else {
                 syntax_highlighting::print_ser(&recipe_de, "yml", self.syntax_theme)?;
             }
@@ -132,12 +133,12 @@ impl GenerateCommand {
             })
             .build();
 
-        let output_str = template.render()?;
+        let output_str = template.render().into_diagnostic()?;
         if let Some(output) = self.output.as_ref() {
             debug!("Templating to file {}", output.display());
             trace!("Containerfile:\n{output_str}");
 
-            std::fs::write(output, output_str)?;
+            std::fs::write(output, output_str).into_diagnostic()?;
         } else {
             debug!("Templating to stdout");
             syntax_highlighting::print(&output_str, "Dockerfile", self.syntax_theme)?;

@@ -1,7 +1,7 @@
 use std::{borrow::Cow, path::Path, process::Command};
 
-use anyhow::{bail, Result};
 use log::trace;
+use miette::{bail, IntoDiagnostic, Result};
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -29,7 +29,8 @@ impl<'a> RpmOstreeStatus<'a> {
         trace!("rpm-ostree status --json");
         let output = Command::new("rpm-ostree")
             .args(["status", "--json"])
-            .output()?;
+            .output()
+            .into_diagnostic()?;
 
         if !output.status.success() {
             bail!("Failed to get `rpm-ostree` status!");
@@ -37,7 +38,7 @@ impl<'a> RpmOstreeStatus<'a> {
 
         trace!("{}", String::from_utf8_lossy(&output.stdout));
 
-        Ok(serde_json::from_slice(&output.stdout)?)
+        serde_json::from_slice(&output.stdout).into_diagnostic()
     }
 
     /// Checks if there is a transaction in progress.

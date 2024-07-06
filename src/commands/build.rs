@@ -3,7 +3,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{bail, Context, Result};
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{
@@ -17,6 +16,7 @@ use blue_build_utils::{
 use clap::Args;
 use colored::Colorize;
 use log::{debug, info, trace, warn};
+use miette::{bail, Context, IntoDiagnostic, Result};
 use typed_builder::TypedBuilder;
 
 use crate::{
@@ -386,7 +386,8 @@ impl BuildCommand {
         if !self.force && container_file_path.exists() {
             let to_ignore_lines = [format!("/{CONTAINER_FILE}"), format!("/{CONTAINER_FILE}.*")];
             let gitignore = fs::read_to_string(GITIGNORE_PATH)
-                .context(format!("Failed to read {GITIGNORE_PATH}"))?;
+                .into_diagnostic()
+                .with_context(|| format!("Failed to read {GITIGNORE_PATH}"))?;
 
             let mut edited_gitignore = gitignore.clone();
 
@@ -399,7 +400,10 @@ impl BuildCommand {
                 })
                 .try_for_each(|to_ignore| -> Result<()> {
                     let containerfile = fs::read_to_string(container_file_path)
-                        .context(format!("Failed to read {}", container_file_path.display()))?;
+                        .into_diagnostic()
+                        .with_context(|| {
+                        format!("Failed to read {}", container_file_path.display())
+                    })?;
 
                     let has_label = containerfile
                         .lines()
@@ -432,14 +436,10 @@ impl BuildCommand {
                 })?;
 
             if edited_gitignore != gitignore {
-                fs::write(GITIGNORE_PATH, edited_gitignore.as_str())?;
+                fs::write(GITIGNORE_PATH, edited_gitignore.as_str()).into_diagnostic()?;
             }
         }
 
         Ok(())
     }
 }
-
-// ======================================================== //
-// ========================= Helpers ====================== //
-// ======================================================== //

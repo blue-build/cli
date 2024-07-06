@@ -11,10 +11,10 @@ use std::{
     sync::{Mutex, RwLock},
 };
 
-use anyhow::{anyhow, Result};
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::IMAGE_VERSION_LABEL;
 use log::{debug, info, trace};
+use miette::{miette, Result};
 use once_cell::sync::Lazy;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
@@ -137,13 +137,14 @@ impl Driver<'_> {
     /// # Errors
     /// Will error if the image doesn't have OS version info
     /// or we are unable to lock a mutex.
+    ///
+    /// # Panics
+    /// Panics if the mutex fails to lock.
     pub fn get_os_version(recipe: &Recipe) -> Result<u64> {
         trace!("Driver::get_os_version({recipe:#?})");
         let image = format!("{}:{}", &recipe.base_image, &recipe.image_version);
 
-        let mut os_version_lock = OS_VERSION
-            .lock()
-            .map_err(|e| anyhow!("Unable set OS_VERSION {e}"))?;
+        let mut os_version_lock = OS_VERSION.lock().expect("Should lock");
 
         let entry = os_version_lock.get(&image);
 
@@ -157,11 +158,9 @@ impl Driver<'_> {
                 let inspection = Self::get_metadata(&inspect_opts)?;
 
                 let os_version = inspection.get_version().ok_or_else(|| {
-                    anyhow!(
-                        "{}{}{}",
-                        "Unable to get the OS version from the labels. ",
-                        "Please check with the image author about using ",
-                        format_args!("'{IMAGE_VERSION_LABEL}' to report the os version."),
+                    miette!(
+                        help = format!("Please check with the image author about using '{IMAGE_VERSION_LABEL}' to report the os version."),
+                        "Unable to get the OS version from the labels"
                     )
                 })?;
                 trace!("os_version: {os_version}");

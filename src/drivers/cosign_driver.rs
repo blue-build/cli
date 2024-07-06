@@ -1,12 +1,12 @@
 use std::{env, fmt::Debug, fs, path::Path, process::Command};
 
-use anyhow::{bail, Context, Result};
 use blue_build_utils::constants::{
     CI_DEFAULT_BRANCH, CI_PROJECT_URL, CI_SERVER_HOST, CI_SERVER_PROTOCOL, COSIGN_PRIVATE_KEY,
     COSIGN_PRIV_PATH, COSIGN_PUB_PATH, GITHUB_TOKEN, GITHUB_TOKEN_ISSUER_URL, GITHUB_WORKFLOW_REF,
     SIGSTORE_ID_TOKEN,
 };
 use log::{debug, info, trace, warn};
+use miette::{bail, Context, IntoDiagnostic, Result};
 
 use crate::drivers::{opts::GetMetadataOpts, Driver, InspectDriver};
 
@@ -21,7 +21,8 @@ impl SigningDriver for CosignDriver {
             .env("COSIGN_PASSWORD", "")
             .env("COSIGN_YES", "true")
             .arg("genereate-key-pair")
-            .status()?;
+            .status()
+            .into_diagnostic()?;
 
         if !status.success() {
             bail!("Failed to generate cosign key-pair!");
@@ -30,7 +31,7 @@ impl SigningDriver for CosignDriver {
         Ok(())
     }
 
-    fn check_signing_files() -> anyhow::Result<()> {
+    fn check_signing_files() -> Result<()> {
         match (
             env::var(COSIGN_PRIVATE_KEY).ok(),
             Path::new(COSIGN_PRIV_PATH),
@@ -130,7 +131,8 @@ impl SigningDriver for CosignDriver {
                     .arg("sign")
                     .arg("--recursive")
                     .arg(&image_name_digest)
-                    .status()?
+                    .status()
+                    .into_diagnostic()?
                     .success()
                 {
                     info!("Successfully signed image!");
@@ -152,7 +154,8 @@ impl SigningDriver for CosignDriver {
                     .arg("--certificate-oidc-issuer")
                     .arg(&cert_oidc)
                     .arg(&image_name_tag)
-                    .status()?
+                    .status()
+                    .into_diagnostic()?
                     .success()
                 {
                     bail!("Failed to verify image!");
@@ -169,7 +172,8 @@ impl SigningDriver for CosignDriver {
                     .arg("sign")
                     .arg("--recursive")
                     .arg(&image_name_digest)
-                    .status()?
+                    .status()
+                    .into_diagnostic()?
                     .success()
                 {
                     info!("Successfully signed image!");
@@ -185,7 +189,8 @@ impl SigningDriver for CosignDriver {
                     .arg("--certificate-oidc-issuer")
                     .arg(GITHUB_TOKEN_ISSUER_URL)
                     .arg(&image_name_tag)
-                    .status()?
+                    .status()
+                    .into_diagnostic()?
                     .success()
                 {
                     bail!("Failed to verify image!");
@@ -211,7 +216,8 @@ impl CosignDriver {
             .env("COSIGN_YES", "true")
             .arg("public-key")
             .arg(format!("--key={priv_key}"))
-            .output()?;
+            .output()
+            .into_diagnostic()?;
 
         if !output.status.success() {
             bail!(
@@ -220,8 +226,9 @@ impl CosignDriver {
             );
         }
 
-        let calculated_pub_key = String::from_utf8(output.stdout)?;
+        let calculated_pub_key = String::from_utf8(output.stdout).into_diagnostic()?;
         let found_pub_key = fs::read_to_string(COSIGN_PUB_PATH)
+            .into_diagnostic()
             .with_context(|| format!("Failed to read {COSIGN_PUB_PATH}"))?;
         trace!("calculated_pub_key={calculated_pub_key},found_pub_key={found_pub_key}");
 
@@ -245,7 +252,8 @@ impl CosignDriver {
             .arg("--key=env://COSIGN_PRIVATE_KEY")
             .arg("--recursive")
             .arg(image_digest)
-            .status()?
+            .status()
+            .into_diagnostic()?
             .success()
         {
             info!("Successfully signed image!");
@@ -259,7 +267,8 @@ impl CosignDriver {
             .arg("verify")
             .arg(format!("--key={COSIGN_PUB_PATH}"))
             .arg(image_name_tag)
-            .status()?
+            .status()
+            .into_diagnostic()?
             .success()
         {
             bail!("Failed to verify image!");
@@ -278,7 +287,8 @@ impl CosignDriver {
             .arg(format!("--key={COSIGN_PRIV_PATH}"))
             .arg("--recursive")
             .arg(image_digest)
-            .status()?
+            .status()
+            .into_diagnostic()?
             .success()
         {
             info!("Successfully signed image!");
@@ -292,7 +302,8 @@ impl CosignDriver {
             .arg("verify")
             .arg(format!("--key={COSIGN_PUB_PATH}"))
             .arg(image_name_tag)
-            .status()?
+            .status()
+            .into_diagnostic()?
             .success()
         {
             bail!("Failed to verify image!");

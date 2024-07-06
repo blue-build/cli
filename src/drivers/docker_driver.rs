@@ -6,7 +6,6 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{anyhow, bail, Result};
 use blue_build_utils::{
     constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
     logging::{CommandLogging, Logger},
@@ -14,6 +13,7 @@ use blue_build_utils::{
 };
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
+use miette::{bail, IntoDiagnostic, Result};
 use once_cell::sync::Lazy;
 use semver::Version;
 use serde::Deserialize;
@@ -50,9 +50,7 @@ impl DockerDriver {
     fn setup() -> Result<()> {
         trace!("DockerDriver::setup()");
 
-        let mut lock = DOCKER_SETUP
-            .lock()
-            .map_err(|e| anyhow!("Failed to lock DOCKER_SETUP: {e}"))?;
+        let mut lock = DOCKER_SETUP.lock().expect("Should lock");
 
         if *lock {
             drop(lock);
@@ -64,13 +62,14 @@ impl DockerDriver {
             .arg("buildx")
             .arg("ls")
             .arg("--format={{.Name}}")
-            .output()?;
+            .output()
+            .into_diagnostic()?;
 
         if !ls_out.status.success() {
             bail!("{}", String::from_utf8_lossy(&ls_out.stderr));
         }
 
-        let ls_out = String::from_utf8(ls_out.stdout)?;
+        let ls_out = String::from_utf8(ls_out.stdout).into_diagnostic()?;
 
         trace!("{ls_out}");
 
@@ -82,7 +81,8 @@ impl DockerDriver {
                 .arg("--bootstrap")
                 .arg("--driver=docker-container")
                 .arg("--name=bluebuild")
-                .output()?;
+                .output()
+                .into_diagnostic()?;
 
             if !create_out.status.success() {
                 bail!("{}", String::from_utf8_lossy(&create_out.stderr));
@@ -105,9 +105,11 @@ impl DriverVersion for DockerDriver {
             .arg("version")
             .arg("-f")
             .arg("json")
-            .output()?;
+            .output()
+            .into_diagnostic()?;
 
-        let version_json: DockerVersionJson = serde_json::from_slice(&output.stdout)?;
+        let version_json: DockerVersionJson =
+            serde_json::from_slice(&output.stdout).into_diagnostic()?;
 
         Ok(version_json.client.version)
     }
@@ -129,7 +131,8 @@ impl BuildDriver for DockerDriver {
             .arg("-f")
             .arg(opts.containerfile.as_ref())
             .arg(".")
-            .status()?;
+            .status()
+            .into_diagnostic()?;
 
         if status.success() {
             info!("Successfully built {}", opts.image);
@@ -147,7 +150,8 @@ impl BuildDriver for DockerDriver {
             .arg("tag")
             .arg(opts.src_image.as_ref())
             .arg(opts.dest_image.as_ref())
-            .status()?;
+            .status()
+            .into_diagnostic()?;
 
         if status.success() {
             info!("Successfully tagged {}!", opts.dest_image);
@@ -164,7 +168,8 @@ impl BuildDriver for DockerDriver {
         let status = Command::new("docker")
             .arg("push")
             .arg(opts.image.as_ref())
-            .status()?;
+            .status()
+            .into_diagnostic()?;
 
         if status.success() {
             info!("Successfully pushed {}!", opts.image);
@@ -191,7 +196,8 @@ impl BuildDriver for DockerDriver {
                 .arg("-p")
                 .arg(password)
                 .arg(registry)
-                .output()?;
+                .output()
+                .into_diagnostic()?;
 
             if !output.status.success() {
                 let err_out = String::from_utf8_lossy(&output.stderr);
@@ -287,7 +293,8 @@ impl BuildDriver for DockerDriver {
         command.arg(".");
 
         if command
-            .status_image_ref_progress(&final_image, "Building Image")?
+            .status_image_ref_progress(&final_image, "Building Image")
+            .into_diagnostic()?
             .success()
         {
             if opts.push {
@@ -323,7 +330,8 @@ impl InspectDriver for DockerDriver {
                 .image(SKOPEO_IMAGE)
                 .args(&["inspect".to_string(), url.clone()])
                 .build(),
-        )?;
+        )
+        .into_diagnostic()?;
 
         progress.finish();
         Logger::multi_progress().remove(&progress);
@@ -334,7 +342,7 @@ impl InspectDriver for DockerDriver {
             bail!("Failed to inspect image {url}")
         }
 
-        Ok(serde_json::from_slice(&output.stdout)?)
+        serde_json::from_slice(&output.stdout).into_diagnostic()
     }
 }
 

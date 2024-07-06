@@ -1,8 +1,8 @@
 use std::process::Command;
 
-use anyhow::{bail, Result};
 use blue_build_utils::logging::CommandLogging;
 use log::{error, info, trace};
+use miette::{bail, IntoDiagnostic, Result};
 use semver::Version;
 use serde::Deserialize;
 
@@ -33,10 +33,12 @@ impl DriverVersion for BuildahDriver {
         let output = Command::new("buildah")
             .arg("version")
             .arg("--json")
-            .output()?;
+            .output()
+            .into_diagnostic()?;
 
         let version_json: BuildahVersionJson = serde_json::from_slice(&output.stdout)
-            .inspect_err(|e| error!("{e}: {}", String::from_utf8_lossy(&output.stdout)))?;
+            .inspect_err(|e| error!("{e}: {}", String::from_utf8_lossy(&output.stdout)))
+            .into_diagnostic()?;
         trace!("{version_json:#?}");
 
         Ok(version_json.version)
@@ -62,7 +64,9 @@ impl BuildDriver for BuildahDriver {
             .arg(opts.containerfile.as_ref())
             .arg("-t")
             .arg(opts.image.as_ref());
-        let status = command.status_image_ref_progress(&opts.image, "Building Image")?;
+        let status = command
+            .status_image_ref_progress(&opts.image, "Building Image")
+            .into_diagnostic()?;
 
         if status.success() {
             info!("Successfully built {}", opts.image);
@@ -80,7 +84,8 @@ impl BuildDriver for BuildahDriver {
             .arg("tag")
             .arg(opts.src_image.as_ref())
             .arg(opts.dest_image.as_ref())
-            .status()?;
+            .status()
+            .into_diagnostic()?;
 
         if status.success() {
             info!("Successfully tagged {}!", opts.dest_image);
@@ -102,7 +107,9 @@ impl BuildDriver for BuildahDriver {
                 opts.compression_type.unwrap_or_default()
             ))
             .arg(opts.image.as_ref());
-        let status = command.status_image_ref_progress(&opts.image, "Pushing Image")?;
+        let status = command
+            .status_image_ref_progress(&opts.image, "Pushing Image")
+            .into_diagnostic()?;
 
         if status.success() {
             info!("Successfully pushed {}!", opts.image);
@@ -129,7 +136,8 @@ impl BuildDriver for BuildahDriver {
                 .arg("-p")
                 .arg(password)
                 .arg(registry)
-                .output()?;
+                .output()
+                .into_diagnostic()?;
 
             if !output.status.success() {
                 let err_out = String::from_utf8_lossy(&output.stderr);
