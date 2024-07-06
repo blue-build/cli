@@ -8,7 +8,7 @@ use std::{
     collections::{hash_map::Entry, HashMap},
     fmt::Debug,
     process::{ExitStatus, Output},
-    sync::Mutex,
+    sync::{Mutex, RwLock},
 };
 
 use anyhow::{anyhow, Result};
@@ -43,12 +43,13 @@ mod traits;
 pub mod types;
 
 static INIT: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
-static SELECTED_BUILD_DRIVER: Lazy<Mutex<Option<BuildDriverType>>> = Lazy::new(|| Mutex::new(None));
-static SELECTED_INSPECT_DRIVER: Lazy<Mutex<Option<InspectDriverType>>> =
-    Lazy::new(|| Mutex::new(None));
-static SELECTED_RUN_DRIVER: Lazy<Mutex<Option<RunDriverType>>> = Lazy::new(|| Mutex::new(None));
-static SELECTED_SIGNING_DRIVER: Lazy<Mutex<Option<SigningDriverType>>> =
-    Lazy::new(|| Mutex::new(None));
+static SELECTED_BUILD_DRIVER: Lazy<RwLock<Option<BuildDriverType>>> =
+    Lazy::new(|| RwLock::new(None));
+static SELECTED_INSPECT_DRIVER: Lazy<RwLock<Option<InspectDriverType>>> =
+    Lazy::new(|| RwLock::new(None));
+static SELECTED_RUN_DRIVER: Lazy<RwLock<Option<RunDriverType>>> = Lazy::new(|| RwLock::new(None));
+static SELECTED_SIGNING_DRIVER: Lazy<RwLock<Option<SigningDriverType>>> =
+    Lazy::new(|| RwLock::new(None));
 
 /// UUID used to mark the current builds
 static BUILD_ID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
@@ -96,10 +97,10 @@ impl Driver<'_> {
         if !*initialized {
             credentials::set_user_creds(self.username, self.password, self.registry);
 
-            let mut build_driver = SELECTED_BUILD_DRIVER.lock().expect("Should lock");
-            let mut inspect_driver = SELECTED_INSPECT_DRIVER.lock().expect("Should lock");
-            let mut run_driver = SELECTED_RUN_DRIVER.lock().expect("Should lock");
-            let mut signing_driver = SELECTED_SIGNING_DRIVER.lock().expect("Should lock");
+            let mut build_driver = SELECTED_BUILD_DRIVER.write().expect("Should lock");
+            let mut inspect_driver = SELECTED_INSPECT_DRIVER.write().expect("Should lock");
+            let mut run_driver = SELECTED_RUN_DRIVER.write().expect("Should lock");
+            let mut signing_driver = SELECTED_SIGNING_DRIVER.write().expect("Should lock");
 
             *signing_driver = Some(self.signing_driver.determine_driver());
             trace!("Inspect driver set to {:?}", *signing_driver);
@@ -182,22 +183,22 @@ impl Driver<'_> {
     }
 
     fn get_build_driver() -> BuildDriverType {
-        let lock = SELECTED_BUILD_DRIVER.lock().expect("Should lock");
+        let lock = SELECTED_BUILD_DRIVER.read().expect("Should read");
         lock.expect("Driver should have initialized build driver")
     }
 
     fn get_inspect_driver() -> InspectDriverType {
-        let lock = SELECTED_INSPECT_DRIVER.lock().expect("Should lock");
+        let lock = SELECTED_INSPECT_DRIVER.read().expect("Should read");
         lock.expect("Driver should have initialized inspect driver")
     }
 
     fn get_signing_driver() -> SigningDriverType {
-        let lock = SELECTED_SIGNING_DRIVER.lock().expect("Should lock");
+        let lock = SELECTED_SIGNING_DRIVER.read().expect("Should read");
         lock.expect("Driver should have initialized signing driver")
     }
 
     fn get_run_driver() -> RunDriverType {
-        let lock = SELECTED_RUN_DRIVER.lock().expect("Should lock");
+        let lock = SELECTED_RUN_DRIVER.read().expect("Should read");
         lock.expect("Driver should have initialized run driver")
     }
 }
