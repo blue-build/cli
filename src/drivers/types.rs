@@ -1,3 +1,6 @@
+use std::env;
+
+use blue_build_utils::constants::{GITHUB_ACTIONS, GITLAB_CI};
 use clap::ValueEnum;
 use log::trace;
 
@@ -126,22 +129,45 @@ impl DetermineDriver<RunDriverType> for Option<RunDriverType> {
     fn determine_driver(&mut self) -> RunDriverType {
         trace!("RunDriver::determine_driver()");
 
-        match (
-            blue_build_utils::check_command_exists("docker"),
-            blue_build_utils::check_command_exists("podman"),
-        ) {
-            (Ok(_docker), _) if DockerDriver::is_supported_version() => RunDriverType::Docker,
-            (_, Ok(_podman)) if PodmanDriver::is_supported_version() => RunDriverType::Podman,
-            _ => panic!(
-                "{}{}{}{}",
-                "Could not determine strategy, ",
-                format_args!("need either docker version {}, ", DockerDriver::VERSION_REQ),
-                format_args!("podman version {}, ", PodmanDriver::VERSION_REQ),
-                format_args!(
-                    "or buildah version {} to continue",
-                    BuildahDriver::VERSION_REQ
+        *self.get_or_insert(
+            match (
+                blue_build_utils::check_command_exists("docker"),
+                blue_build_utils::check_command_exists("podman"),
+            ) {
+                (Ok(_docker), _) if DockerDriver::is_supported_version() => RunDriverType::Docker,
+                (_, Ok(_podman)) if PodmanDriver::is_supported_version() => RunDriverType::Podman,
+                _ => panic!(
+                    "{}{}{}{}",
+                    "Could not determine strategy, ",
+                    format_args!("need either docker version {}, ", DockerDriver::VERSION_REQ),
+                    format_args!("podman version {}, ", PodmanDriver::VERSION_REQ),
+                    format_args!(
+                        "or buildah version {} to continue",
+                        BuildahDriver::VERSION_REQ
+                    ),
                 ),
-            ),
-        }
+            },
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum CiDriverType {
+    Local,
+    Gitlab,
+    Github,
+}
+
+impl DetermineDriver<CiDriverType> for Option<CiDriverType> {
+    fn determine_driver(&mut self) -> CiDriverType {
+        trace!("CiDriverType::determine_driver()");
+
+        *self.get_or_insert(
+            match (env::var(GITLAB_CI).ok(), env::var(GITHUB_ACTIONS).ok()) {
+                (Some(_gitlab_ci), None) => CiDriverType::Gitlab,
+                (None, Some(_github_actions)) => CiDriverType::Github,
+                _ => CiDriverType::Local,
+            },
+        )
     }
 }

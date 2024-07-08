@@ -37,6 +37,7 @@ pub const SIGSTORE_ID_TOKEN: &str = "SIGSTORE_ID_TOKEN";
 pub const GITHUB_ACTIONS: &str = "GITHUB_ACTIONS";
 pub const GITHUB_ACTOR: &str = "GITHUB_ACTOR";
 pub const GITHUB_EVENT_NAME: &str = "GITHUB_EVENT_NAME";
+pub const GITHUB_EVENT_PATH: &str = "GITHUB_EVENT_PATH";
 pub const GITHUB_REF_NAME: &str = "GITHUB_REF_NAME";
 pub const GITHUB_RESPOSITORY: &str = "GITHUB_REPOSITORY";
 pub const GITHUB_REPOSITORY_OWNER: &str = "GITHUB_REPOSITORY_OWNER";
@@ -60,6 +61,7 @@ pub const CI_SERVER_PROTOCOL: &str = "CI_SERVER_PROTOCOL";
 pub const CI_REGISTRY: &str = "CI_REGISTRY";
 pub const CI_REGISTRY_PASSWORD: &str = "CI_REGISTRY_PASSWORD";
 pub const CI_REGISTRY_USER: &str = "CI_REGISTRY_USER";
+pub const GITLAB_CI: &str = "GITLAB_CI";
 
 // Terminal vars
 pub const TERM_PROGRAM: &str = "TERM_PROGRAM";

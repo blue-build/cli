@@ -1,5 +1,6 @@
 use std::process::{ExitStatus, Output};
 
+use blue_build_recipe::Recipe;
 use log::{debug, info, trace};
 use miette::{bail, miette, Result};
 use semver::{Version, VersionReq};
@@ -180,4 +181,62 @@ pub trait SigningDriver {
     /// # Errors
     /// Will error if login fails.
     fn signing_login() -> Result<()>;
+}
+
+/// Allows agnostic retrieval of CI-based information.
+pub trait CiDriver {
+    /// Determines if we're on the main branch of
+    /// a repository.
+    fn on_main_branch() -> bool;
+
+    /// Retrieve the certificate identity for
+    /// keyless signing.
+    ///
+    /// # Errors
+    /// Will error if the environment variables aren't set.
+    fn cert_identity() -> Result<String>;
+
+    /// Generate a list of tags based on the OS version.
+    ///
+    /// ## CI
+    /// The tags are generated based on the CI system that
+    /// is detected. The general format for the default branch is:
+    /// - `${os_version}`
+    /// - `${timestamp}-${os_version}`
+    ///
+    /// On a branch:
+    /// - `br-${branch_name}-${os_version}`
+    ///
+    /// In a PR(GitHub)/MR(GitLab)
+    /// - `pr-${pr_event_number}-${os_version}`/`mr-${mr_iid}-${os_version}`
+    ///
+    /// In all above cases the short git sha is also added:
+    /// - `${commit_sha}-${os_version}`
+    ///
+    /// When `alt_tags` are not present, the following tags are added:
+    /// - `latest`
+    /// - `${timestamp}`
+    ///
+    /// ## Locally
+    /// When ran locally, only a local tag is created:
+    /// - `local-${os_version}`
+    ///
+    /// # Errors
+    /// Will error if the environment variables aren't set.
+    fn generate_tags<T, S>(recipe: &Recipe, alt_tags: Option<T>) -> Result<Vec<String>>
+    where
+        T: AsRef<[S]>,
+        S: AsRef<str>;
+
+    /// Get the URL for the repository.
+    ///
+    /// # Errors
+    /// Will error if the environment variables aren't set.
+    fn get_repo_url() -> Result<String>;
+
+    /// Get the registry ref for the image.
+    ///
+    /// # Errors
+    /// Will error if the environment variables aren't set.
+    fn get_registry() -> Result<String>;
 }
