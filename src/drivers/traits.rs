@@ -196,6 +196,12 @@ pub trait CiDriver {
     /// Will error if the environment variables aren't set.
     fn keyless_cert_identity() -> Result<String>;
 
+    /// Retrieve the OIDC Provider for keyless signing.
+    ///
+    /// # Errors
+    /// Will error if the environment variables aren't set.
+    fn oidc_provider() -> Result<String>;
+
     /// Generate a list of tags based on the OS version.
     ///
     /// ## CI
@@ -224,6 +230,18 @@ pub trait CiDriver {
     /// # Errors
     /// Will error if the environment variables aren't set.
     fn generate_tags(recipe: &Recipe) -> Result<Vec<String>>;
+
+    /// Generates the image name based on CI.
+    ///
+    /// # Errors
+    /// Will error if the environment variables aren't set.
+    fn generate_image_name(recipe: &Recipe) -> Result<String> {
+        Ok(format!(
+            "{}/{}",
+            Self::get_registry()?,
+            recipe.name.trim().to_lowercase()
+        ))
+    }
 
     /// Get the URL for the repository.
     ///

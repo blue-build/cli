@@ -1,6 +1,6 @@
-use std::{env, fs, path::PathBuf};
+use std::{fs, path::PathBuf};
 
-use blue_build_utils::constants::GITHUB_EVENT_PATH;
+use blue_build_utils::{constants::GITHUB_EVENT_PATH, get_env_var};
 use miette::{IntoDiagnostic, Result};
 use serde::Deserialize;
 
@@ -16,8 +16,7 @@ pub(super) struct Event {
 
 impl Event {
     pub fn try_new() -> Result<Self> {
-        env::var(GITHUB_EVENT_PATH)
-            .into_diagnostic()
+        get_env_var(GITHUB_EVENT_PATH)
             .map(PathBuf::from)
             .and_then(|event_path| {
                 serde_json::from_str::<Self>(&fs::read_to_string(event_path).into_diagnostic()?)

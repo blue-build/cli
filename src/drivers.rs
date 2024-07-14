@@ -354,6 +354,14 @@ impl CiDriver for Driver<'_> {
         }
     }
 
+    fn oidc_provider() -> Result<String> {
+        match Self::get_ci_driver() {
+            CiDriverType::Local => LocalDriver::oidc_provider(),
+            CiDriverType::Gitlab => GitlabDriver::oidc_provider(),
+            CiDriverType::Github => GithubDriver::oidc_provider(),
+        }
+    }
+
     fn generate_tags(recipe: &Recipe) -> Result<Vec<String>> {
         match Self::get_ci_driver() {
             CiDriverType::Local => LocalDriver::generate_tags(recipe),

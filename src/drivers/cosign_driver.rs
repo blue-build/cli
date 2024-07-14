@@ -1,16 +1,12 @@
 use std::{env, fmt::Debug, fs, path::Path, process::Command};
 
-use blue_build_utils::constants::{
-    CI_DEFAULT_BRANCH, CI_PROJECT_URL, CI_SERVER_HOST, CI_SERVER_PROTOCOL, COSIGN_PRIVATE_KEY,
-    COSIGN_PRIV_PATH, COSIGN_PUB_PATH, GITHUB_TOKEN, GITHUB_TOKEN_ISSUER_URL, GITHUB_WORKFLOW_REF,
-    SIGSTORE_ID_TOKEN,
-};
+use blue_build_utils::constants::{COSIGN_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PUB_PATH};
 use log::{debug, info, trace, warn};
 use miette::{bail, Context, IntoDiagnostic, Result};
 
 use crate::{
     credentials::{self, Credentials},
-    drivers::{opts::GetMetadataOpts, Driver, InspectDriver},
+    drivers::{opts::GetMetadataOpts, types::CiDriverType, CiDriver, Driver, InspectDriver},
 };
 
 use super::SigningDriver;
@@ -36,18 +32,17 @@ impl SigningDriver for CosignDriver {
 
     fn check_signing_files() -> Result<()> {
         match (
+            Path::new(COSIGN_PUB_PATH).exists(),
             env::var(COSIGN_PRIVATE_KEY).ok(),
             Path::new(COSIGN_PRIV_PATH),
         ) {
-            (Some(cosign_priv_key), _)
-                if !cosign_priv_key.is_empty() && Path::new(COSIGN_PUB_PATH).exists() =>
-            {
+            (true, Some(cosign_priv_key), _) if !cosign_priv_key.is_empty() => {
                 Self::check_priv("env://COSIGN_PRIVATE_KEY")
             }
-            (_, cosign_priv_key_path) if cosign_priv_key_path.exists() => {
+            (true, _, cosign_priv_key_path) if cosign_priv_key_path.exists() => {
                 Self::check_priv(cosign_priv_key_path.display().to_string())
             }
-            _ => {
+            (true, _, _) => {
                 bail!(
                     "{}{}{}{}{}{}{}",
                     "Unable to find private/public key pair.\n\n",
@@ -59,10 +54,10 @@ impl SigningDriver for CosignDriver {
                     "If you don't want to sign your image, use the `--no-sign` flag."
                 )
             }
+            _ => Ok(()),
         }
     }
 
-    #[allow(clippy::too_many_lines)]
     fn sign_images<S, T>(image_name: S, tag: Option<T>) -> Result<()>
     where
         S: AsRef<str>,
@@ -71,9 +66,6 @@ impl SigningDriver for CosignDriver {
         let image_name = image_name.as_ref();
         let tag = tag.as_ref().map(AsRef::as_ref);
         trace!("BuildCommand::sign_images({image_name}, {tag:?})");
-
-        env::set_var("COSIGN_PASSWORD", "");
-        env::set_var("COSIGN_YES", "true");
 
         let inspect_opts = GetMetadataOpts::builder().image(image_name);
 
@@ -84,119 +76,28 @@ impl SigningDriver for CosignDriver {
         };
 
         let image_digest = Driver::get_metadata(&inspect_opts)?.digest;
-        let image_name_digest = format!("{image_name}@{image_digest}");
         let image_name_tag =
             tag.map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));
+        let image_digest = format!("{image_name}@{image_digest}");
 
         match (
-            // GitLab specific vars
-            env::var(CI_DEFAULT_BRANCH),
-            env::var(CI_PROJECT_URL),
-            env::var(CI_SERVER_PROTOCOL),
-            env::var(CI_SERVER_HOST),
-            env::var(SIGSTORE_ID_TOKEN),
-            // GitHub specific vars
-            env::var(GITHUB_TOKEN),
-            env::var(GITHUB_WORKFLOW_REF),
+            Driver::get_ci_driver(),
             // Cosign public/private key pair
             env::var(COSIGN_PRIVATE_KEY),
             Path::new(COSIGN_PRIV_PATH),
         ) {
             // Cosign public/private key pair
-            (_, _, _, _, _, _, _, Ok(cosign_private_key), _)
+            (_, Ok(cosign_private_key), _)
                 if !cosign_private_key.is_empty() && Path::new(COSIGN_PUB_PATH).exists() =>
             {
-                Self::sign_priv_public_pair_env(&image_name_digest, &image_name_tag)?;
+                Self::sign_priv_public_pair_env(&image_digest, &image_name_tag)?;
             }
-            (_, _, _, _, _, _, _, _, cosign_priv_key_path) if cosign_priv_key_path.exists() => {
-                Self::sign_priv_public_pair_file(&image_name_digest, &image_name_tag)?;
+            (_, _, cosign_priv_key_path) if cosign_priv_key_path.exists() => {
+                Self::sign_priv_public_pair_file(&image_digest, &image_name_tag)?;
             }
             // Gitlab keyless
-            (
-                Ok(ci_default_branch),
-                Ok(ci_project_url),
-                Ok(ci_server_protocol),
-                Ok(ci_server_host),
-                Ok(_),
-                _,
-                _,
-                _,
-                _,
-            ) => {
-                trace!("CI_PROJECT_URL={ci_project_url}, CI_DEFAULT_BRANCH={ci_default_branch}, CI_SERVER_PROTOCOL={ci_server_protocol}, CI_SERVER_HOST={ci_server_host}");
-
-                info!("Signing image: {image_name_digest}");
-
-                trace!("cosign sign {image_name_digest}");
-
-                if Command::new("cosign")
-                    .arg("sign")
-                    .arg("--recursive")
-                    .arg(&image_name_digest)
-                    .status()
-                    .into_diagnostic()?
-                    .success()
-                {
-                    info!("Successfully signed image!");
-                } else {
-                    bail!("Failed to sign image: {image_name_digest}");
-                }
-
-                let cert_ident =
-                    format!("{ci_project_url}//.gitlab-ci.yml@refs/heads/{ci_default_branch}");
-
-                let cert_oidc = format!("{ci_server_protocol}://{ci_server_host}");
-
-                trace!("cosign verify --certificate-identity {cert_ident} --certificate-oidc-issuer {cert_oidc} {image_name_tag}");
-
-                if !Command::new("cosign")
-                    .arg("verify")
-                    .arg("--certificate-identity")
-                    .arg(&cert_ident)
-                    .arg("--certificate-oidc-issuer")
-                    .arg(&cert_oidc)
-                    .arg(&image_name_tag)
-                    .status()
-                    .into_diagnostic()?
-                    .success()
-                {
-                    bail!("Failed to verify image!");
-                }
-            }
-            // GitHub keyless
-            (_, _, _, _, _, Ok(_), Ok(github_worflow_ref), _, _) => {
-                trace!("GITHUB_WORKFLOW_REF={github_worflow_ref}");
-
-                info!("Signing image {image_name_digest}");
-
-                trace!("cosign sign {image_name_digest}");
-                if Command::new("cosign")
-                    .arg("sign")
-                    .arg("--recursive")
-                    .arg(&image_name_digest)
-                    .status()
-                    .into_diagnostic()?
-                    .success()
-                {
-                    info!("Successfully signed image!");
-                } else {
-                    bail!("Failed to sign image: {image_name_digest}");
-                }
-
-                trace!("cosign verify --certificate-identity-regexp {github_worflow_ref} --certificate-oidc-issuer {GITHUB_TOKEN_ISSUER_URL} {image_name_tag}");
-                if !Command::new("cosign")
-                    .arg("verify")
-                    .arg("--certificate-identity-regexp")
-                    .arg(&github_worflow_ref)
-                    .arg("--certificate-oidc-issuer")
-                    .arg(GITHUB_TOKEN_ISSUER_URL)
-                    .arg(&image_name_tag)
-                    .status()
-                    .into_diagnostic()?
-                    .success()
-                {
-                    bail!("Failed to verify image!");
-                }
+            (CiDriverType::Github | CiDriverType::Gitlab, _, _) => {
+                Self::sign_keyless(&image_digest, &image_name_tag)?;
             }
             _ => warn!("Not running in CI with cosign variables, not signing"),
         }
@@ -270,14 +171,14 @@ impl CosignDriver {
         }
     }
 
-    #[allow(clippy::too_many_lines)]
-
     fn sign_priv_public_pair_env(image_digest: &str, image_name_tag: &str) -> Result<()> {
         info!("Signing image: {image_digest}");
 
         trace!("cosign sign --key=env://{COSIGN_PRIVATE_KEY} {image_digest}");
 
         if Command::new("cosign")
+            .env("COSIGN_PASSWORD", "")
+            .env("COSIGN_YES", "true")
             .arg("sign")
             .arg("--key=env://COSIGN_PRIVATE_KEY")
             .arg("--recursive")
@@ -313,6 +214,8 @@ impl CosignDriver {
         trace!("cosign sign --key={COSIGN_PRIV_PATH} {image_digest}");
 
         if Command::new("cosign")
+            .env("COSIGN_PASSWORD", "")
+            .env("COSIGN_YES", "true")
             .arg("sign")
             .arg(format!("--key={COSIGN_PRIV_PATH}"))
             .arg("--recursive")
@@ -331,6 +234,46 @@ impl CosignDriver {
         if !Command::new("cosign")
             .arg("verify")
             .arg(format!("--key={COSIGN_PUB_PATH}"))
+            .arg(image_name_tag)
+            .status()
+            .into_diagnostic()?
+            .success()
+        {
+            bail!("Failed to verify image!");
+        }
+
+        Ok(())
+    }
+
+    fn sign_keyless(image_digest: &str, image_name_tag: &str) -> Result<()> {
+        info!("Signing image {image_digest}");
+
+        trace!("cosign sign {image_digest}");
+        if Command::new("cosign")
+            .env("COSIGN_PASSWORD", "")
+            .env("COSIGN_YES", "true")
+            .arg("sign")
+            .arg("--recursive")
+            .arg(image_digest)
+            .status()
+            .into_diagnostic()?
+            .success()
+        {
+            info!("Successfully signed image!");
+        } else {
+            bail!("Failed to sign image: {image_digest}");
+        }
+
+        let identity = Driver::keyless_cert_identity()?;
+        let issuer = Driver::oidc_provider()?;
+
+        trace!("cosign verify --certificate-identity-regexp {identity} --certificate-oidc-issuer {issuer} {image_name_tag}");
+        if !Command::new("cosign")
+            .arg("verify")
+            .arg("--certificate-identity-regexp")
+            .arg(identity)
+            .arg("--certificate-oidc-issuer")
+            .arg(issuer)
             .arg(image_name_tag)
             .status()
             .into_diagnostic()?

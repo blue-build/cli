@@ -1,11 +1,12 @@
-use std::env;
-
-use blue_build_utils::constants::{
-    GITHUB_EVENT_NAME, GITHUB_REF_NAME, GITHUB_SHA, GITHUB_WORKFLOW_REF, PR_EVENT_NUMBER,
+use blue_build_utils::{
+    constants::{
+        GITHUB_EVENT_NAME, GITHUB_REF_NAME, GITHUB_SHA, GITHUB_TOKEN_ISSUER_URL,
+        GITHUB_WORKFLOW_REF, PR_EVENT_NUMBER,
+    },
+    get_env_var,
 };
 use event::Event;
 use log::trace;
-use miette::{Context, IntoDiagnostic};
 
 use super::{CiDriver, Driver};
 
@@ -28,22 +29,22 @@ impl CiDriver for GithubDriver {
     }
 
     fn keyless_cert_identity() -> miette::Result<String> {
-        env::var(GITHUB_WORKFLOW_REF).into_diagnostic()
+        get_env_var(GITHUB_WORKFLOW_REF)
+    }
+
+    fn oidc_provider() -> miette::Result<String> {
+        Ok(GITHUB_TOKEN_ISSUER_URL.to_string())
     }
 
     fn generate_tags(recipe: &blue_build_recipe::Recipe) -> miette::Result<Vec<String>> {
         let mut tags: Vec<String> = Vec::new();
         let os_version = Driver::get_os_version(recipe)?;
-        let github_event_name = env::var(GITHUB_EVENT_NAME)
-            .into_diagnostic()
-            .with_context(|| format!("Failed to get {GITHUB_EVENT_NAME}'"))?;
+        let github_event_name = get_env_var(GITHUB_EVENT_NAME)?;
 
         if github_event_name == "pull_request" {
             trace!("Running in a PR");
 
-            let github_event_number = env::var(PR_EVENT_NUMBER)
-                .into_diagnostic()
-                .with_context(|| format!("Failed to get {PR_EVENT_NUMBER}'"))?;
+            let github_event_number = get_env_var(PR_EVENT_NUMBER)?;
 
             tags.push(format!("pr-{github_event_number}-{os_version}"));
         } else if Self::on_default_branch() {
@@ -59,16 +60,12 @@ impl CiDriver for GithubDriver {
                 tags.push(timestamp);
             }
         } else {
-            let github_ref_name = env::var(GITHUB_REF_NAME)
-                .into_diagnostic()
-                .with_context(|| format!("Failed to get '{GITHUB_REF_NAME}'"))?;
+            let github_ref_name = get_env_var(GITHUB_REF_NAME)?;
 
             tags.push(format!("br-{github_ref_name}-{os_version}"));
         }
 
-        let mut short_sha = env::var(GITHUB_SHA)
-            .into_diagnostic()
-            .with_context(|| format!("Failed to get {GITHUB_SHA}'"))?;
+        let mut short_sha = get_env_var(GITHUB_SHA)?;
         short_sha.truncate(7);
 
         tags.push(format!("{short_sha}-{os_version}"));
@@ -103,78 +100,96 @@ mod test {
 
     use super::GithubDriver;
 
-    #[test]
-    fn get_registry() {
-        let _env = ENV_LOCK.lock().unwrap();
-
+    fn setup_default_branch() {
+        setup();
         env::set_var(
             GITHUB_EVENT_PATH,
             "./test-files/github-events/default-branch.json",
         );
+        env::set_var(GITHUB_REF_NAME, "main");
+    }
+
+    fn setup_pr_branch() {
+        setup();
+        env::set_var(
+            GITHUB_EVENT_PATH,
+            "./test-files/github-events/pr-branch.json",
+        );
+        env::set_var(GITHUB_EVENT_NAME, "pull_request");
+        env::set_var(GITHUB_REF_NAME, "test");
+        env::set_var(PR_EVENT_NUMBER, "12");
+    }
+
+    fn setup_branch() {
+        setup();
+        env::set_var(GITHUB_EVENT_PATH, "./test-files/github-events/branch.json");
+        env::set_var(GITHUB_REF_NAME, "test");
+    }
+
+    fn setup() {
+        env::set_var(GITHUB_EVENT_NAME, "push");
+        env::set_var(GITHUB_SHA, "1234567890");
+        env::set_var(BB_UNIT_TEST_MOCK_GET_OS_VERSION, "");
+    }
+
+    fn teardown() {
+        env::remove_var(GITHUB_EVENT_NAME);
+        env::remove_var(GITHUB_EVENT_PATH);
+        env::remove_var(GITHUB_REF_NAME);
+        env::remove_var(GITHUB_SHA);
+        env::remove_var(BB_UNIT_TEST_MOCK_GET_OS_VERSION);
+    }
+
+    #[test]
+    fn get_registry() {
+        let _env = ENV_LOCK.lock().unwrap();
+
+        setup_default_branch();
 
         let registry = GithubDriver::get_registry().unwrap();
 
         assert_eq!(registry, "ghcr.io/test-owner");
-
-        env::remove_var(GITHUB_EVENT_PATH);
+        teardown();
     }
 
     #[test]
     fn on_default_branch_true() {
         let _env = ENV_LOCK.lock().unwrap();
 
-        env::set_var(
-            GITHUB_EVENT_PATH,
-            "./test-files/github-events/default-branch.json",
-        );
+        setup_default_branch();
 
         assert!(GithubDriver::on_default_branch());
-        env::remove_var(GITHUB_EVENT_PATH);
+        teardown();
     }
 
     #[test]
     fn on_default_branch_false() {
         let _env = ENV_LOCK.lock().unwrap();
 
-        env::set_var(
-            GITHUB_EVENT_PATH,
-            "./test-files/github-events/pr-branch.json",
-        );
+        setup_pr_branch();
 
         assert!(!GithubDriver::on_default_branch());
-        env::remove_var(GITHUB_EVENT_PATH);
+        teardown();
     }
 
     #[test]
     fn get_repo_url() {
         let _env = ENV_LOCK.lock().unwrap();
 
-        env::set_var(
-            GITHUB_EVENT_PATH,
-            "./test-files/github-events/default-branch.json",
-        );
+        setup_branch();
 
         let url = GithubDriver::get_repo_url().unwrap();
 
         assert_eq!(url, "https://example.com/");
-        env::remove_var(GITHUB_EVENT_PATH);
+        teardown();
     }
 
     #[test]
     fn generate_tags_default_branch() {
         let _env = ENV_LOCK.lock().unwrap();
         let timestamp = blue_build_utils::get_tag_timestamp();
-        let cd = env::current_dir().unwrap();
 
-        env::set_var(GITHUB_EVENT_NAME, "push");
-        env::set_var(
-            GITHUB_EVENT_PATH,
-            "../../test-files/github-events/default-branch.json",
-        );
-        env::set_var(GITHUB_REF_NAME, "main");
-        env::set_var(GITHUB_SHA, "1234567890");
-        env::set_var(BB_UNIT_TEST_MOCK_GET_OS_VERSION, "");
-        env::set_current_dir("./integration-tests/test-repo/").unwrap();
+        setup_default_branch();
 
         let mut tags = GithubDriver::generate_tags(&create_test_recipe()).unwrap();
         tags.sort();
@@ -190,29 +205,15 @@ mod test {
 
         assert_eq!(tags, expected_tags);
 
-        env::remove_var(GITHUB_EVENT_NAME);
-        env::remove_var(GITHUB_EVENT_PATH);
-        env::remove_var(GITHUB_REF_NAME);
-        env::remove_var(GITHUB_SHA);
-        env::remove_var(BB_UNIT_TEST_MOCK_GET_OS_VERSION);
-        env::set_current_dir(cd).unwrap();
+        teardown();
     }
 
     #[test]
     fn generate_tags_default_branch_alt_tags() {
         let _env = ENV_LOCK.lock().unwrap();
         let timestamp = blue_build_utils::get_tag_timestamp();
-        let cd = env::current_dir().unwrap();
 
-        env::set_var(GITHUB_EVENT_NAME, "push");
-        env::set_var(
-            GITHUB_EVENT_PATH,
-            "../../test-files/github-events/default-branch.json",
-        );
-        env::set_var(GITHUB_REF_NAME, "main");
-        env::set_var(GITHUB_SHA, "1234567890");
-        env::set_var(BB_UNIT_TEST_MOCK_GET_OS_VERSION, "");
-        env::set_current_dir("./integration-tests/test-repo/").unwrap();
+        setup_default_branch();
 
         let mut recipe = create_test_recipe();
 
@@ -231,29 +232,14 @@ mod test {
 
         assert_eq!(tags, expected_tags);
 
-        env::remove_var(GITHUB_EVENT_NAME);
-        env::remove_var(GITHUB_EVENT_PATH);
-        env::remove_var(GITHUB_REF_NAME);
-        env::remove_var(GITHUB_SHA);
-        env::remove_var(BB_UNIT_TEST_MOCK_GET_OS_VERSION);
-        env::set_current_dir(cd).unwrap();
+        teardown();
     }
 
     #[test]
     fn generate_tags_pr_branch() {
         let _env = ENV_LOCK.lock().unwrap();
-        let cd = env::current_dir().unwrap();
 
-        env::set_var(GITHUB_EVENT_NAME, "pull_request");
-        env::set_var(
-            GITHUB_EVENT_PATH,
-            "../../test-files/github-events/pr-branch.json",
-        );
-        env::set_var(GITHUB_REF_NAME, "test-branch");
-        env::set_var(GITHUB_SHA, "1234567890");
-        env::set_var(PR_EVENT_NUMBER, "12");
-        env::set_var(BB_UNIT_TEST_MOCK_GET_OS_VERSION, "");
-        env::set_current_dir("./integration-tests/test-repo/").unwrap();
+        setup_pr_branch();
 
         let mut tags = GithubDriver::generate_tags(&create_test_recipe()).unwrap();
         tags.sort();
@@ -263,42 +249,23 @@ mod test {
 
         assert_eq!(tags, expected_tags);
 
-        env::remove_var(GITHUB_EVENT_NAME);
-        env::remove_var(GITHUB_EVENT_PATH);
-        env::remove_var(GITHUB_REF_NAME);
-        env::remove_var(GITHUB_SHA);
-        env::remove_var(BB_UNIT_TEST_MOCK_GET_OS_VERSION);
-        env::set_current_dir(cd).unwrap();
+        teardown();
     }
 
     #[test]
     fn generate_tags_branch() {
         let _env = ENV_LOCK.lock().unwrap();
-        let cd = env::current_dir().unwrap();
 
-        env::set_var(GITHUB_EVENT_NAME, "push");
-        env::set_var(
-            GITHUB_EVENT_PATH,
-            "../../test-files/github-events/branch.json",
-        );
-        env::set_var(GITHUB_REF_NAME, "test-branch");
-        env::set_var(GITHUB_SHA, "1234567890");
-        env::set_var(BB_UNIT_TEST_MOCK_GET_OS_VERSION, "");
-        env::set_current_dir("./integration-tests/test-repo/").unwrap();
+        setup_branch();
 
         let mut tags = GithubDriver::generate_tags(&create_test_recipe()).unwrap();
         tags.sort();
 
-        let mut expected_tags = vec!["1234567-40".to_string(), "br-test-branch-40".to_string()];
+        let mut expected_tags = vec!["1234567-40".to_string(), "br-test-40".to_string()];
         expected_tags.sort();
 
         assert_eq!(tags, expected_tags);
 
-        env::remove_var(GITHUB_EVENT_NAME);
-        env::remove_var(GITHUB_EVENT_PATH);
-        env::remove_var(GITHUB_REF_NAME);
-        env::remove_var(GITHUB_SHA);
-        env::remove_var(BB_UNIT_TEST_MOCK_GET_OS_VERSION);
-        env::set_current_dir(cd).unwrap();
+        teardown();
     }
 }

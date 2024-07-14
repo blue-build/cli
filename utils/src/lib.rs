@@ -20,7 +20,7 @@ use blake2::{
 use chrono::Local;
 use format_serde_error::SerdeError;
 use log::trace;
-use miette::{miette, IntoDiagnostic, Result};
+use miette::{miette, Context, IntoDiagnostic, Result};
 
 use crate::constants::CONTAINER_FILE;
 
@@ -115,4 +115,14 @@ pub fn generate_containerfile_path<T: AsRef<Path>>(path: T) -> Result<PathBuf> {
 #[must_use]
 pub fn get_tag_timestamp() -> String {
     Local::now().format("%Y%m%d").to_string()
+}
+
+/// Get's the env var wrapping it with a miette error
+///
+/// # Errors
+/// Will error if the env var doesn't exist.
+pub fn get_env_var(key: &str) -> Result<String> {
+    std::env::var(key)
+        .into_diagnostic()
+        .with_context(|| format!("Failed to get {key}'"))
 }
