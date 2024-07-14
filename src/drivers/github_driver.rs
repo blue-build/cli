@@ -29,7 +29,7 @@ impl CiDriver for GithubDriver {
             .unwrap_or(false)
     }
 
-    fn cert_identity() -> miette::Result<String> {
+    fn keyless_cert_identity() -> miette::Result<String> {
         todo!()
     }
 

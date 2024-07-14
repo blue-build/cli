@@ -331,10 +331,10 @@ impl CiDriver for Driver<'_> {
         }
     }
 
-    fn cert_identity() -> Result<String> {
+    fn keyless_cert_identity() -> Result<String> {
         match Self::get_ci_driver() {
             CiDriverType::Local => todo!(),
-            CiDriverType::Gitlab => GitlabDriver::cert_identity(),
+            CiDriverType::Gitlab => GitlabDriver::keyless_cert_identity(),
             CiDriverType::Github => todo!(),
         }
     }

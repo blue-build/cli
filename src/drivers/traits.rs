@@ -194,7 +194,7 @@ pub trait CiDriver {
     ///
     /// # Errors
     /// Will error if the environment variables aren't set.
-    fn cert_identity() -> Result<String>;
+    fn keyless_cert_identity() -> Result<String>;
 
     /// Generate a list of tags based on the OS version.
     ///

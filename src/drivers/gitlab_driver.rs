@@ -22,7 +22,7 @@ impl CiDriver for GitlabDriver {
         })
     }
 
-    fn cert_identity() -> miette::Result<String> {
+    fn keyless_cert_identity() -> miette::Result<String> {
         Ok(format!(
             "{}//.gitlab-ci.yml@refs/heads/{}",
             env::var(CI_DEFAULT_BRANCH)
