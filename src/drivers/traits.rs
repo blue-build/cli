@@ -187,7 +187,7 @@ pub trait SigningDriver {
 pub trait CiDriver {
     /// Determines if we're on the main branch of
     /// a repository.
-    fn on_main_branch() -> bool;
+    fn on_default_branch() -> bool;
 
     /// Retrieve the certificate identity for
     /// keyless signing.
@@ -223,10 +223,7 @@ pub trait CiDriver {
     ///
     /// # Errors
     /// Will error if the environment variables aren't set.
-    fn generate_tags<T, S>(recipe: &Recipe, alt_tags: Option<T>) -> Result<Vec<String>>
-    where
-        T: AsRef<[S]>,
-        S: AsRef<str>;
+    fn generate_tags(recipe: &Recipe) -> Result<Vec<String>>;
 
     /// Get the URL for the repository.
     ///

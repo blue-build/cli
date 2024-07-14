@@ -17,6 +17,7 @@ use blake2::{
     digest::{Update, VariableOutput},
     Blake2bVar,
 };
+use chrono::Local;
 use format_serde_error::SerdeError;
 use log::trace;
 use miette::{miette, IntoDiagnostic, Result};
@@ -109,4 +110,9 @@ pub fn generate_containerfile_path<T: AsRef<Path>>(path: T) -> Result<PathBuf> {
         "{CONTAINER_FILE}.{}",
         BASE64_URL_SAFE_NO_PAD.encode(buf)
     )))
+}
+
+#[must_use]
+pub fn get_tag_timestamp() -> String {
+    Local::now().format("%Y%m%d").to_string()
 }

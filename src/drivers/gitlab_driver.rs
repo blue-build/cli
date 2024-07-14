@@ -5,7 +5,6 @@ use blue_build_utils::constants::{
     CI_PIPELINE_SOURCE, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_PROJECT_URL, CI_REGISTRY,
     CI_SERVER_HOST, CI_SERVER_PROTOCOL,
 };
-use chrono::Local;
 use log::{debug, trace};
 use miette::{Context, IntoDiagnostic};
 
@@ -16,7 +15,7 @@ use super::CiDriver;
 pub struct GitlabDriver;
 
 impl CiDriver for GitlabDriver {
-    fn on_main_branch() -> bool {
+    fn on_default_branch() -> bool {
         env::var(CI_DEFAULT_BRANCH).is_ok_and(|default_branch| {
             env::var(CI_COMMIT_REF_NAME).is_ok_and(|branch| default_branch == branch)
         })
@@ -34,27 +33,17 @@ impl CiDriver for GitlabDriver {
         ))
     }
 
-    fn generate_tags<T, S>(
-        recipe: &blue_build_recipe::Recipe,
-        alt_tags: Option<T>,
-    ) -> miette::Result<Vec<String>>
-    where
-        T: AsRef<[S]>,
-        S: AsRef<str>,
-    {
+    fn generate_tags(recipe: &blue_build_recipe::Recipe) -> miette::Result<Vec<String>> {
         let commit_branch = env::var(CI_COMMIT_REF_NAME)
             .into_diagnostic()
             .with_context(|| format!("Failed to get '{CI_COMMIT_REF_NAME}'"))?;
-        let default_branch = env::var(CI_DEFAULT_BRANCH)
-            .into_diagnostic()
-            .with_context(|| format!("Failed to get '{CI_DEFAULT_BRANCH}'"))?;
         let commit_sha = env::var(CI_COMMIT_SHORT_SHA)
             .into_diagnostic()
             .with_context(|| format!("Failed to get {CI_COMMIT_SHORT_SHA}'"))?;
         let pipeline_source = env::var(CI_PIPELINE_SOURCE)
             .into_diagnostic()
             .with_context(|| format!("Failed to get {CI_PIPELINE_SOURCE}'"))?;
-        trace!("CI_COMMIT_REF_NAME={commit_branch}, CI_DEFAULT_BRANCH={default_branch},CI_COMMIT_SHORT_SHA={commit_sha}, CI_PIPELINE_SOURCE={pipeline_source}");
+        trace!("CI_COMMIT_REF_NAME={commit_branch}, CI_COMMIT_SHORT_SHA={commit_sha}, CI_PIPELINE_SOURCE={pipeline_source}");
 
         let mut tags: Vec<String> = Vec::new();
         let os_version = Driver::get_os_version(recipe)?;
@@ -67,17 +56,16 @@ impl CiDriver for GitlabDriver {
             }
         }
 
-        if default_branch == commit_branch {
+        if Self::on_default_branch() {
             debug!("Running on the default branch");
 
             tags.push(os_version.to_string());
 
-            let timestamp = Local::now().format("%Y%m%d").to_string();
+            let timestamp = blue_build_utils::get_tag_timestamp();
             tags.push(format!("{timestamp}-{os_version}"));
 
-            if let Some(alt_tags) = alt_tags {
-                let alt_tags = alt_tags.as_ref();
-                tags.extend(alt_tags.iter().map(|tag| tag.as_ref().to_string()));
+            if let Some(ref alt_tags) = recipe.alt_tags {
+                tags.extend(alt_tags.iter().map(ToString::to_string));
             } else {
                 tags.push("latest".into());
                 tags.push(timestamp);

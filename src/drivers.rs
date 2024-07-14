@@ -25,7 +25,9 @@ use self::{
     buildah_driver::BuildahDriver,
     cosign_driver::CosignDriver,
     docker_driver::DockerDriver,
+    github_driver::GithubDriver,
     gitlab_driver::GitlabDriver,
+    local_driver::LocalDriver,
     opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
     podman_driver::PodmanDriver,
     skopeo_driver::SkopeoDriver,
@@ -39,6 +41,7 @@ mod cosign_driver;
 mod docker_driver;
 mod github_driver;
 mod gitlab_driver;
+mod local_driver;
 pub mod opts;
 mod podman_driver;
 mod skopeo_driver;
@@ -150,6 +153,18 @@ impl Driver<'_> {
     /// # Panics
     /// Panics if the mutex fails to lock.
     pub fn get_os_version(recipe: &Recipe) -> Result<u64> {
+        #[cfg(test)]
+        {
+            use miette::IntoDiagnostic;
+
+            if std::env::var(crate::test::BB_UNIT_TEST_MOCK_GET_OS_VERSION).is_ok() {
+                return crate::test::create_test_recipe()
+                    .image_version
+                    .parse()
+                    .into_diagnostic();
+            }
+        }
+
         trace!("Driver::get_os_version({recipe:#?})");
         let image = format!("{}:{}", &recipe.base_image, &recipe.image_version);
 
@@ -323,47 +338,43 @@ impl RunDriver for Driver<'_> {
 }
 
 impl CiDriver for Driver<'_> {
-    fn on_main_branch() -> bool {
+    fn on_default_branch() -> bool {
         match Self::get_ci_driver() {
-            CiDriverType::Local => todo!(),
-            CiDriverType::Gitlab => GitlabDriver::on_main_branch(),
-            CiDriverType::Github => todo!(),
+            CiDriverType::Local => LocalDriver::on_default_branch(),
+            CiDriverType::Gitlab => GitlabDriver::on_default_branch(),
+            CiDriverType::Github => GithubDriver::on_default_branch(),
         }
     }
 
     fn keyless_cert_identity() -> Result<String> {
         match Self::get_ci_driver() {
-            CiDriverType::Local => todo!(),
+            CiDriverType::Local => LocalDriver::keyless_cert_identity(),
             CiDriverType::Gitlab => GitlabDriver::keyless_cert_identity(),
-            CiDriverType::Github => todo!(),
+            CiDriverType::Github => GithubDriver::keyless_cert_identity(),
         }
     }
 
-    fn generate_tags<T, S>(recipe: &Recipe, alt_tags: Option<T>) -> Result<Vec<String>>
-    where
-        T: AsRef<[S]>,
-        S: AsRef<str>,
-    {
+    fn generate_tags(recipe: &Recipe) -> Result<Vec<String>> {
         match Self::get_ci_driver() {
-            CiDriverType::Local => todo!(),
-            CiDriverType::Gitlab => GitlabDriver::generate_tags(recipe, alt_tags),
-            CiDriverType::Github => todo!(),
+            CiDriverType::Local => LocalDriver::generate_tags(recipe),
+            CiDriverType::Gitlab => GitlabDriver::generate_tags(recipe),
+            CiDriverType::Github => GithubDriver::generate_tags(recipe),
         }
     }
 
     fn get_repo_url() -> Result<String> {
         match Self::get_ci_driver() {
-            CiDriverType::Local => todo!(),
+            CiDriverType::Local => LocalDriver::get_repo_url(),
             CiDriverType::Gitlab => GitlabDriver::get_repo_url(),
-            CiDriverType::Github => todo!(),
+            CiDriverType::Github => GithubDriver::get_repo_url(),
         }
     }
 
     fn get_registry() -> Result<String> {
         match Self::get_ci_driver() {
-            CiDriverType::Local => todo!(),
+            CiDriverType::Local => LocalDriver::get_registry(),
             CiDriverType::Gitlab => GitlabDriver::get_registry(),
-            CiDriverType::Github => todo!(),
+            CiDriverType::Github => GithubDriver::get_registry(),
         }
     }
 }
