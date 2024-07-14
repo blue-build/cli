@@ -13,6 +13,16 @@ env:
   RUST_LOG_STYLE: always
 
 jobs:
+  event:
+    name: Event
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Event
+        run: cat "$GITHUB_EVENT_PATH"
   arm64-prebuild:
     timeout-minutes: 60
     runs-on: ubuntu-latest
