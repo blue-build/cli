@@ -149,11 +149,3 @@ pub struct CredentialsArgs {
     #[builder(default, setter(into, strip_option))]
     pub password: Option<String>,
 }
-
-impl CredentialsArgs {}
-
-/// Get the credentials for the current set of actions.
-pub fn get() -> Option<&'static Credentials> {
-    trace!("credentials::get()");
-    ENV_CREDENTIALS.as_ref()
-}
