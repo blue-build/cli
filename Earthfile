@@ -40,6 +40,8 @@ lint:
 
 test:
 	FROM +common
+	COPY --dir test-files/ integration-tests/ /app
+
 	DO rust+CARGO --args="test -- --show-output"
 	DO rust+CARGO --args="test --all-features -- --show-output"
 	DO rust+CARGO --args="test --no-default-features -- --show-output"

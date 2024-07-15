@@ -1,5 +1,5 @@
 use std::{
-    env, fs,
+    fs,
     path::{Path, PathBuf},
 };
 
@@ -7,8 +7,7 @@ use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{
         ARCHIVE_SUFFIX, BB_PASSWORD, BB_REGISTRY, BB_REGISTRY_NAMESPACE, BB_USERNAME,
-        BUILD_ID_LABEL, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CONFIG_PATH,
-        CONTAINER_FILE, GITHUB_REPOSITORY_OWNER, GITIGNORE_PATH, LABELED_ERROR_MESSAGE,
+        BUILD_ID_LABEL, CONFIG_PATH, CONTAINER_FILE, GITIGNORE_PATH, LABELED_ERROR_MESSAGE,
         NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH,
     },
     generate_containerfile_path,
@@ -23,7 +22,7 @@ use crate::{
     commands::generate::GenerateCommand,
     drivers::{
         opts::{BuildTagPushOpts, CompressionType},
-        BuildDriver, Driver, SigningDriver,
+        BuildDriver, CiDriver, Driver, SigningDriver,
     },
 };
 
@@ -217,16 +216,15 @@ impl BuildCommand {
     fn start(&self, recipe_paths: &[PathBuf]) -> Result<()> {
         use rayon::prelude::*;
 
-        use crate::drivers::BuildDriver;
+        use crate::drivers::{BuildDriver, CiDriver};
         trace!("BuildCommand::build_image()");
 
         recipe_paths
             .par_iter()
             .try_for_each(|recipe_path| -> Result<()> {
                 let recipe = Recipe::parse(recipe_path)?;
-                let os_version = Driver::get_os_version(&recipe)?;
                 let containerfile = generate_containerfile_path(recipe_path)?;
-                let tags = recipe.generate_tags(os_version);
+                let tags = Driver::generate_tags(&recipe)?;
                 let image_name = self.generate_full_image_name(&recipe)?;
 
                 let opts = if let Some(archive_dir) = self.archive.as_ref() {
@@ -267,12 +265,13 @@ impl BuildCommand {
 
     #[cfg(not(feature = "multi-recipe"))]
     fn start(&self, recipe_path: &Path) -> Result<()> {
+        use crate::drivers::CiDriver;
+
         trace!("BuildCommand::start()");
 
         let recipe = Recipe::parse(recipe_path)?;
-        let os_version = Driver::get_os_version(&recipe)?;
         let containerfile = generate_containerfile_path(recipe_path)?;
-        let tags = recipe.generate_tags(os_version);
+        let tags = Driver::generate_tags(&recipe)?;
         let image_name = self.generate_full_image_name(&recipe)?;
 
         let opts = if let Some(archive_dir) = self.archive.as_ref() {
@@ -311,23 +310,15 @@ impl BuildCommand {
     /// # Errors
     ///
     /// Will return `Err` if the image name cannot be generated.
-    pub fn generate_full_image_name(&self, recipe: &Recipe) -> Result<String> {
+    fn generate_full_image_name(&self, recipe: &Recipe) -> Result<String> {
         trace!("BuildCommand::generate_full_image_name({recipe:#?})");
         info!("Generating full image name");
 
         let image_name = match (
-            env::var(CI_REGISTRY).ok().map(|s| s.to_lowercase()),
-            env::var(CI_PROJECT_NAMESPACE)
-                .ok()
-                .map(|s| s.to_lowercase()),
-            env::var(CI_PROJECT_NAME).ok().map(|s| s.to_lowercase()),
-            env::var(GITHUB_REPOSITORY_OWNER)
-                .ok()
-                .map(|s| s.to_lowercase()),
             self.registry.as_ref().map(|s| s.to_lowercase()),
             self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
         ) {
-            (_, _, _, _, Some(registry), Some(registry_path)) => {
+            (Some(registry), Some(registry_path)) => {
                 trace!("registry={registry}, registry_path={registry_path}");
                 format!(
                     "{}/{}/{}",
@@ -336,33 +327,7 @@ impl BuildCommand {
                     recipe.name.trim(),
                 )
             }
-            (
-                Some(ci_registry),
-                Some(ci_project_namespace),
-                Some(ci_project_name),
-                None,
-                None,
-                None,
-            ) => {
-                trace!("CI_REGISTRY={ci_registry}, CI_PROJECT_NAMESPACE={ci_project_namespace}, CI_PROJECT_NAME={ci_project_name}");
-                warn!("Generating Gitlab Registry image");
-                format!(
-                    "{ci_registry}/{ci_project_namespace}/{ci_project_name}/{}",
-                    recipe.name.trim().to_lowercase()
-                )
-            }
-            (None, None, None, Some(github_repository_owner), None, None) => {
-                trace!("GITHUB_REPOSITORY_OWNER={github_repository_owner}");
-                warn!("Generating Github Registry image");
-                format!("ghcr.io/{github_repository_owner}/{}", &recipe.name)
-            }
-            _ => {
-                trace!("Nothing to indicate an image name with a registry");
-                if self.push {
-                    bail!("Need '--registry' and '--registry-namespace' in order to push image");
-                }
-                recipe.name.trim().to_lowercase()
-            }
+            _ => Driver::generate_image_name(recipe)?,
         };
 
         debug!("Using image name '{image_name}'");

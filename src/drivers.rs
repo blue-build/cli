@@ -25,10 +25,13 @@ use self::{
     buildah_driver::BuildahDriver,
     cosign_driver::CosignDriver,
     docker_driver::DockerDriver,
+    github_driver::GithubDriver,
+    gitlab_driver::GitlabDriver,
+    local_driver::LocalDriver,
     opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
     podman_driver::PodmanDriver,
     skopeo_driver::SkopeoDriver,
-    types::{BuildDriverType, InspectDriverType, RunDriverType, SigningDriverType},
+    types::{BuildDriverType, CiDriverType, InspectDriverType, RunDriverType, SigningDriverType},
 };
 
 pub use traits::*;
@@ -36,6 +39,9 @@ pub use traits::*;
 mod buildah_driver;
 mod cosign_driver;
 mod docker_driver;
+mod github_driver;
+mod gitlab_driver;
+mod local_driver;
 pub mod opts;
 mod podman_driver;
 mod skopeo_driver;
@@ -50,6 +56,7 @@ static SELECTED_INSPECT_DRIVER: Lazy<RwLock<Option<InspectDriverType>>> =
 static SELECTED_RUN_DRIVER: Lazy<RwLock<Option<RunDriverType>>> = Lazy::new(|| RwLock::new(None));
 static SELECTED_SIGNING_DRIVER: Lazy<RwLock<Option<SigningDriverType>>> =
     Lazy::new(|| RwLock::new(None));
+static SELECTED_CI_DRIVER: Lazy<RwLock<Option<CiDriverType>>> = Lazy::new(|| RwLock::new(None));
 
 /// UUID used to mark the current builds
 static BUILD_ID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
@@ -101,6 +108,11 @@ impl Driver<'_> {
             let mut inspect_driver = SELECTED_INSPECT_DRIVER.write().expect("Should lock");
             let mut run_driver = SELECTED_RUN_DRIVER.write().expect("Should lock");
             let mut signing_driver = SELECTED_SIGNING_DRIVER.write().expect("Should lock");
+            let mut ci_driver = SELECTED_CI_DRIVER.write().expect("Should lock");
+
+            *ci_driver = Some(ci_driver.determine_driver());
+            trace!("CI driver set to {:?}", *ci_driver);
+            drop(ci_driver);
 
             *signing_driver = Some(self.signing_driver.determine_driver());
             trace!("Inspect driver set to {:?}", *signing_driver);
@@ -141,6 +153,18 @@ impl Driver<'_> {
     /// # Panics
     /// Panics if the mutex fails to lock.
     pub fn get_os_version(recipe: &Recipe) -> Result<u64> {
+        #[cfg(test)]
+        {
+            use miette::IntoDiagnostic;
+
+            if std::env::var(crate::test::BB_UNIT_TEST_MOCK_GET_OS_VERSION).is_ok() {
+                return crate::test::create_test_recipe()
+                    .image_version
+                    .parse()
+                    .into_diagnostic();
+            }
+        }
+
         trace!("Driver::get_os_version({recipe:#?})");
         let image = format!("{}:{}", &recipe.base_image, &recipe.image_version);
 
@@ -199,6 +223,11 @@ impl Driver<'_> {
     fn get_run_driver() -> RunDriverType {
         let lock = SELECTED_RUN_DRIVER.read().expect("Should read");
         lock.expect("Driver should have initialized run driver")
+    }
+
+    fn get_ci_driver() -> CiDriverType {
+        let lock = SELECTED_CI_DRIVER.read().expect("Should read");
+        lock.expect("Driver should have initialized CI driver")
     }
 }
 
@@ -304,6 +333,56 @@ impl RunDriver for Driver<'_> {
         match Self::get_run_driver() {
             RunDriverType::Podman => PodmanDriver::run_output(opts),
             RunDriverType::Docker => DockerDriver::run_output(opts),
+        }
+    }
+}
+
+impl CiDriver for Driver<'_> {
+    fn on_default_branch() -> bool {
+        match Self::get_ci_driver() {
+            CiDriverType::Local => LocalDriver::on_default_branch(),
+            CiDriverType::Gitlab => GitlabDriver::on_default_branch(),
+            CiDriverType::Github => GithubDriver::on_default_branch(),
+        }
+    }
+
+    fn keyless_cert_identity() -> Result<String> {
+        match Self::get_ci_driver() {
+            CiDriverType::Local => LocalDriver::keyless_cert_identity(),
+            CiDriverType::Gitlab => GitlabDriver::keyless_cert_identity(),
+            CiDriverType::Github => GithubDriver::keyless_cert_identity(),
+        }
+    }
+
+    fn oidc_provider() -> Result<String> {
+        match Self::get_ci_driver() {
+            CiDriverType::Local => LocalDriver::oidc_provider(),
+            CiDriverType::Gitlab => GitlabDriver::oidc_provider(),
+            CiDriverType::Github => GithubDriver::oidc_provider(),
+        }
+    }
+
+    fn generate_tags(recipe: &Recipe) -> Result<Vec<String>> {
+        match Self::get_ci_driver() {
+            CiDriverType::Local => LocalDriver::generate_tags(recipe),
+            CiDriverType::Gitlab => GitlabDriver::generate_tags(recipe),
+            CiDriverType::Github => GithubDriver::generate_tags(recipe),
+        }
+    }
+
+    fn get_repo_url() -> Result<String> {
+        match Self::get_ci_driver() {
+            CiDriverType::Local => LocalDriver::get_repo_url(),
+            CiDriverType::Gitlab => GitlabDriver::get_repo_url(),
+            CiDriverType::Github => GithubDriver::get_repo_url(),
+        }
+    }
+
+    fn get_registry() -> Result<String> {
+        match Self::get_ci_driver() {
+            CiDriverType::Local => LocalDriver::get_registry(),
+            CiDriverType::Gitlab => GitlabDriver::get_registry(),
+            CiDriverType::Github => GithubDriver::get_registry(),
         }
     }
 }
