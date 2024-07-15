@@ -1,11 +1,15 @@
 use std::{env, sync::Mutex};
 
 use blue_build_utils::constants::{
-    CI_REGISTRY, CI_REGISTRY_PASSWORD, CI_REGISTRY_USER, GITHUB_ACTIONS, GITHUB_ACTOR, GITHUB_TOKEN,
+    BB_PASSWORD, BB_REGISTRY, BB_USERNAME, CI_REGISTRY, CI_REGISTRY_PASSWORD, CI_REGISTRY_USER,
+    GITHUB_ACTIONS, GITHUB_ACTOR, GITHUB_TOKEN,
 };
+use clap::Args;
 use log::trace;
 use once_cell::sync::Lazy;
 use typed_builder::TypedBuilder;
+
+static INIT: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
 
 /// Stored user creds.
 ///
@@ -13,25 +17,11 @@ use typed_builder::TypedBuilder;
 /// by the `ENV_CREDENTIALS` static ref. This can be set
 /// at the beginning of a command for future calls for
 /// creds to source from.
-static USER_CREDS: Mutex<UserCreds> = Mutex::new(UserCreds {
+static INIT_CREDS: Mutex<CredentialsArgs> = Mutex::new(CredentialsArgs {
     username: None,
     password: None,
     registry: None,
 });
-
-/// The credentials for logging into image registries.
-#[derive(Debug, Default, Clone, TypedBuilder)]
-pub struct Credentials {
-    pub registry: String,
-    pub username: String,
-    pub password: String,
-}
-
-struct UserCreds {
-    pub username: Option<String>,
-    pub password: Option<String>,
-    pub registry: Option<String>,
-}
 
 /// Stores the global env credentials.
 ///
@@ -44,11 +34,11 @@ struct UserCreds {
 /// before trying to access this reference.
 static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
     let (username, password, registry) = {
-        USER_CREDS.lock().map_or((None, None, None), |creds| {
+        INIT_CREDS.lock().map_or((None, None, None), |mut creds| {
             (
-                creds.username.as_ref().map(std::borrow::ToOwned::to_owned),
-                creds.password.as_ref().map(std::borrow::ToOwned::to_owned),
-                creds.registry.as_ref().map(std::borrow::ToOwned::to_owned),
+                creds.username.take(),
+                creds.password.take(),
+                creds.registry.take(),
             )
         })
     };
@@ -99,28 +89,68 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
     )
 });
 
-/// Set the users credentials for
-/// the current set of actions.
-///
-/// Be sure to call this before trying to use
-/// any strategy that requires credentials as
-/// the environment credentials are lazy allocated.
-///
-/// # Panics
-/// Will panic if it can't lock the mutex.
-pub fn set_user_creds(
-    username: Option<&String>,
-    password: Option<&String>,
-    registry: Option<&String>,
-) {
-    trace!("credentials::set({username:?}, password, {registry:?})");
-    let mut creds_lock = USER_CREDS.lock().expect("Must lock USER_CREDS");
-    creds_lock.username = username.map(ToOwned::to_owned);
-    creds_lock.password = password.map(ToOwned::to_owned);
-    creds_lock.registry = registry.map(ToOwned::to_owned);
-    drop(creds_lock);
-    let _ = ENV_CREDENTIALS.as_ref();
+/// The credentials for logging into image registries.
+#[derive(Debug, Default, Clone, TypedBuilder)]
+pub struct Credentials {
+    pub registry: String,
+    pub username: String,
+    pub password: String,
 }
+
+impl Credentials {
+    /// Set the users credentials for
+    /// the current set of actions.
+    ///
+    /// Be sure to call this before trying to use
+    /// any strategy that requires credentials as
+    /// the environment credentials are lazy allocated.
+    ///
+    /// # Panics
+    /// Will panic if it can't lock the mutex.
+    pub fn init(args: CredentialsArgs) {
+        trace!("Credentials::init()");
+        let mut initialized = INIT.lock().expect("Must lock INIT");
+
+        if !*initialized {
+            let mut creds_lock = INIT_CREDS.lock().expect("Must lock USER_CREDS");
+            creds_lock.username = args.username;
+            creds_lock.password = args.password;
+            creds_lock.registry = args.registry;
+            drop(creds_lock);
+            let _ = ENV_CREDENTIALS.as_ref();
+
+            *initialized = true;
+        }
+    }
+
+    /// Get the credentials for the current set of actions.
+    pub fn get() -> Option<&'static Self> {
+        trace!("credentials::get()");
+        ENV_CREDENTIALS.as_ref()
+    }
+}
+
+#[derive(Debug, Default, Clone, TypedBuilder, Args)]
+pub struct CredentialsArgs {
+    /// The registry's domain name.
+    #[arg(long, env = BB_REGISTRY)]
+    #[builder(default, setter(into, strip_option))]
+    pub registry: Option<String>,
+
+    /// The username to login to the
+    /// container registry.
+    #[arg(short = 'U', long, env = BB_USERNAME, hide_env_values = true)]
+    #[builder(default, setter(into, strip_option))]
+    pub username: Option<String>,
+
+    /// The password to login to the
+    /// container registry.
+    #[arg(short = 'P', long, env = BB_PASSWORD, hide_env_values = true)]
+    #[builder(default, setter(into, strip_option))]
+    pub password: Option<String>,
+}
+
+impl CredentialsArgs {}
 
 /// Get the credentials for the current set of actions.
 pub fn get() -> Option<&'static Credentials> {

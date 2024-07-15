@@ -15,11 +15,11 @@ use miette::{IntoDiagnostic, Result};
 use typed_builder::TypedBuilder;
 
 use crate::{
-    drivers::{CiDriver, Driver},
+    drivers::{CiDriver, Driver, DriverArgs},
     shadow,
 };
 
-use super::{BlueBuildCommand, DriverArgs};
+use super::BlueBuildCommand;
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct GenerateCommand {
@@ -73,11 +73,7 @@ pub struct GenerateCommand {
 
 impl BlueBuildCommand for GenerateCommand {
     fn try_run(&mut self) -> Result<()> {
-        Driver::builder()
-            .build_driver(self.drivers.build_driver)
-            .inspect_driver(self.drivers.inspect_driver)
-            .build()
-            .init();
+        Driver::init(self.drivers);
 
         self.template_file()
     }

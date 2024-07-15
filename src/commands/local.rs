@@ -12,9 +12,9 @@ use miette::{bail, IntoDiagnostic, Result};
 use typed_builder::TypedBuilder;
 use users::{Users, UsersCache};
 
-use crate::commands::build::BuildCommand;
+use crate::{commands::build::BuildCommand, drivers::DriverArgs};
 
-use super::{BlueBuildCommand, DriverArgs};
+use super::BlueBuildCommand;
 
 #[derive(Default, Clone, Debug, TypedBuilder, Args)]
 pub struct LocalCommonArgs {
