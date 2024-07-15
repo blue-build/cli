@@ -24,7 +24,6 @@ use crate::{
 };
 
 use super::{
-    credentials,
     opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
     BuildDriver, DriverVersion, InspectDriver, RunDriver,
 };
@@ -186,7 +185,7 @@ impl BuildDriver for DockerDriver {
             registry,
             username,
             password,
-        }) = credentials::get()
+        }) = Credentials::get()
         {
             trace!("docker login -u {username} -p [MASKED] {registry}");
             let output = Command::new("docker")

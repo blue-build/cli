@@ -17,9 +17,13 @@ use miette::{bail, IntoDiagnostic, Result};
 use tempdir::TempDir;
 use typed_builder::TypedBuilder;
 
-use crate::{commands::build::BuildCommand, drivers::Driver, rpm_ostree_status::RpmOstreeStatus};
+use crate::{
+    commands::build::BuildCommand,
+    drivers::{Driver, DriverArgs},
+    rpm_ostree_status::RpmOstreeStatus,
+};
 
-use super::{BlueBuildCommand, DriverArgs};
+use super::BlueBuildCommand;
 
 #[derive(Default, Clone, Debug, TypedBuilder, Args)]
 pub struct SwitchCommand {
@@ -51,11 +55,7 @@ impl BlueBuildCommand for SwitchCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("SwitchCommand::try_run()");
 
-        Driver::builder()
-            .build_driver(self.drivers.build_driver)
-            .inspect_driver(self.drivers.inspect_driver)
-            .build()
-            .init();
+        Driver::init(self.drivers);
 
         let status = RpmOstreeStatus::try_new()?;
         trace!("{status:?}");

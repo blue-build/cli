@@ -13,13 +13,14 @@ use std::{
 
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::IMAGE_VERSION_LABEL;
+use clap::Args;
 use log::{debug, info, trace};
 use miette::{miette, Result};
 use once_cell::sync::Lazy;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
-use crate::{credentials, drivers::types::DetermineDriver, image_metadata::ImageMetadata};
+use crate::{drivers::types::DetermineDriver, image_metadata::ImageMetadata};
 
 use self::{
     buildah_driver::BuildahDriver,
@@ -64,31 +65,40 @@ static BUILD_ID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
 /// The cached os versions
 static OS_VERSION: Lazy<Mutex<HashMap<String, u64>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 
-#[derive(Debug, TypedBuilder)]
-pub struct Driver<'a> {
+/// Args for selecting the various drivers to use for runtime.
+///
+/// If the args are left uninitialized, the program will determine
+/// the best one available.
+#[derive(Default, Clone, Copy, Debug, TypedBuilder, Args)]
+pub struct DriverArgs {
+    /// Select which driver to use to build
+    /// your image.
     #[builder(default)]
-    username: Option<&'a String>,
-
-    #[builder(default)]
-    password: Option<&'a String>,
-
-    #[builder(default)]
-    registry: Option<&'a String>,
-
-    #[builder(default)]
+    #[arg(short = 'B', long)]
     build_driver: Option<BuildDriverType>,
 
+    /// Select which driver to use to inspect
+    /// images.
     #[builder(default)]
+    #[arg(short = 'I', long)]
     inspect_driver: Option<InspectDriverType>,
 
+    /// Select which driver to use to sign
+    /// images.
     #[builder(default)]
+    #[arg(short = 'S', long)]
     signing_driver: Option<SigningDriverType>,
 
+    /// Select which driver to use to run
+    /// containers.
     #[builder(default)]
+    #[arg(short = 'R', long)]
     run_driver: Option<RunDriverType>,
 }
 
-impl Driver<'_> {
+pub struct Driver;
+
+impl Driver {
     /// Initializes the Strategy with user provided credentials.
     ///
     /// If you want to take advantage of a user's credentials,
@@ -97,13 +107,11 @@ impl Driver<'_> {
     ///
     /// # Panics
     /// Will panic if it is unable to initialize drivers.
-    pub fn init(mut self) {
+    pub fn init(mut args: DriverArgs) {
         trace!("Driver::init()");
         let mut initialized = INIT.lock().expect("Must lock INIT");
 
         if !*initialized {
-            credentials::set_user_creds(self.username, self.password, self.registry);
-
             let mut build_driver = SELECTED_BUILD_DRIVER.write().expect("Should lock");
             let mut inspect_driver = SELECTED_INSPECT_DRIVER.write().expect("Should lock");
             let mut run_driver = SELECTED_RUN_DRIVER.write().expect("Should lock");
@@ -114,19 +122,19 @@ impl Driver<'_> {
             trace!("CI driver set to {:?}", *ci_driver);
             drop(ci_driver);
 
-            *signing_driver = Some(self.signing_driver.determine_driver());
+            *signing_driver = Some(args.signing_driver.determine_driver());
             trace!("Inspect driver set to {:?}", *signing_driver);
             drop(signing_driver);
 
-            *run_driver = Some(self.run_driver.determine_driver());
+            *run_driver = Some(args.run_driver.determine_driver());
             trace!("Run driver set to {:?}", *run_driver);
             drop(run_driver);
 
-            *inspect_driver = Some(self.inspect_driver.determine_driver());
+            *inspect_driver = Some(args.inspect_driver.determine_driver());
             trace!("Inspect driver set to {:?}", *inspect_driver);
             drop(inspect_driver);
 
-            *build_driver = Some(self.build_driver.determine_driver());
+            *build_driver = Some(args.build_driver.determine_driver());
             trace!("Build driver set to {:?}", *build_driver);
             drop(build_driver);
 
@@ -231,7 +239,7 @@ impl Driver<'_> {
     }
 }
 
-impl BuildDriver for Driver<'_> {
+impl BuildDriver for Driver {
     fn build(opts: &BuildOpts) -> Result<()> {
         match Self::get_build_driver() {
             BuildDriverType::Buildah => BuildahDriver::build(opts),
@@ -273,7 +281,7 @@ impl BuildDriver for Driver<'_> {
     }
 }
 
-impl SigningDriver for Driver<'_> {
+impl SigningDriver for Driver {
     fn generate_key_pair() -> Result<()> {
         match Self::get_signing_driver() {
             SigningDriverType::Cosign => CosignDriver::generate_key_pair(),
@@ -311,7 +319,7 @@ impl SigningDriver for Driver<'_> {
     }
 }
 
-impl InspectDriver for Driver<'_> {
+impl InspectDriver for Driver {
     fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
         match Self::get_inspect_driver() {
             InspectDriverType::Skopeo => SkopeoDriver::get_metadata(opts),
@@ -321,7 +329,7 @@ impl InspectDriver for Driver<'_> {
     }
 }
 
-impl RunDriver for Driver<'_> {
+impl RunDriver for Driver {
     fn run(opts: &RunOpts) -> std::io::Result<ExitStatus> {
         match Self::get_run_driver() {
             RunDriverType::Podman => PodmanDriver::run(opts),
@@ -337,7 +345,7 @@ impl RunDriver for Driver<'_> {
     }
 }
 
-impl CiDriver for Driver<'_> {
+impl CiDriver for Driver {
     fn on_default_branch() -> bool {
         match Self::get_ci_driver() {
             CiDriverType::Local => LocalDriver::on_default_branch(),
