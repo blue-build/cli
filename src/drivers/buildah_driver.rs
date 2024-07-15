@@ -6,7 +6,7 @@ use miette::{bail, IntoDiagnostic, Result};
 use semver::Version;
 use serde::Deserialize;
 
-use crate::credentials::{self, Credentials};
+use crate::credentials::Credentials;
 
 use super::{
     opts::{BuildOpts, PushOpts, TagOpts},
@@ -126,7 +126,7 @@ impl BuildDriver for BuildahDriver {
             registry,
             username,
             password,
-        }) = credentials::get()
+        }) = Credentials::get()
         {
             trace!("buildah login -u {username} -p [MASKED] {registry}");
             let output = Command::new("buildah")

@@ -5,7 +5,7 @@ use log::{debug, info, trace, warn};
 use miette::{bail, Context, IntoDiagnostic, Result};
 
 use crate::{
-    credentials::{self, Credentials},
+    credentials::Credentials,
     drivers::{opts::GetMetadataOpts, types::CiDriverType, CiDriver, Driver, InspectDriver},
 };
 
@@ -112,7 +112,7 @@ impl SigningDriver for CosignDriver {
             registry,
             username,
             password,
-        }) = credentials::get()
+        }) = Credentials::get()
         {
             trace!("cosign login -u {username} -p [MASKED] {registry}");
             let output = Command::new("cosign")
