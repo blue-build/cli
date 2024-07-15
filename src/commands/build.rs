@@ -153,6 +153,7 @@ impl BlueBuildCommand for BuildCommand {
             blue_build_utils::check_command_exists("cosign")?;
             Driver::check_signing_files()?;
             Driver::login()?;
+            Driver::signing_login()?;
         }
 
         #[cfg(feature = "multi-recipe")]
