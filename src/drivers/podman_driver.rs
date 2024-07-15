@@ -22,7 +22,6 @@ use crate::{
 };
 
 use super::{
-    credentials,
     opts::{BuildOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
     BuildDriver, DriverVersion, InspectDriver, RunDriver,
 };
@@ -149,7 +148,7 @@ impl BuildDriver for PodmanDriver {
             registry,
             username,
             password,
-        }) = credentials::get()
+        }) = Credentials::get()
         {
             trace!("podman login -u {username} -p [MASKED] {registry}");
             let output = Command::new("podman")

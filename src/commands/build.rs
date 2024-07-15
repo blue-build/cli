@@ -6,9 +6,8 @@ use std::{
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{
-        ARCHIVE_SUFFIX, BB_PASSWORD, BB_REGISTRY, BB_REGISTRY_NAMESPACE, BB_USERNAME,
-        BUILD_ID_LABEL, CONFIG_PATH, CONTAINER_FILE, GITIGNORE_PATH, LABELED_ERROR_MESSAGE,
-        NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH,
+        ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, BUILD_ID_LABEL, CONFIG_PATH, CONTAINER_FILE,
+        GITIGNORE_PATH, LABELED_ERROR_MESSAGE, NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH,
     },
     generate_containerfile_path,
 };
@@ -20,13 +19,14 @@ use typed_builder::TypedBuilder;
 
 use crate::{
     commands::generate::GenerateCommand,
+    credentials::{Credentials, CredentialsArgs},
     drivers::{
         opts::{BuildTagPushOpts, CompressionType},
-        BuildDriver, CiDriver, Driver, SigningDriver,
+        BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
     },
 };
 
-use super::{BlueBuildCommand, DriverArgs};
+use super::BlueBuildCommand;
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Args, TypedBuilder)]
@@ -83,29 +83,12 @@ pub struct BuildCommand {
     #[builder(default, setter(into, strip_option))]
     archive: Option<PathBuf>,
 
-    /// The registry's domain name.
-    #[arg(long, env = BB_REGISTRY)]
-    #[builder(default, setter(into, strip_option))]
-    registry: Option<String>,
-
     /// The url path to your base
     /// project images.
     #[arg(long, env = BB_REGISTRY_NAMESPACE)]
     #[builder(default, setter(into, strip_option))]
     #[arg(visible_alias("registry-path"))]
     registry_namespace: Option<String>,
-
-    /// The username to login to the
-    /// container registry.
-    #[arg(short = 'U', long, env = BB_USERNAME, hide_env_values = true)]
-    #[builder(default, setter(into, strip_option))]
-    username: Option<String>,
-
-    /// The password to login to the
-    /// container registry.
-    #[arg(short = 'P', long, env = BB_PASSWORD, hide_env_values = true)]
-    #[builder(default, setter(into, strip_option))]
-    password: Option<String>,
 
     /// Do not sign the image on push.
     #[arg(long)]
@@ -123,6 +106,14 @@ pub struct BuildCommand {
     #[builder(default)]
     squash: bool,
 
+    #[clap(skip)]
+    #[builder(default)]
+    registry: Option<String>,
+
+    #[clap(flatten)]
+    #[builder(default)]
+    credentials: Option<CredentialsArgs>,
+
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,
@@ -133,14 +124,12 @@ impl BlueBuildCommand for BuildCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
-        Driver::builder()
-            .username(self.username.as_ref())
-            .password(self.password.as_ref())
-            .registry(self.registry.as_ref())
-            .build_driver(self.drivers.build_driver)
-            .inspect_driver(self.drivers.inspect_driver)
-            .build()
-            .init();
+        Driver::init(self.drivers);
+
+        if let Some(creds) = self.credentials.take() {
+            self.registry.clone_from(&creds.registry);
+            Credentials::init(creds);
+        }
 
         self.update_gitignore()?;
 
@@ -315,7 +304,7 @@ impl BuildCommand {
         info!("Generating full image name");
 
         let image_name = match (
-            self.registry.as_ref().map(|s| s.to_lowercase()),
+            self.registry.as_ref(),
             self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
         ) {
             (Some(registry), Some(registry_path)) => {
