@@ -304,7 +304,7 @@ impl BuildCommand {
         info!("Generating full image name");
 
         let image_name = match (
-            self.registry.as_ref(),
+            self.registry.as_ref().map(|r| r.to_lowercase()),
             self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
         ) {
             (Some(registry), Some(registry_path)) => {
