@@ -8,7 +8,10 @@ use blue_build_utils::constants::{
 use log::{debug, info, trace, warn};
 use miette::{bail, Context, IntoDiagnostic, Result};
 
-use crate::drivers::{opts::GetMetadataOpts, Driver, InspectDriver};
+use crate::{
+    credentials::{self, Credentials},
+    drivers::{opts::GetMetadataOpts, Driver, InspectDriver},
+};
 
 use super::SigningDriver;
 
@@ -63,9 +66,10 @@ impl SigningDriver for CosignDriver {
     fn sign_images<S, T>(image_name: S, tag: Option<T>) -> Result<()>
     where
         S: AsRef<str>,
-        T: AsRef<str> + Debug,
+        T: AsRef<str>,
     {
         let image_name = image_name.as_ref();
+        let tag = tag.as_ref().map(AsRef::as_ref);
         trace!("BuildCommand::sign_images({image_name}, {tag:?})");
 
         env::set_var("COSIGN_PASSWORD", "");
@@ -73,18 +77,16 @@ impl SigningDriver for CosignDriver {
 
         let inspect_opts = GetMetadataOpts::builder().image(image_name);
 
-        let inspect_opts = if let Some(tag) = tag.as_ref() {
-            inspect_opts.tag(tag.as_ref()).build()
+        let inspect_opts = if let Some(tag) = tag {
+            inspect_opts.tag(tag).build()
         } else {
             inspect_opts.build()
         };
 
         let image_digest = Driver::get_metadata(&inspect_opts)?.digest;
         let image_name_digest = format!("{image_name}@{image_digest}");
-        let image_name_tag = tag.map_or_else(
-            || image_name.to_owned(),
-            |t| format!("{image_name}:{}", t.as_ref()),
-        );
+        let image_name_tag =
+            tag.map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));
 
         match (
             // GitLab specific vars
@@ -199,6 +201,34 @@ impl SigningDriver for CosignDriver {
             _ => warn!("Not running in CI with cosign variables, not signing"),
         }
 
+        Ok(())
+    }
+
+    fn signing_login() -> Result<()> {
+        trace!("DockerDriver::login()");
+
+        if let Some(Credentials {
+            registry,
+            username,
+            password,
+        }) = credentials::get()
+        {
+            trace!("cosign login -u {username} -p [MASKED] {registry}");
+            let output = Command::new("cosign")
+                .arg("login")
+                .arg("-u")
+                .arg(username)
+                .arg("-p")
+                .arg(password)
+                .arg(registry)
+                .output()
+                .into_diagnostic()?;
+
+            if !output.status.success() {
+                let err_out = String::from_utf8_lossy(&output.stderr);
+                bail!("Failed to login for docker: {err_out}");
+            }
+        }
         Ok(())
     }
 }

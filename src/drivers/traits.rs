@@ -1,7 +1,4 @@
-use std::{
-    fmt::Debug,
-    process::{ExitStatus, Output},
-};
+use std::process::{ExitStatus, Output};
 
 use log::{debug, info, trace};
 use miette::{bail, miette, Result};
@@ -34,25 +31,25 @@ pub trait DriverVersion {
 /// Allows agnostic building, tagging
 /// pushing, and login.
 pub trait BuildDriver {
-    /// Runs the build logic for the strategy.
+    /// Runs the build logic for the driver.
     ///
     /// # Errors
     /// Will error if the build fails.
     fn build(opts: &BuildOpts) -> Result<()>;
 
-    /// Runs the tag logic for the strategy.
+    /// Runs the tag logic for the driver.
     ///
     /// # Errors
     /// Will error if the tagging fails.
     fn tag(opts: &TagOpts) -> Result<()>;
 
-    /// Runs the push logic for the strategy
+    /// Runs the push logic for the driver
     ///
     /// # Errors
     /// Will error if the push fails.
     fn push(opts: &PushOpts) -> Result<()>;
 
-    /// Runs the login logic for the strategy.
+    /// Runs the login logic for the driver.
     ///
     /// # Errors
     /// Will error if login fails.
@@ -176,5 +173,11 @@ pub trait SigningDriver {
     fn sign_images<S, T>(image_name: S, tag: Option<T>) -> Result<()>
     where
         S: AsRef<str>,
-        T: AsRef<str> + Debug;
+        T: AsRef<str>;
+
+    /// Runs the login logic for the signing driver.
+    ///
+    /// # Errors
+    /// Will error if login fails.
+    fn signing_login() -> Result<()>;
 }

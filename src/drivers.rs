@@ -264,10 +264,18 @@ impl SigningDriver for Driver<'_> {
     fn sign_images<S, T>(image_name: S, tag: Option<T>) -> Result<()>
     where
         S: AsRef<str>,
-        T: AsRef<str> + Debug,
+        T: AsRef<str>,
     {
         match Self::get_signing_driver() {
             SigningDriverType::Cosign => CosignDriver::sign_images(image_name, tag),
+            SigningDriverType::Podman => todo!(),
+            SigningDriverType::Docker => todo!(),
+        }
+    }
+
+    fn signing_login() -> Result<()> {
+        match Self::get_signing_driver() {
+            SigningDriverType::Cosign => CosignDriver::signing_login(),
             SigningDriverType::Podman => todo!(),
             SigningDriverType::Docker => todo!(),
         }
