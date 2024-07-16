@@ -20,19 +20,21 @@ use once_cell::sync::Lazy;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
-use crate::{drivers::types::DetermineDriver, image_metadata::ImageMetadata};
-
 use self::{
     buildah_driver::BuildahDriver,
     cosign_driver::CosignDriver,
     docker_driver::DockerDriver,
     github_driver::GithubDriver,
     gitlab_driver::GitlabDriver,
+    image_metadata::ImageMetadata,
     local_driver::LocalDriver,
     opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
     podman_driver::PodmanDriver,
     skopeo_driver::SkopeoDriver,
-    types::{BuildDriverType, CiDriverType, InspectDriverType, RunDriverType, SigningDriverType},
+    types::{
+        BuildDriverType, CiDriverType, DetermineDriver, InspectDriverType, RunDriverType,
+        SigningDriverType,
+    },
 };
 
 pub use traits::*;
@@ -42,6 +44,7 @@ mod cosign_driver;
 mod docker_driver;
 mod github_driver;
 mod gitlab_driver;
+pub mod image_metadata;
 mod local_driver;
 pub mod opts;
 mod podman_driver;
@@ -391,6 +394,14 @@ impl CiDriver for Driver {
             CiDriverType::Local => LocalDriver::get_registry(),
             CiDriverType::Gitlab => GitlabDriver::get_registry(),
             CiDriverType::Github => GithubDriver::get_registry(),
+        }
+    }
+
+    fn generate_image_name(recipe: &Recipe) -> Result<String> {
+        match Self::get_ci_driver() {
+            CiDriverType::Local => LocalDriver::generate_image_name(recipe),
+            CiDriverType::Gitlab => GitlabDriver::generate_image_name(recipe),
+            CiDriverType::Github => GithubDriver::generate_image_name(recipe),
         }
     }
 }

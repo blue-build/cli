@@ -3,6 +3,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use blue_build_process_management::{
+    credentials::{Credentials, CredentialsArgs},
+    drivers::{
+        opts::{BuildTagPushOpts, CompressionType},
+        BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
+    },
+};
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{
@@ -17,14 +24,7 @@ use log::{debug, info, trace, warn};
 use miette::{bail, Context, IntoDiagnostic, Result};
 use typed_builder::TypedBuilder;
 
-use crate::{
-    commands::generate::GenerateCommand,
-    credentials::{Credentials, CredentialsArgs},
-    drivers::{
-        opts::{BuildTagPushOpts, CompressionType},
-        BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
-    },
-};
+use crate::commands::generate::GenerateCommand;
 
 use super::BlueBuildCommand;
 
@@ -205,7 +205,6 @@ impl BuildCommand {
     fn start(&self, recipe_paths: &[PathBuf]) -> Result<()> {
         use rayon::prelude::*;
 
-        use crate::drivers::{BuildDriver, CiDriver};
         trace!("BuildCommand::build_image()");
 
         recipe_paths
@@ -254,8 +253,6 @@ impl BuildCommand {
 
     #[cfg(not(feature = "multi-recipe"))]
     fn start(&self, recipe_path: &Path) -> Result<()> {
-        use crate::drivers::CiDriver;
-
         trace!("BuildCommand::start()");
 
         let recipe = Recipe::parse(recipe_path)?;
@@ -303,20 +300,19 @@ impl BuildCommand {
         trace!("BuildCommand::generate_full_image_name({recipe:#?})");
         info!("Generating full image name");
 
-        let image_name = match (
+        let image_name = if let (Some(registry), Some(registry_path)) = (
             self.registry.as_ref().map(|r| r.to_lowercase()),
             self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
         ) {
-            (Some(registry), Some(registry_path)) => {
-                trace!("registry={registry}, registry_path={registry_path}");
-                format!(
-                    "{}/{}/{}",
-                    registry.trim().trim_matches('/'),
-                    registry_path.trim().trim_matches('/'),
-                    recipe.name.trim(),
-                )
-            }
-            _ => Driver::generate_image_name(recipe)?,
+            trace!("registry={registry}, registry_path={registry_path}");
+            format!(
+                "{}/{}/{}",
+                registry.trim().trim_matches('/'),
+                registry_path.trim().trim_matches('/'),
+                recipe.name.trim(),
+            )
+        } else {
+            Driver::generate_image_name(recipe)?
         };
 
         debug!("Using image name '{image_name}'");

@@ -1,7 +1,7 @@
 use std::{
     fs,
     path::PathBuf,
-    process::{self, Command},
+    process::Command,
     sync::{atomic::AtomicBool, Arc, Mutex},
     thread,
 };
@@ -113,7 +113,7 @@ where
                 });
                 drop(cid_list);
 
-                process::exit(1);
+                expect_exit::exit_unwind(1);
             }
             SIGTSTP => {
                 if has_terminal {

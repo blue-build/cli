@@ -4,11 +4,7 @@ use std::{
     time::Duration,
 };
 
-use blue_build_utils::{
-    constants::SKOPEO_IMAGE,
-    logging::{CommandLogging, Logger},
-    signal_handler::{add_cid, remove_cid, ContainerId},
-};
+use blue_build_utils::constants::SKOPEO_IMAGE;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace, warn};
@@ -18,7 +14,10 @@ use serde::Deserialize;
 use tempdir::TempDir;
 
 use crate::{
-    credentials::Credentials, drivers::types::RunDriverType, image_metadata::ImageMetadata,
+    credentials::Credentials,
+    drivers::{image_metadata::ImageMetadata, types::RunDriverType},
+    logging::{CommandLogging, Logger},
+    signal_handler::{add_cid, remove_cid, ContainerId},
 };
 
 use super::{

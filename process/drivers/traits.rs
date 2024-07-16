@@ -5,9 +5,10 @@ use log::{debug, info, trace};
 use miette::{bail, miette, Result};
 use semver::{Version, VersionReq};
 
-use crate::image_metadata::ImageMetadata;
-
-use super::opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts};
+use super::{
+    image_metadata::ImageMetadata,
+    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
+};
 
 /// Trait for retrieving version of a driver.
 pub trait DriverVersion {
