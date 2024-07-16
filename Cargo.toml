@@ -1,5 +1,5 @@
 [workspace]
-members = ["utils", "recipe", "template"]
+members = ["utils", "recipe", "template", "process"]
 
 [workspace.package]
 description = "A CLI tool built for creating Containerfile templates for ostree based atomic distros"
@@ -59,16 +59,15 @@ pre-release-replacements = [
 blue-build-recipe = { version = "=0.8.11", path = "./recipe" }
 blue-build-template = { version = "=0.8.11", path = "./template" }
 blue-build-utils = { version = "=0.8.11", path = "./utils" }
+blue-build-process-management = { version = "=0.8.11", path = "./process" }
 clap-verbosity-flag = "2"
 clap_complete = "4"
 clap_complete_nushell = "4"
 fuzzy-matcher = "0.3"
-lenient_semver = "0.4"
 open = "5"
 os_info = "3"
 rayon = { version = "1.10.0", optional = true }
 requestty = { version = "0.5", features = ["macros", "termion"] }
-semver = { version = "1", features = ["serde"] }
 shadow-rs = "0.26"
 urlencoding = "2"
 users = "0.11"

@@ -3,14 +3,13 @@ use std::{
     time::Duration,
 };
 
-use blue_build_utils::logging::Logger;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, trace};
 use miette::{bail, IntoDiagnostic, Result};
 
-use crate::image_metadata::ImageMetadata;
+use crate::logging::Logger;
 
-use super::{opts::GetMetadataOpts, InspectDriver};
+use super::{image_metadata::ImageMetadata, opts::GetMetadataOpts, InspectDriver};
 
 #[derive(Debug)]
 pub struct SkopeoDriver;

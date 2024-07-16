@@ -1,7 +1,5 @@
 pub mod command_output;
 pub mod constants;
-pub mod logging;
-pub mod signal_handler;
 pub mod syntax_highlighting;
 
 use std::{

@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use blue_build_process_management::drivers::{CiDriver, Driver, DriverArgs};
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
@@ -14,10 +15,7 @@ use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Result};
 use typed_builder::TypedBuilder;
 
-use crate::{
-    drivers::{CiDriver, Driver, DriverArgs},
-    shadow,
-};
+use crate::shadow;
 
 use super::BlueBuildCommand;
 

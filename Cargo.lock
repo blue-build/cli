@@ -245,6 +245,7 @@ dependencies = [
 name = "blue-build"
 version = "0.8.11"
 dependencies = [
+ "blue-build-process-management",
  "blue-build-recipe",
  "blue-build-template",
  "blue-build-utils",
@@ -257,7 +258,6 @@ dependencies = [
  "fuzzy-matcher",
  "indexmap 2.2.6",
  "indicatif",
- "lenient_semver",
  "log",
  "miette",
  "once_cell",
@@ -266,7 +266,6 @@ dependencies = [
  "rayon",
  "requestty",
  "rusty-hook",
- "semver",
  "serde",
  "serde_json",
  "serde_yaml 0.9.34+deprecated",
@@ -275,6 +274,38 @@ dependencies = [
  "typed-builder",
  "urlencoding",
  "users",
+ "uuid",
+]
+
+[[package]]
+name = "blue-build-process-management"
+version = "0.8.11"
+dependencies = [
+ "anyhow",
+ "blue-build-recipe",
+ "blue-build-utils",
+ "chrono",
+ "clap",
+ "colored",
+ "expect-exit",
+ "indexmap 2.2.6",
+ "indicatif",
+ "indicatif-log-bridge",
+ "lenient_semver",
+ "log",
+ "log4rs",
+ "miette",
+ "nix",
+ "nu-ansi-term",
+ "once_cell",
+ "os_pipe",
+ "rand 0.8.5",
+ "semver",
+ "serde",
+ "serde_json",
+ "signal-hook",
+ "tempdir",
+ "typed-builder",
  "uuid",
 ]
 
@@ -313,7 +344,6 @@ dependencies = [
 name = "blue-build-utils"
 version = "0.8.11"
 dependencies = [
- "anyhow",
  "atty",
  "base64 0.22.1",
  "blake2",
@@ -325,18 +355,12 @@ dependencies = [
  "indicatif",
  "indicatif-log-bridge",
  "log",
- "log4rs",
  "miette",
- "nix",
- "nu-ansi-term",
  "once_cell",
- "os_pipe",
  "process_control",
- "rand 0.8.5",
  "serde",
  "serde_json",
  "serde_yaml 0.9.34+deprecated",
- "signal-hook",
  "syntect",
  "tempdir",
  "typed-builder",
@@ -691,6 +715,12 @@ dependencies = [
  "libc",
  "windows-sys 0.52.0",
 ]
+
+[[package]]
+name = "expect-exit"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c51a35d7c9abd6c97c27ac44c4295fec4f51ffd2dcbf6fd45fc1cd39d11ad9df"
 
 [[package]]
 name = "fastrand"
