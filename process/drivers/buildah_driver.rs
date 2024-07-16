@@ -1,12 +1,11 @@
 use std::process::Command;
 
-use blue_build_utils::logging::CommandLogging;
 use log::{error, info, trace};
 use miette::{bail, IntoDiagnostic, Result};
 use semver::Version;
 use serde::Deserialize;
 
-use crate::credentials::Credentials;
+use crate::{credentials::Credentials, logging::CommandLogging};
 
 use super::{
     opts::{BuildOpts, PushOpts, TagOpts},
