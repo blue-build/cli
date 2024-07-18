@@ -42,9 +42,9 @@ test:
 	FROM +common
 	COPY --dir test-files/ integration-tests/ /app
 
-	DO rust+CARGO --args="test -- --show-output"
-	DO rust+CARGO --args="test --all-features -- --show-output"
-	DO rust+CARGO --args="test --no-default-features -- --show-output"
+	DO rust+CARGO --args="test --workspace -- --show-output"
+	DO rust+CARGO --args="test --workspace --all-features -- --show-output"
+	DO rust+CARGO --args="test --workspace --no-default-features -- --show-output"
 
 install:
 	FROM +common

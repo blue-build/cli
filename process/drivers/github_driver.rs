@@ -104,7 +104,7 @@ mod test {
         setup();
         env::set_var(
             GITHUB_EVENT_PATH,
-            "./test-files/github-events/default-branch.json",
+            "../test-files/github-events/default-branch.json",
         );
         env::set_var(GITHUB_REF_NAME, "main");
     }
@@ -113,7 +113,7 @@ mod test {
         setup();
         env::set_var(
             GITHUB_EVENT_PATH,
-            "./test-files/github-events/pr-branch.json",
+            "../test-files/github-events/pr-branch.json",
         );
         env::set_var(GITHUB_EVENT_NAME, "pull_request");
         env::set_var(GITHUB_REF_NAME, "test");
@@ -122,7 +122,7 @@ mod test {
 
     fn setup_branch() {
         setup();
-        env::set_var(GITHUB_EVENT_PATH, "./test-files/github-events/branch.json");
+        env::set_var(GITHUB_EVENT_PATH, "../test-files/github-events/branch.json");
         env::set_var(GITHUB_REF_NAME, "test");
     }
 
