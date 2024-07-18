@@ -11,31 +11,31 @@ version.workspace = true
 path = "process.rs"
 
 [dependencies]
+anyhow = "1"
 blue-build-recipe = { version = "=0.8.11", path = "../recipe" }
 blue-build-utils = { version = "=0.8.11", path = "../utils" }
-anyhow = "1"
-lenient_semver = "0.4"
 expect-exit = "0.5.2"
-rand = "0.8.5"
+indicatif-log-bridge = "0.2"
+lenient_semver = "0.4"
 log4rs = { version = "1.3.0", features = ["background_rotation"] }
+nu-ansi-term = { version = "0.50.0", features = ["gnu_legacy"] }
 nix = { version = "0.29.0", features = ["signal"] }
+once_cell = "1"
 os_pipe = { version = "1", features = ["io_safety"] }
+rand = "0.8.5"
 semver = { version = "1", features = ["serde"] }
 signal-hook = { version = "0.3.17", features = ["extended-siginfo"] }
-nu-ansi-term = { version = "0.50.0", features = ["gnu_legacy"] }
 
 chrono.workspace = true
-tempdir.workspace = true
-indicatif-log-bridge.workspace = true
+clap.workspace = true
 colored.workspace = true
 indicatif.workspace = true
 indexmap.workspace = true
-serde.workspace = true
-serde_json.workspace = true
 log.workspace = true
 miette.workspace = true
-clap.workspace = true
-once_cell.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempdir.workspace = true
 typed-builder.workspace = true
 uuid.workspace = true
 
