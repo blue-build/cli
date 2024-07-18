@@ -188,7 +188,8 @@ impl InspectDriver for PodmanDriver {
         let output = Self::run_output(
             &RunOpts::builder()
                 .image(SKOPEO_IMAGE)
-                .args(&["inspect".to_string(), url.clone()])
+                .args(["inspect", url.as_str()])
+                .remove(true)
                 .build(),
         )
         .into_diagnostic()?;

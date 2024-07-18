@@ -3,18 +3,21 @@ use std::borrow::Cow;
 use typed_builder::TypedBuilder;
 
 #[derive(Debug, Clone, TypedBuilder)]
-pub struct RunOpts<'a> {
-    #[builder(default, setter(into))]
-    pub image: Cow<'a, str>,
+pub struct RunOpts<'scope> {
+    #[builder(setter(into))]
+    pub image: Cow<'scope, str>,
 
     #[builder(default, setter(into))]
-    pub args: Cow<'a, [String]>,
+    pub args: Vec<&'scope str>,
 
     #[builder(default, setter(into))]
-    pub env_vars: Cow<'a, [RunOptsEnv<'a>]>,
+    pub env_vars: Vec<RunOptsEnv<'scope>>,
 
     #[builder(default, setter(into))]
-    pub volumes: Cow<'a, [RunOptsVolume<'a>]>,
+    pub volumes: Vec<RunOptsVolume<'scope>>,
+
+    #[builder(default, setter(into))]
+    pub workdir: Cow<'scope, str>,
 
     #[builder(default)]
     pub privileged: bool,
@@ -27,19 +30,19 @@ pub struct RunOpts<'a> {
 }
 
 #[derive(Debug, Clone, TypedBuilder)]
-pub struct RunOptsVolume<'a> {
+pub struct RunOptsVolume<'scope> {
     #[builder(setter(into))]
-    pub path_or_vol_name: Cow<'a, str>,
+    pub path_or_vol_name: Cow<'scope, str>,
 
     #[builder(setter(into))]
-    pub container_path: Cow<'a, str>,
+    pub container_path: Cow<'scope, str>,
 }
 
 #[derive(Debug, Clone, TypedBuilder)]
-pub struct RunOptsEnv<'a> {
+pub struct RunOptsEnv<'scope> {
     #[builder(setter(into))]
-    pub key: Cow<'a, str>,
+    pub key: Cow<'scope, str>,
 
     #[builder(setter(into))]
-    pub value: Cow<'a, str>,
+    pub value: Cow<'scope, str>,
 }
