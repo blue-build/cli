@@ -1,7 +1,9 @@
 use std::{env, fmt::Debug, fs, path::Path, process::Command};
 
-use blue_build_utils::constants::{COSIGN_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PUB_PATH};
-use log::{debug, info, trace, warn};
+use blue_build_utils::constants::{
+    COSIGN_PASSWORD, COSIGN_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PUB_PATH, COSIGN_YES,
+};
+use log::{debug, trace, warn};
 use miette::{bail, Context, IntoDiagnostic, Result};
 
 use crate::{
@@ -17,8 +19,8 @@ pub struct CosignDriver;
 impl SigningDriver for CosignDriver {
     fn generate_key_pair() -> Result<()> {
         let status = Command::new("cosign")
-            .env("COSIGN_PASSWORD", "")
-            .env("COSIGN_YES", "true")
+            .env(COSIGN_PASSWORD, "")
+            .env(COSIGN_YES, "true")
             .arg("genereate-key-pair")
             .status()
             .into_diagnostic()?;
@@ -90,14 +92,29 @@ impl SigningDriver for CosignDriver {
             (_, Ok(cosign_private_key), _)
                 if !cosign_private_key.is_empty() && Path::new(COSIGN_PUB_PATH).exists() =>
             {
-                Self::sign_priv_public_pair_env(&image_digest, &image_name_tag)?;
+                Self::sign(
+                    image_digest,
+                    Some(&format!("--key=env://{COSIGN_PRIVATE_KEY}")),
+                )?;
+                Self::verify(image_name_tag, VerifyType::File(COSIGN_PUB_PATH.into()))?;
             }
             (_, _, cosign_priv_key_path) if cosign_priv_key_path.exists() => {
-                Self::sign_priv_public_pair_file(&image_digest, &image_name_tag)?;
+                Self::sign(
+                    image_digest,
+                    Some(&format!("--key={}", cosign_priv_key_path.display())),
+                )?;
+                Self::verify(image_name_tag, VerifyType::File(COSIGN_PUB_PATH.into()))?;
             }
             // Gitlab keyless
             (CiDriverType::Github | CiDriverType::Gitlab, _, _) => {
-                Self::sign_keyless(&image_digest, &image_name_tag)?;
+                Self::sign(image_digest, None)?;
+                Self::verify(
+                    image_name_tag,
+                    VerifyType::Keyless {
+                        issuer: Driver::oidc_provider()?,
+                        identity: Driver::keyless_cert_identity()?,
+                    },
+                )?;
             }
             _ => warn!("Not running in CI with cosign variables, not signing"),
         }
@@ -134,6 +151,12 @@ impl SigningDriver for CosignDriver {
     }
 }
 
+#[derive(Debug, Clone)]
+pub(super) enum VerifyType {
+    File(String),
+    Keyless { issuer: String, identity: String },
+}
+
 impl CosignDriver {
     fn check_priv<S>(priv_key: S) -> Result<()>
     where
@@ -143,8 +166,8 @@ impl CosignDriver {
 
         trace!("cosign public-key --key {priv_key}");
         let output = Command::new("cosign")
-            .env("COSIGN_PASSWORD", "")
-            .env("COSIGN_YES", "true")
+            .env(COSIGN_PASSWORD, "")
+            .env(COSIGN_YES, "true")
             .arg("public-key")
             .arg(format!("--key={priv_key}"))
             .output()
@@ -171,115 +194,54 @@ impl CosignDriver {
         }
     }
 
-    fn sign_priv_public_pair_env(image_digest: &str, image_name_tag: &str) -> Result<()> {
-        info!("Signing image: {image_digest}");
+    fn sign<S>(image_digest: S, key_arg: Option<&str>) -> Result<()>
+    where
+        S: AsRef<str>,
+    {
+        let image_digest = image_digest.as_ref();
 
-        trace!("cosign sign --key=env://{COSIGN_PRIVATE_KEY} {image_digest}");
+        let mut command = Command::new("cosign");
+        command
+            .env(COSIGN_PASSWORD, "")
+            .env(COSIGN_YES, "true")
+            .arg("sign");
 
-        if Command::new("cosign")
-            .env("COSIGN_PASSWORD", "")
-            .env("COSIGN_YES", "true")
-            .arg("sign")
-            .arg("--key=env://COSIGN_PRIVATE_KEY")
-            .arg("--recursive")
-            .arg(image_digest)
-            .status()
-            .into_diagnostic()?
-            .success()
-        {
-            info!("Successfully signed image!");
-        } else {
-            bail!("Failed to sign image: {image_digest}");
+        if let Some(key_arg) = key_arg {
+            command.arg(key_arg);
         }
 
-        trace!("cosign verify --key {COSIGN_PUB_PATH} {image_name_tag}");
+        command.arg("--recursive").arg(image_digest);
 
-        if !Command::new("cosign")
-            .arg("verify")
-            .arg(format!("--key={COSIGN_PUB_PATH}"))
-            .arg(image_name_tag)
-            .status()
-            .into_diagnostic()?
-            .success()
-        {
-            bail!("Failed to verify image!");
+        trace!("{command:?}");
+        if !command.status().into_diagnostic()?.success() {
+            bail!("Failed to sign {image_digest}");
         }
 
         Ok(())
     }
 
-    fn sign_priv_public_pair_file(image_digest: &str, image_name_tag: &str) -> Result<()> {
-        info!("Signing image: {image_digest}");
+    fn verify<S>(image_name_tag: S, verify_type: VerifyType) -> Result<()>
+    where
+        S: AsRef<str>,
+    {
+        let image_name_tag = image_name_tag.as_ref();
+        let mut command = Command::new("cosign");
+        command.arg("verify");
 
-        trace!("cosign sign --key={COSIGN_PRIV_PATH} {image_digest}");
+        match verify_type {
+            VerifyType::File(path) => command.arg(format!("--key={path}")),
+            VerifyType::Keyless { issuer, identity } => command
+                .arg("--certificate-identity-regexp")
+                .arg(identity)
+                .arg("--certificate-oidc-issuer")
+                .arg(issuer),
+        };
 
-        if Command::new("cosign")
-            .env("COSIGN_PASSWORD", "")
-            .env("COSIGN_YES", "true")
-            .arg("sign")
-            .arg(format!("--key={COSIGN_PRIV_PATH}"))
-            .arg("--recursive")
-            .arg(image_digest)
-            .status()
-            .into_diagnostic()?
-            .success()
-        {
-            info!("Successfully signed image!");
-        } else {
-            bail!("Failed to sign image: {image_digest}");
-        }
+        command.arg(image_name_tag);
 
-        trace!("cosign verify --key {COSIGN_PUB_PATH} {image_name_tag}");
-
-        if !Command::new("cosign")
-            .arg("verify")
-            .arg(format!("--key={COSIGN_PUB_PATH}"))
-            .arg(image_name_tag)
-            .status()
-            .into_diagnostic()?
-            .success()
-        {
-            bail!("Failed to verify image!");
-        }
-
-        Ok(())
-    }
-
-    fn sign_keyless(image_digest: &str, image_name_tag: &str) -> Result<()> {
-        info!("Signing image {image_digest}");
-
-        trace!("cosign sign {image_digest}");
-        if Command::new("cosign")
-            .env("COSIGN_PASSWORD", "")
-            .env("COSIGN_YES", "true")
-            .arg("sign")
-            .arg("--recursive")
-            .arg(image_digest)
-            .status()
-            .into_diagnostic()?
-            .success()
-        {
-            info!("Successfully signed image!");
-        } else {
-            bail!("Failed to sign image: {image_digest}");
-        }
-
-        let identity = Driver::keyless_cert_identity()?;
-        let issuer = Driver::oidc_provider()?;
-
-        trace!("cosign verify --certificate-identity-regexp {identity} --certificate-oidc-issuer {issuer} {image_name_tag}");
-        if !Command::new("cosign")
-            .arg("verify")
-            .arg("--certificate-identity-regexp")
-            .arg(identity)
-            .arg("--certificate-oidc-issuer")
-            .arg(issuer)
-            .arg(image_name_tag)
-            .status()
-            .into_diagnostic()?
-            .success()
-        {
-            bail!("Failed to verify image!");
+        trace!("{command:?}");
+        if !command.status().into_diagnostic()?.success() {
+            bail!("Failed to verify {image_name_tag}");
         }
 
         Ok(())

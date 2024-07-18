@@ -7,7 +7,8 @@ use std::{
 };
 
 use blue_build_utils::constants::{
-    BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE,
+    BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, COSIGN_IMAGE, COSIGN_PASSWORD, COSIGN_YES, DOCKER_HOST,
+    SKOPEO_IMAGE,
 };
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
@@ -19,14 +20,14 @@ use tempdir::TempDir;
 
 use crate::{
     credentials::Credentials,
-    drivers::{image_metadata::ImageMetadata, types::RunDriverType},
+    drivers::{image_metadata::ImageMetadata, opts::RunOptsVolume, types::RunDriverType},
     logging::{CommandLogging, Logger},
     signal_handler::{add_cid, remove_cid, ContainerId},
 };
 
 use super::{
-    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
-    BuildDriver, DriverVersion, InspectDriver, RunDriver,
+    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, RunOptsEnv, TagOpts},
+    BuildDriver, DriverVersion, InspectDriver, RunDriver, SigningDriver,
 };
 
 #[derive(Debug, Deserialize)]
@@ -328,7 +329,8 @@ impl InspectDriver for DockerDriver {
         let output = Self::run_output(
             &RunOpts::builder()
                 .image(SKOPEO_IMAGE)
-                .args(&["inspect".to_string(), url.clone()])
+                .args(["inspect", url.as_str()])
+                .remove(true)
                 .build(),
         )
         .into_diagnostic()?;
@@ -419,4 +421,48 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
 
     trace!("{command:?}");
     command
+}
+
+impl SigningDriver for DockerDriver {
+    fn generate_key_pair() -> Result<()> {
+        trace!("DockerDriver::generate_key_pair()");
+
+        let options = RunOpts::builder()
+            .image(COSIGN_IMAGE)
+            .args(["generate-key-pair"])
+            .env_vars([
+                RunOptsEnv::builder().key(COSIGN_PASSWORD).value("").build(),
+                RunOptsEnv::builder().key(COSIGN_YES).value("true").build(),
+            ])
+            .volumes([RunOptsVolume::builder()
+                .path_or_vol_name("./")
+                .container_path("/workspace")
+                .build()])
+            .workdir("/workspace")
+            .build();
+
+        let status = Self::run(&options).into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to generate key-pair");
+        }
+
+        Ok(())
+    }
+
+    fn check_signing_files() -> Result<()> {
+        todo!()
+    }
+
+    fn sign_images<S, T>(_image_name: S, _tag: Option<T>) -> Result<()>
+    where
+        S: AsRef<str>,
+        T: AsRef<str>,
+    {
+        todo!()
+    }
+
+    fn signing_login() -> Result<()> {
+        todo!()
+    }
 }
