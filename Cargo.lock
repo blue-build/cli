@@ -104,9 +104,6 @@ dependencies = [
  "humansize",
  "num-traits",
  "percent-encoding",
- "serde",
- "serde_json",
- "serde_yaml 0.9.34+deprecated",
 ]
 
 [[package]]
@@ -249,18 +246,14 @@ dependencies = [
  "blue-build-recipe",
  "blue-build-template",
  "blue-build-utils",
- "chrono",
  "clap",
  "clap-verbosity-flag",
  "clap_complete",
- "clap_complete_nushell",
  "colored",
  "fuzzy-matcher",
- "indexmap 2.2.6",
  "indicatif",
  "log",
  "miette",
- "once_cell",
  "open",
  "os_info",
  "rayon",
@@ -274,7 +267,6 @@ dependencies = [
  "typed-builder",
  "urlencoding",
  "users",
- "uuid",
 ]
 
 [[package]]
@@ -314,7 +306,6 @@ name = "blue-build-recipe"
 version = "0.8.11"
 dependencies = [
  "blue-build-utils",
- "chrono",
  "colored",
  "indexmap 2.2.6",
  "log",
@@ -333,9 +324,6 @@ dependencies = [
  "blue-build-recipe",
  "blue-build-utils",
  "log",
- "serde",
- "serde_json",
- "serde_yaml 0.9.34+deprecated",
  "typed-builder",
  "uuid",
 ]
@@ -349,21 +337,14 @@ dependencies = [
  "blake2",
  "chrono",
  "clap",
- "colored",
  "directories",
  "format_serde_error",
- "indicatif",
- "indicatif-log-bridge",
  "log",
  "miette",
- "once_cell",
  "process_control",
  "serde",
- "serde_json",
  "serde_yaml 0.9.34+deprecated",
  "syntect",
- "tempdir",
- "typed-builder",
  "which",
 ]
 
@@ -460,16 +441,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd79504325bf38b10165b02e89b4347300f855f273c4cb30c4a3209e6583275e"
 dependencies = [
  "clap",
-]
-
-[[package]]
-name = "clap_complete_nushell"
-version = "4.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80d0e48e026ce7df2040239117d25e4e79714907420c70294a5ce4b6bbe6a7b6"
-dependencies = [
- "clap",
- "clap_complete",
 ]
 
 [[package]]

@@ -13,24 +13,17 @@ atty = "0.2"
 base64 = "0.22.1"
 blake2 = "0.10.6"
 directories = "5"
+format_serde_error = "0.3"
 process_control = { version = "4", features = ["crossbeam-channel"] }
 syntect = "5"
 which = "6"
 
 chrono.workspace = true
 clap = { workspace = true, features = ["derive"] }
-colored.workspace = true
-format_serde_error.workspace = true
-indicatif.workspace = true
-indicatif-log-bridge.workspace = true
 log.workspace = true
 miette.workspace = true
-once_cell.workspace = true
-tempdir.workspace = true
 serde.workspace = true
 serde_yaml.workspace = true
-serde_json.workspace = true
-typed-builder.workspace = true
 
 [build-dependencies]
 syntect = "5.2.0"
