@@ -34,6 +34,7 @@ prebuild:
 
 lint:
 	FROM +common
+	DO rust+CARGO --args="fmt --check"
 	DO rust+CARGO --args="clippy -- -D warnings"
 	DO rust+CARGO --args="clippy --all-features -- -D warnings"
 	DO rust+CARGO --args="clippy --no-default-features -- -D warnings"
