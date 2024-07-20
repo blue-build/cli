@@ -1,15 +1,10 @@
-use std::{env, fmt::Debug, fs, path::Path, process::Command};
+use std::{fmt::Debug, fs, process::Command};
 
-use blue_build_utils::constants::{
-    COSIGN_PASSWORD, COSIGN_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PUB_PATH, COSIGN_YES,
-};
-use log::{debug, trace, warn};
+use blue_build_utils::constants::{COSIGN_PASSWORD, COSIGN_PUB_PATH, COSIGN_YES};
+use log::{debug, trace};
 use miette::{bail, Context, IntoDiagnostic, Result};
 
-use crate::{
-    credentials::Credentials,
-    drivers::{opts::GetMetadataOpts, types::CiDriverType, CiDriver, Driver, InspectDriver},
-};
+use crate::credentials::Credentials;
 
 use super::SigningDriver;
 
@@ -33,31 +28,36 @@ impl SigningDriver for CosignDriver {
     }
 
     fn check_signing_files() -> Result<()> {
-        match (
-            Path::new(COSIGN_PUB_PATH).exists(),
-            env::var(COSIGN_PRIVATE_KEY).ok(),
-            Path::new(COSIGN_PRIV_PATH),
-        ) {
-            (true, Some(cosign_priv_key), _) if !cosign_priv_key.is_empty() => {
-                Self::check_priv("env://COSIGN_PRIVATE_KEY")
-            }
-            (true, _, cosign_priv_key_path) if cosign_priv_key_path.exists() => {
-                Self::check_priv(cosign_priv_key_path.display().to_string())
-            }
-            (true, _, _) => {
+        super::get_private_key(|priv_key| {
+            trace!("cosign public-key --key {priv_key}");
+            let output = Command::new("cosign")
+                .env(COSIGN_PASSWORD, "")
+                .env(COSIGN_YES, "true")
+                .arg("public-key")
+                .arg(format!("--key={priv_key}"))
+                .output()
+                .into_diagnostic()?;
+
+            if !output.status.success() {
                 bail!(
-                    "{}{}{}{}{}{}{}",
-                    "Unable to find private/public key pair.\n\n",
-                    format_args!("Make sure you have a `{COSIGN_PUB_PATH}` "),
-                    format_args!("in the root of your repo and have either {COSIGN_PRIVATE_KEY} "),
-                    format_args!("set in your env variables or a `{COSIGN_PRIV_PATH}` "),
-                    "file in the root of your repo.\n\n",
-                    "See https://blue-build.org/how-to/cosign/ for more information.\n\n",
-                    "If you don't want to sign your image, use the `--no-sign` flag."
-                )
+                    "Failed to run cosign public-key: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
             }
-            _ => Ok(()),
-        }
+
+            let calculated_pub_key = String::from_utf8(output.stdout).into_diagnostic()?;
+            let found_pub_key = fs::read_to_string(COSIGN_PUB_PATH)
+                .into_diagnostic()
+                .with_context(|| format!("Failed to read {COSIGN_PUB_PATH}"))?;
+            trace!("calculated_pub_key={calculated_pub_key},found_pub_key={found_pub_key}");
+
+            if calculated_pub_key.trim() == found_pub_key.trim() {
+                debug!("Cosign files match, continuing build");
+                Ok(())
+            } else {
+                bail!("Public key '{COSIGN_PUB_PATH}' does not match private key")
+            }
+        })
     }
 
     fn sign_images<S, T>(image_name: S, tag: Option<T>) -> Result<()>
@@ -65,61 +65,7 @@ impl SigningDriver for CosignDriver {
         S: AsRef<str>,
         T: AsRef<str>,
     {
-        let image_name = image_name.as_ref();
-        let tag = tag.as_ref().map(AsRef::as_ref);
-        trace!("BuildCommand::sign_images({image_name}, {tag:?})");
-
-        let inspect_opts = GetMetadataOpts::builder().image(image_name);
-
-        let inspect_opts = if let Some(tag) = tag {
-            inspect_opts.tag(tag).build()
-        } else {
-            inspect_opts.build()
-        };
-
-        let image_digest = Driver::get_metadata(&inspect_opts)?.digest;
-        let image_name_tag =
-            tag.map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));
-        let image_digest = format!("{image_name}@{image_digest}");
-
-        match (
-            Driver::get_ci_driver(),
-            // Cosign public/private key pair
-            env::var(COSIGN_PRIVATE_KEY),
-            Path::new(COSIGN_PRIV_PATH),
-        ) {
-            // Cosign public/private key pair
-            (_, Ok(cosign_private_key), _)
-                if !cosign_private_key.is_empty() && Path::new(COSIGN_PUB_PATH).exists() =>
-            {
-                Self::sign(
-                    image_digest,
-                    Some(&format!("--key=env://{COSIGN_PRIVATE_KEY}")),
-                )?;
-                Self::verify(image_name_tag, VerifyType::File(COSIGN_PUB_PATH.into()))?;
-            }
-            (_, _, cosign_priv_key_path) if cosign_priv_key_path.exists() => {
-                Self::sign(
-                    image_digest,
-                    Some(&format!("--key={}", cosign_priv_key_path.display())),
-                )?;
-                Self::verify(image_name_tag, VerifyType::File(COSIGN_PUB_PATH.into()))?;
-            }
-            // Gitlab keyless
-            (CiDriverType::Github | CiDriverType::Gitlab, _, _) => {
-                Self::sign(image_digest, None)?;
-                Self::verify(
-                    image_name_tag,
-                    VerifyType::Keyless {
-                        issuer: Driver::oidc_provider()?,
-                        identity: Driver::keyless_cert_identity()?,
-                    },
-                )?;
-            }
-            _ => warn!("Not running in CI with cosign variables, not signing"),
-        }
-
-        Ok(())
+        super::sign_images(image_name, tag, Self::sign, Self::verify)
     }
 
     fn signing_login() -> Result<()> {
@@ -158,48 +104,7 @@ pub(super) enum VerifyType {
 }
 
 impl CosignDriver {
-    fn check_priv<S>(priv_key: S) -> Result<()>
-    where
-        S: AsRef<str>,
-    {
-        let priv_key = priv_key.as_ref();
-
-        trace!("cosign public-key --key {priv_key}");
-        let output = Command::new("cosign")
-            .env(COSIGN_PASSWORD, "")
-            .env(COSIGN_YES, "true")
-            .arg("public-key")
-            .arg(format!("--key={priv_key}"))
-            .output()
-            .into_diagnostic()?;
-
-        if !output.status.success() {
-            bail!(
-                "Failed to run cosign public-key: {}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-        }
-
-        let calculated_pub_key = String::from_utf8(output.stdout).into_diagnostic()?;
-        let found_pub_key = fs::read_to_string(COSIGN_PUB_PATH)
-            .into_diagnostic()
-            .with_context(|| format!("Failed to read {COSIGN_PUB_PATH}"))?;
-        trace!("calculated_pub_key={calculated_pub_key},found_pub_key={found_pub_key}");
-
-        if calculated_pub_key.trim() == found_pub_key.trim() {
-            debug!("Cosign files match, continuing build");
-            Ok(())
-        } else {
-            bail!("Public key '{COSIGN_PUB_PATH}' does not match private key")
-        }
-    }
-
-    fn sign<S>(image_digest: S, key_arg: Option<&str>) -> Result<()>
-    where
-        S: AsRef<str>,
-    {
-        let image_digest = image_digest.as_ref();
-
+    fn sign(image_digest: &str, key_arg: Option<String>) -> Result<()> {
         let mut command = Command::new("cosign");
         command
             .env(COSIGN_PASSWORD, "")
@@ -220,11 +125,7 @@ impl CosignDriver {
         Ok(())
     }
 
-    fn verify<S>(image_name_tag: S, verify_type: VerifyType) -> Result<()>
-    where
-        S: AsRef<str>,
-    {
-        let image_name_tag = image_name_tag.as_ref();
+    fn verify(image_name_tag: &str, verify_type: VerifyType) -> Result<()> {
         let mut command = Command::new("cosign");
         command.arg("verify");
 
