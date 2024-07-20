@@ -451,6 +451,7 @@ impl SigningDriver for DockerDriver {
     }
 
     fn check_signing_files() -> Result<()> {
+        trace!("DockerDriver::check_signing_files()");
         todo!()
     }
 
