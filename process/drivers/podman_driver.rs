@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use blue_build_utils::constants::SKOPEO_IMAGE;
+use blue_build_utils::{cmd, constants::SKOPEO_IMAGE};
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace, warn};
@@ -15,9 +15,9 @@ use tempdir::TempDir;
 
 use crate::{
     credentials::Credentials,
-    drivers::{image_metadata::ImageMetadata, types::RunDriverType},
+    drivers::image_metadata::ImageMetadata,
     logging::{CommandLogging, Logger},
-    signal_handler::{add_cid, remove_cid, ContainerId},
+    signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
 };
 
 use super::{
@@ -49,10 +49,7 @@ impl DriverVersion for PodmanDriver {
         trace!("PodmanDriver::version()");
 
         trace!("podman version -f json");
-        let output = Command::new("podman")
-            .arg("version")
-            .arg("-f")
-            .arg("json")
+        let output = cmd!("podman", "version", "-f", "json")
             .output()
             .into_diagnostic()?;
 
@@ -69,22 +66,19 @@ impl BuildDriver for PodmanDriver {
     fn build(opts: &BuildOpts) -> Result<()> {
         trace!("PodmanDriver::build({opts:#?})");
 
-        trace!(
-            "podman build --pull=true --layers={} -f {} -t {} .",
-            !opts.squash,
-            opts.containerfile.display(),
-            opts.image,
+        let command = cmd!(
+            "podman",
+            "build",
+            "--pull=true",
+            format!("--layers={}", !opts.squash),
+            "-f",
+            opts.containerfile.as_ref(),
+            "-t",
+            opts.image.as_ref(),
+            ".",
         );
-        let mut command = Command::new("podman");
-        command
-            .arg("build")
-            .arg("--pull=true")
-            .arg(format!("--layers={}", !opts.squash))
-            .arg("-f")
-            .arg(opts.containerfile.as_ref())
-            .arg("-t")
-            .arg(opts.image.as_ref())
-            .arg(".");
+
+        trace!("{command:?}");
         let status = command
             .status_image_ref_progress(&opts.image, "Building Image")
             .into_diagnostic()?;
@@ -100,13 +94,15 @@ impl BuildDriver for PodmanDriver {
     fn tag(opts: &TagOpts) -> Result<()> {
         trace!("PodmanDriver::tag({opts:#?})");
 
-        trace!("podman tag {} {}", opts.src_image, opts.dest_image);
-        let status = Command::new("podman")
-            .arg("tag")
-            .arg(opts.src_image.as_ref())
-            .arg(opts.dest_image.as_ref())
-            .status()
-            .into_diagnostic()?;
+        let mut command = cmd!(
+            "podman",
+            "tag",
+            opts.src_image.as_ref(),
+            opts.dest_image.as_ref(),
+        );
+
+        trace!("{command:?}");
+        let status = command.status().into_diagnostic()?;
 
         if status.success() {
             info!("Successfully tagged {}!", opts.dest_image);
@@ -119,15 +115,17 @@ impl BuildDriver for PodmanDriver {
     fn push(opts: &PushOpts) -> Result<()> {
         trace!("PodmanDriver::push({opts:#?})");
 
-        trace!("podman push {}", opts.image);
-        let mut command = Command::new("podman");
-        command
-            .arg("push")
-            .arg(format!(
+        let command = cmd!(
+            "podman",
+            "push",
+            format!(
                 "--compression-format={}",
                 opts.compression_type.unwrap_or_default()
-            ))
-            .arg(opts.image.as_ref());
+            ),
+            opts.image.as_ref(),
+        );
+
+        trace!("{command:?}");
         let status = command
             .status_image_ref_progress(&opts.image, "Pushing Image")
             .into_diagnostic()?;
@@ -150,13 +148,7 @@ impl BuildDriver for PodmanDriver {
         }) = Credentials::get()
         {
             trace!("podman login -u {username} -p [MASKED] {registry}");
-            let output = Command::new("podman")
-                .arg("login")
-                .arg("-u")
-                .arg(username)
-                .arg("-p")
-                .arg(password)
-                .arg(registry)
+            let output = cmd!("podman", "login", "-u", username, "-p", password, registry)
                 .output()
                 .into_diagnostic()?;
 
@@ -213,7 +205,7 @@ impl RunDriver for PodmanDriver {
         let cid_path = TempDir::new("podman")?;
         let cid_file = cid_path.path().join("cid");
 
-        let cid = ContainerId::new(&cid_file, RunDriverType::Podman, opts.privileged);
+        let cid = ContainerId::new(&cid_file, ContainerRuntime::Podman, opts.privileged);
 
         add_cid(&cid);
 
@@ -231,7 +223,7 @@ impl RunDriver for PodmanDriver {
         let cid_path = TempDir::new("podman")?;
         let cid_file = cid_path.path().join("cid");
 
-        let cid = ContainerId::new(&cid_file, RunDriverType::Podman, opts.privileged);
+        let cid = ContainerId::new(&cid_file, ContainerRuntime::Podman, opts.privileged);
 
         add_cid(&cid);
 
@@ -249,46 +241,44 @@ fn podman_run(opts: &RunOpts, cid_file: &Path) -> Command {
             "Running 'podman' in privileged mode requires '{}'",
             "sudo".bold().red()
         );
-        Command::new("sudo")
+        cmd!("sudo")
     } else {
-        Command::new("podman")
+        cmd!("podman")
     };
 
     if opts.privileged {
-        command.arg("podman");
+        cmd!(command, "podman");
     }
 
-    command
-        .arg("run")
-        .arg(format!("--cidfile={}", cid_file.display()));
+    cmd!(command, "run", format!("--cidfile={}", cid_file.display()));
 
     if opts.privileged {
-        command.arg("--privileged");
+        cmd!(command, "--privileged");
     }
 
     if opts.remove {
-        command.arg("--rm");
+        cmd!(command, "--rm");
     }
 
     if opts.pull {
-        command.arg("--pull=always");
+        cmd!(command, "--pull=always");
     }
 
     opts.volumes.iter().for_each(|volume| {
-        command.arg("--volume");
-        command.arg(format!(
-            "{}:{}",
-            volume.path_or_vol_name, volume.container_path,
-        ));
+        cmd!(
+            command,
+            "--volume",
+            format!("{}:{}", volume.path_or_vol_name, volume.container_path,)
+        );
     });
 
     opts.env_vars.iter().for_each(|env| {
-        command.arg("--env");
-        command.arg(format!("{}={}", env.key, env.value));
+        cmd!(command, "--env", format!("{}={}", env.key, env.value));
     });
 
-    command.arg(opts.image.as_ref());
-    command.args(opts.args.iter());
+    cmd!(command, opts.image.as_ref());
+
+    opts.args.iter().for_each(|arg| cmd!(command, arg));
 
     trace!("{command:?}");
     command

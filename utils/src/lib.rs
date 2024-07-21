@@ -6,7 +6,6 @@ pub mod syntax_highlighting;
 use std::{
     os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
-    process::Command,
     thread,
     time::Duration,
 };
@@ -33,8 +32,7 @@ pub fn check_command_exists(command: &str) -> Result<()> {
     trace!("check_command_exists({command})");
 
     trace!("which {command}");
-    if Command::new("which")
-        .arg(command)
+    if cmd!("which", command)
         .output()
         .into_diagnostic()?
         .status
