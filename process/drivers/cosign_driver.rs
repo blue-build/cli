@@ -1,10 +1,13 @@
-use std::{fmt::Debug, fs, process::Command};
+use std::{fmt::Debug, fs};
 
-use blue_build_utils::constants::{COSIGN_PASSWORD, COSIGN_PUB_PATH, COSIGN_YES};
+use blue_build_utils::{
+    cmd,
+    constants::{COSIGN_PASSWORD, COSIGN_PUB_PATH, COSIGN_YES},
+};
 use log::{debug, trace};
 use miette::{bail, Context, IntoDiagnostic, Result};
 
-use crate::credentials::Credentials;
+use crate::{credentials::Credentials, drivers::VerifyType};
 
 use super::SigningDriver;
 
@@ -13,12 +16,13 @@ pub struct CosignDriver;
 
 impl SigningDriver for CosignDriver {
     fn generate_key_pair() -> Result<()> {
-        let status = Command::new("cosign")
-            .env(COSIGN_PASSWORD, "")
-            .env(COSIGN_YES, "true")
-            .arg("genereate-key-pair")
-            .status()
-            .into_diagnostic()?;
+        let status = cmd!("cosign",
+            "genereate-key-pair";
+            COSIGN_PASSWORD = "",
+            COSIGN_YES = "true"
+        )
+        .status()
+        .into_diagnostic()?;
 
         if !status.success() {
             bail!("Failed to generate cosign key-pair!");
@@ -30,13 +34,14 @@ impl SigningDriver for CosignDriver {
     fn check_signing_files() -> Result<()> {
         super::get_private_key(|priv_key| {
             trace!("cosign public-key --key {priv_key}");
-            let output = Command::new("cosign")
-                .env(COSIGN_PASSWORD, "")
-                .env(COSIGN_YES, "true")
-                .arg("public-key")
-                .arg(format!("--key={priv_key}"))
-                .output()
-                .into_diagnostic()?;
+            let output = cmd!("cosign",
+                "public-key",
+                format!("--key={priv_key}");
+                COSIGN_PASSWORD = "",
+                COSIGN_YES = "true"
+            )
+            .output()
+            .into_diagnostic()?;
 
             if !output.status.success() {
                 bail!(
@@ -60,14 +65,6 @@ impl SigningDriver for CosignDriver {
         })
     }
 
-    fn sign_images<S, T>(image_name: S, tag: Option<T>) -> Result<()>
-    where
-        S: AsRef<str>,
-        T: AsRef<str>,
-    {
-        super::sign_images(image_name, tag, Self::sign, Self::verify)
-    }
-
     fn signing_login() -> Result<()> {
         trace!("DockerDriver::login()");
 
@@ -78,13 +75,7 @@ impl SigningDriver for CosignDriver {
         }) = Credentials::get()
         {
             trace!("cosign login -u {username} -p [MASKED] {registry}");
-            let output = Command::new("cosign")
-                .arg("login")
-                .arg("-u")
-                .arg(username)
-                .arg("-p")
-                .arg(password)
-                .arg(registry)
+            let output = cmd!("cosign", "login", "-u", username, "-p", password, registry)
                 .output()
                 .into_diagnostic()?;
 
@@ -95,27 +86,19 @@ impl SigningDriver for CosignDriver {
         }
         Ok(())
     }
-}
 
-#[derive(Debug, Clone)]
-pub(super) enum VerifyType {
-    File(String),
-    Keyless { issuer: String, identity: String },
-}
-
-impl CosignDriver {
     fn sign(image_digest: &str, key_arg: Option<String>) -> Result<()> {
-        let mut command = Command::new("cosign");
-        command
-            .env(COSIGN_PASSWORD, "")
-            .env(COSIGN_YES, "true")
-            .arg("sign");
+        let mut command = cmd!("cosign",
+            "sign";
+            COSIGN_PASSWORD = "",
+            COSIGN_YES = "true"
+        );
 
         if let Some(key_arg) = key_arg {
-            command.arg(key_arg);
+            cmd!(command, key_arg);
         }
 
-        command.arg("--recursive").arg(image_digest);
+        cmd!(command, "--recursive", image_digest);
 
         trace!("{command:?}");
         if !command.status().into_diagnostic()?.success() {
@@ -126,19 +109,20 @@ impl CosignDriver {
     }
 
     fn verify(image_name_tag: &str, verify_type: VerifyType) -> Result<()> {
-        let mut command = Command::new("cosign");
-        command.arg("verify");
+        let mut command = cmd!("cosign", "verify");
 
         match verify_type {
-            VerifyType::File(path) => command.arg(format!("--key={path}")),
-            VerifyType::Keyless { issuer, identity } => command
-                .arg("--certificate-identity-regexp")
-                .arg(identity)
-                .arg("--certificate-oidc-issuer")
-                .arg(issuer),
+            VerifyType::File(path) => cmd!(command, format!("--key={path}")),
+            VerifyType::Keyless { issuer, identity } => cmd!(
+                command,
+                "--certificate-identity-regexp",
+                identity,
+                "--certificate-oidc-issuer",
+                issuer
+            ),
         };
 
-        command.arg(image_name_tag);
+        cmd!(command, image_name_tag);
 
         trace!("{command:?}");
         if !command.status().into_diagnostic()?.success() {
