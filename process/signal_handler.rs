@@ -1,11 +1,11 @@
 use std::{
     fs,
     path::PathBuf,
-    process::Command,
     sync::{atomic::AtomicBool, Arc, Mutex},
     thread,
 };
 
+use blue_build_utils::cmd;
 use log::{debug, error, trace, warn};
 use nix::{
     libc::{SIGABRT, SIGCONT, SIGHUP, SIGTSTP},
@@ -26,21 +26,34 @@ use crate::logging::Logger;
 pub struct ContainerId {
     cid_path: PathBuf,
     requires_sudo: bool,
-    crt: String,
+    container_runtime: ContainerRuntime,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ContainerRuntime {
+    Podman,
+    Docker,
+}
+
+impl std::fmt::Display for ContainerRuntime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match *self {
+            Self::Podman => "podman",
+            Self::Docker => "docker",
+        })
+    }
 }
 
 impl ContainerId {
-    pub fn new<P, S>(cid_path: P, container_runtime: S, requires_sudo: bool) -> Self
+    pub fn new<P>(cid_path: P, container_runtime: ContainerRuntime, requires_sudo: bool) -> Self
     where
         P: Into<PathBuf>,
-        S: Into<String>,
     {
         let cid_path = cid_path.into();
-        let crt = container_runtime.into();
         Self {
             cid_path,
             requires_sudo,
-            crt,
+            container_runtime,
         }
     }
 }
@@ -97,13 +110,9 @@ where
                         debug!("Killing container {id}");
 
                         let status = if cid.requires_sudo {
-                            Command::new("sudo")
-                                .arg(&cid.crt)
-                                .arg("stop")
-                                .arg(id)
-                                .status()
+                            cmd!("sudo", cid.container_runtime.to_string(), "stop", id).status()
                         } else {
-                            Command::new(&cid.crt).arg("stop").arg(id).status()
+                            cmd!(cid.container_runtime.to_string(), "stop", id).status()
                         };
 
                         if let Err(e) = status {

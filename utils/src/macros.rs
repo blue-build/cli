@@ -1,53 +1,60 @@
-/// Creates or modifies a `std::process::Command` adding
-/// args or environment variables.
+/// Creates or modifies a `std::process::Command` adding args.
 ///
 /// # Examples
 /// ```
 /// use blue_build_utils::cmd;
 ///
 /// const NAME: &str = "Bob";
-/// const TEST: &str = "TEST";
 /// let mut command = cmd!("echo", "Hello world!");
-/// cmd!(command, "This is Joe.");
-/// cmd!(command, format!("And this is {NAME}"));
-/// command.status().unwrap();
-/// let mut command = cmd!("echo", "Is this a ${TEST}?"; TEST = "This is a test");
-/// cmd!(command, "ANOTHER_TEST" = "This is yet another test");
+/// cmd!(command, "This is Joe.", format!("And this is {NAME}"));
 /// command.status().unwrap();
 /// ```
 #[macro_export]
 macro_rules! cmd {
-    ($command:literal) => {
+    ($command:ident, $($arg:expr),+ $(,)?) => {
+        {
+            $command$(.arg($arg))*;
+        }
+    };
+    ($command:expr) => {
         {
             ::std::process::Command::new($command)
         }
     };
-    ($command:literal, $($env_key:tt = $env_value:expr),+ $(; $($tail:tt)*)?) => {
-        {
-            let mut c = cmd!($command);
-            c$(.env($env_key, $env_value))*;
-            $(cmd!(c, $($tail)*);)*
-            c
-        }
-    };
-    ($command:literal, $($arg:expr),+ $(; $($tail:tt)*)?) => {
+    ($command:expr, $($arg:expr),+ $(,)?) => {
         {
             let mut c = cmd!($command);
             c$(.arg($arg))*;
-            $(cmd!(c, $($tail)*);)*
             c
         }
     };
-    ($command:ident, $($env_key:tt = $env_value:expr),+ $(; $($tail:tt)*)?) => {
+}
+
+/// Use a key-word-like syntax to add environment variables to
+/// a `std::process::Command`.
+///
+/// # Examples
+/// ```
+/// use blue_build_utils::{cmd, cmd_env};
+///
+/// const TEST: &str = "TEST";
+/// let mut command = cmd_env!("echo", TEST = "This is a test");
+/// cmd_env!(command, "ANOTHER_TEST" = "This is yet another test");
+/// cmd!(command, "Hello, this is a ${TEST}");
+/// command.status().unwrap();
+/// ```
+#[macro_export]
+macro_rules! cmd_env {
+    ($command:literal, $($key:tt = $value:expr),* $(,)?) => {
         {
-            $command$(.env($env_key, $env_value))*;
-            $(cmd!($command, $($tail)*);)*
+            let mut c = cmd!($command);
+            c$(.env($key, $value))*;
+            c
         }
     };
-    ($command:ident, $($arg:expr),+ $(; $($tail:tt)*)?) => {
+    ($command:ident, $($key:tt = $value:expr),* $(,)?) => {
         {
-            $command$(.arg($arg))*;
-            $(cmd!($command, $($tail)*);)*
+            $command$(.env($key, $value))*;
         }
     }
 }

@@ -1,7 +1,7 @@
 use std::{fmt::Debug, fs};
 
 use blue_build_utils::{
-    cmd,
+    cmd, cmd_env,
     constants::{COSIGN_PASSWORD, COSIGN_PUB_PATH, COSIGN_YES},
 };
 use log::{debug, trace};
@@ -16,13 +16,10 @@ pub struct CosignDriver;
 
 impl SigningDriver for CosignDriver {
     fn generate_key_pair() -> Result<()> {
-        let status = cmd!("cosign",
-            "genereate-key-pair";
-            COSIGN_PASSWORD = "",
-            COSIGN_YES = "true"
-        )
-        .status()
-        .into_diagnostic()?;
+        let mut command = cmd!("cosign", "genereate-key-pair");
+        cmd_env!(command, COSIGN_PASSWORD = "", COSIGN_YES = "true",);
+
+        let status = command.status().into_diagnostic()?;
 
         if !status.success() {
             bail!("Failed to generate cosign key-pair!");
@@ -34,14 +31,10 @@ impl SigningDriver for CosignDriver {
     fn check_signing_files() -> Result<()> {
         super::get_private_key(|priv_key| {
             trace!("cosign public-key --key {priv_key}");
-            let output = cmd!("cosign",
-                "public-key",
-                format!("--key={priv_key}");
-                COSIGN_PASSWORD = "",
-                COSIGN_YES = "true"
-            )
-            .output()
-            .into_diagnostic()?;
+            let mut command = cmd!("cosign", "public-key", format!("--key={priv_key}"));
+            cmd_env!(command, COSIGN_PASSWORD = "", COSIGN_YES = "true");
+
+            let output = command.output().into_diagnostic()?;
 
             if !output.status.success() {
                 bail!(
@@ -88,11 +81,8 @@ impl SigningDriver for CosignDriver {
     }
 
     fn sign(image_digest: &str, key_arg: Option<String>) -> Result<()> {
-        let mut command = cmd!("cosign",
-            "sign";
-            COSIGN_PASSWORD = "",
-            COSIGN_YES = "true"
-        );
+        let mut command = cmd!("cosign", "sign");
+        cmd_env!(command, COSIGN_PASSWORD = "", COSIGN_YES = "true");
 
         if let Some(key_arg) = key_arg {
             cmd!(command, key_arg);

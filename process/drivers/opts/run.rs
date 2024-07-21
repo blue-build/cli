@@ -38,6 +38,20 @@ pub struct RunOptsVolume<'scope> {
     pub container_path: Cow<'scope, str>,
 }
 
+#[macro_export]
+macro_rules! run_volumes {
+    ($($host:tt : $container:expr),+ $(,)?) => {
+        {
+            [
+                $($crate::drivers::opts::RunOptsVolume::builder()
+                    .path_or_vol_name($host)
+                    .container_path($container)
+                    .build(),)*
+            ]
+        }
+    };
+}
+
 #[derive(Debug, Clone, TypedBuilder)]
 pub struct RunOptsEnv<'scope> {
     #[builder(setter(into))]
@@ -45,4 +59,18 @@ pub struct RunOptsEnv<'scope> {
 
     #[builder(setter(into))]
     pub value: Cow<'scope, str>,
+}
+
+#[macro_export]
+macro_rules! run_envs {
+    ($($key:tt = $value:expr),+ $(,)?) => {
+        {
+            [
+                $($crate::drivers::opts::RunOptsEnv::builder()
+                    .key($key)
+                    .value($value)
+                    .build(),)*
+            ]
+        }
+    };
 }
