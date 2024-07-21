@@ -1,5 +1,6 @@
 pub mod command_output;
 pub mod constants;
+mod macros;
 pub mod syntax_highlighting;
 
 use std::{
