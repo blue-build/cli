@@ -6,9 +6,12 @@ use std::{
     time::Duration,
 };
 
-use blue_build_utils::constants::{
-    BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, COSIGN_IMAGE, COSIGN_PASSWORD, COSIGN_YES, DOCKER_HOST,
-    SKOPEO_IMAGE,
+use blue_build_utils::{
+    cmd,
+    constants::{
+        BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, COSIGN_IMAGE, COSIGN_PASSWORD, COSIGN_YES,
+        DOCKER_HOST, SKOPEO_IMAGE,
+    },
 };
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
@@ -20,13 +23,14 @@ use tempdir::TempDir;
 
 use crate::{
     credentials::Credentials,
-    drivers::{image_metadata::ImageMetadata, opts::RunOptsVolume, types::RunDriverType},
+    drivers::image_metadata::ImageMetadata,
     logging::{CommandLogging, Logger},
-    signal_handler::{add_cid, remove_cid, ContainerId},
+    run_envs, run_volumes,
+    signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
 };
 
 use super::{
-    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, RunOptsEnv, TagOpts},
+    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
     BuildDriver, DriverVersion, InspectDriver, RunDriver, SigningDriver, VerifyType,
 };
 
@@ -59,10 +63,7 @@ impl DockerDriver {
         }
 
         trace!("docker buildx ls --format={}", "{{.Name}}");
-        let ls_out = Command::new("docker")
-            .arg("buildx")
-            .arg("ls")
-            .arg("--format={{.Name}}")
+        let ls_out = cmd!("docker", "buildx", "ls", "--format={{.Name}}")
             .output()
             .into_diagnostic()?;
 
@@ -76,14 +77,16 @@ impl DockerDriver {
 
         if !ls_out.lines().any(|line| line == "bluebuild") {
             trace!("docker buildx create --bootstrap --driver=docker-container --name=bluebuild");
-            let create_out = Command::new("docker")
-                .arg("buildx")
-                .arg("create")
-                .arg("--bootstrap")
-                .arg("--driver=docker-container")
-                .arg("--name=bluebuild")
-                .output()
-                .into_diagnostic()?;
+            let create_out = cmd!(
+                "docker",
+                "buildx",
+                "create",
+                "--bootstrap",
+                "--driver=docker-container",
+                "--name=bluebuild",
+            )
+            .output()
+            .into_diagnostic()?;
 
             if !create_out.status.success() {
                 bail!("{}", String::from_utf8_lossy(&create_out.stderr));
@@ -102,10 +105,7 @@ impl DriverVersion for DockerDriver {
     const VERSION_REQ: &'static str = ">=23";
 
     fn version() -> Result<Version> {
-        let output = Command::new("docker")
-            .arg("version")
-            .arg("-f")
-            .arg("json")
+        let output = cmd!("docker", "version", "-f", "json")
             .output()
             .into_diagnostic()?;
 
@@ -125,15 +125,17 @@ impl BuildDriver for DockerDriver {
         }
 
         trace!("docker build -t {} -f {CONTAINER_FILE} .", opts.image);
-        let status = Command::new("docker")
-            .arg("build")
-            .arg("-t")
-            .arg(opts.image.as_ref())
-            .arg("-f")
-            .arg(opts.containerfile.as_ref())
-            .arg(".")
-            .status()
-            .into_diagnostic()?;
+        let status = cmd!(
+            "docker",
+            "build",
+            "-t",
+            opts.image.as_ref(),
+            "-f",
+            opts.containerfile.as_ref(),
+            ".",
+        )
+        .status()
+        .into_diagnostic()?;
 
         if status.success() {
             info!("Successfully built {}", opts.image);
@@ -147,12 +149,14 @@ impl BuildDriver for DockerDriver {
         trace!("DockerDriver::tag({opts:#?})");
 
         trace!("docker tag {} {}", opts.src_image, opts.dest_image);
-        let status = Command::new("docker")
-            .arg("tag")
-            .arg(opts.src_image.as_ref())
-            .arg(opts.dest_image.as_ref())
-            .status()
-            .into_diagnostic()?;
+        let status = cmd!(
+            "docker",
+            "tag",
+            opts.src_image.as_ref(),
+            opts.dest_image.as_ref(),
+        )
+        .status()
+        .into_diagnostic()?;
 
         if status.success() {
             info!("Successfully tagged {}!", opts.dest_image);
@@ -166,9 +170,7 @@ impl BuildDriver for DockerDriver {
         trace!("DockerDriver::push({opts:#?})");
 
         trace!("docker push {}", opts.image);
-        let status = Command::new("docker")
-            .arg("push")
-            .arg(opts.image.as_ref())
+        let status = cmd!("docker", "push", opts.image.as_ref())
             .status()
             .into_diagnostic()?;
 
@@ -190,13 +192,7 @@ impl BuildDriver for DockerDriver {
         }) = Credentials::get()
         {
             trace!("docker login -u {username} -p [MASKED] {registry}");
-            let output = Command::new("docker")
-                .arg("login")
-                .arg("-u")
-                .arg(username)
-                .arg("-p")
-                .arg(password)
-                .arg(registry)
+            let output = cmd!("docker", "login", "-u", username, "-p", password, registry)
                 .output()
                 .into_diagnostic()?;
 
@@ -215,35 +211,30 @@ impl BuildDriver for DockerDriver {
             warn!("Squash is deprecated for docker so this build will not squash");
         }
 
-        trace!("docker buildx");
-        let mut command = Command::new("docker");
-        command.arg("buildx");
+        let mut command = cmd!("docker", "buildx");
 
         if !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty()) {
             Self::setup()?;
-
-            trace!("--builder=bluebuild");
-            command.arg("--builder=bluebuild");
+            cmd!(command, "--builder=bluebuild");
         }
 
-        trace!(
-            "build --progress=plain --pull -f {}",
-            opts.containerfile.display()
+        cmd!(
+            command,
+            "build",
+            "--pull",
+            "-f",
+            opts.containerfile.as_ref(),
         );
-        command
-            .arg("build")
-            .arg("--pull")
-            .arg("-f")
-            .arg(opts.containerfile.as_ref());
 
         // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
         if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
-            trace!("--cache-from type=gha --cache-to type=gha");
-            command
-                .arg("--cache-from")
-                .arg("type=gha")
-                .arg("--cache-to")
-                .arg("type=gha");
+            cmd!(
+                command,
+                "--cache-from",
+                "type=gha",
+                "--cache-to",
+                "type=gha",
+            );
         }
 
         let mut final_image = String::new();
@@ -252,47 +243,41 @@ impl BuildDriver for DockerDriver {
             (Some(image), None) => {
                 if opts.tags.is_empty() {
                     final_image.push_str(image);
-
-                    trace!("-t {image}");
-                    command.arg("-t").arg(image.as_ref());
+                    cmd!(command, "-t", image.as_ref());
                 } else {
                     final_image
                         .push_str(format!("{image}:{}", opts.tags.first().unwrap_or(&"")).as_str());
 
                     opts.tags.iter().for_each(|tag| {
-                        let full_image = format!("{image}:{tag}");
-
-                        trace!("-t {full_image}");
-                        command.arg("-t").arg(full_image);
+                        cmd!(command, "-t", format!("{image}:{tag}"));
                     });
                 }
 
                 if opts.push {
-                    trace!("--output type=image,name={image},push=true,compression={},oci-mediatypes=true", opts.compression);
-                    command.arg("--output").arg(format!(
-                        "type=image,name={image},push=true,compression={},oci-mediatypes=true",
-                        opts.compression
-                    ));
+                    cmd!(
+                        command,
+                        "--output",
+                        format!(
+                            "type=image,name={image},push=true,compression={},oci-mediatypes=true",
+                            opts.compression
+                        )
+                    );
                 } else {
-                    trace!("--load");
-                    command.arg("--load");
+                    cmd!(command, "--load");
                 }
             }
             (None, Some(archive_path)) => {
                 final_image.push_str(archive_path);
 
-                trace!("--output type=oci,dest={archive_path}");
-                command
-                    .arg("--output")
-                    .arg(format!("type=oci,dest={archive_path}"));
+                cmd!(command, "--output", format!("type=oci,dest={archive_path}"));
             }
             (Some(_), Some(_)) => bail!("Cannot use both image and archive path"),
             (None, None) => bail!("Need either the image or archive path set"),
         }
 
-        trace!(".");
-        command.arg(".");
+        cmd!(command, ".");
 
+        trace!("{command:?}");
         if command
             .status_image_ref_progress(&final_image, "Building Image")
             .into_diagnostic()?
@@ -354,7 +339,7 @@ impl RunDriver for DockerDriver {
 
         let cid_path = TempDir::new("docker")?;
         let cid_file = cid_path.path().join("cid");
-        let cid = ContainerId::new(&cid_file, RunDriverType::Docker, false);
+        let cid = ContainerId::new(&cid_file, ContainerRuntime::Docker, false);
 
         add_cid(&cid);
 
@@ -371,7 +356,7 @@ impl RunDriver for DockerDriver {
 
         let cid_path = TempDir::new("docker")?;
         let cid_file = cid_path.path().join("cid");
-        let cid = ContainerId::new(&cid_file, RunDriverType::Docker, false);
+        let cid = ContainerId::new(&cid_file, ContainerRuntime::Docker, false);
 
         add_cid(&cid);
 
@@ -384,40 +369,35 @@ impl RunDriver for DockerDriver {
 }
 
 fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
-    let mut command = Command::new("docker");
-
-    command
-        .arg("run")
-        .arg(format!("--cidfile={}", cid_file.display()));
+    let mut command = cmd!("docker", "run", format!("--cidfile={}", cid_file.display()));
 
     if opts.privileged {
-        command.arg("--privileged");
+        cmd!(command, "--privileged");
     }
 
     if opts.remove {
-        command.arg("--rm");
+        cmd!(command, "--rm");
     }
 
     if opts.pull {
-        command.arg("--pull=always");
+        cmd!(command, "--pull=always");
     }
 
     opts.volumes.iter().for_each(|volume| {
-        command.arg("--volume");
-        command.arg(format!(
-            "{}:{}",
-            volume.path_or_vol_name, volume.container_path,
-        ));
+        cmd!(
+            command,
+            "--volume",
+            format!("{}:{}", volume.path_or_vol_name, volume.container_path,)
+        );
     });
 
     opts.env_vars.iter().for_each(|env| {
-        command.arg("--env");
-        command.arg(format!("{}={}", env.key, env.value));
+        cmd!(command, "--env", format!("{}={}", env.key, env.value));
     });
 
-    command.arg(opts.image.as_ref());
+    cmd!(command, opts.image.as_ref());
 
-    command.args(opts.args.iter());
+    opts.args.iter().for_each(|arg| cmd!(command, arg));
 
     trace!("{command:?}");
     command
@@ -430,14 +410,13 @@ impl SigningDriver for DockerDriver {
         let options = RunOpts::builder()
             .image(COSIGN_IMAGE)
             .args(["generate-key-pair"])
-            .env_vars([
-                RunOptsEnv::builder().key(COSIGN_PASSWORD).value("").build(),
-                RunOptsEnv::builder().key(COSIGN_YES).value("true").build(),
-            ])
-            .volumes([RunOptsVolume::builder()
-                .path_or_vol_name("./")
-                .container_path("/workspace")
-                .build()])
+            .env_vars(run_envs! {
+                COSIGN_PASSWORD = "",
+                COSIGN_YES = "true"
+            })
+            .volumes(run_volumes! {
+                "./" : "/workspace",
+            })
             .workdir("/workspace")
             .build();
 

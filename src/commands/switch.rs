@@ -1,6 +1,5 @@
 use std::{
     path::{Path, PathBuf},
-    process::Command,
     time::Duration,
 };
 
@@ -9,8 +8,9 @@ use blue_build_process_management::{
     logging::CommandLogging,
 };
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::{
-    ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_UNVERIFIED_IMAGE,
+use blue_build_utils::{
+    cmd,
+    constants::{ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_UNVERIFIED_IMAGE},
 };
 use clap::Args;
 use colored::Colorize;
@@ -109,17 +109,13 @@ impl SwitchCommand {
         let status = if status.is_booted_on_archive(archive_path)
             || status.is_staged_on_archive(archive_path)
         {
-            let mut command = Command::new("rpm-ostree");
-            command.arg("upgrade");
+            let mut command = cmd!("rpm-ostree", "upgrade");
 
             if self.reboot {
-                command.arg("--reboot");
+                cmd!(command, "--reboot");
             }
 
-            trace!(
-                "rpm-ostree upgrade {}",
-                self.reboot.then_some("--reboot").unwrap_or_default()
-            );
+            trace!("{command:?}");
             command
         } else {
             let image_ref = format!(
@@ -127,17 +123,13 @@ impl SwitchCommand {
                 path = archive_path.display()
             );
 
-            let mut command = Command::new("rpm-ostree");
-            command.arg("rebase").arg(&image_ref);
+            let mut command = cmd!("rpm-ostree", "rebase", &image_ref);
 
             if self.reboot {
-                command.arg("--reboot");
+                cmd!(command, "--reboot");
             }
 
-            trace!(
-                "rpm-ostree rebase{} {image_ref}",
-                self.reboot.then_some(" --reboot").unwrap_or_default()
-            );
+            trace!("{command:?}");
             command
         }
         .status_image_ref_progress(
@@ -164,11 +156,7 @@ impl SwitchCommand {
         progress.set_message(format!("Moving image archive to {}...", to.display()));
 
         trace!("sudo mv {} {}", from.display(), to.display());
-        let status = Command::new("sudo")
-            .arg("mv")
-            .args([from, to])
-            .status()
-            .into_diagnostic()?;
+        let status = cmd!("sudo", "mv", from, to).status().into_diagnostic()?;
 
         progress.finish_and_clear();
 
@@ -193,8 +181,7 @@ impl SwitchCommand {
 
             trace!("sudo ls {LOCAL_BUILD}");
             let output = String::from_utf8(
-                Command::new("sudo")
-                    .args(["ls", LOCAL_BUILD])
+                cmd!("sudo", "ls", LOCAL_BUILD)
                     .output()
                     .into_diagnostic()?
                     .stdout,
@@ -217,11 +204,7 @@ impl SwitchCommand {
                 progress.set_message("Removing old image archive files...");
 
                 trace!("sudo rm -f {files}");
-                let status = Command::new("sudo")
-                    .args(["rm", "-f"])
-                    .arg(files)
-                    .status()
-                    .into_diagnostic()?;
+                let status = cmd!("sudo", "rm", "-f", files).status().into_diagnostic()?;
 
                 progress.finish_and_clear();
 
@@ -235,8 +218,7 @@ impl SwitchCommand {
                 local_build_path.display()
             );
 
-            let status = Command::new("sudo")
-                .args(["mkdir", "-p", LOCAL_BUILD])
+            let status = cmd!("sudo", "mkdir", "-p", LOCAL_BUILD)
                 .status()
                 .into_diagnostic()?;
 

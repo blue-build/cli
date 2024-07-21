@@ -1,8 +1,6 @@
-use std::{
-    process::{Command, Stdio},
-    time::Duration,
-};
+use std::{process::Stdio, time::Duration};
 
+use blue_build_utils::cmd;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, trace};
 use miette::{bail, IntoDiagnostic, Result};
@@ -31,9 +29,7 @@ impl InspectDriver for SkopeoDriver {
         progress.enable_steady_tick(Duration::from_millis(100));
 
         trace!("skopeo inspect {url}");
-        let output = Command::new("skopeo")
-            .arg("inspect")
-            .arg(&url)
+        let output = cmd!("skopeo", "inspect", &url)
             .stderr(Stdio::inherit())
             .output()
             .into_diagnostic()?;
