@@ -27,7 +27,7 @@ use crate::{
 
 use super::{
     opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, RunOptsEnv, TagOpts},
-    BuildDriver, DriverVersion, InspectDriver, RunDriver, SigningDriver,
+    BuildDriver, DriverVersion, InspectDriver, RunDriver, SigningDriver, VerifyType,
 };
 
 #[derive(Debug, Deserialize)]
@@ -450,16 +450,16 @@ impl SigningDriver for DockerDriver {
         Ok(())
     }
 
-    fn check_signing_files() -> Result<()> {
-        trace!("DockerDriver::check_signing_files()");
+    fn sign(_image_digest: &str, _key_arg: Option<String>) -> Result<()> {
         todo!()
     }
 
-    fn sign_images<S, T>(_image_name: S, _tag: Option<T>) -> Result<()>
-    where
-        S: AsRef<str>,
-        T: AsRef<str>,
-    {
+    fn verify(_image_name_tag: &str, _verify_type: VerifyType) -> Result<()> {
+        todo!()
+    }
+
+    fn check_signing_files() -> Result<()> {
+        trace!("DockerDriver::check_signing_files()");
         todo!()
     }
 
