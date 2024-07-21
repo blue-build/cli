@@ -429,8 +429,41 @@ impl SigningDriver for DockerDriver {
         Ok(())
     }
 
-    fn sign(_image_digest: &str, _key_arg: Option<String>) -> Result<()> {
-        todo!()
+    fn sign(image_digest: &str, _key_arg: Option<String>) -> Result<()> {
+        // let mut command = cmd!("cosign", "sign");
+        // cmd_env!(command, COSIGN_PASSWORD = "", COSIGN_YES = "true");
+
+        // if let Some(key_arg) = key_arg {
+        //     cmd!(command, key_arg);
+        // }
+
+        // cmd!(command, "--recursive", image_digest);
+
+        // trace!("{command:?}");
+        // if !command.status().into_diagnostic()?.success() {
+        //     bail!("Failed to sign {image_digest}");
+        // }
+
+        let opts = RunOpts::builder()
+            .image(COSIGN_IMAGE)
+            .args(["sign", "--reursive", image_digest])
+            .env_vars(run_envs! {
+                COSIGN_PASSWORD = "",
+                COSIGN_YES = "true"
+            })
+            .volumes(run_volumes! {
+                "./" : "/workspace",
+            })
+            .workdir("/workspace")
+            .build();
+
+        let status = Self::run(&opts).into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to sign image");
+        }
+
+        Ok(())
     }
 
     fn verify(_image_name_tag: &str, _verify_type: VerifyType) -> Result<()> {
