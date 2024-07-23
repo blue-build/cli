@@ -16,10 +16,10 @@ pub struct RunOpts<'scope> {
     #[builder(default, setter(into))]
     pub volumes: Vec<RunOptsVolume<'scope>>,
 
-    #[builder(default)]
+    #[builder(default, setter(strip_option))]
     pub uid: Option<u32>,
 
-    #[builder(default)]
+    #[builder(default, setter(strip_option))]
     pub gid: Option<u32>,
 
     #[builder(default, setter(into))]
