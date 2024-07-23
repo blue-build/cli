@@ -16,16 +16,16 @@ macro_rules! cmd {
             $command$(.arg($arg))*;
         }
     };
-    ($command:expr) => {
-        {
-            ::std::process::Command::new($command)
-        }
-    };
     ($command:expr, $($arg:expr),+ $(,)?) => {
         {
             let mut c = cmd!($command);
             c$(.arg($arg))*;
             c
+        }
+    };
+    ($command:expr) => {
+        {
+            ::std::process::Command::new($command)
         }
     };
 }
@@ -38,23 +38,23 @@ macro_rules! cmd {
 /// use blue_build_utils::{cmd, cmd_env};
 ///
 /// const TEST: &str = "TEST";
-/// let mut command = cmd_env!("echo", TEST = "This is a test");
-/// cmd_env!(command, "ANOTHER_TEST" = "This is yet another test");
+/// let mut command = cmd_env!("echo", TEST => "This is a test");
+/// cmd_env!(command, "ANOTHER_TEST" => "This is yet another test");
 /// cmd!(command, "Hello, this is a ${TEST}");
 /// command.status().unwrap();
 /// ```
 #[macro_export]
 macro_rules! cmd_env {
-    ($command:literal, $($key:tt = $value:expr),* $(,)?) => {
+    ($command:ident, $($key:expr => $value:expr),* $(,)?) => {
+        {
+            $command$(.env($key, $value))*;
+        }
+    };
+    ($command:expr, $($key:expr => $value:expr),* $(,)?) => {
         {
             let mut c = cmd!($command);
             c$(.env($key, $value))*;
             c
-        }
-    };
-    ($command:ident, $($key:tt = $value:expr),* $(,)?) => {
-        {
-            $command$(.env($key, $value))*;
         }
     }
 }

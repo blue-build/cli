@@ -17,7 +17,7 @@ pub struct CosignDriver;
 impl SigningDriver for CosignDriver {
     fn generate_key_pair() -> Result<()> {
         let mut command = cmd!("cosign", "genereate-key-pair");
-        cmd_env!(command, COSIGN_PASSWORD = "", COSIGN_YES = "true",);
+        cmd_env!(command, COSIGN_PASSWORD => "", COSIGN_YES => "true",);
 
         let status = command.status().into_diagnostic()?;
 
@@ -32,7 +32,7 @@ impl SigningDriver for CosignDriver {
         super::get_private_key(|priv_key| {
             trace!("cosign public-key --key {priv_key}");
             let mut command = cmd!("cosign", "public-key", format!("--key={priv_key}"));
-            cmd_env!(command, COSIGN_PASSWORD = "", COSIGN_YES = "true");
+            cmd_env!(command, COSIGN_PASSWORD => "", COSIGN_YES => "true");
 
             let output = command.output().into_diagnostic()?;
 
@@ -82,7 +82,7 @@ impl SigningDriver for CosignDriver {
 
     fn sign(image_digest: &str, key_arg: Option<String>) -> Result<()> {
         let mut command = cmd!("cosign", "sign");
-        cmd_env!(command, COSIGN_PASSWORD = "", COSIGN_YES = "true");
+        cmd_env!(command, COSIGN_PASSWORD => "", COSIGN_YES => "true");
 
         if let Some(key_arg) = key_arg {
             cmd!(command, key_arg);
