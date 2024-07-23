@@ -77,25 +77,25 @@ pub struct DriverArgs {
     /// Select which driver to use to build
     /// your image.
     #[builder(default)]
-    #[arg(short = 'B', long, group = "drivers")]
+    #[arg(short = 'B', long)]
     build_driver: Option<BuildDriverType>,
 
     /// Select which driver to use to inspect
     /// images.
     #[builder(default)]
-    #[arg(short = 'I', long, group = "drivers")]
+    #[arg(short = 'I', long)]
     inspect_driver: Option<InspectDriverType>,
 
     /// Select which driver to use to sign
     /// images.
     #[builder(default)]
-    #[arg(short = 'S', long, group = "drivers")]
+    #[arg(short = 'S', long)]
     signing_driver: Option<SigningDriverType>,
 
     /// Select which driver to use to run
     /// containers.
     #[builder(default)]
-    #[arg(short = 'R', long, group = "drivers")]
+    #[arg(short = 'R', long)]
     run_driver: Option<RunDriverType>,
 }
 
