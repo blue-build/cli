@@ -58,3 +58,19 @@ macro_rules! cmd_env {
         }
     }
 }
+
+#[macro_export]
+macro_rules! string {
+    ($str:expr) => {
+        String::from($str)
+    };
+}
+
+#[macro_export]
+macro_rules! string_vec {
+    ($($string:expr),+ $(,)?) => {
+        vec![
+            $(string!($string),)*
+        ]
+    };
+}

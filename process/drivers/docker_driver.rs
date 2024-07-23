@@ -1,5 +1,5 @@
 use std::{
-    env,
+    env, fs,
     path::Path,
     process::{Command, ExitStatus},
     sync::Mutex,
@@ -9,13 +9,14 @@ use std::{
 use blue_build_utils::{
     cmd,
     constants::{
-        BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, COSIGN_IMAGE, COSIGN_PASSWORD, COSIGN_YES,
-        DOCKER_HOST, SKOPEO_IMAGE,
+        BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, COSIGN_IMAGE, COSIGN_PASSWORD, COSIGN_PUB_PATH,
+        COSIGN_YES, DOCKER_HOST, SKOPEO_IMAGE,
     },
+    string, string_vec,
 };
 use indicatif::{ProgressBar, ProgressStyle};
-use log::{info, trace, warn};
-use miette::{bail, IntoDiagnostic, Result};
+use log::{debug, info, trace, warn};
+use miette::{bail, Context, IntoDiagnostic, Result};
 use once_cell::sync::Lazy;
 use semver::Version;
 use serde::Deserialize;
@@ -314,7 +315,7 @@ impl InspectDriver for DockerDriver {
         let output = Self::run_output(
             &RunOpts::builder()
                 .image(SKOPEO_IMAGE)
-                .args(["inspect", url.as_str()])
+                .args(["inspect".to_string(), url.clone()])
                 .remove(true)
                 .build(),
         )
@@ -399,7 +400,7 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
 
     opts.args.iter().for_each(|arg| cmd!(command, arg));
 
-    trace!("{command:?}");
+    // trace!("{command:?}");
     command
 }
 
@@ -409,13 +410,13 @@ impl SigningDriver for DockerDriver {
 
         let options = RunOpts::builder()
             .image(COSIGN_IMAGE)
-            .args(["generate-key-pair"])
+            .args(["generate-key-pair".to_string()])
             .env_vars(run_envs! {
-                COSIGN_PASSWORD = "",
-                COSIGN_YES = "true"
+                COSIGN_PASSWORD => "",
+                COSIGN_YES => "true"
             })
             .volumes(run_volumes! {
-                "./" : "/workspace",
+                "./" => "/workspace",
             })
             .workdir("/workspace")
             .build();
@@ -429,30 +430,20 @@ impl SigningDriver for DockerDriver {
         Ok(())
     }
 
-    fn sign(image_digest: &str, _key_arg: Option<String>) -> Result<()> {
-        // let mut command = cmd!("cosign", "sign");
-        // cmd_env!(command, COSIGN_PASSWORD = "", COSIGN_YES = "true");
-
-        // if let Some(key_arg) = key_arg {
-        //     cmd!(command, key_arg);
-        // }
-
-        // cmd!(command, "--recursive", image_digest);
-
-        // trace!("{command:?}");
-        // if !command.status().into_diagnostic()?.success() {
-        //     bail!("Failed to sign {image_digest}");
-        // }
-
+    fn sign(image_digest: &str, key_arg: Option<String>) -> Result<()> {
         let opts = RunOpts::builder()
             .image(COSIGN_IMAGE)
-            .args(["sign", "--reursive", image_digest])
+            .args(key_arg.as_ref().map_or_else(
+                || string_vec!["sign", "--recursive", image_digest],
+                |key| string_vec!["sign", "--recursive", key, image_digest],
+            ))
             .env_vars(run_envs! {
-                COSIGN_PASSWORD = "",
-                COSIGN_YES = "true"
+                COSIGN_PASSWORD => "",
+                COSIGN_YES => "true",
             })
             .volumes(run_volumes! {
-                "./" : "/workspace",
+                "./" => "/workspace",
+                get_docker_creds_root()? => "/root/.docker/",
             })
             .workdir("/workspace")
             .build();
@@ -466,16 +457,103 @@ impl SigningDriver for DockerDriver {
         Ok(())
     }
 
-    fn verify(_image_name_tag: &str, _verify_type: VerifyType) -> Result<()> {
-        todo!()
+    fn verify(image_name_tag: &str, verify_type: VerifyType) -> Result<()> {
+        let args = match verify_type {
+            VerifyType::File(path) => {
+                string_vec!["verify", format!("--key={path}"), image_name_tag]
+            }
+            VerifyType::Keyless { issuer, identity } => string_vec![
+                "verify",
+                "--certificate-identity-regexp",
+                identity,
+                "--certificate-oidc-issuer",
+                issuer,
+                image_name_tag,
+            ],
+        };
+
+        let opts = RunOpts::builder()
+            .image(COSIGN_IMAGE)
+            .args(args)
+            .env_vars(run_envs! {
+                COSIGN_PASSWORD => "",
+                COSIGN_YES => "true",
+            })
+            .volumes(run_volumes! {
+                "./" => "/workspace",
+                get_docker_creds_root()? => "/root/.docker/",
+            })
+            .build();
+
+        if !Self::run(&opts).into_diagnostic()?.success() {
+            bail!("Failed to verify {image_name_tag}");
+        }
+
+        Ok(())
     }
 
     fn check_signing_files() -> Result<()> {
         trace!("DockerDriver::check_signing_files()");
-        todo!()
+        super::get_private_key(|priv_key| {
+            let opts = RunOpts::builder()
+                .image(COSIGN_IMAGE)
+                .args(string_vec![
+                    "sign",
+                    "public-key",
+                    format!("--key={priv_key}"),
+                ])
+                .env_vars(run_envs! {
+                    COSIGN_PASSWORD => "",
+                    COSIGN_YES => "true",
+                })
+                .build();
+
+            let output = Self::run_output(&opts).into_diagnostic()?;
+
+            let calculated_pub_key = String::from_utf8(output.stdout).into_diagnostic()?;
+            let found_pub_key = fs::read_to_string(COSIGN_PUB_PATH)
+                .into_diagnostic()
+                .with_context(|| format!("Failed to read {COSIGN_PUB_PATH}"))?;
+            trace!("calculated_pub_key={calculated_pub_key},found_pub_key={found_pub_key}");
+
+            if calculated_pub_key.trim() == found_pub_key.trim() {
+                debug!("Cosign files match, continuing build");
+                Ok(())
+            } else {
+                bail!("Public key '{COSIGN_PUB_PATH}' does not match private key")
+            }
+        })
     }
 
     fn signing_login() -> Result<()> {
-        todo!()
+        trace!("DockerDriver::signing_login()");
+
+        if let Some(Credentials {
+            registry,
+            username,
+            password,
+        }) = Credentials::get()
+        {
+            let opts = RunOpts::builder()
+                .image(COSIGN_IMAGE)
+                .args(string_vec![
+                    "login", "-u", username, "-p", password, registry
+                ])
+                .volumes(run_volumes! {
+                    get_docker_creds_root()? => "/root/.docker/",
+                })
+                .build();
+            let output = Self::run_output(&opts).into_diagnostic()?;
+
+            if !output.status.success() {
+                let err_out = String::from_utf8_lossy(&output.stderr);
+                bail!("Failed to login for docker: {err_out}");
+            }
+        }
+        Ok(())
     }
+}
+
+fn get_docker_creds_root() -> Result<String> {
+    Ok(format!("${}/.docker/", env::var("HOME").into_diagnostic()?))
 }

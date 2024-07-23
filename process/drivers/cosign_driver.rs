@@ -59,7 +59,7 @@ impl SigningDriver for CosignDriver {
     }
 
     fn signing_login() -> Result<()> {
-        trace!("DockerDriver::login()");
+        trace!("CosignDriver::signing_login()");
 
         if let Some(Credentials {
             registry,
