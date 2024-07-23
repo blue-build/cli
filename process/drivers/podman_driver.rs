@@ -180,7 +180,7 @@ impl InspectDriver for PodmanDriver {
         let output = Self::run_output(
             &RunOpts::builder()
                 .image(SKOPEO_IMAGE)
-                .args(["inspect", url.as_str()])
+                .args(["inspect".to_string(), url.clone()])
                 .remove(true)
                 .build(),
         )
