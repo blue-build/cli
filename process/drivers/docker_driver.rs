@@ -582,5 +582,5 @@ impl SigningDriver for DockerDriver {
 }
 
 fn get_docker_creds_root() -> Result<String> {
-    Ok(format!("${}/.docker/", env::var("HOME").into_diagnostic()?))
+    Ok(format!("{}/.docker/", env::var("HOME").into_diagnostic()?))
 }
