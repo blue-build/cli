@@ -8,7 +8,7 @@ pub struct RunOpts<'scope> {
     pub image: Cow<'scope, str>,
 
     #[builder(default, setter(into))]
-    pub args: Vec<&'scope str>,
+    pub args: Vec<String>,
 
     #[builder(default, setter(into))]
     pub env_vars: Vec<RunOptsEnv<'scope>>,
@@ -40,7 +40,7 @@ pub struct RunOptsVolume<'scope> {
 
 #[macro_export]
 macro_rules! run_volumes {
-    ($($host:tt : $container:expr),+ $(,)?) => {
+    ($($host:expr => $container:expr),+ $(,)?) => {
         {
             [
                 $($crate::drivers::opts::RunOptsVolume::builder()
@@ -63,7 +63,7 @@ pub struct RunOptsEnv<'scope> {
 
 #[macro_export]
 macro_rules! run_envs {
-    ($($key:tt = $value:expr),+ $(,)?) => {
+    ($($key:expr => $value:expr),+ $(,)?) => {
         {
             [
                 $($crate::drivers::opts::RunOptsEnv::builder()
