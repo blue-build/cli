@@ -35,6 +35,9 @@ use super::{
     BuildDriver, DriverVersion, InspectDriver, RunDriver, SigningDriver, VerifyType,
 };
 
+const CREDS_VOL: &str = "cosign-creds";
+const CREDS_PATH: &str = "/home/nonroot/.docker/";
+
 #[derive(Debug, Deserialize)]
 struct DockerVerisonJsonClient {
     #[serde(alias = "Version")]
@@ -414,8 +417,8 @@ impl SigningDriver for DockerDriver {
             .image(COSIGN_IMAGE)
             .args(["generate-key-pair".to_string()])
             .remove(true)
-            .uid(Some(*USER))
-            .gid(Some(*GROUP))
+            .uid(*USER)
+            .gid(*GROUP)
             .env_vars(run_envs! {
                 COSIGN_PASSWORD => "",
                 COSIGN_YES => "true",
@@ -443,8 +446,6 @@ impl SigningDriver for DockerDriver {
                 |key| string_vec!["sign", "--recursive", key, image_digest],
             ))
             .remove(true)
-            .uid(Some(*USER))
-            .gid(Some(*GROUP))
             .env_vars(run_envs! {
                 COSIGN_PASSWORD => "",
                 COSIGN_YES => "true",
@@ -454,7 +455,7 @@ impl SigningDriver for DockerDriver {
             })
             .volumes(run_volumes! {
                 "./" => "/workspace",
-                get_docker_creds_root()? => "/root/.docker/",
+                CREDS_VOL => CREDS_PATH,
             })
             .workdir("/workspace")
             .build();
@@ -487,15 +488,14 @@ impl SigningDriver for DockerDriver {
             .image(COSIGN_IMAGE)
             .args(args)
             .remove(true)
-            .uid(Some(*USER))
-            .gid(Some(*GROUP))
+            .uid(*USER)
+            .gid(*GROUP)
             .env_vars(run_envs! {
                 COSIGN_PASSWORD => "",
                 COSIGN_YES => "true",
             })
             .volumes(run_volumes! {
                 "./" => "/workspace",
-                get_docker_creds_root()? => "/root/.docker/",
             })
             .workdir("/workspace")
             .build();
@@ -514,8 +514,8 @@ impl SigningDriver for DockerDriver {
                 .image(COSIGN_IMAGE)
                 .args(string_vec!["public-key", format!("--key={priv_key}")])
                 .remove(true)
-                .uid(Some(*USER))
-                .gid(Some(*GROUP))
+                .uid(*USER)
+                .gid(*GROUP)
                 .env_vars(run_envs! {
                     COSIGN_PASSWORD => "",
                     COSIGN_YES => "true",
@@ -561,13 +561,11 @@ impl SigningDriver for DockerDriver {
             let opts = RunOpts::builder()
                 .image(COSIGN_IMAGE)
                 .remove(true)
-                .uid(Some(*USER))
-                .gid(Some(*GROUP))
                 .args(string_vec![
                     "login", "-u", username, "-p", password, registry
                 ])
                 .volumes(run_volumes! {
-                    get_docker_creds_root()? => "/root/.docker/",
+                    CREDS_VOL => CREDS_PATH,
                 })
                 .build();
             let output = Self::run_output(&opts).into_diagnostic()?;
@@ -579,8 +577,4 @@ impl SigningDriver for DockerDriver {
         }
         Ok(())
     }
-}
-
-fn get_docker_creds_root() -> Result<String> {
-    Ok(format!("{}/.docker/", env::var("HOME").into_diagnostic()?))
 }
