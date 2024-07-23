@@ -482,6 +482,7 @@ impl SigningDriver for DockerDriver {
                 "./" => "/workspace",
                 get_docker_creds_root()? => "/root/.docker/",
             })
+            .workdir("/workspace")
             .build();
 
         if !Self::run(&opts).into_diagnostic()?.success() {
@@ -506,6 +507,10 @@ impl SigningDriver for DockerDriver {
                     COSIGN_YES => "true",
                     COSIGN_PRIVATE_KEY => env::var(COSIGN_PRIVATE_KEY).unwrap_or_default(),
                 })
+                .volumes(run_volumes! {
+                    "./" => "/workspace",
+                })
+                .workdir("/workspace")
                 .build();
 
             let output = Self::run_output(&opts).into_diagnostic()?;
