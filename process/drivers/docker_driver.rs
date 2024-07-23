@@ -15,7 +15,7 @@ use blue_build_utils::{
     string, string_vec,
 };
 use indicatif::{ProgressBar, ProgressStyle};
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use miette::{bail, Context, IntoDiagnostic, Result};
 use once_cell::sync::Lazy;
 use semver::Version;
@@ -24,7 +24,7 @@ use tempdir::TempDir;
 
 use crate::{
     credentials::Credentials,
-    drivers::image_metadata::ImageMetadata,
+    drivers::{image_metadata::ImageMetadata, GROUP, USER},
     logging::{CommandLogging, Logger},
     run_envs, run_volumes,
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
@@ -392,6 +392,12 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
         cmd!(command, "--env", format!("{}={}", env.key, env.value));
     });
 
+    match (opts.uid, opts.gid) {
+        (Some(uid), None) => cmd!(command, "-u", format!("{uid}")),
+        (Some(uid), Some(gid)) => cmd!(command, "-u", format!("{}:{}", uid, gid)),
+        _ => {}
+    }
+
     cmd!(command, opts.image.as_ref());
 
     opts.args.iter().for_each(|arg| cmd!(command, arg));
@@ -407,9 +413,12 @@ impl SigningDriver for DockerDriver {
         let options = RunOpts::builder()
             .image(COSIGN_IMAGE)
             .args(["generate-key-pair".to_string()])
+            .remove(true)
+            .uid(Some(*USER))
+            .gid(Some(*GROUP))
             .env_vars(run_envs! {
                 COSIGN_PASSWORD => "",
-                COSIGN_YES => "true"
+                COSIGN_YES => "true",
             })
             .volumes(run_volumes! {
                 "./" => "/workspace",
@@ -433,6 +442,9 @@ impl SigningDriver for DockerDriver {
                 || string_vec!["sign", "--recursive", image_digest],
                 |key| string_vec!["sign", "--recursive", key, image_digest],
             ))
+            .remove(true)
+            .uid(Some(*USER))
+            .gid(Some(*GROUP))
             .env_vars(run_envs! {
                 COSIGN_PASSWORD => "",
                 COSIGN_YES => "true",
@@ -474,6 +486,9 @@ impl SigningDriver for DockerDriver {
         let opts = RunOpts::builder()
             .image(COSIGN_IMAGE)
             .args(args)
+            .remove(true)
+            .uid(Some(*USER))
+            .gid(Some(*GROUP))
             .env_vars(run_envs! {
                 COSIGN_PASSWORD => "",
                 COSIGN_YES => "true",
@@ -497,11 +512,10 @@ impl SigningDriver for DockerDriver {
         super::get_private_key(|priv_key| {
             let opts = RunOpts::builder()
                 .image(COSIGN_IMAGE)
-                .args(string_vec![
-                    "sign",
-                    "public-key",
-                    format!("--key={priv_key}"),
-                ])
+                .args(string_vec!["public-key", format!("--key={priv_key}")])
+                .remove(true)
+                .uid(Some(*USER))
+                .gid(Some(*GROUP))
                 .env_vars(run_envs! {
                     COSIGN_PASSWORD => "",
                     COSIGN_YES => "true",
@@ -514,6 +528,11 @@ impl SigningDriver for DockerDriver {
                 .build();
 
             let output = Self::run_output(&opts).into_diagnostic()?;
+
+            if !output.status.success() {
+                error!("{}", String::from_utf8_lossy(&output.stderr));
+                bail!("Failed to check signing files");
+            }
 
             let calculated_pub_key = String::from_utf8(output.stdout).into_diagnostic()?;
             let found_pub_key = fs::read_to_string(COSIGN_PUB_PATH)
@@ -541,6 +560,9 @@ impl SigningDriver for DockerDriver {
         {
             let opts = RunOpts::builder()
                 .image(COSIGN_IMAGE)
+                .remove(true)
+                .uid(Some(*USER))
+                .gid(Some(*GROUP))
                 .args(string_vec![
                     "login", "-u", username, "-p", password, registry
                 ])

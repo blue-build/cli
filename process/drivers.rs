@@ -18,6 +18,7 @@ use log::{debug, info, trace};
 use miette::{miette, Result};
 use once_cell::sync::Lazy;
 use typed_builder::TypedBuilder;
+use users::{Groups, Users, UsersCache};
 use uuid::Uuid;
 
 use self::{
@@ -67,6 +68,9 @@ static BUILD_ID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
 
 /// The cached os versions
 static OS_VERSION: Lazy<Mutex<HashMap<String, u64>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+
+static USER: Lazy<u32> = Lazy::new(|| UsersCache::new().get_current_uid());
+static GROUP: Lazy<u32> = Lazy::new(|| UsersCache::new().get_current_gid());
 
 /// Args for selecting the various drivers to use for runtime.
 ///
