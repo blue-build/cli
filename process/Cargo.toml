@@ -37,6 +37,7 @@ serde.workspace = true
 serde_json.workspace = true
 tempdir.workspace = true
 typed-builder.workspace = true
+users.workspace = true
 uuid.workspace = true
 
 [lints]

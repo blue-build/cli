@@ -298,6 +298,7 @@ dependencies = [
  "signal-hook",
  "tempdir",
  "typed-builder",
+ "users",
  "uuid",
 ]
 
