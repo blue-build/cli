@@ -16,6 +16,12 @@ pub struct RunOpts<'scope> {
     #[builder(default, setter(into))]
     pub volumes: Vec<RunOptsVolume<'scope>>,
 
+    #[builder(default)]
+    pub uid: Option<u32>,
+
+    #[builder(default)]
+    pub gid: Option<u32>,
+
     #[builder(default, setter(into))]
     pub workdir: Cow<'scope, str>,
 
