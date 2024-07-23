@@ -211,7 +211,11 @@ impl BuildCommand {
             .par_iter()
             .try_for_each(|recipe_path| -> Result<()> {
                 let recipe = Recipe::parse(recipe_path)?;
-                let containerfile = generate_containerfile_path(recipe_path)?;
+                let containerfile = if recipe_paths.len() > 1 {
+                    generate_containerfile_path(recipe_path)?
+                } else {
+                    PathBuf::from(CONTAINER_FILE)
+                };
                 let tags = Driver::generate_tags(&recipe)?;
                 let image_name = self.generate_full_image_name(&recipe)?;
 
@@ -256,7 +260,7 @@ impl BuildCommand {
         trace!("BuildCommand::start()");
 
         let recipe = Recipe::parse(recipe_path)?;
-        let containerfile = generate_containerfile_path(recipe_path)?;
+        let containerfile = PathBuf::from(CONTAINER_FILE);
         let tags = Driver::generate_tags(&recipe)?;
         let image_name = self.generate_full_image_name(&recipe)?;
 
