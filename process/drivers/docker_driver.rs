@@ -9,8 +9,8 @@ use std::{
 use blue_build_utils::{
     cmd,
     constants::{
-        BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, COSIGN_IMAGE, COSIGN_PASSWORD, COSIGN_PUB_PATH,
-        COSIGN_YES, DOCKER_HOST, SKOPEO_IMAGE,
+        BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, COSIGN_IMAGE, COSIGN_PASSWORD, COSIGN_PRIVATE_KEY,
+        COSIGN_PUB_PATH, COSIGN_YES, DOCKER_HOST, GITHUB_TOKEN, SIGSTORE_ID_TOKEN, SKOPEO_IMAGE,
     },
     string, string_vec,
 };
@@ -336,8 +336,6 @@ impl InspectDriver for DockerDriver {
 
 impl RunDriver for DockerDriver {
     fn run(opts: &RunOpts) -> std::io::Result<ExitStatus> {
-        trace!("DockerDriver::run({opts:#?})");
-
         let cid_path = TempDir::new("docker")?;
         let cid_file = cid_path.path().join("cid");
         let cid = ContainerId::new(&cid_file, ContainerRuntime::Docker, false);
@@ -353,8 +351,6 @@ impl RunDriver for DockerDriver {
     }
 
     fn run_output(opts: &RunOpts) -> std::io::Result<std::process::Output> {
-        trace!("DockerDriver::run({opts:#?})");
-
         let cid_path = TempDir::new("docker")?;
         let cid_file = cid_path.path().join("cid");
         let cid = ContainerId::new(&cid_file, ContainerRuntime::Docker, false);
@@ -440,6 +436,9 @@ impl SigningDriver for DockerDriver {
             .env_vars(run_envs! {
                 COSIGN_PASSWORD => "",
                 COSIGN_YES => "true",
+                COSIGN_PRIVATE_KEY => env::var(COSIGN_PRIVATE_KEY).unwrap_or_default(),
+                SIGSTORE_ID_TOKEN => env::var(SIGSTORE_ID_TOKEN).unwrap_or_default(),
+                GITHUB_TOKEN => env::var(GITHUB_TOKEN).unwrap_or_default(),
             })
             .volumes(run_volumes! {
                 "./" => "/workspace",
@@ -505,6 +504,7 @@ impl SigningDriver for DockerDriver {
                 .env_vars(run_envs! {
                     COSIGN_PASSWORD => "",
                     COSIGN_YES => "true",
+                    COSIGN_PRIVATE_KEY => env::var(COSIGN_PRIVATE_KEY).unwrap_or_default(),
                 })
                 .build();
 
