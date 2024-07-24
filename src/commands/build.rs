@@ -11,12 +11,9 @@ use blue_build_process_management::{
     },
 };
 use blue_build_recipe::Recipe;
-use blue_build_utils::{
-    constants::{
-        ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, BUILD_ID_LABEL, CONFIG_PATH, CONTAINER_FILE,
-        GITIGNORE_PATH, LABELED_ERROR_MESSAGE, NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH,
-    },
-    generate_containerfile_path,
+use blue_build_utils::constants::{
+    ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, BUILD_ID_LABEL, CONFIG_PATH, CONTAINER_FILE,
+    GITIGNORE_PATH, LABELED_ERROR_MESSAGE, NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH,
 };
 use clap::Args;
 use colored::Colorize;
@@ -165,7 +162,11 @@ impl BlueBuildCommand for BuildCommand {
 
             recipe_paths.par_iter().try_for_each(|recipe| {
                 GenerateCommand::builder()
-                    .output(generate_containerfile_path(recipe)?)
+                    .output(if recipe_paths.len() > 1 {
+                        blue_build_utils::generate_containerfile_path(recipe)?
+                    } else {
+                        PathBuf::from(CONTAINER_FILE)
+                    })
                     .recipe(recipe)
                     .drivers(self.drivers)
                     .build()
@@ -189,7 +190,7 @@ impl BlueBuildCommand for BuildCommand {
             });
 
             GenerateCommand::builder()
-                .output(generate_containerfile_path(&recipe_path)?)
+                .output(CONTAINER_FILE)
                 .recipe(&recipe_path)
                 .drivers(self.drivers)
                 .build()
@@ -212,7 +213,7 @@ impl BuildCommand {
             .try_for_each(|recipe_path| -> Result<()> {
                 let recipe = Recipe::parse(recipe_path)?;
                 let containerfile = if recipe_paths.len() > 1 {
-                    generate_containerfile_path(recipe_path)?
+                    blue_build_utils::generate_containerfile_path(recipe_path)?
                 } else {
                     PathBuf::from(CONTAINER_FILE)
                 };
