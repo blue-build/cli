@@ -301,7 +301,7 @@ pub(super) fn get_private_key(check_fn: impl FnOnce(String) -> Result<()>) -> Re
         (true, _, cosign_priv_key_path) if cosign_priv_key_path.exists() => {
             check_fn(cosign_priv_key_path.display().to_string())
         }
-        (true, _, _) => {
+        _ => {
             bail!(
                 "{}{}{}{}{}{}{}",
                 "Unable to find private/public key pair.\n\n",
@@ -313,7 +313,6 @@ pub(super) fn get_private_key(check_fn: impl FnOnce(String) -> Result<()>) -> Re
                 "If you don't want to sign your image, use the `--no-sign` flag."
             )
         }
-        _ => Ok(()),
     }
 }
 
