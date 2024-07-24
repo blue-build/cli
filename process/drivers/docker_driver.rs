@@ -15,7 +15,7 @@ use blue_build_utils::{
     string, string_vec,
 };
 use indicatif::{ProgressBar, ProgressStyle};
-use log::{debug, error, info, trace, warn};
+use log::{debug, info, trace, warn};
 use miette::{bail, Context, IntoDiagnostic, Result};
 use once_cell::sync::Lazy;
 use semver::Version;
@@ -36,7 +36,7 @@ use super::{
 };
 
 const CREDS_VOL: &str = "cosign-creds";
-const CREDS_PATH: &str = "/home/nonroot/.docker/";
+const CREDS_PATH: &str = "/.docker/";
 
 #[derive(Debug, Deserialize)]
 struct DockerVerisonJsonClient {
@@ -204,7 +204,9 @@ impl BuildDriver for DockerDriver {
                 let err_out = String::from_utf8_lossy(&output.stderr);
                 bail!("Failed to login for docker: {err_out}");
             }
+            debug!("Logged into {registry}");
         }
+
         Ok(())
     }
 
@@ -446,6 +448,8 @@ impl SigningDriver for DockerDriver {
                 |key| string_vec!["sign", "--recursive", key, image_digest],
             ))
             .remove(true)
+            .uid(*USER)
+            .gid(*GROUP)
             .env_vars(run_envs! {
                 COSIGN_PASSWORD => "",
                 COSIGN_YES => "true",
@@ -530,8 +534,10 @@ impl SigningDriver for DockerDriver {
             let output = Self::run_output(&opts).into_diagnostic()?;
 
             if !output.status.success() {
-                error!("{}", String::from_utf8_lossy(&output.stderr));
-                bail!("Failed to check signing files");
+                bail!(
+                    "Failed to check signing files:\n{}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
             }
 
             let calculated_pub_key = String::from_utf8(output.stdout).into_diagnostic()?;
@@ -561,6 +567,8 @@ impl SigningDriver for DockerDriver {
             let opts = RunOpts::builder()
                 .image(COSIGN_IMAGE)
                 .remove(true)
+                .uid(*USER)
+                .gid(*GROUP)
                 .args(string_vec![
                     "login", "-u", username, "-p", password, registry
                 ])
@@ -574,6 +582,7 @@ impl SigningDriver for DockerDriver {
                 let err_out = String::from_utf8_lossy(&output.stderr);
                 bail!("Failed to login for docker: {err_out}");
             }
+            debug!("Signing driver signed into {registry}");
         }
         Ok(())
     }
