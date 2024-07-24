@@ -149,11 +149,14 @@ mod test {
     }
 
     fn teardown() {
+        env::remove_var(CI_COMMIT_REF_NAME);
+        env::remove_var(CI_MERGE_REQUEST_IID);
+        env::remove_var(CI_PIPELINE_SOURCE);
+        env::remove_var(CI_DEFAULT_BRANCH);
+        env::remove_var(CI_COMMIT_SHORT_SHA);
         env::remove_var(CI_REGISTRY);
         env::remove_var(CI_PROJECT_NAMESPACE);
         env::remove_var(CI_PROJECT_NAME);
-        env::remove_var(CI_DEFAULT_BRANCH);
-        env::remove_var(CI_COMMIT_REF_NAME);
         env::remove_var(CI_SERVER_PROTOCOL);
         env::remove_var(CI_SERVER_HOST);
         env::remove_var(BB_UNIT_TEST_MOCK_GET_OS_VERSION);

@@ -136,6 +136,7 @@ mod test {
         env::remove_var(GITHUB_EVENT_NAME);
         env::remove_var(GITHUB_EVENT_PATH);
         env::remove_var(GITHUB_REF_NAME);
+        env::remove_var(PR_EVENT_NUMBER);
         env::remove_var(GITHUB_SHA);
         env::remove_var(BB_UNIT_TEST_MOCK_GET_OS_VERSION);
     }
