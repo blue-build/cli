@@ -13,7 +13,11 @@ use uuid::Uuid;
 pub use askama::Template;
 
 #[derive(Debug, Clone, Template, TypedBuilder)]
-#[template(path = "Containerfile.j2", escape = "none", whitespace = "minimize")]
+#[template(
+    path = "Containerfile.vanilla.j2",
+    escape = "none",
+    whitespace = "minimize"
+)]
 pub struct ContainerFileTemplate<'a> {
     recipe: &'a Recipe<'a>,
 

@@ -1,0 +1,49 @@
+{%- import "modules/modules.j2" as modules -%}
+{%- include "stages.j2" %}
+
+# Main image
+FROM {{ recipe.base_image }}:{{ recipe.image_version }} AS {{ recipe.name|replace('/', "-") }}
+
+ARG RECIPE={{ recipe_path.display() }}
+ARG IMAGE_REGISTRY={{ registry }}
+
+{%- if self::files_dir_exists() %}
+ARG CONFIG_DIRECTORY="/tmp/files"
+{%- else if self::config_dir_exists() %}
+ARG CONFIG_DIRECTORY="/tmp/config"
+{%- endif %}
+ARG MODULE_DIRECTORY="/tmp/modules"
+ARG IMAGE_NAME="{{ recipe.name }}"
+ARG BASE_IMAGE="{{ recipe.base_image }}"
+
+# Key RUN
+RUN --mount=type=bind,from=stage-keys,src=/keys,dst=/tmp/keys \
+  mkdir -p /usr/etc/pki/containers/ \
+  && cp /tmp/keys/* /usr/etc/pki/containers/
+
+# Bin RUN
+RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
+  mkdir -p /usr/bin/ \
+  && cp /tmp/bins/* /usr/bin/
+
+# Init step copied from VanillaOS template
+RUN lpkg --unlock && apt-get update
+
+{% call modules::generic_modules_run(recipe.modules_ext, os_version) %}
+
+# Cleanup step copied from VanillaOS template
+RUN apt-get autoremove -y && apt-get clean && lpkg --lock
+
+# FsGuard step copied from VanillaOS template
+RUN rm -rf /FsGuard && rm -f ./minisign.pub ./minisign.key && chmod +x /usr/sbin/init && mkdir /FsGuard && chmod +x /sources/fsguard/genfilelist.py && minisign -WG -s ./minisign.key && python3 /sources/fsguard/genfilelist.py /usr/bin /FsGuard/filelist /usr/sbin/FsGuard && minisign -Sm /FsGuard/filelist -p .//minisign.pub -s .//minisign.key && touch /FsGuard/signature && echo -n "----begin attach----" >> /FsGuard/signature && cat /FsGuard/filelist.minisig >> /FsGuard/signature && echo -n "----begin second attach----" >> /FsGuard/signature && tail -n1 .//minisign.pub >> /FsGuard/signature && cat /FsGuard/signature >> /sources/fsguard/FsGuard && mv /sources/fsguard/FsGuard /usr/sbin/FsGuard && rm ./minisign.key ./minisign.pub
+
+RUN rm -fr /tmp/* /var/tmp/*
+
+# Labels are added last since they cause cache misses with buildah
+LABEL {{ blue_build_utils::constants::BUILD_ID_LABEL }}="{{ build_id }}"
+LABEL org.opencontainers.image.title="{{ recipe.name }}"
+LABEL org.opencontainers.image.description="{{ recipe.description }}"
+{%- if let Some(repo) = self::get_repo_url() %}
+LABEL org.opencontainers.image.source="{{ repo }}"
+{%- endif %}
+LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md
