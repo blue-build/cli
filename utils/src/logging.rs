@@ -85,7 +85,7 @@ impl Logger {
     ///
     /// # Panics
     /// Will panic if logging is unable to be initialized.
-    pub fn init(&mut self) {
+    pub fn init(&self) {
         let home = env::var("HOME").expect("$HOME should be defined");
         let log_dir = self.log_dir.as_ref().map_or_else(
             || Path::new(home.as_str()).join(".local/share/bluebuild"),
