@@ -29,7 +29,6 @@ modules:
       install:
         - org.mozilla.firefox
         - org.gnome.Loupe
-        - one.ablaze.floorp//lightning
       remove:
         - org.gnome.eog
 
