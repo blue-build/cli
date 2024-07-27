@@ -11,11 +11,11 @@ model CopyModule {
     /** Equivalent to the --from property in a COPY statement, use to specify an image to copy from.
      * By default, the COPY source is the build environment's file tree.
      */
-    from?: string,
+    from?: string;
 
     /** Path to source file or directory. */
-    src: string,
+    src: string;
 
     /** Path to destination file or directory. */
-    dest: string,
+    dest: string;
 }
