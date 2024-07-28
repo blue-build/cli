@@ -11,7 +11,6 @@ use clap::Args;
 use log::trace;
 use once_cell::sync::Lazy;
 use typed_builder::TypedBuilder;
-use zeroize::ZeroizeOnDrop;
 
 static INIT: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
 
@@ -94,7 +93,7 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
 });
 
 /// The credentials for logging into image registries.
-#[derive(Debug, Default, Clone, TypedBuilder, ZeroizeOnDrop)]
+#[derive(Debug, Default, Clone, TypedBuilder)]
 pub struct Credentials {
     pub registry: String,
     pub username: String,
@@ -132,7 +131,7 @@ impl Credentials {
     }
 }
 
-#[derive(Debug, Default, Clone, TypedBuilder, Args, ZeroizeOnDrop)]
+#[derive(Debug, Default, Clone, TypedBuilder, Args)]
 pub struct CredentialsArgs {
     /// The registry's domain name.
     #[arg(long, env = BB_REGISTRY)]
