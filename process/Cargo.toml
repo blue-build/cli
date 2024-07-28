@@ -26,6 +26,8 @@ rand = "0.8.5"
 semver = { version = "1", features = ["serde"] }
 signal-hook = { version = "0.3.17", features = ["extended-siginfo"] }
 sigstore = "0.9.0"
+smol = "2.0.0"
+zeroize = { version = "1.8.1", features = ["aarch64", "derive", "serde", "std"] }
 
 chrono.workspace = true
 clap.workspace = true
