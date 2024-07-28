@@ -9,11 +9,10 @@ use super::{
 use blue_build_utils::constants::{COSIGN_PRIV_PATH, COSIGN_PUB_PATH};
 use miette::{bail, miette, Context, IntoDiagnostic};
 use sigstore::{
-    cosign::{simple_signing::Image, ClientBuilder},
+    cosign::{ClientBuilder, CosignCapabilities},
     crypto::{signing_key::SigStoreKeyPair, SigningScheme},
-    registry::Auth,
+    registry::{Auth, OciReference},
 };
-use smol::prelude::*;
 
 pub struct SigstoreDriver;
 
@@ -70,25 +69,28 @@ impl SigningDriver for SigstoreDriver {
         }
     }
 
-    fn sign(image_digest: &str, key_arg: Option<String>) -> miette::Result<()> {
+    fn sign(image_digest: &str, _key_arg: Option<String>) -> miette::Result<()> {
         smol::block_on(async {
             let Credentials {
-                registry,
+                registry: _,
                 username,
                 password,
-            } = Credentials::get()
-                .ok_or(miette!("Credentials are required for signing"))?
-                .to_owned();
+            } = Credentials::get().ok_or(miette!("Credentials are required for signing"))?;
 
-            let auth = Auth::Basic(username, password);
-            let client = ClientBuilder::default().build().into_diagnostic()?;
-            let image_digest: Image = image_digest.parse().into_diagnostic()?;
+            let auth = Auth::Basic(username.clone(), password.clone());
+            let mut client = ClientBuilder::default().build().into_diagnostic()?;
+            let image_digest: OciReference = image_digest.parse().into_diagnostic()?;
+            let (cosign_signature_image, source_image_digest) = client
+                .triangulate(&image_digest, &auth)
+                .await
+                .into_diagnostic()
+                .with_context(|| format!("Failed to triangulate image {image_digest}"))?;
 
             Ok(())
         })
     }
 
-    fn verify(image_name_tag: &str, verify_type: super::VerifyType) -> miette::Result<()> {
+    fn verify(_image_name_tag: &str, _verify_type: super::VerifyType) -> miette::Result<()> {
         todo!()
     }
 
