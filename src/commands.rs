@@ -11,8 +11,8 @@ pub mod bug_report;
 pub mod build;
 pub mod completions;
 pub mod generate;
-#[cfg(feature = "init")]
-pub mod init;
+// #[cfg(feature = "init")]
+// pub mod init;
 #[cfg(not(feature = "switch"))]
 pub mod local;
 #[cfg(feature = "switch")]
@@ -103,13 +103,12 @@ pub enum CommandArgs {
     #[cfg(feature = "switch")]
     Switch(switch::SwitchCommand),
 
-    /// Initialize a new Ublue Starting Point repo
-    #[cfg(feature = "init")]
-    Init(init::InitCommand),
+    // /// Initialize a new Ublue Starting Point repo
+    // #[cfg(feature = "init")]
+    // Init(init::InitCommand),
 
-    #[cfg(feature = "init")]
-    New(init::NewCommand),
-
+    // #[cfg(feature = "init")]
+    // New(init::NewCommand),
     /// Create a pre-populated GitHub issue with information about your configuration
     BugReport(bug_report::BugReportCommand),
 

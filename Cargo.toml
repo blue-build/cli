@@ -35,7 +35,7 @@ perf = "warn"
 style = "warn"
 nursery = "warn"
 pedantic = "warn"
-module_name_repetitions = "allow"
+module_name_repetitions = { level = "allow", priority = 1 }
 
 [package]
 name = "blue-build"

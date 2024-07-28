@@ -14,12 +14,11 @@ fn main() {
     log::trace!("Parsed arguments: {args:#?}");
 
     signal_handler::init(|| match args.command {
-        #[cfg(feature = "init")]
-        CommandArgs::Init(mut command) => command.run(),
+        // #[cfg(feature = "init")]
+        // CommandArgs::Init(mut command) => command.run(),
 
-        #[cfg(feature = "init")]
-        CommandArgs::New(mut command) => command.run(),
-
+        // #[cfg(feature = "init")]
+        // CommandArgs::New(mut command) => command.run(),
         CommandArgs::Build(mut command) => command.run(),
 
         CommandArgs::Generate(mut command) => command.run(),
