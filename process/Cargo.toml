@@ -25,6 +25,7 @@ os_pipe = { version = "1", features = ["io_safety"] }
 rand = "0.8.5"
 semver = { version = "1", features = ["serde"] }
 signal-hook = { version = "0.3.17", features = ["extended-siginfo"] }
+sigstore = "0.9.0"
 
 chrono.workspace = true
 clap.workspace = true

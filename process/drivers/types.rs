@@ -83,30 +83,17 @@ impl DetermineDriver<BuildDriverType> for Option<BuildDriverType> {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum SigningDriverType {
     Cosign,
-    Podman,
-    Docker,
+    Sigstore,
 }
 
 impl DetermineDriver<SigningDriverType> for Option<SigningDriverType> {
     fn determine_driver(&mut self) -> SigningDriverType {
         trace!("SigningDriverType::determine_signing_driver()");
 
-        *self.get_or_insert(
-            match (
-                blue_build_utils::check_command_exists("cosign"),
-                blue_build_utils::check_command_exists("docker"),
-                blue_build_utils::check_command_exists("podman"),
-            ) {
-                (Ok(_cosign), _, _) => SigningDriverType::Cosign,
-                (_, Ok(_docker), _) => SigningDriverType::Docker,
-                (_, _, Ok(_podman_driver)) => SigningDriverType::Podman,
-                _ => panic!(concat!(
-                    "Could not determine signing driver. ",
-                    "Either cosign, docker, or podman ",
-                    "is required to continue"
-                )),
-            },
-        )
+        *self.get_or_insert(match blue_build_utils::check_command_exists("cosign") {
+            Ok(_cosign) => SigningDriverType::Cosign,
+            _ => SigningDriverType::Sigstore,
+        })
     }
 }
 
