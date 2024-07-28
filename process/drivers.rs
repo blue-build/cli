@@ -17,6 +17,7 @@ use clap::Args;
 use log::{debug, info, trace};
 use miette::{miette, Result};
 use once_cell::sync::Lazy;
+use sigstore_driver::SigstoreDriver;
 use typed_builder::TypedBuilder;
 use users::{Groups, Users, UsersCache};
 use uuid::Uuid;
@@ -49,6 +50,7 @@ pub mod image_metadata;
 mod local_driver;
 pub mod opts;
 mod podman_driver;
+mod sigstore_driver;
 mod skopeo_driver;
 mod traits;
 pub mod types;
@@ -292,40 +294,35 @@ impl SigningDriver for Driver {
     fn generate_key_pair() -> Result<()> {
         match Self::get_signing_driver() {
             SigningDriverType::Cosign => CosignDriver::generate_key_pair(),
-            SigningDriverType::Podman => todo!(),
-            SigningDriverType::Docker => DockerDriver::generate_key_pair(),
+            SigningDriverType::Sigstore => SigstoreDriver::generate_key_pair(),
         }
     }
 
     fn check_signing_files() -> Result<()> {
         match Self::get_signing_driver() {
             SigningDriverType::Cosign => CosignDriver::check_signing_files(),
-            SigningDriverType::Podman => todo!(),
-            SigningDriverType::Docker => DockerDriver::check_signing_files(),
+            SigningDriverType::Sigstore => SigstoreDriver::check_signing_files(),
         }
     }
 
     fn sign(image_digest: &str, key_arg: Option<String>) -> Result<()> {
         match Self::get_signing_driver() {
             SigningDriverType::Cosign => CosignDriver::sign(image_digest, key_arg),
-            SigningDriverType::Podman => todo!(),
-            SigningDriverType::Docker => DockerDriver::sign(image_digest, key_arg),
+            SigningDriverType::Sigstore => SigstoreDriver::sign(image_digest, key_arg),
         }
     }
 
     fn verify(image_name_tag: &str, verify_type: VerifyType) -> Result<()> {
         match Self::get_signing_driver() {
             SigningDriverType::Cosign => CosignDriver::verify(image_name_tag, verify_type),
-            SigningDriverType::Podman => todo!(),
-            SigningDriverType::Docker => DockerDriver::verify(image_name_tag, verify_type),
+            SigningDriverType::Sigstore => SigstoreDriver::verify(image_name_tag, verify_type),
         }
     }
 
     fn signing_login() -> Result<()> {
         match Self::get_signing_driver() {
             SigningDriverType::Cosign => CosignDriver::signing_login(),
-            SigningDriverType::Podman => todo!(),
-            SigningDriverType::Docker => DockerDriver::signing_login(),
+            SigningDriverType::Sigstore => SigstoreDriver::signing_login(),
         }
     }
 }
