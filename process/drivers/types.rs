@@ -90,10 +90,10 @@ impl DetermineDriver<SigningDriverType> for Option<SigningDriverType> {
     fn determine_driver(&mut self) -> SigningDriverType {
         trace!("SigningDriverType::determine_signing_driver()");
 
-        *self.get_or_insert(match blue_build_utils::check_command_exists("cosign") {
-            Ok(_cosign) => SigningDriverType::Cosign,
-            _ => SigningDriverType::Sigstore,
-        })
+        *self.get_or_insert(
+            blue_build_utils::check_command_exists("cosign")
+                .map_or(SigningDriverType::Sigstore, |()| SigningDriverType::Cosign),
+        )
     }
 }
 

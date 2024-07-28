@@ -1,13 +1,17 @@
 use std::{env, sync::Mutex};
 
-use blue_build_utils::constants::{
-    BB_PASSWORD, BB_REGISTRY, BB_USERNAME, CI_REGISTRY, CI_REGISTRY_PASSWORD, CI_REGISTRY_USER,
-    GITHUB_ACTIONS, GITHUB_ACTOR, GITHUB_TOKEN,
+use blue_build_utils::{
+    constants::{
+        BB_PASSWORD, BB_REGISTRY, BB_USERNAME, CI_REGISTRY, CI_REGISTRY_PASSWORD, CI_REGISTRY_USER,
+        GITHUB_ACTIONS, GITHUB_ACTOR, GITHUB_TOKEN,
+    },
+    string,
 };
 use clap::Args;
 use log::trace;
 use once_cell::sync::Lazy;
 use typed_builder::TypedBuilder;
+use zeroize::ZeroizeOnDrop;
 
 static INIT: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
 
@@ -50,10 +54,10 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
     ) {
         (Some(registry), _, _) if !registry.is_empty() => registry,
         (None, Some(ci_registry), None) if !ci_registry.is_empty() => ci_registry,
-        (None, None, Some(_)) => "ghcr.io".to_string(),
+        (None, None, Some(_)) => string!("ghcr.io"),
         _ => return None,
     };
-    trace!("Registry: {registry}");
+    trace!("Registry: {registry:?}");
 
     let username = match (
         username,
@@ -65,7 +69,7 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
         (None, None, Some(github_actor)) if !github_actor.is_empty() => github_actor,
         _ => return None,
     };
-    trace!("Username: {username}");
+    trace!("Username: {username:?}");
 
     let password = match (
         password,
@@ -90,7 +94,7 @@ static ENV_CREDENTIALS: Lazy<Option<Credentials>> = Lazy::new(|| {
 });
 
 /// The credentials for logging into image registries.
-#[derive(Debug, Default, Clone, TypedBuilder)]
+#[derive(Debug, Default, Clone, TypedBuilder, ZeroizeOnDrop)]
 pub struct Credentials {
     pub registry: String,
     pub username: String,
@@ -113,9 +117,7 @@ impl Credentials {
 
         if !*initialized {
             let mut creds_lock = INIT_CREDS.lock().expect("Must lock USER_CREDS");
-            creds_lock.username = args.username;
-            creds_lock.password = args.password;
-            creds_lock.registry = args.registry;
+            *creds_lock = args;
             drop(creds_lock);
             let _ = ENV_CREDENTIALS.as_ref();
 
@@ -130,7 +132,7 @@ impl Credentials {
     }
 }
 
-#[derive(Debug, Default, Clone, TypedBuilder, Args)]
+#[derive(Debug, Default, Clone, TypedBuilder, Args, ZeroizeOnDrop)]
 pub struct CredentialsArgs {
     /// The registry's domain name.
     #[arg(long, env = BB_REGISTRY)]
