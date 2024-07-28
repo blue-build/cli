@@ -1,5 +1,5 @@
 use std::{
-    env, fs,
+    env,
     path::Path,
     process::{Command, ExitStatus},
     sync::Mutex,
@@ -8,15 +8,11 @@ use std::{
 
 use blue_build_utils::{
     cmd,
-    constants::{
-        BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, COSIGN_IMAGE, COSIGN_PASSWORD, COSIGN_PRIVATE_KEY,
-        COSIGN_PUB_PATH, COSIGN_YES, DOCKER_HOST, GITHUB_TOKEN, SIGSTORE_ID_TOKEN, SKOPEO_IMAGE,
-    },
-    string, string_vec,
+    constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
 };
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, info, trace, warn};
-use miette::{bail, Context, IntoDiagnostic, Result};
+use miette::{bail, IntoDiagnostic, Result};
 use once_cell::sync::Lazy;
 use semver::Version;
 use serde::Deserialize;
@@ -24,19 +20,15 @@ use tempdir::TempDir;
 
 use crate::{
     credentials::Credentials,
-    drivers::{image_metadata::ImageMetadata, GROUP, USER},
+    drivers::image_metadata::ImageMetadata,
     logging::{CommandLogging, Logger},
-    run_envs, run_volumes,
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
 };
 
 use super::{
     opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
-    BuildDriver, DriverVersion, InspectDriver, RunDriver, SigningDriver, VerifyType,
+    BuildDriver, DriverVersion, InspectDriver, RunDriver,
 };
-
-const CREDS_VOL: &str = "cosign-creds";
-const CREDS_PATH: &str = "/.docker/";
 
 #[derive(Debug, Deserialize)]
 struct DockerVerisonJsonClient {
