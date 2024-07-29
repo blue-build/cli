@@ -72,9 +72,9 @@ impl BuildDriver for PodmanDriver {
             "--pull=true",
             format!("--layers={}", !opts.squash),
             "-f",
-            opts.containerfile.as_ref(),
+            &*opts.containerfile,
             "-t",
-            opts.image.as_ref(),
+            &*opts.image,
             ".",
         );
 
@@ -94,12 +94,7 @@ impl BuildDriver for PodmanDriver {
     fn tag(opts: &TagOpts) -> Result<()> {
         trace!("PodmanDriver::tag({opts:#?})");
 
-        let mut command = cmd!(
-            "podman",
-            "tag",
-            opts.src_image.as_ref(),
-            opts.dest_image.as_ref(),
-        );
+        let mut command = cmd!("podman", "tag", &*opts.src_image, &*opts.dest_image,);
 
         trace!("{command:?}");
         let status = command.status().into_diagnostic()?;
@@ -122,7 +117,7 @@ impl BuildDriver for PodmanDriver {
                 "--compression-format={}",
                 opts.compression_type.unwrap_or_default()
             ),
-            opts.image.as_ref(),
+            &*opts.image,
         );
 
         trace!("{command:?}");
@@ -165,7 +160,7 @@ impl InspectDriver for PodmanDriver {
     fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
         trace!("PodmanDriver::get_metadata({opts:#?})");
 
-        let url = opts.tag.as_ref().map_or_else(
+        let url = opts.tag.as_deref().map_or_else(
             || format!("docker://{}", opts.image),
             |tag| format!("docker://{}:{tag}", opts.image),
         );
@@ -210,7 +205,7 @@ impl RunDriver for PodmanDriver {
         add_cid(&cid);
 
         let status = podman_run(opts, &cid_file)
-            .status_image_ref_progress(opts.image.as_ref(), "Running container")?;
+            .status_image_ref_progress(&*opts.image, "Running container")?;
 
         remove_cid(&cid);
 
@@ -276,7 +271,7 @@ fn podman_run(opts: &RunOpts, cid_file: &Path) -> Command {
         cmd!(command, "--env", format!("{}={}", env.key, env.value));
     });
 
-    cmd!(command, opts.image.as_ref());
+    cmd!(command, &*opts.image);
 
     opts.args.iter().for_each(|arg| cmd!(command, arg));
 

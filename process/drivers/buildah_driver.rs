@@ -51,9 +51,9 @@ impl BuildDriver for BuildahDriver {
             "--pull=true",
             format!("--layers={}", !opts.squash),
             "-f",
-            opts.containerfile.as_ref(),
+            &*opts.containerfile,
             "-t",
-            opts.image.as_ref(),
+            &*opts.image,
         );
 
         trace!("{command:?}");
@@ -72,12 +72,7 @@ impl BuildDriver for BuildahDriver {
     fn tag(opts: &TagOpts) -> Result<()> {
         trace!("BuildahDriver::tag({opts:#?})");
 
-        let mut command = cmd!(
-            "buildah",
-            "tag",
-            opts.src_image.as_ref(),
-            opts.dest_image.as_ref(),
-        );
+        let mut command = cmd!("buildah", "tag", &*opts.src_image, &*opts.dest_image,);
 
         trace!("{command:?}");
         if command.status().into_diagnostic()?.success() {
@@ -98,7 +93,7 @@ impl BuildDriver for BuildahDriver {
                 "--compression-format={}",
                 opts.compression_type.unwrap_or_default()
             ),
-            opts.image.as_ref(),
+            &*opts.image,
         );
 
         trace!("{command:?}");

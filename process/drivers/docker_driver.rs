@@ -125,9 +125,9 @@ impl BuildDriver for DockerDriver {
             "docker",
             "build",
             "-t",
-            opts.image.as_ref(),
+            &*opts.image,
             "-f",
-            opts.containerfile.as_ref(),
+            &*opts.containerfile,
             ".",
         )
         .status()
@@ -145,14 +145,9 @@ impl BuildDriver for DockerDriver {
         trace!("DockerDriver::tag({opts:#?})");
 
         trace!("docker tag {} {}", opts.src_image, opts.dest_image);
-        let status = cmd!(
-            "docker",
-            "tag",
-            opts.src_image.as_ref(),
-            opts.dest_image.as_ref(),
-        )
-        .status()
-        .into_diagnostic()?;
+        let status = cmd!("docker", "tag", &*opts.src_image, &*opts.dest_image,)
+            .status()
+            .into_diagnostic()?;
 
         if status.success() {
             info!("Successfully tagged {}!", opts.dest_image);
@@ -166,7 +161,7 @@ impl BuildDriver for DockerDriver {
         trace!("DockerDriver::push({opts:#?})");
 
         trace!("docker push {}", opts.image);
-        let status = cmd!("docker", "push", opts.image.as_ref())
+        let status = cmd!("docker", "push", &*opts.image)
             .status()
             .into_diagnostic()?;
 
@@ -216,13 +211,7 @@ impl BuildDriver for DockerDriver {
             cmd!(command, "--builder=bluebuild");
         }
 
-        cmd!(
-            command,
-            "build",
-            "--pull",
-            "-f",
-            opts.containerfile.as_ref(),
-        );
+        cmd!(command, "build", "--pull", "-f", &*opts.containerfile,);
 
         // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
         if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
@@ -237,14 +226,16 @@ impl BuildDriver for DockerDriver {
 
         let mut final_image = String::new();
 
-        match (opts.image.as_ref(), opts.archive_path.as_ref()) {
+        match (opts.image.as_deref(), opts.archive_path.as_deref()) {
             (Some(image), None) => {
                 if opts.tags.is_empty() {
                     final_image.push_str(image);
-                    cmd!(command, "-t", image.as_ref());
+                    cmd!(command, "-t", image);
                 } else {
-                    final_image
-                        .push_str(format!("{image}:{}", opts.tags.first().unwrap_or(&"")).as_str());
+                    final_image.push_str(
+                        format!("{image}:{}", opts.tags.first().map_or("", String::as_str))
+                            .as_str(),
+                    );
 
                     opts.tags.iter().for_each(|tag| {
                         cmd!(command, "-t", format!("{image}:{tag}"));
@@ -340,7 +331,7 @@ impl RunDriver for DockerDriver {
         add_cid(&cid);
 
         let status = docker_run(opts, &cid_file)
-            .status_image_ref_progress(opts.image.as_ref(), "Running container")?;
+            .status_image_ref_progress(&*opts.image, "Running container")?;
 
         remove_cid(&cid);
 
@@ -395,7 +386,7 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
         _ => {}
     }
 
-    cmd!(command, opts.image.as_ref());
+    cmd!(command, &*opts.image);
 
     opts.args.iter().for_each(|arg| cmd!(command, arg));
 

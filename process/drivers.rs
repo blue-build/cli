@@ -190,8 +190,8 @@ impl Driver {
             None => {
                 info!("Retrieving OS version from {image}. This might take a bit");
                 let inspect_opts = GetMetadataOpts::builder()
-                    .image(recipe.base_image.as_ref())
-                    .tag(recipe.image_version.as_ref())
+                    .image(&*recipe.base_image)
+                    .tag(&*recipe.image_version)
                     .build();
                 let inspection = Self::get_metadata(&inspect_opts)?;
 

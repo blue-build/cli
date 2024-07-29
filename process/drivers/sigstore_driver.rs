@@ -75,7 +75,8 @@ impl SigningDriver for SigstoreDriver {
                 registry: _,
                 username,
                 password,
-            } = Credentials::get().ok_or(miette!("Credentials are required for signing"))?;
+            } = Credentials::get()
+                .ok_or_else(|| miette!("Credentials are required for signing"))?;
 
             let auth = Auth::Basic(username.clone(), password.clone());
             let mut client = ClientBuilder::default().build().into_diagnostic()?;
