@@ -12,10 +12,10 @@ pub(super) enum PrivateKey {
 }
 
 impl PrivateKey {
-    pub fn contents(&self) -> Result<Zeroizing<String>> {
+    pub fn contents(&self) -> Result<Zeroizing<Vec<u8>>> {
         Ok(Zeroizing::new(match *self {
-            Self::Env(env) => env::var(env).into_diagnostic()?,
-            Self::Path(path) => fs::read_to_string(path).into_diagnostic()?,
+            Self::Env(env) => env::var(env).into_diagnostic()?.as_bytes().to_vec(),
+            Self::Path(path) => fs::read(path).into_diagnostic()?,
         }))
     }
 }
