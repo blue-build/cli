@@ -1,13 +1,23 @@
-use std::{env, path::Path};
+use std::{env, fs, path::Path};
 
 use blue_build_utils::constants::{
     BB_PRIVATE_KEY, COSIGN_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PUB_PATH,
 };
-use miette::{bail, Result};
+use miette::{bail, IntoDiagnostic, Result};
+use zeroize::Zeroizing;
 
 pub(super) enum PrivateKey {
     Env(&'static str),
     Path(&'static Path),
+}
+
+impl PrivateKey {
+    pub fn contents(&self) -> Result<Zeroizing<String>> {
+        Ok(Zeroizing::new(match *self {
+            Self::Env(env) => env::var(env).into_diagnostic()?,
+            Self::Path(path) => fs::read_to_string(path).into_diagnostic()?,
+        }))
+    }
 }
 
 impl std::fmt::Display for PrivateKey {
