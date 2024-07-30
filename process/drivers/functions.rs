@@ -50,14 +50,17 @@ pub(super) fn get_private_key<T>(check_fn: impl FnOnce(PrivateKey) -> Result<T>)
         }
         _ => {
             bail!(
-                "{}{}{}{}{}{}{}",
-                "Unable to find private/public key pair.\n\n",
-                format_args!("Make sure you have a `{COSIGN_PUB_PATH}` "),
-                format_args!("in the root of your repo and have either {COSIGN_PRIVATE_KEY} "),
-                format_args!("set in your env variables or a `{COSIGN_PRIV_PATH}` "),
-                "file in the root of your repo.\n\n",
-                "See https://blue-build.org/how-to/cosign/ for more information.\n\n",
-                "If you don't want to sign your image, use the `--no-sign` flag."
+                help = format!(
+                    "{}{}{}{}{}{}",
+                    format_args!("Make sure you have a `{COSIGN_PUB_PATH}`\n"),
+                    format_args!("in the root of your repo and have either {COSIGN_PRIVATE_KEY}\n"),
+                    format_args!("set in your env variables or a `{COSIGN_PRIV_PATH}`\n"),
+                    "file in the root of your repo.\n\n",
+                    "See https://blue-build.org/how-to/cosign/ for more information.\n\n",
+                    "If you don't want to sign your image, use the `--no-sign` flag.",
+                ),
+                "{}",
+                "Unable to find private/public key pair",
             )
         }
     }
