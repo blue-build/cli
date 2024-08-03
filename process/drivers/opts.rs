@@ -3,6 +3,7 @@ use clap::ValueEnum;
 pub use build::*;
 pub use inspect::*;
 pub use run::*;
+pub use signing::*;
 
 mod build;
 mod inspect;

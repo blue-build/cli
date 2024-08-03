@@ -9,6 +9,7 @@ use std::{
 use blue_build_utils::{
     cmd,
     constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
+    string_vec,
 };
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, info, trace, warn};
@@ -303,7 +304,7 @@ impl InspectDriver for DockerDriver {
         let output = Self::run_output(
             &RunOpts::builder()
                 .image(SKOPEO_IMAGE)
-                .args(["inspect".to_string(), url.clone()])
+                .args(string_vec!["inspect", url.clone()])
                 .remove(true)
                 .build(),
         )

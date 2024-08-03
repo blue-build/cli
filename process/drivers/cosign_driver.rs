@@ -7,9 +7,13 @@ use blue_build_utils::{
 use log::{debug, trace};
 use miette::{bail, Context, IntoDiagnostic, Result};
 
-use crate::{credentials::Credentials, drivers::VerifyType};
+use crate::{credentials::Credentials, drivers::opts::VerifyType};
 
-use super::{functions::get_private_key, SigningDriver};
+use super::{
+    functions::get_private_key,
+    opts::{SignOpts, VerifyOpts},
+    SigningDriver,
+};
 
 #[derive(Debug)]
 pub struct CosignDriver;
@@ -88,7 +92,8 @@ impl SigningDriver for CosignDriver {
         Ok(())
     }
 
-    fn sign(image_digest: &str, key_arg: Option<String>) -> Result<()> {
+    fn sign(opts: &SignOpts) -> Result<()> {
+        let image_digest: &str = opts.image.as_ref();
         let mut command = cmd!("cosign", "sign");
         cmd_env! {
             command,
@@ -96,8 +101,8 @@ impl SigningDriver for CosignDriver {
             COSIGN_YES => "true",
         };
 
-        if let Some(key_arg) = key_arg {
-            cmd!(command, key_arg);
+        if let Some(ref key) = opts.key {
+            cmd!(command, format!("--key={key}"));
         }
 
         cmd!(command, "--recursive", image_digest);
@@ -110,17 +115,21 @@ impl SigningDriver for CosignDriver {
         Ok(())
     }
 
-    fn verify(image_name_tag: &str, verify_type: VerifyType) -> Result<()> {
+    fn verify(opts: &VerifyOpts) -> Result<()> {
+        let image_name_tag: &str = opts.image.as_ref();
         let mut command = cmd!("cosign", "verify");
 
-        match verify_type {
-            VerifyType::File(path) => cmd!(command, format!("--key={path}")),
-            VerifyType::Keyless { issuer, identity } => cmd!(
+        match opts.verify_type {
+            VerifyType::File(ref path) => cmd!(command, format!("--key={path}")),
+            VerifyType::Keyless {
+                ref issuer,
+                ref identity,
+            } => cmd!(
                 command,
                 "--certificate-identity-regexp",
-                identity,
+                identity as &str,
                 "--certificate-oidc-issuer",
-                issuer
+                issuer as &str,
             ),
         };
 
