@@ -204,6 +204,7 @@ impl BlueBuildCommand for BuildCommand {
 impl BuildCommand {
     #[cfg(feature = "multi-recipe")]
     fn start(&self, recipe_paths: &[PathBuf]) -> Result<()> {
+        use blue_build_process_management::drivers::opts::SignVerifyOpts;
         use rayon::prelude::*;
 
         trace!("BuildCommand::build_image()");
@@ -246,7 +247,13 @@ impl BuildCommand {
                 Driver::build_tag_push(&opts)?;
 
                 if self.push && !self.no_sign {
-                    Driver::sign_images(&image_name, tags.first().map(String::as_str))?;
+                    let opts = SignVerifyOpts::builder().image(&image_name);
+                    let opts = if let Some(tag) = tags.first() {
+                        opts.tag(tag).build()
+                    } else {
+                        opts.build()
+                    };
+                    Driver::sign_and_verify(&opts)?;
                 }
 
                 Ok(())
@@ -258,6 +265,8 @@ impl BuildCommand {
 
     #[cfg(not(feature = "multi-recipe"))]
     fn start(&self, recipe_path: &Path) -> Result<()> {
+        use blue_build_process_management::drivers::opts::SignVerifyOpts;
+
         trace!("BuildCommand::start()");
 
         let recipe = Recipe::parse(recipe_path)?;
@@ -291,7 +300,13 @@ impl BuildCommand {
         Driver::build_tag_push(&opts)?;
 
         if self.push && !self.no_sign {
-            Driver::sign_images(&image_name, tags.first().map(String::as_str))?;
+            let opts = SignVerifyOpts::builder().image(&image_name);
+            let opts = if let Some(tag) = tags.first() {
+                opts.tag(tag).build()
+            } else {
+                opts.build()
+            };
+            Driver::sign_and_verify(&opts)?;
         }
 
         info!("Build complete!");

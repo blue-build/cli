@@ -2,7 +2,11 @@ use std::{fs, path::Path};
 
 use crate::credentials::Credentials;
 
-use super::{functions::get_private_key, SigningDriver};
+use super::{
+    functions::get_private_key,
+    opts::{SignOpts, VerifyOpts},
+    SigningDriver,
+};
 use blue_build_utils::constants::{COSIGN_PRIV_PATH, COSIGN_PUB_PATH};
 use log::{debug, trace};
 use miette::{bail, miette, Context, IntoDiagnostic};
@@ -74,11 +78,12 @@ impl SigningDriver for SigstoreDriver {
         }
     }
 
-    fn sign(image_digest: &str, _key_arg: Option<String>) -> miette::Result<()> {
-        trace!("SigstoreDriver::sign({image_digest})");
+    fn sign(opts: &SignOpts) -> miette::Result<()> {
+        trace!("SigstoreDriver::sign({opts:?})");
 
         let mut client = ClientBuilder::default().build().into_diagnostic()?;
 
+        let image_digest: &str = opts.image.as_ref();
         let image_digest: OciReference = image_digest.parse().into_diagnostic()?;
         trace!("{image_digest:?}");
 
@@ -128,7 +133,7 @@ impl SigningDriver for SigstoreDriver {
         Ok(())
     }
 
-    fn verify(_image_name_tag: &str, _verify_type: super::VerifyType) -> miette::Result<()> {
+    fn verify(_opts: &VerifyOpts) -> miette::Result<()> {
         todo!()
     }
 

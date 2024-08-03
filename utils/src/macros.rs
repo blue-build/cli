@@ -69,8 +69,11 @@ macro_rules! string {
 #[macro_export]
 macro_rules! string_vec {
     ($($string:expr),+ $(,)?) => {
-        vec![
-            $(string!($string),)*
-        ]
+        {
+            use $crate::string;
+            vec![
+                $(string!($string),)*
+            ]
+        }
     };
 }
