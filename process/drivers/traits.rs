@@ -180,25 +180,6 @@ pub trait SigningDriver {
 
     /// Signs the image digest.
     ///
-    /// ## The `key_arg`
-    /// The `key_arg` is expected to be in the format of the
-    /// `--key` argument on the `cosign` CLI.
-    ///
-    /// ### Examples
-    ///   `"--key=cosign.key"`
-    ///
-    ///   `"--key=env://[ENV_VAR]"`
-    ///
-    ///   `"--key=azurekms://[VAULT_NAME][VAULT_URI]/[KEY]"`
-    ///
-    ///   `"--key=awskms://[ENDPOINT]/[ID/ALIAS/ARN]"`
-    ///
-    ///   `"--key=gcpkms://projects/[PROJECT]/locations/global/keyRings/[KEYRING]/cryptoKeys/[KEY]/versions/[VERSION]"`
-    ///
-    ///   `"--key=hashivault://[KEY]"`
-    ///
-    ///   `"--key=k8s://[NAMESPACE]/[KEY]"`
-    ///
     /// # Errors
     /// Will error if signing fails.
     fn sign(opts: &SignOpts) -> Result<()>;
