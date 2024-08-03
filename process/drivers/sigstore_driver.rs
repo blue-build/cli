@@ -12,9 +12,12 @@ use log::{debug, trace};
 use miette::{bail, miette, Context, IntoDiagnostic};
 use sigstore::{
     cosign::{
-        constraint::PrivateKeySigner, ClientBuilder, Constraint, CosignCapabilities, SignatureLayer,
+        constraint::PrivateKeySigner,
+        verification_constraint::{PublicKeyVerifier, VerificationConstraintVec},
+        ClientBuilder, Constraint, CosignCapabilities, SignatureLayer,
     },
     crypto::{signing_key::SigStoreKeyPair, SigningScheme},
+    errors::SigstoreVerifyConstraintsError,
     registry::{Auth, OciReference},
 };
 use zeroize::Zeroizing;
@@ -133,8 +136,48 @@ impl SigningDriver for SigstoreDriver {
         Ok(())
     }
 
-    fn verify(_opts: &VerifyOpts) -> miette::Result<()> {
-        todo!()
+    fn verify(opts: &VerifyOpts) -> miette::Result<()> {
+        let mut client = ClientBuilder::default().build().into_diagnostic()?;
+
+        let image_digest: &str = opts.image.as_ref();
+        let image_digest: OciReference = image_digest.parse().into_diagnostic()?;
+        trace!("{image_digest:?}");
+
+        let signing_scheme = SigningScheme::default();
+
+        let pub_key = fs::read_to_string(COSIGN_PUB_PATH)
+            .into_diagnostic()
+            .with_context(|| format!("Failed to open public key file {COSIGN_PUB_PATH}"))?;
+        debug!("Retrieved public key from {COSIGN_PUB_PATH}");
+        trace!("{pub_key}");
+
+        let verifier =
+            PublicKeyVerifier::new(pub_key.as_bytes(), &signing_scheme).into_diagnostic()?;
+        let verification_constraints: VerificationConstraintVec = vec![Box::new(verifier)];
+
+        let auth = Auth::Anonymous;
+        let (cosign_signature_image, source_image_digest) =
+            smol::block_on(client.triangulate(&image_digest, &auth))
+                .into_diagnostic()
+                .with_context(|| format!("Failed to triangulate image {image_digest}"))?;
+        debug!("Triangulating image");
+        trace!("{cosign_signature_image}, {source_image_digest}");
+
+        let trusted_layers = smol::block_on(client.trusted_signature_layers(
+            &auth,
+            &source_image_digest,
+            &cosign_signature_image,
+        ))
+        .into_diagnostic()?;
+
+        sigstore::cosign::verify_constraints(&trusted_layers, verification_constraints.iter())
+            .map_err(
+                |SigstoreVerifyConstraintsError {
+                     unsatisfied_constraints,
+                 }| {
+                    miette!("Failed to verify for constraints: {unsatisfied_constraints:?}")
+                },
+            )
     }
 
     fn signing_login() -> miette::Result<()> {
