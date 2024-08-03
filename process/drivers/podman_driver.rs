@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use blue_build_utils::{cmd, constants::SKOPEO_IMAGE};
+use blue_build_utils::{cmd, constants::SKOPEO_IMAGE, string_vec};
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace, warn};
@@ -175,7 +175,7 @@ impl InspectDriver for PodmanDriver {
         let output = Self::run_output(
             &RunOpts::builder()
                 .image(SKOPEO_IMAGE)
-                .args(["inspect".to_string(), url.clone()])
+                .args(string_vec!["inspect", url.clone()])
                 .remove(true)
                 .build(),
         )

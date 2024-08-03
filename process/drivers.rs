@@ -29,7 +29,10 @@ use self::{
     gitlab_driver::GitlabDriver,
     image_metadata::ImageMetadata,
     local_driver::LocalDriver,
-    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
+    opts::{
+        BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, SignOpts, TagOpts,
+        VerifyOpts,
+    },
     podman_driver::PodmanDriver,
     skopeo_driver::SkopeoDriver,
     types::{
@@ -302,17 +305,17 @@ impl SigningDriver for Driver {
         }
     }
 
-    fn sign(image_digest: &str, key_arg: Option<String>) -> Result<()> {
+    fn sign(opts: &SignOpts) -> Result<()> {
         match Self::get_signing_driver() {
-            SigningDriverType::Cosign => CosignDriver::sign(image_digest, key_arg),
-            SigningDriverType::Sigstore => SigstoreDriver::sign(image_digest, key_arg),
+            SigningDriverType::Cosign => CosignDriver::sign(opts),
+            SigningDriverType::Sigstore => SigstoreDriver::sign(opts),
         }
     }
 
-    fn verify(image_name_tag: &str, verify_type: VerifyType) -> Result<()> {
+    fn verify(opts: &VerifyOpts) -> Result<()> {
         match Self::get_signing_driver() {
-            SigningDriverType::Cosign => CosignDriver::verify(image_name_tag, verify_type),
-            SigningDriverType::Sigstore => SigstoreDriver::verify(image_name_tag, verify_type),
+            SigningDriverType::Cosign => CosignDriver::verify(opts),
+            SigningDriverType::Sigstore => SigstoreDriver::verify(opts),
         }
     }
 

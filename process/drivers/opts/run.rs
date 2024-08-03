@@ -8,13 +8,13 @@ pub struct RunOpts<'scope> {
     pub image: Cow<'scope, str>,
 
     #[builder(default, setter(into))]
-    pub args: Vec<String>,
+    pub args: Cow<'scope, [String]>,
 
     #[builder(default, setter(into))]
-    pub env_vars: Vec<RunOptsEnv<'scope>>,
+    pub env_vars: Cow<'scope, [RunOptsEnv<'scope>]>,
 
     #[builder(default, setter(into))]
-    pub volumes: Vec<RunOptsVolume<'scope>>,
+    pub volumes: Cow<'scope, [RunOptsVolume<'scope>]>,
 
     #[builder(default, setter(strip_option))]
     pub uid: Option<u32>,

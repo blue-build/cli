@@ -1,36 +1,11 @@
-use std::{env, fs, path::Path};
+use std::{env, path::Path};
 
 use blue_build_utils::constants::{
     BB_PRIVATE_KEY, COSIGN_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PUB_PATH,
 };
-use miette::{bail, IntoDiagnostic, Result};
-use zeroize::Zeroizing;
+use miette::{bail, Result};
 
-pub(super) enum PrivateKey {
-    Env(&'static str),
-    Path(&'static Path),
-}
-
-impl PrivateKey {
-    pub fn contents(&self) -> Result<Zeroizing<Vec<u8>>> {
-        Ok(Zeroizing::new(match *self {
-            Self::Env(env) => env::var(env).into_diagnostic()?.as_bytes().to_vec(),
-            Self::Path(path) => fs::read(path).into_diagnostic()?,
-        }))
-    }
-}
-
-impl std::fmt::Display for PrivateKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(
-            match *self {
-                Self::Env(env) => format!("env://{env}"),
-                Self::Path(path) => format!("{}", path.display()),
-            }
-            .as_str(),
-        )
-    }
-}
+use super::opts::PrivateKey;
 
 pub(super) fn get_private_key<T>(check_fn: impl FnOnce(PrivateKey) -> Result<T>) -> Result<T> {
     match (
