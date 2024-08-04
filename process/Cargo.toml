@@ -26,6 +26,7 @@ rand = "0.8"
 semver = { version = "1", features = ["serde"] }
 signal-hook = { version = "0.3", features = ["extended-siginfo"] }
 sigstore = { version = "0.9", features = ["full-rustls-tls", "cached-client", "sigstore-trust-root", "sign"], default-features = false }
+# sigstore = { path = "../../../sigstore-rs", features = ["full-rustls-tls", "cached-client", "sigstore-trust-root", "sign"], default-features = false }
 smol = "2"
 zeroize = { version = "1", features = ["aarch64", "derive", "serde"] }
 

@@ -30,8 +30,8 @@ use self::{
     image_metadata::ImageMetadata,
     local_driver::LocalDriver,
     opts::{
-        BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, SignOpts, TagOpts,
-        VerifyOpts,
+        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateKeyPairOpts, GetMetadataOpts,
+        PushOpts, RunOpts, SignOpts, TagOpts, VerifyOpts,
     },
     podman_driver::PodmanDriver,
     skopeo_driver::SkopeoDriver,
@@ -291,17 +291,17 @@ impl BuildDriver for Driver {
 }
 
 impl SigningDriver for Driver {
-    fn generate_key_pair() -> Result<()> {
+    fn generate_key_pair(opts: &GenerateKeyPairOpts) -> Result<()> {
         match Self::get_signing_driver() {
-            SigningDriverType::Cosign => CosignDriver::generate_key_pair(),
-            SigningDriverType::Sigstore => SigstoreDriver::generate_key_pair(),
+            SigningDriverType::Cosign => CosignDriver::generate_key_pair(opts),
+            SigningDriverType::Sigstore => SigstoreDriver::generate_key_pair(opts),
         }
     }
 
-    fn check_signing_files() -> Result<()> {
+    fn check_signing_files(opts: &CheckKeyPairOpts) -> Result<()> {
         match Self::get_signing_driver() {
-            SigningDriverType::Cosign => CosignDriver::check_signing_files(),
-            SigningDriverType::Sigstore => SigstoreDriver::check_signing_files(),
+            SigningDriverType::Cosign => CosignDriver::check_signing_files(opts),
+            SigningDriverType::Sigstore => SigstoreDriver::check_signing_files(opts),
         }
     }
 

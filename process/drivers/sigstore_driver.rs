@@ -1,10 +1,10 @@
 use std::{fs, path::Path};
 
-use crate::credentials::Credentials;
+use crate::{credentials::Credentials, drivers::opts::PrivateKeyContents};
 
 use super::{
     functions::get_private_key,
-    opts::{SignOpts, VerifyOpts},
+    opts::{CheckKeyPairOpts, GenerateKeyPairOpts, SignOpts, VerifyOpts},
     SigningDriver,
 };
 use blue_build_utils::constants::{COSIGN_PRIV_PATH, COSIGN_PUB_PATH};
@@ -25,9 +25,10 @@ use zeroize::Zeroizing;
 pub struct SigstoreDriver;
 
 impl SigningDriver for SigstoreDriver {
-    fn generate_key_pair() -> miette::Result<()> {
-        let priv_key_path = Path::new(COSIGN_PRIV_PATH);
-        let pub_key_path = Path::new(COSIGN_PUB_PATH);
+    fn generate_key_pair(opts: &GenerateKeyPairOpts) -> miette::Result<()> {
+        let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
+        let priv_key_path = path.join(COSIGN_PRIV_PATH);
+        let pub_key_path = path.join(COSIGN_PUB_PATH);
 
         if priv_key_path.exists() {
             bail!("Private key file already exists at {COSIGN_PRIV_PATH}");
@@ -39,7 +40,9 @@ impl SigningDriver for SigstoreDriver {
 
         let keypair = signer.to_sigstore_keypair().into_diagnostic()?;
 
-        let priv_key = keypair.private_key_to_pem().into_diagnostic()?;
+        let priv_key = keypair
+            .private_key_to_encrypted_pem(b"")
+            .into_diagnostic()?;
         let pub_key = keypair.public_key_to_pem().into_diagnostic()?;
 
         fs::write(priv_key_path, priv_key)
@@ -52,20 +55,24 @@ impl SigningDriver for SigstoreDriver {
         Ok(())
     }
 
-    fn check_signing_files() -> miette::Result<()> {
-        trace!("SigstoreDriver::check_signing_files()");
+    fn check_signing_files(opts: &CheckKeyPairOpts) -> miette::Result<()> {
+        trace!("SigstoreDriver::check_signing_files({opts:?})");
 
-        let pub_key = fs::read_to_string(COSIGN_PUB_PATH)
+        let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
+
+        let pub_key = fs::read_to_string(path.join(COSIGN_PUB_PATH))
             .into_diagnostic()
             .with_context(|| format!("Failed to open public key file {COSIGN_PUB_PATH}"))?;
         debug!("Retrieved public key from {COSIGN_PUB_PATH}");
         trace!("{pub_key}");
 
-        let key =
-            get_private_key(|priv_key| priv_key.contents()).context("Failed to get private key")?;
+        let key: Zeroizing<String> = get_private_key(path, |priv_key| priv_key.contents())
+            .context("Failed to get private key")?;
         debug!("Retrieved private key");
 
-        let keypair = SigStoreKeyPair::from_pem(&key).into_diagnostic()?;
+        let keypair = SigStoreKeyPair::from_encrypted_pem(key.as_bytes(), b"")
+            .into_diagnostic()
+            .context("Failed to generate key pair from private key")?;
         let gen_pub = keypair
             .public_key_to_pem()
             .into_diagnostic()
@@ -84,6 +91,7 @@ impl SigningDriver for SigstoreDriver {
     fn sign(opts: &SignOpts) -> miette::Result<()> {
         trace!("SigstoreDriver::sign({opts:?})");
 
+        let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
         let mut client = ClientBuilder::default().build().into_diagnostic()?;
 
         let image_digest: &str = opts.image.as_ref();
@@ -91,7 +99,7 @@ impl SigningDriver for SigstoreDriver {
         trace!("{image_digest:?}");
 
         let signing_scheme = SigningScheme::default();
-        let key = get_private_key(|key| key.contents())?;
+        let key = get_private_key(path, |key| key.contents())?;
         debug!("Retrieved private key");
 
         let signer = PrivateKeySigner::new_with_raw(key, Zeroizing::default(), &signing_scheme)
@@ -182,5 +190,42 @@ impl SigningDriver for SigstoreDriver {
 
     fn signing_login() -> miette::Result<()> {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::fs;
+
+    use blue_build_utils::constants::{COSIGN_PRIV_PATH, COSIGN_PUB_PATH};
+    use tempdir::TempDir;
+
+    use crate::drivers::{
+        opts::{CheckKeyPairOpts, GenerateKeyPairOpts},
+        SigningDriver,
+    };
+
+    use super::SigstoreDriver;
+
+    #[test]
+    fn generate_key_pair() {
+        let tempdir = TempDir::new("keypair").unwrap();
+
+        let gen_opts = GenerateKeyPairOpts::builder().dir(tempdir.path()).build();
+
+        SigstoreDriver::generate_key_pair(&gen_opts).unwrap();
+
+        eprintln!(
+            "Private key:\n{}",
+            fs::read_to_string(tempdir.path().join(COSIGN_PRIV_PATH)).unwrap()
+        );
+        eprintln!(
+            "Public key:\n{}",
+            fs::read_to_string(tempdir.path().join(COSIGN_PUB_PATH)).unwrap()
+        );
+
+        let check_opts = CheckKeyPairOpts::builder().dir(tempdir.path()).build();
+
+        SigstoreDriver::check_signing_files(&check_opts).unwrap();
     }
 }

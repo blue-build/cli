@@ -102,3 +102,6 @@ codegen-units = 1
 strip = "none"
 debug = false
 panic = "abort"
+
+[patch.crates-io]
+sigstore = { git = "https://github.com/gmpinder/sigstore-rs.git" }

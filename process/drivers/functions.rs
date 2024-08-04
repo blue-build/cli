@@ -1,24 +1,33 @@
 use std::{env, path::Path};
 
-use blue_build_utils::constants::{
-    BB_PRIVATE_KEY, COSIGN_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PUB_PATH,
+use blue_build_utils::{
+    constants::{BB_PRIVATE_KEY, COSIGN_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PUB_PATH},
+    string,
 };
 use miette::{bail, Result};
 
 use super::opts::PrivateKey;
 
-pub(super) fn get_private_key<T>(check_fn: impl FnOnce(PrivateKey) -> Result<T>) -> Result<T> {
+pub(super) fn get_private_key<P, T>(
+    path: P,
+    check_fn: impl FnOnce(PrivateKey) -> Result<T>,
+) -> Result<T>
+where
+    P: AsRef<Path>,
+{
+    let path = path.as_ref();
+
     match (
-        Path::new(COSIGN_PUB_PATH).exists(),
+        path.join(COSIGN_PUB_PATH).exists(),
         env::var(BB_PRIVATE_KEY).ok(),
         env::var(COSIGN_PRIVATE_KEY).ok(),
-        Path::new(COSIGN_PRIV_PATH),
+        path.join(COSIGN_PRIV_PATH),
     ) {
         (true, Some(private_key), _, _) if !private_key.is_empty() => {
-            check_fn(PrivateKey::Env(BB_PRIVATE_KEY))
+            check_fn(PrivateKey::Env(string!(BB_PRIVATE_KEY)))
         }
         (true, _, Some(cosign_priv_key), _) if !cosign_priv_key.is_empty() => {
-            check_fn(PrivateKey::Env(COSIGN_PRIVATE_KEY))
+            check_fn(PrivateKey::Env(string!(COSIGN_PRIVATE_KEY)))
         }
         (true, _, _, cosign_priv_key_path) if cosign_priv_key_path.exists() => {
             check_fn(PrivateKey::Path(cosign_priv_key_path))
