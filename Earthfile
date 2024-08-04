@@ -42,6 +42,7 @@ lint:
 test:
 	FROM +common
 	COPY --dir test-files/ integration-tests/ /app
+	COPY +cosign/cosign /usr/bin/cosign
 
 	DO rust+CARGO --args="test --workspace -- --show-output"
 	DO rust+CARGO --args="test --workspace --all-features -- --show-output"
