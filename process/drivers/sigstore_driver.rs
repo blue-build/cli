@@ -100,11 +100,15 @@ impl SigningDriver for SigstoreDriver {
         trace!("{image_digest:?}");
 
         let signing_scheme = SigningScheme::default();
-        let key = get_private_key(path, |key| key.contents())?;
+        let key: Zeroizing<Vec<u8>> = get_private_key(path, |key| key.contents())?;
         debug!("Retrieved private key");
 
-        let signer = PrivateKeySigner::new_with_raw(key, Zeroizing::default(), &signing_scheme)
-            .into_diagnostic()?;
+        let signer = PrivateKeySigner::new_with_signer(
+            SigStoreKeyPair::from_encrypted_pem(&key, b"")
+                .into_diagnostic()?
+                .to_sigstore_signer(&signing_scheme)
+                .into_diagnostic()?,
+        );
         debug!("Created signer");
 
         let Credentials {
