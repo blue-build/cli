@@ -168,12 +168,8 @@ impl SigningDriver for SigstoreDriver {
             PublicKeyVerifier::new(pub_key.as_bytes(), &signing_scheme).into_diagnostic()?;
         let verification_constraints: VerificationConstraintVec = vec![Box::new(verifier)];
 
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .build()
-            .into_diagnostic()?;
-
         let auth = Auth::Anonymous;
-        let (cosign_signature_image, source_image_digest) = rt
+        let (cosign_signature_image, source_image_digest) = RT
             .block_on(client.triangulate(&image_digest, &auth))
             .into_diagnostic()
             .with_context(|| format!("Failed to triangulate image {image_digest}"))?;
