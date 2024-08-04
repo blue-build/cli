@@ -104,4 +104,5 @@ debug = false
 panic = "abort"
 
 [patch.crates-io]
-sigstore = { git = "https://github.com/gmpinder/sigstore-rs.git" }
+sigstore = { path = "../../sigstore-rs/" }
+# sigstore = { git = "https://github.com/gmpinder/sigstore-rs.git" }

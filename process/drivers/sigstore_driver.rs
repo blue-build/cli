@@ -59,10 +59,11 @@ impl SigningDriver for SigstoreDriver {
         trace!("SigstoreDriver::check_signing_files({opts:?})");
 
         let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
+        let pub_path = path.join(COSIGN_PUB_PATH);
 
-        let pub_key = fs::read_to_string(path.join(COSIGN_PUB_PATH))
+        let pub_key = fs::read_to_string(&pub_path)
             .into_diagnostic()
-            .with_context(|| format!("Failed to open public key file {COSIGN_PUB_PATH}"))?;
+            .with_context(|| format!("Failed to open public key file {}", pub_path.display()))?;
         debug!("Retrieved public key from {COSIGN_PUB_PATH}");
         trace!("{pub_key}");
 
@@ -195,7 +196,7 @@ impl SigningDriver for SigstoreDriver {
 
 #[cfg(test)]
 mod test {
-    use std::fs;
+    use std::{fs, path::Path};
 
     use blue_build_utils::constants::{COSIGN_PRIV_PATH, COSIGN_PUB_PATH};
     use tempdir::TempDir;
@@ -227,5 +228,14 @@ mod test {
         let check_opts = CheckKeyPairOpts::builder().dir(tempdir.path()).build();
 
         SigstoreDriver::check_signing_files(&check_opts).unwrap();
+    }
+
+    #[test]
+    fn check_key_pairs() {
+        let path = Path::new("../test-files/keys");
+
+        let opts = CheckKeyPairOpts::builder().dir(path).build();
+
+        SigstoreDriver::check_signing_files(&opts).unwrap();
     }
 }

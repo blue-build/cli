@@ -22,7 +22,7 @@ impl SigningDriver for CosignDriver {
     fn generate_key_pair(opts: &GenerateKeyPairOpts) -> Result<()> {
         let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
 
-        let mut command = cmd!("cosign", "genereate-key-pair");
+        let mut command = cmd!("cosign", "generate-key-pair");
         cmd_env! {
             command,
             COSIGN_PASSWORD => "",
@@ -60,7 +60,7 @@ impl SigningDriver for CosignDriver {
             }
 
             let calculated_pub_key = String::from_utf8(output.stdout).into_diagnostic()?;
-            let found_pub_key = fs::read_to_string(COSIGN_PUB_PATH)
+            let found_pub_key = fs::read_to_string(path.join(COSIGN_PUB_PATH))
                 .into_diagnostic()
                 .with_context(|| format!("Failed to read {COSIGN_PUB_PATH}"))?;
             trace!("calculated_pub_key={calculated_pub_key},found_pub_key={found_pub_key}");
@@ -145,5 +145,51 @@ impl SigningDriver for CosignDriver {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::{fs, path::Path};
+
+    use blue_build_utils::constants::{COSIGN_PRIV_PATH, COSIGN_PUB_PATH};
+    use tempdir::TempDir;
+
+    use crate::drivers::{
+        opts::{CheckKeyPairOpts, GenerateKeyPairOpts},
+        SigningDriver,
+    };
+
+    use super::CosignDriver;
+
+    #[test]
+    fn generate_key_pair() {
+        let tempdir = TempDir::new("keypair").unwrap();
+
+        let gen_opts = GenerateKeyPairOpts::builder().dir(tempdir.path()).build();
+
+        CosignDriver::generate_key_pair(&gen_opts).unwrap();
+
+        eprintln!(
+            "Private key:\n{}",
+            fs::read_to_string(tempdir.path().join(COSIGN_PRIV_PATH)).unwrap()
+        );
+        eprintln!(
+            "Public key:\n{}",
+            fs::read_to_string(tempdir.path().join(COSIGN_PUB_PATH)).unwrap()
+        );
+
+        let check_opts = CheckKeyPairOpts::builder().dir(tempdir.path()).build();
+
+        CosignDriver::check_signing_files(&check_opts).unwrap();
+    }
+
+    #[test]
+    fn check_key_pairs() {
+        let path = Path::new("../test-files/keys");
+
+        let opts = CheckKeyPairOpts::builder().dir(path).build();
+
+        CosignDriver::check_signing_files(&opts).unwrap();
     }
 }
