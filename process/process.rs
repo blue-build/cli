@@ -12,6 +12,7 @@ pub mod signal_handler;
 
 pub(crate) static RT: Lazy<Runtime> = Lazy::new(|| {
     tokio::runtime::Builder::new_current_thread()
+        .enable_all()
         .build()
         .unwrap()
 });
