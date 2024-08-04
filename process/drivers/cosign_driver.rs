@@ -1,4 +1,4 @@
-use std::{fmt::Debug, fs};
+use std::{fmt::Debug, fs, path::Path};
 
 use blue_build_utils::{
     cmd, cmd_env,
@@ -11,7 +11,7 @@ use crate::{credentials::Credentials, drivers::opts::VerifyType};
 
 use super::{
     functions::get_private_key,
-    opts::{SignOpts, VerifyOpts},
+    opts::{CheckKeyPairOpts, GenerateKeyPairOpts, SignOpts, VerifyOpts},
     SigningDriver,
 };
 
@@ -19,13 +19,16 @@ use super::{
 pub struct CosignDriver;
 
 impl SigningDriver for CosignDriver {
-    fn generate_key_pair() -> Result<()> {
+    fn generate_key_pair(opts: &GenerateKeyPairOpts) -> Result<()> {
+        let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
+
         let mut command = cmd!("cosign", "genereate-key-pair");
         cmd_env! {
             command,
             COSIGN_PASSWORD => "",
             COSIGN_YES => "true",
         };
+        command.current_dir(path);
 
         let status = command.status().into_diagnostic()?;
 
@@ -36,8 +39,9 @@ impl SigningDriver for CosignDriver {
         Ok(())
     }
 
-    fn check_signing_files() -> Result<()> {
-        get_private_key(|priv_key| {
+    fn check_signing_files(opts: &CheckKeyPairOpts) -> Result<()> {
+        let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
+        get_private_key(path, |priv_key| {
             trace!("cosign public-key --key {priv_key}");
             let mut command = cmd!("cosign", "public-key", format!("--key={priv_key}"));
             cmd_env! {

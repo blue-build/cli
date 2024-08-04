@@ -6,7 +6,7 @@ use std::{
 use blue_build_process_management::{
     credentials::{Credentials, CredentialsArgs},
     drivers::{
-        opts::{BuildTagPushOpts, CompressionType},
+        opts::{BuildTagPushOpts, CheckKeyPairOpts, CompressionType},
         BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
     },
 };
@@ -136,7 +136,7 @@ impl BlueBuildCommand for BuildCommand {
 
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
-            Driver::check_signing_files()?;
+            Driver::check_signing_files(&CheckKeyPairOpts::builder().dir(Path::new(".")).build())?;
             Driver::login()?;
             Driver::signing_login()?;
         }

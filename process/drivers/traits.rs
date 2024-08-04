@@ -15,8 +15,8 @@ use crate::drivers::{types::CiDriverType, Driver};
 use super::{
     image_metadata::ImageMetadata,
     opts::{
-        BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, SignOpts, SignVerifyOpts,
-        TagOpts, VerifyOpts, VerifyType,
+        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateKeyPairOpts, GetMetadataOpts,
+        PushOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts, VerifyOpts, VerifyType,
     },
 };
 
@@ -169,14 +169,14 @@ pub trait SigningDriver {
     ///
     /// # Errors
     /// Will error if a key-pair couldn't be generated.
-    fn generate_key_pair() -> Result<()>;
+    fn generate_key_pair(opts: &GenerateKeyPairOpts) -> Result<()>;
 
     /// Checks the signing key files to ensure
     /// they match.
     ///
     /// # Errors
     /// Will error if the files cannot be verified.
-    fn check_signing_files() -> Result<()>;
+    fn check_signing_files(opts: &CheckKeyPairOpts) -> Result<()>;
 
     /// Signs the image digest.
     ///
