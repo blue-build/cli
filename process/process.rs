@@ -2,10 +2,19 @@
 //! by this tool. It contains drivers for running, building, inspecting, and signing
 //! images that interface with tools like docker or podman.
 
+use once_cell::sync::Lazy;
+use tokio::runtime::Runtime;
+
 pub mod credentials;
 pub mod drivers;
 pub mod logging;
 pub mod signal_handler;
+
+pub(crate) static RT: Lazy<Runtime> = Lazy::new(|| {
+    tokio::runtime::Builder::new_current_thread()
+        .build()
+        .unwrap()
+});
 
 #[cfg(test)]
 pub(crate) mod test {

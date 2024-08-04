@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use crate::{credentials::Credentials, drivers::opts::PrivateKeyContents};
+use crate::{credentials::Credentials, drivers::opts::PrivateKeyContents, RT};
 
 use super::{
     functions::get_private_key,
@@ -119,10 +119,10 @@ impl SigningDriver for SigstoreDriver {
         let auth = Auth::Basic(username.clone(), password.clone());
         debug!("Credentials retrieved");
 
-        let (cosign_signature_image, source_image_digest) =
-            smol::block_on(client.triangulate(&image_digest, &auth))
-                .into_diagnostic()
-                .with_context(|| format!("Failed to triangulate image {image_digest}"))?;
+        let (cosign_signature_image, source_image_digest) = RT
+            .block_on(client.triangulate(&image_digest, &auth))
+            .into_diagnostic()
+            .with_context(|| format!("Failed to triangulate image {image_digest}"))?;
         debug!("Triangulating image");
         trace!("{cosign_signature_image}, {source_image_digest}");
 
@@ -134,7 +134,7 @@ impl SigningDriver for SigstoreDriver {
         debug!("Created signing layer");
 
         debug!("Pushing signature");
-        smol::block_on(client.push_signature(
+        RT.block_on(client.push_signature(
             None,
             &auth,
             &cosign_signature_image,
@@ -168,20 +168,25 @@ impl SigningDriver for SigstoreDriver {
             PublicKeyVerifier::new(pub_key.as_bytes(), &signing_scheme).into_diagnostic()?;
         let verification_constraints: VerificationConstraintVec = vec![Box::new(verifier)];
 
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .into_diagnostic()?;
+
         let auth = Auth::Anonymous;
-        let (cosign_signature_image, source_image_digest) =
-            smol::block_on(client.triangulate(&image_digest, &auth))
-                .into_diagnostic()
-                .with_context(|| format!("Failed to triangulate image {image_digest}"))?;
+        let (cosign_signature_image, source_image_digest) = rt
+            .block_on(client.triangulate(&image_digest, &auth))
+            .into_diagnostic()
+            .with_context(|| format!("Failed to triangulate image {image_digest}"))?;
         debug!("Triangulating image");
         trace!("{cosign_signature_image}, {source_image_digest}");
 
-        let trusted_layers = smol::block_on(client.trusted_signature_layers(
-            &auth,
-            &source_image_digest,
-            &cosign_signature_image,
-        ))
-        .into_diagnostic()?;
+        let trusted_layers = RT
+            .block_on(client.trusted_signature_layers(
+                &auth,
+                &source_image_digest,
+                &cosign_signature_image,
+            ))
+            .into_diagnostic()?;
 
         sigstore::cosign::verify_constraints(&trusted_layers, verification_constraints.iter())
             .map_err(
