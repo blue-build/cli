@@ -58,7 +58,7 @@ build-full:
 	ENV BB_REGISTRY_NAMESPACE=blue-build
 
 	WITH DOCKER
-		RUN --secret BB_PASSWORD=github/registry bluebuild build --push -S sigstore -v recipes/recipe.yml
+		RUN --secret BB_PASSWORD=github/registry bluebuild build --push -S sigstore -vv recipes/recipe.yml
 	END
 	
 
