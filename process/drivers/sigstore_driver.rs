@@ -1,13 +1,16 @@
 use std::{fs, path::Path};
 
-use crate::{credentials::Credentials, drivers::opts::PrivateKeyContents, RT};
+use crate::{drivers::opts::PrivateKeyContents, RT};
 
 use super::{
     functions::get_private_key,
     opts::{CheckKeyPairOpts, GenerateKeyPairOpts, SignOpts, VerifyOpts},
     SigningDriver,
 };
-use blue_build_utils::constants::{COSIGN_PRIV_PATH, COSIGN_PUB_PATH};
+use blue_build_utils::{
+    constants::{COSIGN_PRIV_PATH, COSIGN_PUB_PATH},
+    credentials::Credentials,
+};
 use log::{debug, trace};
 use miette::{bail, miette, Context, IntoDiagnostic};
 use sigstore::{

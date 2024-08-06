@@ -5,13 +5,12 @@
 use once_cell::sync::Lazy;
 use tokio::runtime::Runtime;
 
-pub mod credentials;
 pub mod drivers;
 pub mod logging;
 pub mod signal_handler;
 
 pub(crate) static RT: Lazy<Runtime> = Lazy::new(|| {
-    tokio::runtime::Builder::new_current_thread()
+    tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .unwrap()
