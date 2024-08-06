@@ -1,10 +1,10 @@
-use blue_build_utils::cmd;
+use blue_build_utils::{cmd, credentials::Credentials};
 use log::{error, info, trace};
 use miette::{bail, IntoDiagnostic, Result};
 use semver::Version;
 use serde::Deserialize;
 
-use crate::{credentials::Credentials, logging::CommandLogging};
+use crate::logging::CommandLogging;
 
 use super::{
     opts::{BuildOpts, PushOpts, TagOpts},

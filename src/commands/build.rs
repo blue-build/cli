@@ -3,17 +3,17 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use blue_build_process_management::{
-    credentials::{Credentials, CredentialsArgs},
-    drivers::{
-        opts::{BuildTagPushOpts, CheckKeyPairOpts, CompressionType},
-        BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
-    },
+use blue_build_process_management::drivers::{
+    opts::{BuildTagPushOpts, CheckKeyPairOpts, CompressionType},
+    BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
 };
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::{
-    ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, BUILD_ID_LABEL, CONFIG_PATH, CONTAINER_FILE,
-    GITIGNORE_PATH, LABELED_ERROR_MESSAGE, NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH,
+use blue_build_utils::{
+    constants::{
+        ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, BUILD_ID_LABEL, CONFIG_PATH, CONTAINER_FILE,
+        GITIGNORE_PATH, LABELED_ERROR_MESSAGE, NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH,
+    },
+    credentials::{Credentials, CredentialsArgs},
 };
 use clap::Args;
 use colored::Colorize;
@@ -103,13 +103,9 @@ pub struct BuildCommand {
     #[builder(default)]
     squash: bool,
 
-    #[clap(skip)]
-    #[builder(default)]
-    registry: Option<String>,
-
     #[clap(flatten)]
     #[builder(default)]
-    credentials: Option<CredentialsArgs>,
+    credentials: CredentialsArgs,
 
     #[clap(flatten)]
     #[builder(default)]
@@ -123,10 +119,7 @@ impl BlueBuildCommand for BuildCommand {
 
         Driver::init(self.drivers);
 
-        if let Some(creds) = self.credentials.take() {
-            self.registry.clone_from(&creds.registry);
-            Credentials::init(creds);
-        }
+        Credentials::init(self.credentials.clone());
 
         self.update_gitignore()?;
 
@@ -321,7 +314,7 @@ impl BuildCommand {
         info!("Generating full image name");
 
         let image_name = if let (Some(registry), Some(registry_path)) = (
-            self.registry.as_ref().map(|r| r.to_lowercase()),
+            self.credentials.registry.as_ref().map(|r| r.to_lowercase()),
             self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
         ) {
             trace!("registry={registry}, registry_path={registry_path}");

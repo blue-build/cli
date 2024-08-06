@@ -11,6 +11,7 @@ pub mod bug_report;
 pub mod build;
 pub mod completions;
 pub mod generate;
+pub mod login;
 // #[cfg(feature = "init")]
 // pub mod init;
 #[cfg(not(feature = "switch"))]
@@ -102,6 +103,9 @@ pub enum CommandArgs {
     /// installed. This image will not be signed.
     #[cfg(feature = "switch")]
     Switch(switch::SwitchCommand),
+
+    /// Login to all services used for building.
+    Login(login::LoginCommand),
 
     // /// Initialize a new Ublue Starting Point repo
     // #[cfg(feature = "init")]
