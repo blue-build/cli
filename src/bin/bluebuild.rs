@@ -8,7 +8,10 @@ fn main() {
 
     Logger::new()
         .filter_level(args.verbosity.log_level_filter())
-        .filter_modules([("hyper::proto", LevelFilter::Info)])
+        .filter_modules([
+            ("hyper::proto", LevelFilter::Off),
+            ("hyper_util", LevelFilter::Off),
+        ])
         .log_out_dir(args.log_out.clone())
         .init();
     log::trace!("Parsed arguments: {args:#?}");
@@ -31,6 +34,8 @@ fn main() {
 
         #[cfg(not(feature = "switch"))]
         CommandArgs::Upgrade(mut command) => command.run(),
+
+        CommandArgs::Login(mut command) => command.run(),
 
         CommandArgs::BugReport(mut command) => command.run(),
 

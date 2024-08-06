@@ -1,13 +1,14 @@
-use std::{fmt::Debug, fs, path::Path};
+use std::{fmt::Debug, fs, io::Write, path::Path, process::Stdio};
 
 use blue_build_utils::{
     cmd, cmd_env,
     constants::{COSIGN_PASSWORD, COSIGN_PUB_PATH, COSIGN_YES},
+    credentials::Credentials,
 };
 use log::{debug, trace};
 use miette::{bail, Context, IntoDiagnostic, Result};
 
-use crate::{credentials::Credentials, drivers::opts::VerifyType};
+use crate::drivers::opts::VerifyType;
 
 use super::{
     functions::get_private_key,
@@ -83,15 +84,31 @@ impl SigningDriver for CosignDriver {
             password,
         }) = Credentials::get()
         {
-            trace!("cosign login -u {username} -p [MASKED] {registry}");
-            let output = cmd!("cosign", "login", "-u", username, "-p", password, registry)
-                .output()
-                .into_diagnostic()?;
+            let mut command = cmd!(
+                "cosign",
+                "login",
+                "-u",
+                username,
+                "--password-stdin",
+                registry
+            );
+            command
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
+
+            trace!("{command:?}");
+            let mut child = command.spawn().into_diagnostic()?;
+
+            write!(child.stdin.as_mut().unwrap(), "{password}").into_diagnostic()?;
+
+            let output = child.wait_with_output().into_diagnostic()?;
 
             if !output.status.success() {
                 let err_out = String::from_utf8_lossy(&output.stderr);
-                bail!("Failed to login for docker: {err_out}");
+                bail!("Failed to login for cosign:\n{}", err_out.trim());
             }
+            debug!("Logged into {registry}");
         }
         Ok(())
     }
