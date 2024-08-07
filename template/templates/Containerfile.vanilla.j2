@@ -47,7 +47,7 @@ LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-b
 # FsGuard step copied from VanillaOS template
 # first download the required python script from the vib-fsguard module and the FsGuard binary
 RUN mkdir -p /sources/fsguard/ && \
-    wget https://github.com/linux-immutability-tools/FsGuard/releases/download/v0.1.2-2/FsGuard_0.1.2-2_linux_arm64.tar.gz -O /tmp/fsguard.tar.gz && tar -xf /tmp/fsguard.tar.gz -C /sources/fsguard/ && \
+    wget https://github.com/linux-immutability-tools/FsGuard/releases/download/v0.1.2-2/FsGuard_0.1.2-2_linux_amd64.tar.gz -O /tmp/fsguard.tar.gz && tar -xf /tmp/fsguard.tar.gz -C /sources/fsguard/ && \
     curl https://raw.githubusercontent.com/Vanilla-OS/vib-fsguard/main/genfilelist.py -o /sources/fsguard/genfilelist.py && \
     rm -rf /FsGuard && rm -f ./minisign.pub ./minisign.key && chmod +x /usr/sbin/init && mkdir /FsGuard && \ 
     chmod +x /sources/fsguard/genfilelist.py && minisign -WG -s ./minisign.key && \ 
