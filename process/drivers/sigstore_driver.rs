@@ -36,13 +36,20 @@ impl SigningDriver for SigstoreDriver {
             bail!("Public key file already exists at {COSIGN_PUB_PATH}");
         }
 
-        let signer = SigningScheme::default().create_signer().into_diagnostic()?;
+        let signer = SigningScheme::default()
+            .create_signer()
+            .into_diagnostic()
+            .context("Failed to create signer")?;
 
-        let keypair = signer.to_sigstore_keypair().into_diagnostic()?;
+        let keypair = signer
+            .to_sigstore_keypair()
+            .into_diagnostic()
+            .context("Failed to create key pair")?;
 
         let priv_key = keypair
             .private_key_to_encrypted_pem(b"")
-            .into_diagnostic()?;
+            .into_diagnostic()
+            .context("Failed to create encrypted private key")?;
         let pub_key = keypair.public_key_to_pem().into_diagnostic()?;
 
         fs::write(priv_key_path, priv_key)
@@ -207,6 +214,7 @@ mod test {
     use tempdir::TempDir;
 
     use crate::drivers::{
+        cosign_driver::CosignDriver,
         opts::{CheckKeyPairOpts, GenerateKeyPairOpts},
         SigningDriver,
     };
@@ -242,5 +250,27 @@ mod test {
         let opts = CheckKeyPairOpts::builder().dir(path).build();
 
         SigstoreDriver::check_signing_files(&opts).unwrap();
+    }
+
+    #[test]
+    fn compatibility() {
+        let tempdir = TempDir::new("keypair").unwrap();
+
+        let gen_opts = GenerateKeyPairOpts::builder().dir(tempdir.path()).build();
+
+        SigstoreDriver::generate_key_pair(&gen_opts).unwrap();
+
+        eprintln!(
+            "Private key:\n{}",
+            fs::read_to_string(tempdir.path().join(COSIGN_PRIV_PATH)).unwrap()
+        );
+        eprintln!(
+            "Public key:\n{}",
+            fs::read_to_string(tempdir.path().join(COSIGN_PUB_PATH)).unwrap()
+        );
+
+        let check_opts = CheckKeyPairOpts::builder().dir(tempdir.path()).build();
+
+        CosignDriver::check_signing_files(&check_opts).unwrap();
     }
 }

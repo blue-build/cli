@@ -157,6 +157,7 @@ mod test {
 
     use crate::drivers::{
         opts::{CheckKeyPairOpts, GenerateKeyPairOpts},
+        sigstore_driver::SigstoreDriver,
         SigningDriver,
     };
 
@@ -191,5 +192,27 @@ mod test {
         let opts = CheckKeyPairOpts::builder().dir(path).build();
 
         CosignDriver::check_signing_files(&opts).unwrap();
+    }
+
+    #[test]
+    fn compatibility() {
+        let tempdir = TempDir::new("keypair").unwrap();
+
+        let gen_opts = GenerateKeyPairOpts::builder().dir(tempdir.path()).build();
+
+        CosignDriver::generate_key_pair(&gen_opts).unwrap();
+
+        eprintln!(
+            "Private key:\n{}",
+            fs::read_to_string(tempdir.path().join(COSIGN_PRIV_PATH)).unwrap()
+        );
+        eprintln!(
+            "Public key:\n{}",
+            fs::read_to_string(tempdir.path().join(COSIGN_PUB_PATH)).unwrap()
+        );
+
+        let check_opts = CheckKeyPairOpts::builder().dir(tempdir.path()).build();
+
+        SigstoreDriver::check_signing_files(&check_opts).unwrap();
     }
 }
