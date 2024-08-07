@@ -10,9 +10,10 @@ license.workspace = true
 
 [dependencies]
 atty = "0.2"
-base64 = "0.22.1"
-blake2 = "0.10.6"
+base64 = "0.22"
+blake2 = "0.10"
 directories = "5"
+docker_credential = "1"
 format_serde_error = "0.3"
 process_control = { version = "4", features = ["crossbeam-channel"] }
 syntect = "5"
@@ -23,10 +24,15 @@ clap = { workspace = true, features = ["derive"] }
 log.workspace = true
 miette.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 serde_yaml.workspace = true
+typed-builder.workspace = true
 
 [build-dependencies]
-syntect = "5.2.0"
+syntect = "5"
+
+[dev-dependencies]
+rstest.workspace = true
 
 [lints]
 workspace = true

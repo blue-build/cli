@@ -1,5 +1,6 @@
 pub mod command_output;
 pub mod constants;
+pub mod credentials;
 mod macros;
 pub mod syntax_highlighting;
 

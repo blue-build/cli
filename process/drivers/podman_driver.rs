@@ -1,10 +1,11 @@
 use std::{
+    io::Write,
     path::Path,
-    process::{Command, ExitStatus},
+    process::{Command, ExitStatus, Stdio},
     time::Duration,
 };
 
-use blue_build_utils::{cmd, constants::SKOPEO_IMAGE, string_vec};
+use blue_build_utils::{cmd, constants::SKOPEO_IMAGE, credentials::Credentials, string_vec};
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace, warn};
@@ -14,7 +15,6 @@ use serde::Deserialize;
 use tempdir::TempDir;
 
 use crate::{
-    credentials::Credentials,
     drivers::image_metadata::ImageMetadata,
     logging::{CommandLogging, Logger},
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
@@ -142,15 +142,31 @@ impl BuildDriver for PodmanDriver {
             password,
         }) = Credentials::get()
         {
-            trace!("podman login -u {username} -p [MASKED] {registry}");
-            let output = cmd!("podman", "login", "-u", username, "-p", password, registry)
-                .output()
-                .into_diagnostic()?;
+            let mut command = cmd!(
+                "podman",
+                "login",
+                "-u",
+                username,
+                "--password-stdin",
+                registry
+            );
+            command
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
+
+            trace!("{command:?}");
+            let mut child = command.spawn().into_diagnostic()?;
+
+            write!(child.stdin.as_mut().unwrap(), "{password}").into_diagnostic()?;
+
+            let output = child.wait_with_output().into_diagnostic()?;
 
             if !output.status.success() {
                 let err_out = String::from_utf8_lossy(&output.stderr);
-                bail!("Failed to login for podman: {err_out}");
+                bail!("Failed to login for podman:\n{}", err_out.trim());
             }
+            debug!("Logged into {registry}");
         }
         Ok(())
     }
