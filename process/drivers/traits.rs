@@ -1,13 +1,24 @@
-use std::process::{ExitStatus, Output};
+use std::{
+    env,
+    path::Path,
+    process::{ExitStatus, Output},
+};
 
 use blue_build_recipe::Recipe;
+use blue_build_utils::constants::{COSIGN_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PUB_PATH};
 use log::{debug, info, trace};
 use miette::{bail, miette, Result};
 use semver::{Version, VersionReq};
 
-use crate::image_metadata::ImageMetadata;
+use crate::drivers::{types::CiDriverType, Driver};
 
-use super::opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts};
+use super::{
+    image_metadata::ImageMetadata,
+    opts::{
+        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateKeyPairOpts, GetMetadataOpts,
+        PushOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts, VerifyOpts, VerifyType,
+    },
+};
 
 /// Trait for retrieving version of a driver.
 pub trait DriverVersion {
@@ -158,23 +169,104 @@ pub trait SigningDriver {
     ///
     /// # Errors
     /// Will error if a key-pair couldn't be generated.
-    fn generate_key_pair() -> Result<()>;
+    fn generate_key_pair(opts: &GenerateKeyPairOpts) -> Result<()>;
 
     /// Checks the signing key files to ensure
     /// they match.
     ///
     /// # Errors
     /// Will error if the files cannot be verified.
-    fn check_signing_files() -> Result<()>;
+    fn check_signing_files(opts: &CheckKeyPairOpts) -> Result<()>;
+
+    /// Signs the image digest.
+    ///
+    /// # Errors
+    /// Will error if signing fails.
+    fn sign(opts: &SignOpts) -> Result<()>;
+
+    /// Verifies the image.
+    ///
+    /// The image can be verified either with `VerifyType::File` containing
+    /// the public key contents, or with `VerifyType::Keyless` containing
+    /// information about the `issuer` and `identity`.
+    ///
+    /// # Errors
+    /// Will error if the image fails to be verified.
+    fn verify(opts: &VerifyOpts) -> Result<()>;
 
     /// Sign an image given the image name and tag.
     ///
     /// # Errors
     /// Will error if the image fails to be signed.
-    fn sign_images<S, T>(image_name: S, tag: Option<T>) -> Result<()>
-    where
-        S: AsRef<str>,
-        T: AsRef<str>;
+    fn sign_and_verify(opts: &SignVerifyOpts) -> Result<()> {
+        trace!("sign_and_verify({opts:?})");
+
+        let image_name: &str = opts.image.as_ref();
+        let inspect_opts = GetMetadataOpts::builder().image(image_name);
+
+        let inspect_opts = if let Some(ref tag) = opts.tag {
+            inspect_opts.tag(tag.as_ref() as &str).build()
+        } else {
+            inspect_opts.build()
+        };
+
+        let image_digest = Driver::get_metadata(&inspect_opts)?.digest;
+        let image_name_tag = opts
+            .tag
+            .as_ref()
+            .map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));
+        let image_digest = format!("{image_name}@{image_digest}");
+
+        let (sign_opts, verify_opts) = match (
+            Driver::get_ci_driver(),
+            // Cosign public/private key pair
+            env::var(COSIGN_PRIVATE_KEY),
+            Path::new(COSIGN_PRIV_PATH),
+        ) {
+            // Cosign public/private key pair
+            (_, Ok(cosign_private_key), _)
+                if !cosign_private_key.is_empty() && Path::new(COSIGN_PUB_PATH).exists() =>
+            {
+                (
+                    SignOpts::builder()
+                        .image(&image_digest)
+                        .key("env://{COSIGN_PRIVATE_KEY}")
+                        .build(),
+                    VerifyOpts::builder()
+                        .image(&image_name_tag)
+                        .verify_type(VerifyType::File(COSIGN_PUB_PATH.into()))
+                        .build(),
+                )
+            }
+            (_, _, cosign_priv_key_path) if cosign_priv_key_path.exists() => (
+                SignOpts::builder()
+                    .image(&image_digest)
+                    .key(cosign_priv_key_path.display().to_string())
+                    .build(),
+                VerifyOpts::builder()
+                    .image(&image_name_tag)
+                    .verify_type(VerifyType::File(COSIGN_PUB_PATH.into()))
+                    .build(),
+            ),
+            // Gitlab keyless
+            (CiDriverType::Github | CiDriverType::Gitlab, _, _) => (
+                SignOpts::builder().image(&image_digest).build(),
+                VerifyOpts::builder()
+                    .image(&image_name_tag)
+                    .verify_type(VerifyType::Keyless {
+                        issuer: Driver::oidc_provider()?.into(),
+                        identity: Driver::keyless_cert_identity()?.into(),
+                    })
+                    .build(),
+            ),
+            _ => bail!("Failed to get information for signing the image"),
+        };
+
+        Self::sign(&sign_opts)?;
+        Self::verify(&verify_opts)?;
+
+        Ok(())
+    }
 
     /// Runs the login logic for the signing driver.
     ///

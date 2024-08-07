@@ -7,12 +7,12 @@ use std::{
 };
 
 use blue_build_utils::{
+    cmd,
     constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
-    logging::{CommandLogging, Logger},
-    signal_handler::{add_cid, remove_cid, ContainerId},
+    string_vec,
 };
 use indicatif::{ProgressBar, ProgressStyle};
-use log::{info, trace, warn};
+use log::{debug, info, trace, warn};
 use miette::{bail, IntoDiagnostic, Result};
 use once_cell::sync::Lazy;
 use semver::Version;
@@ -20,11 +20,13 @@ use serde::Deserialize;
 use tempdir::TempDir;
 
 use crate::{
-    credentials::Credentials, drivers::types::RunDriverType, image_metadata::ImageMetadata,
+    credentials::Credentials,
+    drivers::image_metadata::ImageMetadata,
+    logging::{CommandLogging, Logger},
+    signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
 };
 
 use super::{
-    credentials,
     opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
     BuildDriver, DriverVersion, InspectDriver, RunDriver,
 };
@@ -58,10 +60,7 @@ impl DockerDriver {
         }
 
         trace!("docker buildx ls --format={}", "{{.Name}}");
-        let ls_out = Command::new("docker")
-            .arg("buildx")
-            .arg("ls")
-            .arg("--format={{.Name}}")
+        let ls_out = cmd!("docker", "buildx", "ls", "--format={{.Name}}")
             .output()
             .into_diagnostic()?;
 
@@ -75,14 +74,16 @@ impl DockerDriver {
 
         if !ls_out.lines().any(|line| line == "bluebuild") {
             trace!("docker buildx create --bootstrap --driver=docker-container --name=bluebuild");
-            let create_out = Command::new("docker")
-                .arg("buildx")
-                .arg("create")
-                .arg("--bootstrap")
-                .arg("--driver=docker-container")
-                .arg("--name=bluebuild")
-                .output()
-                .into_diagnostic()?;
+            let create_out = cmd!(
+                "docker",
+                "buildx",
+                "create",
+                "--bootstrap",
+                "--driver=docker-container",
+                "--name=bluebuild",
+            )
+            .output()
+            .into_diagnostic()?;
 
             if !create_out.status.success() {
                 bail!("{}", String::from_utf8_lossy(&create_out.stderr));
@@ -101,10 +102,7 @@ impl DriverVersion for DockerDriver {
     const VERSION_REQ: &'static str = ">=23";
 
     fn version() -> Result<Version> {
-        let output = Command::new("docker")
-            .arg("version")
-            .arg("-f")
-            .arg("json")
+        let output = cmd!("docker", "version", "-f", "json")
             .output()
             .into_diagnostic()?;
 
@@ -124,15 +122,17 @@ impl BuildDriver for DockerDriver {
         }
 
         trace!("docker build -t {} -f {CONTAINER_FILE} .", opts.image);
-        let status = Command::new("docker")
-            .arg("build")
-            .arg("-t")
-            .arg(opts.image.as_ref())
-            .arg("-f")
-            .arg(opts.containerfile.as_ref())
-            .arg(".")
-            .status()
-            .into_diagnostic()?;
+        let status = cmd!(
+            "docker",
+            "build",
+            "-t",
+            &*opts.image,
+            "-f",
+            &*opts.containerfile,
+            ".",
+        )
+        .status()
+        .into_diagnostic()?;
 
         if status.success() {
             info!("Successfully built {}", opts.image);
@@ -146,10 +146,7 @@ impl BuildDriver for DockerDriver {
         trace!("DockerDriver::tag({opts:#?})");
 
         trace!("docker tag {} {}", opts.src_image, opts.dest_image);
-        let status = Command::new("docker")
-            .arg("tag")
-            .arg(opts.src_image.as_ref())
-            .arg(opts.dest_image.as_ref())
+        let status = cmd!("docker", "tag", &*opts.src_image, &*opts.dest_image,)
             .status()
             .into_diagnostic()?;
 
@@ -165,9 +162,7 @@ impl BuildDriver for DockerDriver {
         trace!("DockerDriver::push({opts:#?})");
 
         trace!("docker push {}", opts.image);
-        let status = Command::new("docker")
-            .arg("push")
-            .arg(opts.image.as_ref())
+        let status = cmd!("docker", "push", &*opts.image)
             .status()
             .into_diagnostic()?;
 
@@ -186,16 +181,10 @@ impl BuildDriver for DockerDriver {
             registry,
             username,
             password,
-        }) = credentials::get()
+        }) = Credentials::get()
         {
             trace!("docker login -u {username} -p [MASKED] {registry}");
-            let output = Command::new("docker")
-                .arg("login")
-                .arg("-u")
-                .arg(username)
-                .arg("-p")
-                .arg(password)
-                .arg(registry)
+            let output = cmd!("docker", "login", "-u", username, "-p", password, registry)
                 .output()
                 .into_diagnostic()?;
 
@@ -203,7 +192,9 @@ impl BuildDriver for DockerDriver {
                 let err_out = String::from_utf8_lossy(&output.stderr);
                 bail!("Failed to login for docker: {err_out}");
             }
+            debug!("Logged into {registry}");
         }
+
         Ok(())
     }
 
@@ -214,84 +205,69 @@ impl BuildDriver for DockerDriver {
             warn!("Squash is deprecated for docker so this build will not squash");
         }
 
-        trace!("docker buildx");
-        let mut command = Command::new("docker");
-        command.arg("buildx");
+        let mut command = cmd!("docker", "buildx");
 
         if !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty()) {
             Self::setup()?;
-
-            trace!("--builder=bluebuild");
-            command.arg("--builder=bluebuild");
+            cmd!(command, "--builder=bluebuild");
         }
 
-        trace!(
-            "build --progress=plain --pull -f {}",
-            opts.containerfile.display()
-        );
-        command
-            .arg("build")
-            .arg("--pull")
-            .arg("-f")
-            .arg(opts.containerfile.as_ref());
+        cmd!(command, "build", "--pull", "-f", &*opts.containerfile,);
 
         // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
         if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
-            trace!("--cache-from type=gha --cache-to type=gha");
-            command
-                .arg("--cache-from")
-                .arg("type=gha")
-                .arg("--cache-to")
-                .arg("type=gha");
+            cmd!(
+                command,
+                "--cache-from",
+                "type=gha",
+                "--cache-to",
+                "type=gha",
+            );
         }
 
         let mut final_image = String::new();
 
-        match (opts.image.as_ref(), opts.archive_path.as_ref()) {
+        match (opts.image.as_deref(), opts.archive_path.as_deref()) {
             (Some(image), None) => {
                 if opts.tags.is_empty() {
                     final_image.push_str(image);
-
-                    trace!("-t {image}");
-                    command.arg("-t").arg(image.as_ref());
+                    cmd!(command, "-t", image);
                 } else {
-                    final_image
-                        .push_str(format!("{image}:{}", opts.tags.first().unwrap_or(&"")).as_str());
+                    final_image.push_str(
+                        format!("{image}:{}", opts.tags.first().map_or("", String::as_str))
+                            .as_str(),
+                    );
 
                     opts.tags.iter().for_each(|tag| {
-                        let full_image = format!("{image}:{tag}");
-
-                        trace!("-t {full_image}");
-                        command.arg("-t").arg(full_image);
+                        cmd!(command, "-t", format!("{image}:{tag}"));
                     });
                 }
 
                 if opts.push {
-                    trace!("--output type=image,name={image},push=true,compression={},oci-mediatypes=true", opts.compression);
-                    command.arg("--output").arg(format!(
-                        "type=image,name={image},push=true,compression={},oci-mediatypes=true",
-                        opts.compression
-                    ));
+                    cmd!(
+                        command,
+                        "--output",
+                        format!(
+                            "type=image,name={image},push=true,compression={},oci-mediatypes=true",
+                            opts.compression
+                        )
+                    );
                 } else {
-                    trace!("--load");
-                    command.arg("--load");
+                    cmd!(command, "--load");
                 }
             }
             (None, Some(archive_path)) => {
                 final_image.push_str(archive_path);
 
-                trace!("--output type=oci,dest={archive_path}");
-                command
-                    .arg("--output")
-                    .arg(format!("type=oci,dest={archive_path}"));
+                cmd!(command, "--output", format!("type=oci,dest={archive_path}"));
             }
             (Some(_), Some(_)) => bail!("Cannot use both image and archive path"),
             (None, None) => bail!("Need either the image or archive path set"),
         }
 
-        trace!(".");
-        command.arg(".");
+        cmd!(command, ".");
 
+        trace!("{command:?}");
         if command
             .status_image_ref_progress(&final_image, "Building Image")
             .into_diagnostic()?
@@ -328,7 +304,8 @@ impl InspectDriver for DockerDriver {
         let output = Self::run_output(
             &RunOpts::builder()
                 .image(SKOPEO_IMAGE)
-                .args(&["inspect".to_string(), url.clone()])
+                .args(string_vec!["inspect", url.clone()])
+                .remove(true)
                 .build(),
         )
         .into_diagnostic()?;
@@ -348,16 +325,14 @@ impl InspectDriver for DockerDriver {
 
 impl RunDriver for DockerDriver {
     fn run(opts: &RunOpts) -> std::io::Result<ExitStatus> {
-        trace!("DockerDriver::run({opts:#?})");
-
         let cid_path = TempDir::new("docker")?;
         let cid_file = cid_path.path().join("cid");
-        let cid = ContainerId::new(&cid_file, RunDriverType::Docker, false);
+        let cid = ContainerId::new(&cid_file, ContainerRuntime::Docker, false);
 
         add_cid(&cid);
 
         let status = docker_run(opts, &cid_file)
-            .status_image_ref_progress(opts.image.as_ref(), "Running container")?;
+            .status_image_ref_progress(&*opts.image, "Running container")?;
 
         remove_cid(&cid);
 
@@ -365,11 +340,9 @@ impl RunDriver for DockerDriver {
     }
 
     fn run_output(opts: &RunOpts) -> std::io::Result<std::process::Output> {
-        trace!("DockerDriver::run({opts:#?})");
-
         let cid_path = TempDir::new("docker")?;
         let cid_file = cid_path.path().join("cid");
-        let cid = ContainerId::new(&cid_file, RunDriverType::Docker, false);
+        let cid = ContainerId::new(&cid_file, ContainerRuntime::Docker, false);
 
         add_cid(&cid);
 
@@ -382,41 +355,42 @@ impl RunDriver for DockerDriver {
 }
 
 fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
-    let mut command = Command::new("docker");
-
-    command
-        .arg("run")
-        .arg(format!("--cidfile={}", cid_file.display()));
+    let mut command = cmd!("docker", "run", format!("--cidfile={}", cid_file.display()));
 
     if opts.privileged {
-        command.arg("--privileged");
+        cmd!(command, "--privileged");
     }
 
     if opts.remove {
-        command.arg("--rm");
+        cmd!(command, "--rm");
     }
 
     if opts.pull {
-        command.arg("--pull=always");
+        cmd!(command, "--pull=always");
     }
 
     opts.volumes.iter().for_each(|volume| {
-        command.arg("--volume");
-        command.arg(format!(
-            "{}:{}",
-            volume.path_or_vol_name, volume.container_path,
-        ));
+        cmd!(
+            command,
+            "--volume",
+            format!("{}:{}", volume.path_or_vol_name, volume.container_path,)
+        );
     });
 
     opts.env_vars.iter().for_each(|env| {
-        command.arg("--env");
-        command.arg(format!("{}={}", env.key, env.value));
+        cmd!(command, "--env", format!("{}={}", env.key, env.value));
     });
 
-    command.arg(opts.image.as_ref());
+    match (opts.uid, opts.gid) {
+        (Some(uid), None) => cmd!(command, "-u", format!("{uid}")),
+        (Some(uid), Some(gid)) => cmd!(command, "-u", format!("{}:{}", uid, gid)),
+        _ => {}
+    }
 
-    command.args(opts.args.iter());
+    cmd!(command, &*opts.image);
 
-    trace!("{command:?}");
+    opts.args.iter().for_each(|arg| cmd!(command, arg));
+
+    // trace!("{command:?}");
     command
 }

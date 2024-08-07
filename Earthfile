@@ -34,6 +34,7 @@ prebuild:
 
 lint:
 	FROM +common
+	DO rust+CARGO --args="fmt --check"
 	DO rust+CARGO --args="clippy -- -D warnings"
 	DO rust+CARGO --args="clippy --all-features -- -D warnings"
 	DO rust+CARGO --args="clippy --no-default-features -- -D warnings"
@@ -41,10 +42,11 @@ lint:
 test:
 	FROM +common
 	COPY --dir test-files/ integration-tests/ /app
+	COPY +cosign/cosign /usr/bin/cosign
 
-	DO rust+CARGO --args="test -- --show-output"
-	DO rust+CARGO --args="test --all-features -- --show-output"
-	DO rust+CARGO --args="test --no-default-features -- --show-output"
+	DO rust+CARGO --args="test --workspace -- --show-output"
+	DO rust+CARGO --args="test --workspace --all-features -- --show-output"
+	DO rust+CARGO --args="test --workspace --no-default-features -- --show-output"
 
 install:
 	FROM +common
@@ -66,7 +68,7 @@ common:
 	FROM --platform=native ghcr.io/blue-build/earthly-lib/cargo-builder
 
 	WORKDIR /app
-	COPY --keep-ts --dir src/ template/ recipe/ utils/ /app
+	COPY --keep-ts --dir src/ template/ recipe/ utils/ process/ /app
 	COPY --keep-ts Cargo.* /app
 	COPY --keep-ts *.md /app
 	COPY --keep-ts LICENSE /app

@@ -1,6 +1,5 @@
 name: copy
 shortdesc: The copy module is a direct translation of the `COPY` instruction in a Containerfile.
-readme: https://raw.githubusercontent.com/blue-build/cli/main/template/templates/modules/copy/README.md
 example: |
   type: copy
   from: docker.io/mikefarah/yq

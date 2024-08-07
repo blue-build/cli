@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use blue_build_process_management::drivers::{CiDriver, Driver, DriverArgs};
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
@@ -14,12 +15,9 @@ use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Result};
 use typed_builder::TypedBuilder;
 
-use crate::{
-    drivers::{CiDriver, Driver},
-    shadow,
-};
+use crate::shadow;
 
-use super::{BlueBuildCommand, DriverArgs};
+use super::BlueBuildCommand;
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct GenerateCommand {
@@ -73,11 +71,7 @@ pub struct GenerateCommand {
 
 impl BlueBuildCommand for GenerateCommand {
     fn try_run(&mut self) -> Result<()> {
-        Driver::builder()
-            .build_driver(self.drivers.build_driver)
-            .inspect_driver(self.drivers.inspect_driver)
-            .build()
-            .init();
+        Driver::init(self.drivers);
 
         self.template_file()
     }

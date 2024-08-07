@@ -5,6 +5,7 @@ result*
 .direnv/
 
 cosign.key
+!test-files/keys/cosign.key
 
 # Local testing for bluebuild recipe files
 /config/*

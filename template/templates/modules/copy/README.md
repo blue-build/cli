@@ -15,7 +15,7 @@ The `copy` module is a short-hand method of adding a [`COPY`](https://docs.docke
 The `copy` module's properties are a 1-1 match with the `COPY` instruction containing `src`, `dest`, and `from` (optional). The example below will `COPY` the file `/usr/bin/yq` from `docker.io/mikefarah/yq` into `/usr/bin/`.
 
 ```yaml
-mdoules:
+modules:
 - type: copy
   from: docker.io/mikefarah/yq
   src: /usr/bin/yq
@@ -31,7 +31,7 @@ COPY --linked --from=docker.io/mikefarah/yq /usr/bin/yq /usr/bin/
 Omitting `from:` will allow copying from the build context:
 
 ```yaml
-mdoules:
+modules:
 - type: copy
   src: file/to/copy.conf
   dest: /usr/etc/app/

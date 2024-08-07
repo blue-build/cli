@@ -1,12 +1,10 @@
-use std::process::Command;
-
-use blue_build_utils::logging::CommandLogging;
+use blue_build_utils::cmd;
 use log::{error, info, trace};
 use miette::{bail, IntoDiagnostic, Result};
 use semver::Version;
 use serde::Deserialize;
 
-use crate::credentials::{self, Credentials};
+use crate::{credentials::Credentials, logging::CommandLogging};
 
 use super::{
     opts::{BuildOpts, PushOpts, TagOpts},
@@ -30,9 +28,7 @@ impl DriverVersion for BuildahDriver {
         trace!("BuildahDriver::version()");
 
         trace!("buildah version --json");
-        let output = Command::new("buildah")
-            .arg("version")
-            .arg("--json")
+        let output = cmd!("buildah", "version", "--json")
             .output()
             .into_diagnostic()?;
 
@@ -49,21 +45,18 @@ impl BuildDriver for BuildahDriver {
     fn build(opts: &BuildOpts) -> Result<()> {
         trace!("BuildahDriver::build({opts:#?})");
 
-        trace!(
-            "buildah build --pull=true --layers={} -f {} -t {}",
-            !opts.squash,
-            opts.containerfile.display(),
-            opts.image,
+        let command = cmd!(
+            "buildah",
+            "build",
+            "--pull=true",
+            format!("--layers={}", !opts.squash),
+            "-f",
+            &*opts.containerfile,
+            "-t",
+            &*opts.image,
         );
-        let mut command = Command::new("buildah");
-        command
-            .arg("build")
-            .arg("--pull=true")
-            .arg(format!("--layers={}", !opts.squash))
-            .arg("-f")
-            .arg(opts.containerfile.as_ref())
-            .arg("-t")
-            .arg(opts.image.as_ref());
+
+        trace!("{command:?}");
         let status = command
             .status_image_ref_progress(&opts.image, "Building Image")
             .into_diagnostic()?;
@@ -79,15 +72,10 @@ impl BuildDriver for BuildahDriver {
     fn tag(opts: &TagOpts) -> Result<()> {
         trace!("BuildahDriver::tag({opts:#?})");
 
-        trace!("buildah tag {} {}", opts.src_image, opts.dest_image);
-        let status = Command::new("buildah")
-            .arg("tag")
-            .arg(opts.src_image.as_ref())
-            .arg(opts.dest_image.as_ref())
-            .status()
-            .into_diagnostic()?;
+        let mut command = cmd!("buildah", "tag", &*opts.src_image, &*opts.dest_image,);
 
-        if status.success() {
+        trace!("{command:?}");
+        if command.status().into_diagnostic()?.success() {
             info!("Successfully tagged {}!", opts.dest_image);
         } else {
             bail!("Failed to tag image {}", opts.dest_image);
@@ -98,15 +86,17 @@ impl BuildDriver for BuildahDriver {
     fn push(opts: &PushOpts) -> Result<()> {
         trace!("BuildahDriver::push({opts:#?})");
 
-        trace!("buildah push {}", opts.image);
-        let mut command = Command::new("buildah");
-        command
-            .arg("push")
-            .arg(format!(
+        let command = cmd!(
+            "buildah",
+            "push",
+            format!(
                 "--compression-format={}",
                 opts.compression_type.unwrap_or_default()
-            ))
-            .arg(opts.image.as_ref());
+            ),
+            &*opts.image,
+        );
+
+        trace!("{command:?}");
         let status = command
             .status_image_ref_progress(&opts.image, "Pushing Image")
             .into_diagnostic()?;
@@ -126,16 +116,10 @@ impl BuildDriver for BuildahDriver {
             registry,
             username,
             password,
-        }) = credentials::get()
+        }) = Credentials::get()
         {
             trace!("buildah login -u {username} -p [MASKED] {registry}");
-            let output = Command::new("buildah")
-                .arg("login")
-                .arg("-u")
-                .arg(username)
-                .arg("-p")
-                .arg(password)
-                .arg(registry)
+            let output = cmd!("buildah", "login", "-u", username, "-p", password, registry)
                 .output()
                 .into_diagnostic()?;
 

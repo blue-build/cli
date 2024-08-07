@@ -19,6 +19,7 @@ pub const IMAGE_VERSION_LABEL: &str = "org.opencontainers.image.version";
 // BlueBuild vars
 pub const BB_BUILDKIT_CACHE_GHA: &str = "BB_BUILDKIT_CACHE_GHA";
 pub const BB_PASSWORD: &str = "BB_PASSWORD";
+pub const BB_PRIVATE_KEY: &str = "BB_PRIVATE_KEY";
 pub const BB_REGISTRY: &str = "BB_REGISTRY";
 pub const BB_REGISTRY_NAMESPACE: &str = "BB_REGISTRY_NAMESPACE";
 pub const BB_USERNAME: &str = "BB_USERNAME";
@@ -71,6 +72,7 @@ pub const LC_TERMINAL_VERSION: &str = "LC_TERMINAL_VERSION";
 pub const XDG_RUNTIME_DIR: &str = "XDG_RUNTIME_DIR";
 
 // Misc
+pub const COSIGN_IMAGE: &str = "gcr.io/projectsigstore/cosign:latest";
 pub const OCI_ARCHIVE: &str = "oci-archive";
 pub const OSTREE_IMAGE_SIGNED: &str = "ostree-image-signed";
 pub const OSTREE_UNVERIFIED_IMAGE: &str = "ostree-unverified-image";

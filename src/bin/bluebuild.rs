@@ -1,5 +1,5 @@
 use blue_build::commands::{BlueBuildArgs, BlueBuildCommand, CommandArgs};
-use blue_build_utils::{logging::Logger, signal_handler};
+use blue_build_process_management::{logging::Logger, signal_handler};
 use clap::Parser;
 use log::LevelFilter;
 

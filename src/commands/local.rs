@@ -1,11 +1,14 @@
 use std::{
     fs,
     path::{Path, PathBuf},
-    process::Command,
 };
 
+use blue_build_process_management::drivers::DriverArgs;
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::{ARCHIVE_SUFFIX, LOCAL_BUILD};
+use blue_build_utils::{
+    cmd,
+    constants::{ARCHIVE_SUFFIX, LOCAL_BUILD},
+};
 use clap::Args;
 use log::{debug, info, trace};
 use miette::{bail, IntoDiagnostic, Result};
@@ -14,7 +17,7 @@ use users::{Users, UsersCache};
 
 use crate::commands::build::BuildCommand;
 
-use super::{BlueBuildCommand, DriverArgs};
+use super::BlueBuildCommand;
 
 #[derive(Default, Clone, Debug, TypedBuilder, Args)]
 pub struct LocalCommonArgs {
@@ -81,19 +84,14 @@ impl BlueBuildCommand for UpgradeCommand {
             info!("Upgrading image {image_name} and rebooting");
 
             trace!("rpm-ostree upgrade --reboot");
-            Command::new("rpm-ostree")
-                .arg("upgrade")
-                .arg("--reboot")
+            cmd!("rpm-ostree", "upgrade", "--reboot")
                 .status()
                 .into_diagnostic()?
         } else {
             info!("Upgrading image {image_name}");
 
             trace!("rpm-ostree upgrade");
-            Command::new("rpm-ostree")
-                .arg("upgrade")
-                .status()
-                .into_diagnostic()?
+            cmd!("rpm-ostree", "upgrade").status().into_diagnostic()?
         };
 
         if status.success() {
@@ -146,19 +144,14 @@ impl BlueBuildCommand for RebaseCommand {
             info!("Rebasing image {image_name} and rebooting");
 
             trace!("rpm-ostree rebase --reboot {rebase_url}");
-            Command::new("rpm-ostree")
-                .arg("rebase")
-                .arg("--reboot")
-                .arg(rebase_url)
+            cmd!("rpm-ostree", "rebase", "--reboot", rebase_url)
                 .status()
                 .into_diagnostic()?
         } else {
             info!("Rebasing image {image_name}");
 
             trace!("rpm-ostree rebase {rebase_url}");
-            Command::new("rpm-ostree")
-                .arg("rebase")
-                .arg(rebase_url)
+            cmd!("rpm-ostree", "rebase", rebase_url)
                 .status()
                 .into_diagnostic()?
         };

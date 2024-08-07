@@ -1,5 +1,6 @@
-use std::{borrow::Cow, path::Path, process::Command};
+use std::{borrow::Cow, path::Path};
 
+use blue_build_utils::cmd;
 use log::trace;
 use miette::{bail, IntoDiagnostic, Result};
 use serde::Deserialize;
@@ -27,8 +28,7 @@ impl<'a> RpmOstreeStatus<'a> {
         blue_build_utils::check_command_exists("rpm-ostree")?;
 
         trace!("rpm-ostree status --json");
-        let output = Command::new("rpm-ostree")
-            .args(["status", "--json"])
+        let output = cmd!("rpm-ostree", "status", "--json")
             .output()
             .into_diagnostic()?;
 

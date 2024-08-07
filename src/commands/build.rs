@@ -3,14 +3,17 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use blue_build_recipe::Recipe;
-use blue_build_utils::{
-    constants::{
-        ARCHIVE_SUFFIX, BB_PASSWORD, BB_REGISTRY, BB_REGISTRY_NAMESPACE, BB_USERNAME,
-        BUILD_ID_LABEL, CONFIG_PATH, CONTAINER_FILE, GITIGNORE_PATH, LABELED_ERROR_MESSAGE,
-        NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH,
+use blue_build_process_management::{
+    credentials::{Credentials, CredentialsArgs},
+    drivers::{
+        opts::{BuildTagPushOpts, CheckKeyPairOpts, CompressionType},
+        BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
     },
-    generate_containerfile_path,
+};
+use blue_build_recipe::Recipe;
+use blue_build_utils::constants::{
+    ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, BUILD_ID_LABEL, CONFIG_PATH, CONTAINER_FILE,
+    GITIGNORE_PATH, LABELED_ERROR_MESSAGE, NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH,
 };
 use clap::Args;
 use colored::Colorize;
@@ -18,15 +21,9 @@ use log::{debug, info, trace, warn};
 use miette::{bail, Context, IntoDiagnostic, Result};
 use typed_builder::TypedBuilder;
 
-use crate::{
-    commands::generate::GenerateCommand,
-    drivers::{
-        opts::{BuildTagPushOpts, CompressionType},
-        BuildDriver, CiDriver, Driver, SigningDriver,
-    },
-};
+use crate::commands::generate::GenerateCommand;
 
-use super::{BlueBuildCommand, DriverArgs};
+use super::BlueBuildCommand;
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Args, TypedBuilder)]
@@ -83,29 +80,12 @@ pub struct BuildCommand {
     #[builder(default, setter(into, strip_option))]
     archive: Option<PathBuf>,
 
-    /// The registry's domain name.
-    #[arg(long, env = BB_REGISTRY)]
-    #[builder(default, setter(into, strip_option))]
-    registry: Option<String>,
-
     /// The url path to your base
     /// project images.
     #[arg(long, env = BB_REGISTRY_NAMESPACE)]
     #[builder(default, setter(into, strip_option))]
     #[arg(visible_alias("registry-path"))]
     registry_namespace: Option<String>,
-
-    /// The username to login to the
-    /// container registry.
-    #[arg(short = 'U', long, env = BB_USERNAME, hide_env_values = true)]
-    #[builder(default, setter(into, strip_option))]
-    username: Option<String>,
-
-    /// The password to login to the
-    /// container registry.
-    #[arg(short = 'P', long, env = BB_PASSWORD, hide_env_values = true)]
-    #[builder(default, setter(into, strip_option))]
-    password: Option<String>,
 
     /// Do not sign the image on push.
     #[arg(long)]
@@ -123,6 +103,14 @@ pub struct BuildCommand {
     #[builder(default)]
     squash: bool,
 
+    #[clap(skip)]
+    #[builder(default)]
+    registry: Option<String>,
+
+    #[clap(flatten)]
+    #[builder(default)]
+    credentials: Option<CredentialsArgs>,
+
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,
@@ -133,14 +121,12 @@ impl BlueBuildCommand for BuildCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
-        Driver::builder()
-            .username(self.username.as_ref())
-            .password(self.password.as_ref())
-            .registry(self.registry.as_ref())
-            .build_driver(self.drivers.build_driver)
-            .inspect_driver(self.drivers.inspect_driver)
-            .build()
-            .init();
+        Driver::init(self.drivers);
+
+        if let Some(creds) = self.credentials.take() {
+            self.registry.clone_from(&creds.registry);
+            Credentials::init(creds);
+        }
 
         self.update_gitignore()?;
 
@@ -150,7 +136,7 @@ impl BlueBuildCommand for BuildCommand {
 
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
-            Driver::check_signing_files()?;
+            Driver::check_signing_files(&CheckKeyPairOpts::builder().dir(Path::new(".")).build())?;
             Driver::login()?;
             Driver::signing_login()?;
         }
@@ -176,7 +162,11 @@ impl BlueBuildCommand for BuildCommand {
 
             recipe_paths.par_iter().try_for_each(|recipe| {
                 GenerateCommand::builder()
-                    .output(generate_containerfile_path(recipe)?)
+                    .output(if recipe_paths.len() > 1 {
+                        blue_build_utils::generate_containerfile_path(recipe)?
+                    } else {
+                        PathBuf::from(CONTAINER_FILE)
+                    })
                     .recipe(recipe)
                     .drivers(self.drivers)
                     .build()
@@ -200,7 +190,7 @@ impl BlueBuildCommand for BuildCommand {
             });
 
             GenerateCommand::builder()
-                .output(generate_containerfile_path(&recipe_path)?)
+                .output(CONTAINER_FILE)
                 .recipe(&recipe_path)
                 .drivers(self.drivers)
                 .build()
@@ -214,16 +204,20 @@ impl BlueBuildCommand for BuildCommand {
 impl BuildCommand {
     #[cfg(feature = "multi-recipe")]
     fn start(&self, recipe_paths: &[PathBuf]) -> Result<()> {
+        use blue_build_process_management::drivers::opts::SignVerifyOpts;
         use rayon::prelude::*;
 
-        use crate::drivers::{BuildDriver, CiDriver};
         trace!("BuildCommand::build_image()");
 
         recipe_paths
             .par_iter()
             .try_for_each(|recipe_path| -> Result<()> {
                 let recipe = Recipe::parse(recipe_path)?;
-                let containerfile = generate_containerfile_path(recipe_path)?;
+                let containerfile = if recipe_paths.len() > 1 {
+                    blue_build_utils::generate_containerfile_path(recipe_path)?
+                } else {
+                    PathBuf::from(CONTAINER_FILE)
+                };
                 let tags = Driver::generate_tags(&recipe)?;
                 let image_name = self.generate_full_image_name(&recipe)?;
 
@@ -241,7 +235,7 @@ impl BuildCommand {
                     BuildTagPushOpts::builder()
                         .image(&image_name)
                         .containerfile(&containerfile)
-                        .tags(tags.iter().map(String::as_str).collect::<Vec<_>>())
+                        .tags(&tags)
                         .push(self.push)
                         .no_retry_push(self.no_retry_push)
                         .retry_count(self.retry_count)
@@ -253,7 +247,13 @@ impl BuildCommand {
                 Driver::build_tag_push(&opts)?;
 
                 if self.push && !self.no_sign {
-                    Driver::sign_images(&image_name, tags.first().map(String::as_str))?;
+                    let opts = SignVerifyOpts::builder().image(&image_name);
+                    let opts = if let Some(tag) = tags.first() {
+                        opts.tag(tag).build()
+                    } else {
+                        opts.build()
+                    };
+                    Driver::sign_and_verify(&opts)?;
                 }
 
                 Ok(())
@@ -265,12 +265,12 @@ impl BuildCommand {
 
     #[cfg(not(feature = "multi-recipe"))]
     fn start(&self, recipe_path: &Path) -> Result<()> {
-        use crate::drivers::CiDriver;
+        use blue_build_process_management::drivers::opts::SignVerifyOpts;
 
         trace!("BuildCommand::start()");
 
         let recipe = Recipe::parse(recipe_path)?;
-        let containerfile = generate_containerfile_path(recipe_path)?;
+        let containerfile = PathBuf::from(CONTAINER_FILE);
         let tags = Driver::generate_tags(&recipe)?;
         let image_name = self.generate_full_image_name(&recipe)?;
 
@@ -288,7 +288,7 @@ impl BuildCommand {
             BuildTagPushOpts::builder()
                 .image(&image_name)
                 .containerfile(&containerfile)
-                .tags(tags.iter().map(String::as_str).collect::<Vec<_>>())
+                .tags(&tags)
                 .push(self.push)
                 .no_retry_push(self.no_retry_push)
                 .retry_count(self.retry_count)
@@ -300,7 +300,13 @@ impl BuildCommand {
         Driver::build_tag_push(&opts)?;
 
         if self.push && !self.no_sign {
-            Driver::sign_images(&image_name, tags.first().map(String::as_str))?;
+            let opts = SignVerifyOpts::builder().image(&image_name);
+            let opts = if let Some(tag) = tags.first() {
+                opts.tag(tag).build()
+            } else {
+                opts.build()
+            };
+            Driver::sign_and_verify(&opts)?;
         }
 
         info!("Build complete!");
@@ -314,20 +320,19 @@ impl BuildCommand {
         trace!("BuildCommand::generate_full_image_name({recipe:#?})");
         info!("Generating full image name");
 
-        let image_name = match (
-            self.registry.as_ref().map(|s| s.to_lowercase()),
+        let image_name = if let (Some(registry), Some(registry_path)) = (
+            self.registry.as_ref().map(|r| r.to_lowercase()),
             self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
         ) {
-            (Some(registry), Some(registry_path)) => {
-                trace!("registry={registry}, registry_path={registry_path}");
-                format!(
-                    "{}/{}/{}",
-                    registry.trim().trim_matches('/'),
-                    registry_path.trim().trim_matches('/'),
-                    recipe.name.trim(),
-                )
-            }
-            _ => Driver::generate_image_name(recipe)?,
+            trace!("registry={registry}, registry_path={registry_path}");
+            format!(
+                "{}/{}/{}",
+                registry.trim().trim_matches('/'),
+                registry_path.trim().trim_matches('/'),
+                recipe.name.trim(),
+            )
+        } else {
+            Driver::generate_image_name(recipe)?
         };
 
         debug!("Using image name '{image_name}'");
