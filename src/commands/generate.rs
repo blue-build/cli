@@ -4,7 +4,7 @@ use std::{
 };
 
 use blue_build_recipe::Recipe;
-use blue_build_template::{ContainerFileTemplate, Template};
+use blue_build_template::{Template, VanillaContainerFileTemplate};
 use blue_build_utils::{
     constants::{
         CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CONFIG_PATH, GITHUB_REPOSITORY_OWNER,
@@ -114,7 +114,7 @@ impl GenerateCommand {
 
         info!("Templating for recipe at {}", recipe_path.display());
 
-        let template = ContainerFileTemplate::builder()
+        let template = VanillaContainerFileTemplate::builder()
             .os_version(Driver::get_os_version(&recipe_de)?)
             .build_id(Driver::get_build_id())
             .recipe(&recipe_de)

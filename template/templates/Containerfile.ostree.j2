@@ -28,7 +28,7 @@ RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
   && cp /tmp/bins/* /usr/bin/ \
   && ostree container commit
 
-{% call modules::main_modules_run(recipe.modules_ext, os_version) %}
+{% call modules::ostree_modules_run(recipe.modules_ext, os_version) %}
 
 RUN rm -fr /tmp/* /var/* && ostree container commit
 

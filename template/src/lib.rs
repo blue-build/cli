@@ -14,11 +14,35 @@ pub use rinja::Template;
 
 #[derive(Debug, Clone, Template, TypedBuilder)]
 #[template(
+    path = "Containerfile.ostree.j2",
+    escape = "none",
+    whitespace = "minimize"
+)]
+pub struct OstreeContainerFileTemplate<'a> {
+    recipe: &'a Recipe<'a>,
+
+    #[builder(setter(into))]
+    recipe_path: &'a Path,
+
+    #[builder(setter(into))]
+    build_id: Uuid,
+
+    os_version: u64,
+
+    #[builder(setter(into))]
+    registry: Cow<'a, str>,
+
+    #[builder(setter(into))]
+    exports_tag: Cow<'a, str>,
+}
+
+#[derive(Debug, Clone, Template, TypedBuilder)]
+#[template(
     path = "Containerfile.vanilla.j2",
     escape = "none",
     whitespace = "minimize"
 )]
-pub struct ContainerFileTemplate<'a> {
+pub struct VanillaContainerFileTemplate<'a> {
     recipe: &'a Recipe<'a>,
 
     #[builder(setter(into))]
