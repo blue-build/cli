@@ -1,9 +1,12 @@
 use std::{
-    env, path::{Path, PathBuf}
+    env,
+    path::{Path, PathBuf},
 };
 
-use blue_build_recipe::{Recipe};
-use blue_build_template::{ContainerFileTemplate, OstreeContainerFileTemplate, VanillaContainerFileTemplate};
+use blue_build_recipe::Recipe;
+use blue_build_template::{
+    ContainerFileTemplate, OstreeContainerFileTemplate, VanillaContainerFileTemplate,
+};
 use blue_build_utils::{
     constants::{
         CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CONFIG_PATH, GITHUB_REPOSITORY_OWNER,
@@ -118,7 +121,7 @@ impl GenerateCommand {
                 "vanilla" => Box::new(self.build_vanilla_template(&recipe_de, &recipe_path)?),
                 "ostree" => Box::new(self.build_ostree_template(&recipe_de, &recipe_path)?),
                 _ => Box::new(self.build_ostree_template(&recipe_de, &recipe_path)?),
-            }
+            },
             None => Box::new(self.build_ostree_template(&recipe_de, &recipe_path)?),
         };
 
@@ -136,8 +139,12 @@ impl GenerateCommand {
         Ok(())
     }
 
-    fn build_ostree_template<'a>(&self, recipe_de: &'a Recipe<'a>, recipe_path: &'a Path) -> Result<OstreeContainerFileTemplate<'a>> {
-        info!("Using ostree template");    
+    fn build_ostree_template<'a>(
+        &self,
+        recipe_de: &'a Recipe<'a>,
+        recipe_path: &'a Path,
+    ) -> Result<OstreeContainerFileTemplate<'a>> {
+        info!("Using ostree template");
         Ok(OstreeContainerFileTemplate::builder()
             .os_version(Driver::get_os_version(recipe_de)?)
             .build_id(Driver::get_build_id())
@@ -158,8 +165,12 @@ impl GenerateCommand {
             .build())
     }
 
-    fn build_vanilla_template<'a>(&self, recipe_de: &'a Recipe<'a>, recipe_path: &'a Path) -> Result<VanillaContainerFileTemplate<'a>> {
-        info!("Using vanilla template");        
+    fn build_vanilla_template<'a>(
+        &self,
+        recipe_de: &'a Recipe<'a>,
+        recipe_path: &'a Path,
+    ) -> Result<VanillaContainerFileTemplate<'a>> {
+        info!("Using vanilla template");
         Ok(VanillaContainerFileTemplate::builder()
             .os_version(Driver::get_os_version(recipe_de)?)
             .build_id(Driver::get_build_id())
