@@ -10,7 +10,7 @@ use log::{debug, error, trace, warn};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
-pub use askama::Template;
+pub use rinja::Template;
 
 #[derive(Debug, Clone, Template, TypedBuilder)]
 #[template(
@@ -169,7 +169,7 @@ fn config_dir_exists() -> bool {
 
 mod filters {
     #[allow(clippy::unnecessary_wraps)]
-    pub fn replace<T: std::fmt::Display>(input: T, from: char, to: &str) -> askama::Result<String> {
+    pub fn replace<T: std::fmt::Display>(input: T, from: char, to: &str) -> rinja::Result<String> {
         Ok(format!("{input}").replace(from, to))
     }
 }
