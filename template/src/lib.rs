@@ -12,6 +12,13 @@ use uuid::Uuid;
 
 pub use rinja::Template;
 
+pub trait ContainerFileTemplate {
+    /// # Errors
+    ///
+    /// Will return error from rinja if there is an issue rendering the template.
+    fn render(&self) -> Result<String, rinja::Error>;
+}
+
 #[derive(Debug, Clone, Template, TypedBuilder)]
 #[template(
     path = "Containerfile.ostree.j2",
@@ -34,6 +41,11 @@ pub struct OstreeContainerFileTemplate<'a> {
 
     #[builder(setter(into))]
     exports_tag: Cow<'a, str>,
+}
+impl ContainerFileTemplate for OstreeContainerFileTemplate<'_> {
+    fn render(&self) -> Result<String, rinja::Error> {
+        Template::render(&self)
+    }
 }
 
 #[derive(Debug, Clone, Template, TypedBuilder)]
@@ -59,7 +71,11 @@ pub struct VanillaContainerFileTemplate<'a> {
     #[builder(setter(into))]
     exports_tag: Cow<'a, str>,
 }
-
+impl ContainerFileTemplate for VanillaContainerFileTemplate<'_> {
+    fn render(&self) -> Result<String, rinja::Error> {
+        Template::render(&self)
+    }
+}
 #[derive(Debug, Clone, Template, TypedBuilder)]
 #[template(path = "github_issue.j2", escape = "md")]
 pub struct GithubIssueTemplate<'a> {

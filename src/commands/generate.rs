@@ -1,10 +1,9 @@
 use std::{
-    env,
-    path::{Path, PathBuf},
+    env, path::{Path, PathBuf}
 };
 
-use blue_build_recipe::Recipe;
-use blue_build_template::{Template, VanillaContainerFileTemplate};
+use blue_build_recipe::{Recipe};
+use blue_build_template::{ContainerFileTemplate, OstreeContainerFileTemplate, VanillaContainerFileTemplate};
 use blue_build_utils::{
     constants::{
         CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CONFIG_PATH, GITHUB_REPOSITORY_OWNER,
@@ -114,24 +113,14 @@ impl GenerateCommand {
 
         info!("Templating for recipe at {}", recipe_path.display());
 
-        let template = VanillaContainerFileTemplate::builder()
-            .os_version(Driver::get_os_version(&recipe_de)?)
-            .build_id(Driver::get_build_id())
-            .recipe(&recipe_de)
-            .recipe_path(recipe_path.as_path())
-            .registry(self.get_registry())
-            .exports_tag({
-                #[allow(clippy::const_is_empty)]
-                if shadow::COMMIT_HASH.is_empty() {
-                    // This is done for users who install via
-                    // cargo. Cargo installs do not carry git
-                    // information via shadow
-                    format!("v{}", crate_version!())
-                } else {
-                    shadow::COMMIT_HASH.to_string()
-                }
-            })
-            .build();
+        let template: Box<dyn ContainerFileTemplate> = match &recipe_de.base_image_type {
+            Some(cow) => match cow.as_ref() {
+                "vanilla" => Box::new(self.build_vanilla_template(&recipe_de, &recipe_path)?),
+                "ostree" => Box::new(self.build_ostree_template(&recipe_de, &recipe_path)?),
+                _ => Box::new(self.build_ostree_template(&recipe_de, &recipe_path)?),
+            }
+            None => Box::new(self.build_ostree_template(&recipe_de, &recipe_path)?),
+        };
 
         let output_str = template.render().into_diagnostic()?;
         if let Some(output) = self.output.as_ref() {
@@ -145,6 +134,50 @@ impl GenerateCommand {
         }
 
         Ok(())
+    }
+
+    fn build_ostree_template<'a>(&self, recipe_de: &'a Recipe<'a>, recipe_path: &'a Path) -> Result<OstreeContainerFileTemplate<'a>> {
+        info!("Using ostree template");    
+        Ok(OstreeContainerFileTemplate::builder()
+            .os_version(Driver::get_os_version(recipe_de)?)
+            .build_id(Driver::get_build_id())
+            .recipe(recipe_de)
+            .recipe_path(recipe_path)
+            .registry(self.get_registry())
+            .exports_tag({
+                #[allow(clippy::const_is_empty)]
+                if shadow::COMMIT_HASH.is_empty() {
+                    // This is done for users who install via
+                    // cargo. Cargo installs do not carry git
+                    // information via shadow
+                    format!("v{}", crate_version!())
+                } else {
+                    shadow::COMMIT_HASH.to_string()
+                }
+            })
+            .build())
+    }
+
+    fn build_vanilla_template<'a>(&self, recipe_de: &'a Recipe<'a>, recipe_path: &'a Path) -> Result<VanillaContainerFileTemplate<'a>> {
+        info!("Using vanilla template");        
+        Ok(VanillaContainerFileTemplate::builder()
+            .os_version(Driver::get_os_version(recipe_de)?)
+            .build_id(Driver::get_build_id())
+            .recipe(recipe_de)
+            .recipe_path(recipe_path)
+            .registry(self.get_registry())
+            .exports_tag({
+                #[allow(clippy::const_is_empty)]
+                if shadow::COMMIT_HASH.is_empty() {
+                    // This is done for users who install via
+                    // cargo. Cargo installs do not carry git
+                    // information via shadow
+                    format!("v{}", crate_version!())
+                } else {
+                    shadow::COMMIT_HASH.to_string()
+                }
+            })
+            .build())
     }
 
     fn get_registry(&self) -> String {
