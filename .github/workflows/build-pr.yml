@@ -210,17 +210,21 @@ jobs:
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@v3
 
-      - name: Run Build
+      - uses: nick-fields/retry@v3
+        name: Run Build
         env:
           GH_TOKEN: ${{ github.token }}
           GH_PR_EVENT_NUMBER: ${{ github.event.number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
           BB_BUILDKIT_CACHE_GHA: true
-        run: |
-          cd integration-tests/test-repo
-          bluebuild template -vv | tee Containerfile
-          grep -q 'ARG IMAGE_REGISTRY=ghcr.io/blue-build' Containerfile || exit 1
-          bluebuild build --push -vv recipes/recipe.yml recipes/recipe-39.yml
+        with:
+          timeout_minutes: 30
+          max_attempts: 2
+          command: |
+            cd integration-tests/test-repo
+            bluebuild template -vv | tee Containerfile
+            grep -q 'ARG IMAGE_REGISTRY=ghcr.io/blue-build' Containerfile || exit 1
+            bluebuild build --push -vv recipes/recipe.yml recipes/recipe-39.yml
 
   docker-build-external-login:
     timeout-minutes: 60
