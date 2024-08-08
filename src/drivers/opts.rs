@@ -7,6 +7,7 @@ pub use run::*;
 mod build;
 mod inspect;
 mod run;
+mod signing;
 
 #[derive(Debug, Copy, Clone, Default, ValueEnum)]
 pub enum CompressionType {

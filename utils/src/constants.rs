@@ -27,7 +27,9 @@ pub const BB_USERNAME: &str = "BB_USERNAME";
 pub const DOCKER_HOST: &str = "DOCKER_HOST";
 
 // Cosign vars
+pub const COSIGN_PASSWORD: &str = "COSIGN_PASSWORD";
 pub const COSIGN_PRIVATE_KEY: &str = "COSIGN_PRIVATE_KEY";
+pub const COSIGN_YES: &str = "COSIGN_YES";
 pub const GITHUB_TOKEN_ISSUER_URL: &str = "https://token.actions.githubusercontent.com";
 pub const SIGSTORE_ID_TOKEN: &str = "SIGSTORE_ID_TOKEN";
 
@@ -35,6 +37,7 @@ pub const SIGSTORE_ID_TOKEN: &str = "SIGSTORE_ID_TOKEN";
 pub const GITHUB_ACTIONS: &str = "GITHUB_ACTIONS";
 pub const GITHUB_ACTOR: &str = "GITHUB_ACTOR";
 pub const GITHUB_EVENT_NAME: &str = "GITHUB_EVENT_NAME";
+pub const GITHUB_EVENT_PATH: &str = "GITHUB_EVENT_PATH";
 pub const GITHUB_REF_NAME: &str = "GITHUB_REF_NAME";
 pub const GITHUB_RESPOSITORY: &str = "GITHUB_REPOSITORY";
 pub const GITHUB_REPOSITORY_OWNER: &str = "GITHUB_REPOSITORY_OWNER";
@@ -58,6 +61,7 @@ pub const CI_SERVER_PROTOCOL: &str = "CI_SERVER_PROTOCOL";
 pub const CI_REGISTRY: &str = "CI_REGISTRY";
 pub const CI_REGISTRY_PASSWORD: &str = "CI_REGISTRY_PASSWORD";
 pub const CI_REGISTRY_USER: &str = "CI_REGISTRY_USER";
+pub const GITLAB_CI: &str = "GITLAB_CI";
 
 // Terminal vars
 pub const TERM_PROGRAM: &str = "TERM_PROGRAM";
@@ -71,6 +75,7 @@ pub const OCI_ARCHIVE: &str = "oci-archive";
 pub const OSTREE_IMAGE_SIGNED: &str = "ostree-image-signed";
 pub const OSTREE_UNVERIFIED_IMAGE: &str = "ostree-unverified-image";
 pub const SKOPEO_IMAGE: &str = "quay.io/skopeo/stable:latest";
+pub const TEMPLATE_REPO_URL: &str = "https://github.com/blue-build/template.git";
 pub const UNKNOWN_SHELL: &str = "<unknown shell>";
 pub const UNKNOWN_VERSION: &str = "<unknown version>";
 pub const UNKNOWN_TERMINAL: &str = "<unknown terminal>";

@@ -116,7 +116,7 @@ impl DriverVersion for DockerDriver {
 }
 
 impl BuildDriver for DockerDriver {
-    fn build(&self, opts: &BuildOpts) -> Result<()> {
+    fn build(opts: &BuildOpts) -> Result<()> {
         trace!("DockerDriver::build({opts:#?})");
 
         if opts.squash {
@@ -142,7 +142,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn tag(&self, opts: &TagOpts) -> Result<()> {
+    fn tag(opts: &TagOpts) -> Result<()> {
         trace!("DockerDriver::tag({opts:#?})");
 
         trace!("docker tag {} {}", opts.src_image, opts.dest_image);
@@ -161,7 +161,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn push(&self, opts: &PushOpts) -> Result<()> {
+    fn push(opts: &PushOpts) -> Result<()> {
         trace!("DockerDriver::push({opts:#?})");
 
         trace!("docker push {}", opts.image);
@@ -179,7 +179,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn login(&self) -> Result<()> {
+    fn login() -> Result<()> {
         trace!("DockerDriver::login()");
 
         if let Some(Credentials {
@@ -207,7 +207,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn build_tag_push(&self, opts: &BuildTagPushOpts) -> Result<()> {
+    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<()> {
         trace!("DockerDriver::build_tag_push({opts:#?})");
 
         if opts.squash {
@@ -310,7 +310,7 @@ impl BuildDriver for DockerDriver {
 }
 
 impl InspectDriver for DockerDriver {
-    fn get_metadata(&self, opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+    fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
         trace!("DockerDriver::get_labels({opts:#?})");
 
         let url = opts.tag.as_ref().map_or_else(
@@ -325,14 +325,13 @@ impl InspectDriver for DockerDriver {
         );
         progress.enable_steady_tick(Duration::from_millis(100));
 
-        let output = self
-            .run_output(
-                &RunOpts::builder()
-                    .image(SKOPEO_IMAGE)
-                    .args(&["inspect".to_string(), url.clone()])
-                    .build(),
-            )
-            .into_diagnostic()?;
+        let output = Self::run_output(
+            &RunOpts::builder()
+                .image(SKOPEO_IMAGE)
+                .args(&["inspect".to_string(), url.clone()])
+                .build(),
+        )
+        .into_diagnostic()?;
 
         progress.finish();
         Logger::multi_progress().remove(&progress);
@@ -348,7 +347,7 @@ impl InspectDriver for DockerDriver {
 }
 
 impl RunDriver for DockerDriver {
-    fn run(&self, opts: &RunOpts) -> std::io::Result<ExitStatus> {
+    fn run(opts: &RunOpts) -> std::io::Result<ExitStatus> {
         trace!("DockerDriver::run({opts:#?})");
 
         let cid_path = TempDir::new("docker")?;
@@ -365,7 +364,7 @@ impl RunDriver for DockerDriver {
         Ok(status)
     }
 
-    fn run_output(&self, opts: &RunOpts) -> std::io::Result<std::process::Output> {
+    fn run_output(opts: &RunOpts) -> std::io::Result<std::process::Output> {
         trace!("DockerDriver::run({opts:#?})");
 
         let cid_path = TempDir::new("docker")?;

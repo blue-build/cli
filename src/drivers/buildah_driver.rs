@@ -46,7 +46,7 @@ impl DriverVersion for BuildahDriver {
 }
 
 impl BuildDriver for BuildahDriver {
-    fn build(&self, opts: &BuildOpts) -> Result<()> {
+    fn build(opts: &BuildOpts) -> Result<()> {
         trace!("BuildahDriver::build({opts:#?})");
 
         trace!(
@@ -76,7 +76,7 @@ impl BuildDriver for BuildahDriver {
         Ok(())
     }
 
-    fn tag(&self, opts: &TagOpts) -> Result<()> {
+    fn tag(opts: &TagOpts) -> Result<()> {
         trace!("BuildahDriver::tag({opts:#?})");
 
         trace!("buildah tag {} {}", opts.src_image, opts.dest_image);
@@ -95,7 +95,7 @@ impl BuildDriver for BuildahDriver {
         Ok(())
     }
 
-    fn push(&self, opts: &PushOpts) -> Result<()> {
+    fn push(opts: &PushOpts) -> Result<()> {
         trace!("BuildahDriver::push({opts:#?})");
 
         trace!("buildah push {}", opts.image);
@@ -119,7 +119,7 @@ impl BuildDriver for BuildahDriver {
         Ok(())
     }
 
-    fn login(&self) -> Result<()> {
+    fn login() -> Result<()> {
         trace!("BuildahDriver::login()");
 
         if let Some(Credentials {

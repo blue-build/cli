@@ -68,7 +68,7 @@ impl DriverVersion for PodmanDriver {
 }
 
 impl BuildDriver for PodmanDriver {
-    fn build(&self, opts: &BuildOpts) -> Result<()> {
+    fn build(opts: &BuildOpts) -> Result<()> {
         trace!("PodmanDriver::build({opts:#?})");
 
         trace!(
@@ -99,7 +99,7 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
-    fn tag(&self, opts: &TagOpts) -> Result<()> {
+    fn tag(opts: &TagOpts) -> Result<()> {
         trace!("PodmanDriver::tag({opts:#?})");
 
         trace!("podman tag {} {}", opts.src_image, opts.dest_image);
@@ -118,7 +118,7 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
-    fn push(&self, opts: &PushOpts) -> Result<()> {
+    fn push(opts: &PushOpts) -> Result<()> {
         trace!("PodmanDriver::push({opts:#?})");
 
         trace!("podman push {}", opts.image);
@@ -142,7 +142,7 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
-    fn login(&self) -> Result<()> {
+    fn login() -> Result<()> {
         trace!("PodmanDriver::login()");
 
         if let Some(Credentials {
@@ -172,7 +172,7 @@ impl BuildDriver for PodmanDriver {
 }
 
 impl InspectDriver for PodmanDriver {
-    fn get_metadata(&self, opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+    fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
         trace!("PodmanDriver::get_metadata({opts:#?})");
 
         let url = opts.tag.as_ref().map_or_else(
@@ -187,14 +187,13 @@ impl InspectDriver for PodmanDriver {
         );
         progress.enable_steady_tick(Duration::from_millis(100));
 
-        let output = self
-            .run_output(
-                &RunOpts::builder()
-                    .image(SKOPEO_IMAGE)
-                    .args(&["inspect".to_string(), url.clone()])
-                    .build(),
-            )
-            .into_diagnostic()?;
+        let output = Self::run_output(
+            &RunOpts::builder()
+                .image(SKOPEO_IMAGE)
+                .args(&["inspect".to_string(), url.clone()])
+                .build(),
+        )
+        .into_diagnostic()?;
 
         progress.finish();
         Logger::multi_progress().remove(&progress);
@@ -209,7 +208,7 @@ impl InspectDriver for PodmanDriver {
 }
 
 impl RunDriver for PodmanDriver {
-    fn run(&self, opts: &RunOpts) -> std::io::Result<ExitStatus> {
+    fn run(opts: &RunOpts) -> std::io::Result<ExitStatus> {
         trace!("PodmanDriver::run({opts:#?})");
 
         let cid_path = TempDir::new("podman")?;
@@ -227,7 +226,7 @@ impl RunDriver for PodmanDriver {
         Ok(status)
     }
 
-    fn run_output(&self, opts: &RunOpts) -> std::io::Result<std::process::Output> {
+    fn run_output(opts: &RunOpts) -> std::io::Result<std::process::Output> {
         trace!("PodmanDriver::run_output({opts:#?})");
 
         let cid_path = TempDir::new("podman")?;
