@@ -34,16 +34,6 @@ RUN lpkg --unlock && apt-get update
 # Cleanup step copied from VanillaOS template
 RUN apt-get autoremove -y && apt-get clean && lpkg --lock
 
-# Labels are(n't) added last since they (may cause issues with FsGuard) (eventhough they) cause cache misses with buildah
-LABEL {{ blue_build_utils::constants::BUILD_ID_LABEL }}="{{ build_id }}"
-LABEL org.opencontainers.image.title="{{ recipe.name }}"
-LABEL org.opencontainers.image.description="{{ recipe.description }}"
-{%- if let Some(repo) = self::get_repo_url() %}
-LABEL org.opencontainers.image.source="{{ repo }}"
-{%- endif %}
-LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md
-
-
 # FsGuard step copied from VanillaOS template
 # first download the required python script from the vib-fsguard module and the FsGuard binary
 RUN mkdir -p /sources/fsguard/ && \
@@ -58,3 +48,12 @@ RUN mkdir -p /sources/fsguard/ && \
     cat /FsGuard/signature >> /sources/fsguard/FsGuard && mv /sources/fsguard/FsGuard /usr/sbin/FsGuard && rm ./minisign.key ./minisign.pub
 
 RUN rm -fr /tmp/* /var/tmp/* /sources/*
+
+# Labels are added last since they cause cache misses with buildah
+LABEL {{ blue_build_utils::constants::BUILD_ID_LABEL }}="{{ build_id }}"
+LABEL org.opencontainers.image.title="{{ recipe.name }}"
+LABEL org.opencontainers.image.description="{{ recipe.description }}"
+{%- if let Some(repo) = self::get_repo_url() %}
+LABEL org.opencontainers.image.source="{{ repo }}"
+{%- endif %}
+LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md
