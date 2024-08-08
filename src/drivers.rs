@@ -11,7 +11,7 @@ use std::{
 };
 
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::IMAGE_VERSION_LABEL;
+// use blue_build_utils::constants::IMAGE_VERSION_LABEL;
 use log::{debug, info, trace};
 use miette::{bail, miette, Result};
 use once_cell::sync::Lazy;
@@ -389,12 +389,7 @@ impl Driver<'_> {
                     .build();
                 let inspection = INSPECT_DRIVER.get_metadata(&inspect_opts)?;
 
-                let os_version = inspection.get_version().ok_or_else(|| {
-                    miette!(
-                        help = format!("Please check with the image author about using '{IMAGE_VERSION_LABEL}' to report the os version."),
-                        "Unable to get the OS version from the labels"
-                    )
-                })?;
+                let os_version = inspection.get_version().unwrap_or(0);
                 trace!("os_version: {os_version}");
 
                 os_version

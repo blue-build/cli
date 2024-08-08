@@ -39,6 +39,11 @@ pub struct Recipe<'a> {
     #[builder(setter(into))]
     pub base_image: Cow<'a, str>,
 
+    /// The base image type for user's image.
+    #[serde(alias = "base-image-type", skip_serializing_if = "Option::is_none")]
+    #[builder(setter(into))]
+    pub base_image_type: Option<Cow<'a, str>>,
+
     /// The version/tag of the base image.
     #[serde(alias = "image-version")]
     #[builder(setter(into))]

@@ -12,9 +12,20 @@ use uuid::Uuid;
 
 pub use rinja::Template;
 
+pub trait ContainerFileTemplate {
+    /// # Errors
+    ///
+    /// Will return error from rinja if there is an issue rendering the template.
+    fn render(&self) -> Result<String, rinja::Error>;
+}
+
 #[derive(Debug, Clone, Template, TypedBuilder)]
-#[template(path = "Containerfile.j2", escape = "none", whitespace = "minimize")]
-pub struct ContainerFileTemplate<'a> {
+#[template(
+    path = "Containerfile.ostree.j2",
+    escape = "none",
+    whitespace = "minimize"
+)]
+pub struct OstreeContainerFileTemplate<'a> {
     recipe: &'a Recipe<'a>,
 
     #[builder(setter(into))]
@@ -31,7 +42,40 @@ pub struct ContainerFileTemplate<'a> {
     #[builder(setter(into))]
     exports_tag: Cow<'a, str>,
 }
+impl ContainerFileTemplate for OstreeContainerFileTemplate<'_> {
+    fn render(&self) -> Result<String, rinja::Error> {
+        Template::render(&self)
+    }
+}
 
+#[derive(Debug, Clone, Template, TypedBuilder)]
+#[template(
+    path = "Containerfile.vanilla.j2",
+    escape = "none",
+    whitespace = "minimize"
+)]
+pub struct VanillaContainerFileTemplate<'a> {
+    recipe: &'a Recipe<'a>,
+
+    #[builder(setter(into))]
+    recipe_path: &'a Path,
+
+    #[builder(setter(into))]
+    build_id: Uuid,
+
+    os_version: u64,
+
+    #[builder(setter(into))]
+    registry: Cow<'a, str>,
+
+    #[builder(setter(into))]
+    exports_tag: Cow<'a, str>,
+}
+impl ContainerFileTemplate for VanillaContainerFileTemplate<'_> {
+    fn render(&self) -> Result<String, rinja::Error> {
+        Template::render(&self)
+    }
+}
 #[derive(Debug, Clone, Template, TypedBuilder)]
 #[template(path = "github_issue.j2", escape = "md")]
 pub struct GithubIssueTemplate<'a> {

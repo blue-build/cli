@@ -1,4 +1,37 @@
-{% macro main_modules_run(modules_ext, os_version) %}
+{% macro generic_modules_run(modules_ext, os_version) %}
+# Module RUNs
+  {%- for module in modules_ext.modules %}
+    {%- if let Some(module) = module.required_fields %}
+
+      {%- if module.no_cache %}
+ARG CACHEBUST="{{ build_id }}"
+      {%- endif %}
+
+      {%- if module.module_type == "containerfile" %}
+        {%- include "modules/containerfile/containerfile.j2" %}
+      {%- else if module.module_type == "copy" %}
+        {%- include "modules/copy/copy.j2" %}
+      {%- else %}
+RUN \
+        {%- if self::files_dir_exists() %}
+  --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,rw \
+        {%- else if self::config_dir_exists() %}
+  --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
+        {%- endif %}
+        {%- if let Some(source) = module.source %}
+  --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
+        {%- else %}
+  --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
+        {%- endif %}
+  --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
+  /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module.print_module_context() }}'
+      {%- endif %}
+    {%- endif %}
+  {%- endfor %}
+{% endmacro %}
+
+
+{% macro ostree_modules_run(modules_ext, os_version) %}
 # Module RUNs
   {%- for module in modules_ext.modules %}
     {%- if let Some(module) = module.required_fields %}
@@ -29,37 +62,6 @@ RUN \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
   /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module.print_module_context() }}' \
   && ostree container commit
-      {%- endif %}
-    {%- endif %}
-  {%- endfor %}
-{% endmacro %}
-{% macro stage_modules_run(modules_ext, os_version) %}
-# Module RUNs
-  {%- for module in modules_ext.modules %}
-    {%- if let Some(module) = module.required_fields %}
-
-      {%- if module.no_cache %}
-ARG CACHEBUST="{{ build_id }}"
-      {%- endif %}
-
-      {%- if module.module_type == "containerfile" %}
-        {%- include "modules/containerfile/containerfile.j2" %}
-      {%- else if module.module_type == "copy" %}
-        {%- include "modules/copy/copy.j2" %}
-      {%- else %}
-RUN \
-        {%- if self::files_dir_exists() %}
-  --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,rw \
-        {%- else if self::config_dir_exists() %}
-  --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
-        {%- endif %}
-        {%- if let Some(source) = module.source %}
-  --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
-        {%- else %}
-  --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
-        {%- endif %}
-  --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
-  /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module.print_module_context() }}'
       {%- endif %}
     {%- endif %}
   {%- endfor %}
