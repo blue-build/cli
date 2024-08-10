@@ -105,6 +105,50 @@ pub struct DriverArgs {
     run_driver: Option<RunDriverType>,
 }
 
+macro_rules! impl_driver_type {
+    ($cache:ident) => {{
+        let lock = $cache.read().expect("Should read");
+        lock.expect("Driver should have initialized build driver")
+    }};
+}
+
+macro_rules! impl_driver_init {
+    (@) => { };
+    ($init:ident; $($tail:tt)*) => {
+        {
+            let mut initialized = $init.lock().expect("Must lock INIT");
+
+            if !*initialized {
+                impl_driver_init!(@ $($tail)*);
+
+                *initialized = true;
+            }
+        }
+    };
+    (@ default => $cache:ident; $($tail:tt)*) => {
+        {
+            let mut driver = $cache.write().expect("Should lock");
+
+            impl_driver_init!(@ $($tail)*);
+
+            *driver = Some(driver.determine_driver());
+            ::log::trace!("Driver set {driver:?}");
+            drop(driver);
+        }
+    };
+    (@ $driver:expr => $cache:ident; $($tail:tt)*) => {
+        {
+            let mut driver = $cache.write().expect("Should lock");
+
+            impl_driver_init!(@ $($tail)*);
+
+            *driver = Some($driver.determine_driver());
+            ::log::trace!("Driver set {driver:?}");
+            drop(driver);
+        }
+    };
+}
+
 pub struct Driver;
 
 impl Driver {
@@ -118,36 +162,14 @@ impl Driver {
     /// Will panic if it is unable to initialize drivers.
     pub fn init(mut args: DriverArgs) {
         trace!("Driver::init()");
-        let mut initialized = INIT.lock().expect("Must lock INIT");
 
-        if !*initialized {
-            let mut build_driver = SELECTED_BUILD_DRIVER.write().expect("Should lock");
-            let mut inspect_driver = SELECTED_INSPECT_DRIVER.write().expect("Should lock");
-            let mut run_driver = SELECTED_RUN_DRIVER.write().expect("Should lock");
-            let mut signing_driver = SELECTED_SIGNING_DRIVER.write().expect("Should lock");
-            let mut ci_driver = SELECTED_CI_DRIVER.write().expect("Should lock");
-
-            *ci_driver = Some(ci_driver.determine_driver());
-            trace!("CI driver set to {:?}", *ci_driver);
-            drop(ci_driver);
-
-            *signing_driver = Some(args.signing_driver.determine_driver());
-            trace!("Inspect driver set to {:?}", *signing_driver);
-            drop(signing_driver);
-
-            *run_driver = Some(args.run_driver.determine_driver());
-            trace!("Run driver set to {:?}", *run_driver);
-            drop(run_driver);
-
-            *inspect_driver = Some(args.inspect_driver.determine_driver());
-            trace!("Inspect driver set to {:?}", *inspect_driver);
-            drop(inspect_driver);
-
-            *build_driver = Some(args.build_driver.determine_driver());
-            trace!("Build driver set to {:?}", *build_driver);
-            drop(build_driver);
-
-            *initialized = true;
+        impl_driver_init! {
+            INIT;
+            args.build_driver => SELECTED_BUILD_DRIVER;
+            args.inspect_driver => SELECTED_INSPECT_DRIVER;
+            args.run_driver => SELECTED_RUN_DRIVER;
+            args.signing_driver => SELECTED_SIGNING_DRIVER;
+            default => SELECTED_CI_DRIVER;
         }
     }
 
@@ -223,190 +245,160 @@ impl Driver {
     }
 
     fn get_build_driver() -> BuildDriverType {
-        let lock = SELECTED_BUILD_DRIVER.read().expect("Should read");
-        lock.expect("Driver should have initialized build driver")
+        impl_driver_type!(SELECTED_BUILD_DRIVER)
     }
 
     fn get_inspect_driver() -> InspectDriverType {
-        let lock = SELECTED_INSPECT_DRIVER.read().expect("Should read");
-        lock.expect("Driver should have initialized inspect driver")
+        impl_driver_type!(SELECTED_INSPECT_DRIVER)
     }
 
     fn get_signing_driver() -> SigningDriverType {
-        let lock = SELECTED_SIGNING_DRIVER.read().expect("Should read");
-        lock.expect("Driver should have initialized signing driver")
+        impl_driver_type!(SELECTED_SIGNING_DRIVER)
     }
 
     fn get_run_driver() -> RunDriverType {
-        let lock = SELECTED_RUN_DRIVER.read().expect("Should read");
-        lock.expect("Driver should have initialized run driver")
+        impl_driver_type!(SELECTED_RUN_DRIVER)
     }
 
     fn get_ci_driver() -> CiDriverType {
-        let lock = SELECTED_CI_DRIVER.read().expect("Should read");
-        lock.expect("Driver should have initialized CI driver")
+        impl_driver_type!(SELECTED_CI_DRIVER)
     }
+}
+
+macro_rules! impl_build_driver {
+    ($func:ident($($args:expr),*)) => {
+        match Self::get_build_driver() {
+            BuildDriverType::Buildah => BuildahDriver::$func($($args,)*),
+            BuildDriverType::Podman => PodmanDriver::$func($($args,)*),
+            BuildDriverType::Docker => DockerDriver::$func($($args,)*),
+        }
+    };
 }
 
 impl BuildDriver for Driver {
     fn build(opts: &BuildOpts) -> Result<()> {
-        match Self::get_build_driver() {
-            BuildDriverType::Buildah => BuildahDriver::build(opts),
-            BuildDriverType::Podman => PodmanDriver::build(opts),
-            BuildDriverType::Docker => DockerDriver::build(opts),
-        }
+        impl_build_driver!(build(opts))
     }
 
     fn tag(opts: &TagOpts) -> Result<()> {
-        match Self::get_build_driver() {
-            BuildDriverType::Buildah => BuildahDriver::tag(opts),
-            BuildDriverType::Podman => PodmanDriver::tag(opts),
-            BuildDriverType::Docker => DockerDriver::tag(opts),
-        }
+        impl_build_driver!(tag(opts))
     }
 
     fn push(opts: &PushOpts) -> Result<()> {
-        match Self::get_build_driver() {
-            BuildDriverType::Buildah => BuildahDriver::push(opts),
-            BuildDriverType::Podman => PodmanDriver::push(opts),
-            BuildDriverType::Docker => DockerDriver::push(opts),
-        }
+        impl_build_driver!(push(opts))
     }
 
     fn login() -> Result<()> {
-        match Self::get_build_driver() {
-            BuildDriverType::Buildah => BuildahDriver::login(),
-            BuildDriverType::Podman => PodmanDriver::login(),
-            BuildDriverType::Docker => DockerDriver::login(),
-        }
+        impl_build_driver!(login())
     }
 
     fn build_tag_push(opts: &BuildTagPushOpts) -> Result<()> {
-        match Self::get_build_driver() {
-            BuildDriverType::Buildah => BuildahDriver::build_tag_push(opts),
-            BuildDriverType::Podman => PodmanDriver::build_tag_push(opts),
-            BuildDriverType::Docker => DockerDriver::build_tag_push(opts),
-        }
+        impl_build_driver!(build_tag_push(opts))
     }
+}
+
+macro_rules! impl_signing_driver {
+    ($func:ident($($args:expr),*)) => {
+        match Self::get_signing_driver() {
+            SigningDriverType::Cosign => CosignDriver::$func($($args,)*),
+            SigningDriverType::Sigstore => SigstoreDriver::$func($($args,)*),
+        }
+    };
 }
 
 impl SigningDriver for Driver {
     fn generate_key_pair(opts: &GenerateKeyPairOpts) -> Result<()> {
-        match Self::get_signing_driver() {
-            SigningDriverType::Cosign => CosignDriver::generate_key_pair(opts),
-            SigningDriverType::Sigstore => SigstoreDriver::generate_key_pair(opts),
-        }
+        impl_signing_driver!(generate_key_pair(opts))
     }
 
     fn check_signing_files(opts: &CheckKeyPairOpts) -> Result<()> {
-        match Self::get_signing_driver() {
-            SigningDriverType::Cosign => CosignDriver::check_signing_files(opts),
-            SigningDriverType::Sigstore => SigstoreDriver::check_signing_files(opts),
-        }
+        impl_signing_driver!(check_signing_files(opts))
     }
 
     fn sign(opts: &SignOpts) -> Result<()> {
-        match Self::get_signing_driver() {
-            SigningDriverType::Cosign => CosignDriver::sign(opts),
-            SigningDriverType::Sigstore => SigstoreDriver::sign(opts),
-        }
+        impl_signing_driver!(sign(opts))
     }
 
     fn verify(opts: &VerifyOpts) -> Result<()> {
-        match Self::get_signing_driver() {
-            SigningDriverType::Cosign => CosignDriver::verify(opts),
-            SigningDriverType::Sigstore => SigstoreDriver::verify(opts),
-        }
+        impl_signing_driver!(verify(opts))
     }
 
     fn signing_login() -> Result<()> {
-        match Self::get_signing_driver() {
-            SigningDriverType::Cosign => CosignDriver::signing_login(),
-            SigningDriverType::Sigstore => SigstoreDriver::signing_login(),
-        }
+        impl_signing_driver!(signing_login())
     }
+}
+
+macro_rules! impl_inspect_driver {
+    ($func:ident($($args:expr),*)) => {
+        match Self::get_inspect_driver() {
+            InspectDriverType::Skopeo => SkopeoDriver::$func($($args,)*),
+            InspectDriverType::Podman => PodmanDriver::$func($($args,)*),
+            InspectDriverType::Docker => DockerDriver::$func($($args,)*),
+        }
+    };
 }
 
 impl InspectDriver for Driver {
     fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
-        match Self::get_inspect_driver() {
-            InspectDriverType::Skopeo => SkopeoDriver::get_metadata(opts),
-            InspectDriverType::Podman => PodmanDriver::get_metadata(opts),
-            InspectDriverType::Docker => DockerDriver::get_metadata(opts),
-        }
+        impl_inspect_driver!(get_metadata(opts))
     }
+}
+
+macro_rules! impl_run_driver {
+    ($func:ident($($args:expr),*)) => {
+        match Self::get_run_driver() {
+            RunDriverType::Docker => DockerDriver::$func($($args,)*),
+            RunDriverType::Podman => PodmanDriver::$func($($args,)*),
+        }
+    };
 }
 
 impl RunDriver for Driver {
     fn run(opts: &RunOpts) -> std::io::Result<ExitStatus> {
-        match Self::get_run_driver() {
-            RunDriverType::Podman => PodmanDriver::run(opts),
-            RunDriverType::Docker => DockerDriver::run(opts),
-        }
+        impl_run_driver!(run(opts))
     }
 
     fn run_output(opts: &RunOpts) -> std::io::Result<Output> {
-        match Self::get_run_driver() {
-            RunDriverType::Podman => PodmanDriver::run_output(opts),
-            RunDriverType::Docker => DockerDriver::run_output(opts),
-        }
+        impl_run_driver!(run_output(opts))
     }
+}
+
+macro_rules! impl_ci_driver {
+    ($func:ident($($args:expr),*)) => {
+        match Self::get_ci_driver() {
+            CiDriverType::Local => LocalDriver::$func($($args)*),
+            CiDriverType::Gitlab => GitlabDriver::$func($($args)*),
+            CiDriverType::Github => GithubDriver::$func($($args)*),
+        }
+    };
 }
 
 impl CiDriver for Driver {
     fn on_default_branch() -> bool {
-        match Self::get_ci_driver() {
-            CiDriverType::Local => LocalDriver::on_default_branch(),
-            CiDriverType::Gitlab => GitlabDriver::on_default_branch(),
-            CiDriverType::Github => GithubDriver::on_default_branch(),
-        }
+        impl_ci_driver!(on_default_branch())
     }
 
     fn keyless_cert_identity() -> Result<String> {
-        match Self::get_ci_driver() {
-            CiDriverType::Local => LocalDriver::keyless_cert_identity(),
-            CiDriverType::Gitlab => GitlabDriver::keyless_cert_identity(),
-            CiDriverType::Github => GithubDriver::keyless_cert_identity(),
-        }
+        impl_ci_driver!(keyless_cert_identity())
     }
 
     fn oidc_provider() -> Result<String> {
-        match Self::get_ci_driver() {
-            CiDriverType::Local => LocalDriver::oidc_provider(),
-            CiDriverType::Gitlab => GitlabDriver::oidc_provider(),
-            CiDriverType::Github => GithubDriver::oidc_provider(),
-        }
+        impl_ci_driver!(oidc_provider())
     }
 
     fn generate_tags(recipe: &Recipe) -> Result<Vec<String>> {
-        match Self::get_ci_driver() {
-            CiDriverType::Local => LocalDriver::generate_tags(recipe),
-            CiDriverType::Gitlab => GitlabDriver::generate_tags(recipe),
-            CiDriverType::Github => GithubDriver::generate_tags(recipe),
-        }
+        impl_ci_driver!(generate_tags(recipe))
     }
 
     fn get_repo_url() -> Result<String> {
-        match Self::get_ci_driver() {
-            CiDriverType::Local => LocalDriver::get_repo_url(),
-            CiDriverType::Gitlab => GitlabDriver::get_repo_url(),
-            CiDriverType::Github => GithubDriver::get_repo_url(),
-        }
+        impl_ci_driver!(get_repo_url())
     }
 
     fn get_registry() -> Result<String> {
-        match Self::get_ci_driver() {
-            CiDriverType::Local => LocalDriver::get_registry(),
-            CiDriverType::Gitlab => GitlabDriver::get_registry(),
-            CiDriverType::Github => GithubDriver::get_registry(),
-        }
+        impl_ci_driver!(get_registry())
     }
 
     fn generate_image_name(recipe: &Recipe) -> Result<String> {
-        match Self::get_ci_driver() {
-            CiDriverType::Local => LocalDriver::generate_image_name(recipe),
-            CiDriverType::Gitlab => GitlabDriver::generate_image_name(recipe),
-            CiDriverType::Github => GithubDriver::generate_image_name(recipe),
-        }
+        impl_ci_driver!(generate_image_name(recipe))
     }
 }
