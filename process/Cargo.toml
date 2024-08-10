@@ -30,7 +30,7 @@ tokio = { version = "1.39.2", features = ["rt", "rt-multi-thread"] }
 zeroize = { version = "1", features = ["aarch64", "derive", "serde"] }
 
 chrono.workspace = true
-clap.workspace = true
+clap = { workspace = true, features = ["derive", "env"] }
 colored.workspace = true
 indicatif.workspace = true
 indexmap.workspace = true
