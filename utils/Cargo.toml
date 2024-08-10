@@ -20,7 +20,7 @@ syntect = "5"
 which = "6"
 
 chrono.workspace = true
-clap = { workspace = true, features = ["derive"] }
+clap = { workspace = true, features = ["derive", "env"] }
 log.workspace = true
 miette.workspace = true
 serde.workspace = true

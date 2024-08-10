@@ -16,6 +16,42 @@ env:
   RUST_LOG_STYLE: always
 
 jobs:
+  test:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: earthly/actions-setup@v1
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
+
+      - name: Run build
+        id: build
+        run: |
+          earthly --ci +test
+
+  lint:
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: earthly/actions-setup@v1
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
+
+      - name: Run build
+        id: build
+        run: |
+          earthly --ci +test
+
   arm64-prebuild:
     timeout-minutes: 60
     runs-on: ubuntu-latest

@@ -16,7 +16,6 @@ build:
 	WAIT
 		BUILD --platform=linux/amd64 --platform=linux/arm64 +build-scripts
 	END
-	BUILD +run-checks
 	BUILD --platform=linux/amd64 --platform=linux/arm64 +build-images
 
 run-checks:
@@ -34,7 +33,7 @@ prebuild:
 
 lint:
 	FROM +common
-	DO rust+CARGO --args="fmt --check"
+	RUN cargo fmt --check
 	DO rust+CARGO --args="clippy -- -D warnings"
 	DO rust+CARGO --args="clippy --all-features -- -D warnings"
 	DO rust+CARGO --args="clippy --no-default-features -- -D warnings"
@@ -209,9 +208,9 @@ INSTALL:
 	ARG --required OUT_DIR
 
 	IF [ "$TAGGED" = "true" ]
-		COPY (+install/bluebuild --BUILD_TARGET="$BUILD_TARGET") $OUT_DIR
+		COPY --platform=native (+install/bluebuild --BUILD_TARGET="$BUILD_TARGET") $OUT_DIR
 	ELSE
-		COPY (+install-all-features/bluebuild --BUILD_TARGET="$BUILD_TARGET") $OUT_DIR
+		COPY --platform=native (+install-all-features/bluebuild --BUILD_TARGET="$BUILD_TARGET") $OUT_DIR
 	END
 
 SAVE_IMAGE:
