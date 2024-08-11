@@ -102,4 +102,14 @@ pub struct SignVerifyOpts<'scope> {
 
     #[builder(default, setter(into, strip_option))]
     pub dir: Option<Cow<'scope, Path>>,
+
+    /// Enable retry logic for pushing.
+    #[builder(default)]
+    pub retry_push: bool,
+
+    /// Number of times to retry pushing.
+    ///
+    /// Defaults to 1.
+    #[builder(default = 1)]
+    pub retry_count: u8,
 }

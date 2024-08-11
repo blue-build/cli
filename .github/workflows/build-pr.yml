@@ -256,7 +256,7 @@ jobs:
           cd integration-tests/test-repo
           bluebuild template -vv | tee Containerfile
           grep -q 'ARG IMAGE_REGISTRY=ghcr.io/blue-build' Containerfile || exit 1
-          bluebuild build -B docker -I docker -S sigstore --push -vv recipes/recipe.yml recipes/recipe-39.yml
+          bluebuild build --retry-push -B docker -I docker -S sigstore --push -vv recipes/recipe.yml recipes/recipe-39.yml
 
   docker-build-external-login:
     timeout-minutes: 60
@@ -311,7 +311,7 @@ jobs:
           cd integration-tests/test-repo
           bluebuild template -vv | tee Containerfile
           grep -q 'ARG IMAGE_REGISTRY=ghcr.io/blue-build' Containerfile || exit 1
-          bluebuild build -S sigstore --push -vv recipes/recipe.yml recipes/recipe-39.yml
+          bluebuild build --retry-push -S sigstore --push -vv recipes/recipe.yml recipes/recipe-39.yml
 
   podman-build:
     timeout-minutes: 60
@@ -363,7 +363,7 @@ jobs:
           cd integration-tests/test-repo
           bluebuild template -vv | tee Containerfile
           grep -q 'ARG IMAGE_REGISTRY=ghcr.io/blue-build' Containerfile || exit 1
-          bluebuild build -B podman -I podman -S sigstore --push -vv recipes/recipe.yml recipes/recipe-39.yml
+          bluebuild build --retry-push -B podman -I podman -S sigstore --push -vv recipes/recipe.yml recipes/recipe-39.yml
 
   buildah-build:
     timeout-minutes: 15
@@ -415,4 +415,4 @@ jobs:
           cd integration-tests/test-repo
           bluebuild template -vv | tee Containerfile
           grep -q 'ARG IMAGE_REGISTRY=ghcr.io/blue-build' Containerfile || exit 1
-          bluebuild build -B buildah -I podman -S sigstore --squash --push -vv recipes/recipe.yml recipes/recipe-39.yml
+          bluebuild build --retry-push -B buildah -I podman -S sigstore --squash --push -vv recipes/recipe.yml recipes/recipe-39.yml

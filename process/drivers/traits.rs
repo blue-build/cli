@@ -4,7 +4,7 @@ use std::{
 };
 
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::COSIGN_PUB_PATH;
+use blue_build_utils::{constants::COSIGN_PUB_PATH, retry};
 use log::{debug, info, trace};
 use miette::{bail, miette, Result};
 use semver::{Version, VersionReq};
@@ -244,8 +244,12 @@ pub trait SigningDriver {
             _ => bail!("Failed to get information for signing the image"),
         };
 
-        Self::sign(&sign_opts)?;
-        Self::verify(&verify_opts)?;
+        let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
+
+        retry(retry_count, 5, || {
+            Self::sign(&sign_opts)?;
+            Self::verify(&verify_opts)
+        })?;
 
         Ok(())
     }
