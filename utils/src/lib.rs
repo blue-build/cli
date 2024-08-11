@@ -69,10 +69,15 @@ pub fn serde_yaml_err(contents: &str) -> impl Fn(serde_yaml::Error) -> SerdeErro
 ///
 /// # Errors
 /// Will error when retries have been expended.
+///
+/// # Panics
+/// Will panic if the attempts are less than 1.
 pub fn retry<V, F>(attempts: u8, delay: u64, f: F) -> miette::Result<V>
 where
     F: Fn() -> miette::Result<V>,
 {
+    assert!(attempts > 1);
+
     let mut attempts = attempts;
     loop {
         match f() {

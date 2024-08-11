@@ -113,7 +113,7 @@ pub trait BuildDriver {
 
                 if opts.push {
                     let retry_count = if opts.no_retry_push {
-                        0
+                        1
                     } else {
                         opts.retry_count
                     };
