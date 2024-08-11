@@ -9,7 +9,7 @@ use blue_build_utils::{cmd, constants::SKOPEO_IMAGE, credentials::Credentials, s
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace, warn};
-use miette::{bail, IntoDiagnostic, Result};
+use miette::{bail, miette, IntoDiagnostic, Result};
 use semver::Version;
 use serde::Deserialize;
 use tempdir::TempDir;
@@ -158,7 +158,14 @@ impl BuildDriver for PodmanDriver {
             trace!("{command:?}");
             let mut child = command.spawn().into_diagnostic()?;
 
-            write!(child.stdin.as_mut().unwrap(), "{password}").into_diagnostic()?;
+            write!(
+                child
+                    .stdin
+                    .as_mut()
+                    .ok_or_else(|| miette!("Unable to open pipe to stdin"))?,
+                "{password}"
+            )
+            .into_diagnostic()?;
 
             let output = child.wait_with_output().into_diagnostic()?;
 

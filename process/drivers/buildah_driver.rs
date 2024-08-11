@@ -1,6 +1,8 @@
+use std::{io::Write, process::Stdio};
+
 use blue_build_utils::{cmd, credentials::Credentials};
-use log::{error, info, trace};
-use miette::{bail, IntoDiagnostic, Result};
+use log::{debug, error, info, trace};
+use miette::{bail, miette, IntoDiagnostic, Result};
 use semver::Version;
 use serde::Deserialize;
 
@@ -118,15 +120,38 @@ impl BuildDriver for BuildahDriver {
             password,
         }) = Credentials::get()
         {
-            trace!("buildah login -u {username} -p [MASKED] {registry}");
-            let output = cmd!("buildah", "login", "-u", username, "-p", password, registry)
-                .output()
-                .into_diagnostic()?;
+            let mut command = cmd!(
+                "buildah",
+                "login",
+                "-u",
+                username,
+                "--password-stdin",
+                registry
+            );
+            command
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
+
+            trace!("{command:?}");
+            let mut child = command.spawn().into_diagnostic()?;
+
+            write!(
+                child
+                    .stdin
+                    .as_mut()
+                    .ok_or_else(|| miette!("Unable to open pipe to stdin"))?,
+                "{password}"
+            )
+            .into_diagnostic()?;
+
+            let output = child.wait_with_output().into_diagnostic()?;
 
             if !output.status.success() {
                 let err_out = String::from_utf8_lossy(&output.stderr);
-                bail!("Failed to login for buildah: {err_out}");
+                bail!("Failed to login for buildah:\n{}", err_out.trim());
             }
+            debug!("Logged into {registry}");
         }
         Ok(())
     }

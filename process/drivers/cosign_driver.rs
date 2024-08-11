@@ -6,7 +6,7 @@ use blue_build_utils::{
     credentials::Credentials,
 };
 use log::{debug, trace};
-use miette::{bail, Context, IntoDiagnostic, Result};
+use miette::{bail, miette, Context, IntoDiagnostic, Result};
 
 use crate::drivers::opts::VerifyType;
 
@@ -100,7 +100,14 @@ impl SigningDriver for CosignDriver {
             trace!("{command:?}");
             let mut child = command.spawn().into_diagnostic()?;
 
-            write!(child.stdin.as_mut().unwrap(), "{password}").into_diagnostic()?;
+            write!(
+                child
+                    .stdin
+                    .as_mut()
+                    .ok_or_else(|| miette!("Unable to open pipe to stdin"))?,
+                "{password}"
+            )
+            .into_diagnostic()?;
 
             let output = child.wait_with_output().into_diagnostic()?;
 
