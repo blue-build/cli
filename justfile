@@ -35,11 +35,11 @@ test-all-features:
 
 # Run clippy
 lint:
-  cargo clippy -- -D warnings
+  cargo clippy
 
 # Run clippy for all features
 lint-all-features:
-  cargo clippy --all-features -- -D warnings
+  cargo clippy --all-features
 
 # Watch the files and run cargo check on changes
 watch:
@@ -63,14 +63,17 @@ watch-test-all-features:
 
 # Run lint anytime a file is changed
 watch-lint:
-  cargo watch -c -x 'clippy -- -D warnings'
+  cargo watch -c -x 'clippy'
 
 # Run all feature lint anytime a file is changed
 watch-lint-all-features:
-  cargo watch -c -x 'clippy --all-features -- -D warnings'
+  cargo watch -c -x 'clippy --all-features'
 
 # Installs cargo tools that help with development
 tools:
+  rustup toolchain install stable
+  rustup override set stable
+  rustup component add --toolchain stable rust-analyzer clippy rustfmt
   cargo install cargo-watch
 
 # Run cargo release and push the tag separately

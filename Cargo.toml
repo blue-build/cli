@@ -30,12 +30,12 @@ uuid = { version = "1", features = ["v4"] }
 unsafe_code = "forbid"
 
 [workspace.lints.clippy]
-correctness = "warn"
-suspicious = "warn"
-perf = "warn"
-style = "warn"
-nursery = "warn"
-pedantic = "warn"
+correctness = "deny"
+suspicious = "deny"
+perf = "deny"
+style = "deny"
+nursery = "deny"
+pedantic = "deny"
 module_name_repetitions = { level = "allow", priority = 1 }
 
 [package]
