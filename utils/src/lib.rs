@@ -70,18 +70,17 @@ pub fn serde_yaml_err(contents: &str) -> impl Fn(serde_yaml::Error) -> SerdeErro
 ///
 /// # Errors
 /// Will error when retries have been expended.
-pub fn retry<V, F>(attempts: u8, delay: u64, f: F) -> miette::Result<V>
+pub fn retry<V, F>(mut retries: u8, delay_secs: u64, f: F) -> miette::Result<V>
 where
     F: Fn() -> miette::Result<V>,
 {
-    let mut attempts = attempts;
     loop {
         match f() {
             Ok(v) => return Ok(v),
-            Err(e) if attempts == 1 => return Err(e),
+            Err(e) if retries == 0 => return Err(e),
             _ => {
-                attempts -= 1;
-                thread::sleep(Duration::from_secs(delay));
+                retries -= 1;
+                thread::sleep(Duration::from_secs(delay_secs));
             }
         };
     }

@@ -63,9 +63,9 @@ pub struct BuildTagPushOpts<'a> {
     #[builder(default)]
     pub push: bool,
 
-    /// Disable retry logic for pushing.
+    /// Enable retry logic for pushing.
     #[builder(default)]
-    pub no_retry_push: bool,
+    pub retry_push: bool,
 
     /// Number of times to retry pushing.
     ///
