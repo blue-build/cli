@@ -112,15 +112,11 @@ pub trait BuildDriver {
                 Self::tag(&tag_opts)?;
 
                 if opts.push {
-                    let retry_count = if opts.no_retry_push {
-                        1
-                    } else {
-                        opts.retry_count
-                    };
+                    let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
 
                     debug!("Pushing all images");
                     // Push images with retries (1s delay between retries)
-                    blue_build_utils::retry(retry_count, 1000, || {
+                    blue_build_utils::retry(retry_count, 5, || {
                         let tag_image = format!("{image}:{tag}");
 
                         debug!("Pushing image {tag_image}");

@@ -55,10 +55,10 @@ pub struct BuildCommand {
     #[builder(default)]
     compression_format: CompressionType,
 
-    /// Block `bluebuild` from retrying to push the image.
-    #[arg(short, long, default_value_t = true)]
+    /// Enable retrying to push the image.
+    #[arg(short, long)]
     #[builder(default)]
-    no_retry_push: bool,
+    retry_push: bool,
 
     /// The number of times to retry pushing the image.
     #[arg(long, default_value_t = 1)]
@@ -230,7 +230,7 @@ impl BuildCommand {
                         .containerfile(&containerfile)
                         .tags(&tags)
                         .push(self.push)
-                        .no_retry_push(self.no_retry_push)
+                        .retry_push(self.retry_push)
                         .retry_count(self.retry_count)
                         .compression(self.compression_format)
                         .squash(self.squash)
@@ -283,7 +283,7 @@ impl BuildCommand {
                 .containerfile(&containerfile)
                 .tags(&tags)
                 .push(self.push)
-                .no_retry_push(self.no_retry_push)
+                .retry_push(self.retry_push)
                 .retry_count(self.retry_count)
                 .compression(self.compression_format)
                 .squash(self.squash)
