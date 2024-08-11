@@ -140,12 +140,9 @@ impl SigningDriver for CosignDriver {
         let image_name_tag: &str = opts.image.as_ref();
         let mut command = cmd!("cosign", "verify");
 
-        match opts.verify_type {
-            VerifyType::File(ref path) => cmd!(command, format!("--key={}", path.display())),
-            VerifyType::Keyless {
-                ref issuer,
-                ref identity,
-            } => cmd!(
+        match &opts.verify_type {
+            VerifyType::File(path) => cmd!(command, format!("--key={}", path.display())),
+            VerifyType::Keyless { issuer, identity } => cmd!(
                 command,
                 "--certificate-identity-regexp",
                 identity as &str,

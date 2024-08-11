@@ -173,7 +173,7 @@ impl SigningDriver for SigstoreDriver {
         let signing_scheme = SigningScheme::default();
 
         let pub_key = fs::read_to_string(match &opts.verify_type {
-            VerifyType::File(path) => path.join(COSIGN_PUB_PATH),
+            VerifyType::File(path) => path,
             VerifyType::Keyless { .. } => {
                 todo!("Keyless currently not supported for sigstore driver")
             }
