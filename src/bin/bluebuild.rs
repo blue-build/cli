@@ -11,6 +11,7 @@ fn main() {
         .filter_modules([
             ("hyper::proto", LevelFilter::Off),
             ("hyper_util", LevelFilter::Off),
+            ("oci_distribution", LevelFilter::Off),
         ])
         .log_out_dir(args.log_out.clone())
         .init();
