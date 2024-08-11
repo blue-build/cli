@@ -209,7 +209,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build"
-version = "0.8.11"
+version = "0.8.12"
 dependencies = [
  "blue-build-recipe",
  "blue-build-template",
@@ -246,7 +246,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-recipe"
-version = "0.8.11"
+version = "0.8.12"
 dependencies = [
  "blue-build-utils",
  "chrono",
@@ -262,7 +262,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-template"
-version = "0.8.11"
+version = "0.8.12"
 dependencies = [
  "blue-build-recipe",
  "blue-build-utils",
@@ -277,7 +277,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-utils"
-version = "0.8.11"
+version = "0.8.12"
 dependencies = [
  "anyhow",
  "atty",
