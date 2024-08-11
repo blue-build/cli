@@ -1,7 +1,7 @@
 use std::{fmt::Debug, fs, io::Write, path::Path, process::Stdio};
 
 use blue_build_utils::{
-    cmd, cmd_env,
+    cmd,
     constants::{COSIGN_PASSWORD, COSIGN_PUB_PATH, COSIGN_YES},
     credentials::Credentials,
 };
@@ -23,12 +23,12 @@ impl SigningDriver for CosignDriver {
     fn generate_key_pair(opts: &GenerateKeyPairOpts) -> Result<()> {
         let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
 
-        let mut command = cmd!("cosign", "generate-key-pair");
-        cmd_env! {
-            command,
+        let mut command = cmd!(
+            "cosign",
+            "generate-key-pair",
             COSIGN_PASSWORD => "",
             COSIGN_YES => "true",
-        };
+        );
         command.current_dir(path);
 
         let status = command.status().into_diagnostic()?;
@@ -44,12 +44,13 @@ impl SigningDriver for CosignDriver {
         let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
         let priv_key = get_private_key(path)?;
 
-        let mut command = cmd!("cosign", "public-key", format!("--key={priv_key}"));
-        cmd_env! {
-            command,
+        let mut command = cmd!(
+            "cosign",
+            "public-key",
+            format!("--key={priv_key}"),
             COSIGN_PASSWORD => "",
             COSIGN_YES => "true",
-        };
+        );
 
         trace!("{command:?}");
         let output = command.output().into_diagnostic()?;
@@ -90,12 +91,11 @@ impl SigningDriver for CosignDriver {
                 "-u",
                 username,
                 "--password-stdin",
-                registry
+                registry,
+                stdin = Stdio::piped(),
+                stdout = Stdio::piped(),
+                stderr = Stdio::piped(),
             );
-            command
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped());
 
             trace!("{command:?}");
             let mut child = command.spawn().into_diagnostic()?;
@@ -122,18 +122,19 @@ impl SigningDriver for CosignDriver {
 
     fn sign(opts: &SignOpts) -> Result<()> {
         let image_digest: &str = opts.image.as_ref();
-        let mut command = cmd!("cosign", "sign");
-        cmd_env! {
-            command,
+        let mut command = cmd!(
+            "cosign",
+            "sign",
+            |c| {
+                if let Some(ref key) = opts.key {
+                    cmd!(c, format!("--key={key}"));
+                }
+            },
+            "--recursive",
+            image_digest,
             COSIGN_PASSWORD => "",
             COSIGN_YES => "true",
-        };
-
-        if let Some(ref key) = opts.key {
-            cmd!(command, format!("--key={key}"));
-        }
-
-        cmd!(command, "--recursive", image_digest);
+        );
 
         trace!("{command:?}");
         if !command.status().into_diagnostic()?.success() {
@@ -145,20 +146,23 @@ impl SigningDriver for CosignDriver {
 
     fn verify(opts: &VerifyOpts) -> Result<()> {
         let image_name_tag: &str = opts.image.as_ref();
-        let mut command = cmd!("cosign", "verify");
-
-        match &opts.verify_type {
-            VerifyType::File(path) => cmd!(command, format!("--key={}", path.display())),
-            VerifyType::Keyless { issuer, identity } => cmd!(
-                command,
-                "--certificate-identity-regexp",
-                identity as &str,
-                "--certificate-oidc-issuer",
-                issuer as &str,
-            ),
-        };
-
-        cmd!(command, image_name_tag);
+        let mut command = cmd!(
+            "cosign",
+            "verify",
+            |c| {
+                match &opts.verify_type {
+                    VerifyType::File(path) => cmd!(c, format!("--key={}", path.display())),
+                    VerifyType::Keyless { issuer, identity } => cmd!(
+                        c,
+                        "--certificate-identity-regexp",
+                        identity as &str,
+                        "--certificate-oidc-issuer",
+                        issuer as &str,
+                    ),
+                };
+            },
+            image_name_tag
+        );
 
         trace!("{command:?}");
         if !command.status().into_diagnostic()?.success() {

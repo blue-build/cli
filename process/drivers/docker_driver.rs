@@ -190,12 +190,11 @@ impl BuildDriver for DockerDriver {
                 "-u",
                 username,
                 "--password-stdin",
-                registry
+                registry,
+                stdin = Stdio::piped(),
+                stdout = Stdio::piped(),
+                stderr = Stdio::piped(),
             );
-            command
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped());
 
             trace!("{command:?}");
             let mut child = command.spawn().into_diagnostic()?;
@@ -221,25 +220,32 @@ impl BuildDriver for DockerDriver {
             warn!("Squash is deprecated for docker so this build will not squash");
         }
 
-        let mut command = cmd!("docker", "buildx");
-
-        if !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty()) {
-            Self::setup()?;
-            cmd!(command, "--builder=bluebuild");
-        }
-
-        cmd!(command, "build", "--pull", "-f", &*opts.containerfile,);
-
-        // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
-        if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
-            cmd!(
-                command,
-                "--cache-from",
-                "type=gha",
-                "--cache-to",
-                "type=gha",
-            );
-        }
+        let mut command = cmd!(
+            "docker",
+            "buildx",
+            |command|? {
+                if !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty()) {
+                    Self::setup()?;
+                    cmd!(command, "--builder=bluebuild");
+                }
+            },
+            "build",
+            "--pull",
+            "-f",
+            &*opts.containerfile,
+            |command| {
+                // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
+                if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
+                    cmd!(
+                        command,
+                        "--cache-from",
+                        "type=gha",
+                        "--cache-to",
+                        "type=gha",
+                    );
+                }
+            },
+        );
 
         let mut final_image = String::new();
 

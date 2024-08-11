@@ -11,52 +11,67 @@
 /// ```
 #[macro_export]
 macro_rules! cmd {
-    ($command:ident, $($arg:expr),+ $(,)?) => {
-        {
-            $command$(.arg($arg))*;
-        }
-    };
-    ($command:expr, $($arg:expr),+ $(,)?) => {
-        {
-            let mut c = cmd!($command);
-            c$(.arg($arg))*;
-            c
-        }
-    };
     ($command:expr) => {
-        {
-            ::std::process::Command::new($command)
-        }
+        ::std::process::Command::new($command)
     };
-}
-
-/// Use a key-word-like syntax to add environment variables to
-/// a `std::process::Command`.
-///
-/// # Examples
-/// ```
-/// use blue_build_utils::{cmd, cmd_env};
-///
-/// const TEST: &str = "TEST";
-/// let mut command = cmd_env!("echo", TEST => "This is a test");
-/// cmd_env!(command, "ANOTHER_TEST" => "This is yet another test");
-/// cmd!(command, "Hello, this is a ${TEST}");
-/// command.status().unwrap();
-/// ```
-#[macro_export]
-macro_rules! cmd_env {
-    ($command:ident, $($key:expr => $value:expr),* $(,)?) => {
-        {
-            $command$(.env($key, $value))*;
-        }
+    ($command:ident, $($tail:tt)*) => {
+        cmd!(@ $command, $($tail)*)
     };
-    ($command:expr, $($key:expr => $value:expr),* $(,)?) => {
+    ($command:expr, $($tail:tt)*) => {
         {
             let mut c = cmd!($command);
-            c$(.env($key, $value))*;
+            cmd!(@ c, $($tail)*);
             c
         }
-    }
+    };
+    (@ $command:ident $(,)?) => { };
+    (@ $command:ident, |$cmd_ref:ident|? $op:block $(, $($tail:tt)*)?) => {
+        {
+            let op_fn = |$cmd_ref: &mut ::std::process::Command| -> Result<()>  {
+                $op
+                Ok(())
+            };
+            op_fn(&mut $command)?;
+            $(cmd!(@ $command, $($tail)*);)*
+        }
+    };
+    (@ $command:ident, |$cmd_ref:ident| $op:block $(, $($tail:tt)*)?) => {
+        {
+            let op_fn = |$cmd_ref: &mut ::std::process::Command| $op;
+            op_fn(&mut $command);
+            $(cmd!(@ $command, $($tail)*);)*
+        }
+    };
+    (@ $command:ident, $key:expr => $value:expr $(, $($tail:tt)*)?) => {
+        {
+            $command.env($key, $value);
+            $(cmd!(@ $command, $($tail)*);)*
+        }
+    };
+    (@ $command:ident, stdin = $pipe:expr $(, $($tail:tt)*)?) => {
+        {
+            $command.stdin($pipe);
+            $(cmd!(@ $command, $($tail)*);)*
+        }
+    };
+    (@ $command:ident, stdout = $pipe:expr $(, $($tail:tt)*)?) => {
+        {
+            $command.stdout($pipe);
+            $(cmd!(@ $command, $($tail)*);)*
+        }
+    };
+    (@ $command:ident, stderr = $pipe:expr $(, $($tail:tt)*)?) => {
+        {
+            $command.stderr($pipe);
+            $(cmd!(@ $command, $($tail)*);)*
+        }
+    };
+    (@ $command:ident, $arg:expr $(, $($tail:tt)*)?) => {
+        {
+            $command.arg($arg);
+            $(cmd!(@ $command, $($tail)*);)*
+        }
+    };
 }
 
 #[macro_export]
