@@ -17,6 +17,7 @@ use clap::Args;
 use log::{debug, info, trace};
 use miette::{miette, Result};
 use once_cell::sync::Lazy;
+#[cfg(feature = "sigstore")]
 use sigstore_driver::SigstoreDriver;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
@@ -53,6 +54,7 @@ pub mod image_metadata;
 mod local_driver;
 pub mod opts;
 mod podman_driver;
+#[cfg(feature = "sigstore")]
 mod sigstore_driver;
 mod skopeo_driver;
 mod traits;
@@ -301,6 +303,8 @@ macro_rules! impl_signing_driver {
     ($func:ident($($args:expr),*)) => {
         match Self::get_signing_driver() {
             SigningDriverType::Cosign => CosignDriver::$func($($args,)*),
+
+            #[cfg(feature = "sigstore")]
             SigningDriverType::Sigstore => SigstoreDriver::$func($($args,)*),
         }
     };

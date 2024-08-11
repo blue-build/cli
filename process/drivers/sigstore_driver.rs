@@ -1,6 +1,9 @@
 use std::{fs, path::Path};
 
-use crate::{drivers::opts::PrivateKeyContents, RT};
+use crate::{
+    drivers::opts::{PrivateKeyContents, VerifyType},
+    RT,
+};
 
 use super::{
     functions::get_private_key,
@@ -77,8 +80,9 @@ impl SigningDriver for SigstoreDriver {
         debug!("Retrieved public key from {COSIGN_PUB_PATH}");
         trace!("{pub_key}");
 
-        let key: Zeroizing<String> = get_private_key(path, |priv_key| priv_key.contents())
-            .context("Failed to get private key")?;
+        let key: Zeroizing<String> = get_private_key(path)
+            .context("Failed to get private key")?
+            .contents()?;
         debug!("Retrieved private key");
 
         let keypair = SigStoreKeyPair::from_encrypted_pem(key.as_bytes(), b"")
@@ -110,7 +114,7 @@ impl SigningDriver for SigstoreDriver {
         trace!("{image_digest:?}");
 
         let signing_scheme = SigningScheme::default();
-        let key: Zeroizing<Vec<u8>> = get_private_key(path, |key| key.contents())?;
+        let key: Zeroizing<Vec<u8>> = get_private_key(path)?.contents()?;
         debug!("Retrieved private key");
 
         let signer = PrivateKeySigner::new_with_signer(
@@ -168,9 +172,14 @@ impl SigningDriver for SigstoreDriver {
 
         let signing_scheme = SigningScheme::default();
 
-        let pub_key = fs::read_to_string(COSIGN_PUB_PATH)
-            .into_diagnostic()
-            .with_context(|| format!("Failed to open public key file {COSIGN_PUB_PATH}"))?;
+        let pub_key = fs::read_to_string(match &opts.verify_type {
+            VerifyType::File(path) => path.join(COSIGN_PUB_PATH),
+            VerifyType::Keyless { .. } => {
+                todo!("Keyless currently not supported for sigstore driver")
+            }
+        })
+        .into_diagnostic()
+        .with_context(|| format!("Failed to open public key file {COSIGN_PUB_PATH}"))?;
         debug!("Retrieved public key from {COSIGN_PUB_PATH}");
         trace!("{pub_key}");
 

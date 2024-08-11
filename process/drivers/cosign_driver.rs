@@ -42,37 +42,37 @@ impl SigningDriver for CosignDriver {
 
     fn check_signing_files(opts: &CheckKeyPairOpts) -> Result<()> {
         let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
-        get_private_key(path, |priv_key| {
-            trace!("cosign public-key --key {priv_key}");
-            let mut command = cmd!("cosign", "public-key", format!("--key={priv_key}"));
-            cmd_env! {
-                command,
-                COSIGN_PASSWORD => "",
-                COSIGN_YES => "true",
-            };
+        let priv_key = get_private_key(path)?;
 
-            let output = command.output().into_diagnostic()?;
+        let mut command = cmd!("cosign", "public-key", format!("--key={priv_key}"));
+        cmd_env! {
+            command,
+            COSIGN_PASSWORD => "",
+            COSIGN_YES => "true",
+        };
 
-            if !output.status.success() {
-                bail!(
-                    "Failed to run cosign public-key: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                );
-            }
+        trace!("{command:?}");
+        let output = command.output().into_diagnostic()?;
 
-            let calculated_pub_key = String::from_utf8(output.stdout).into_diagnostic()?;
-            let found_pub_key = fs::read_to_string(path.join(COSIGN_PUB_PATH))
-                .into_diagnostic()
-                .with_context(|| format!("Failed to read {COSIGN_PUB_PATH}"))?;
-            trace!("calculated_pub_key={calculated_pub_key},found_pub_key={found_pub_key}");
+        if !output.status.success() {
+            bail!(
+                "Failed to run cosign public-key: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
 
-            if calculated_pub_key.trim() == found_pub_key.trim() {
-                debug!("Cosign files match, continuing build");
-                Ok(())
-            } else {
-                bail!("Public key '{COSIGN_PUB_PATH}' does not match private key")
-            }
-        })
+        let calculated_pub_key = String::from_utf8(output.stdout).into_diagnostic()?;
+        let found_pub_key = fs::read_to_string(path.join(COSIGN_PUB_PATH))
+            .into_diagnostic()
+            .with_context(|| format!("Failed to read {COSIGN_PUB_PATH}"))?;
+        trace!("calculated_pub_key={calculated_pub_key},found_pub_key={found_pub_key}");
+
+        if calculated_pub_key.trim() == found_pub_key.trim() {
+            debug!("Cosign files match, continuing build");
+            Ok(())
+        } else {
+            bail!("Public key '{COSIGN_PUB_PATH}' does not match private key")
+        }
     }
 
     fn signing_login() -> Result<()> {
@@ -141,7 +141,7 @@ impl SigningDriver for CosignDriver {
         let mut command = cmd!("cosign", "verify");
 
         match opts.verify_type {
-            VerifyType::File(ref path) => cmd!(command, format!("--key={path}")),
+            VerifyType::File(ref path) => cmd!(command, format!("--key={}", path.display())),
             VerifyType::Keyless {
                 ref issuer,
                 ref identity,
@@ -174,7 +174,6 @@ mod test {
 
     use crate::drivers::{
         opts::{CheckKeyPairOpts, GenerateKeyPairOpts},
-        sigstore_driver::SigstoreDriver,
         SigningDriver,
     };
 
@@ -212,7 +211,10 @@ mod test {
     }
 
     #[test]
+    #[cfg(feature = "sigstore")]
     fn compatibility() {
+        use crate::drivers::sigstore_driver::SigstoreDriver;
+
         let tempdir = TempDir::new("keypair").unwrap();
 
         let gen_opts = GenerateKeyPairOpts::builder().dir(tempdir.path()).build();

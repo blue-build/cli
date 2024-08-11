@@ -1,16 +1,15 @@
 use std::{
-    env,
-    path::Path,
+    path::PathBuf,
     process::{ExitStatus, Output},
 };
 
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::{COSIGN_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PUB_PATH};
+use blue_build_utils::constants::COSIGN_PUB_PATH;
 use log::{debug, info, trace};
 use miette::{bail, miette, Result};
 use semver::{Version, VersionReq};
 
-use crate::drivers::{types::CiDriverType, Driver};
+use crate::drivers::{functions::get_private_key, types::CiDriverType, Driver};
 
 use super::{
     image_metadata::ImageMetadata,
@@ -201,6 +200,11 @@ pub trait SigningDriver {
     fn sign_and_verify(opts: &SignVerifyOpts) -> Result<()> {
         trace!("sign_and_verify({opts:?})");
 
+        let path = opts
+            .dir
+            .as_ref()
+            .map_or_else(|| PathBuf::from("."), |d| d.to_path_buf());
+
         let image_name: &str = opts.image.as_ref();
         let inspect_opts = GetMetadataOpts::builder().image(image_name);
 
@@ -217,40 +221,22 @@ pub trait SigningDriver {
             .map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));
         let image_digest = format!("{image_name}@{image_digest}");
 
-        let (sign_opts, verify_opts) = match (
-            Driver::get_ci_driver(),
+        let (sign_opts, verify_opts) = match (Driver::get_ci_driver(), get_private_key(&path)) {
             // Cosign public/private key pair
-            env::var(COSIGN_PRIVATE_KEY),
-            Path::new(COSIGN_PRIV_PATH),
-        ) {
-            // Cosign public/private key pair
-            (_, Ok(cosign_private_key), _)
-                if !cosign_private_key.is_empty() && Path::new(COSIGN_PUB_PATH).exists() =>
-            {
-                (
-                    SignOpts::builder()
-                        .image(&image_digest)
-                        .key("env://{COSIGN_PRIVATE_KEY}")
-                        .build(),
-                    VerifyOpts::builder()
-                        .image(&image_name_tag)
-                        .verify_type(VerifyType::File(COSIGN_PUB_PATH.into()))
-                        .build(),
-                )
-            }
-            (_, _, cosign_priv_key_path) if cosign_priv_key_path.exists() => (
+            (_, Ok(priv_key)) => (
                 SignOpts::builder()
                     .image(&image_digest)
-                    .key(cosign_priv_key_path.display().to_string())
+                    .dir(&path)
+                    .key(priv_key.to_string())
                     .build(),
                 VerifyOpts::builder()
                     .image(&image_name_tag)
-                    .verify_type(VerifyType::File(COSIGN_PUB_PATH.into()))
+                    .verify_type(VerifyType::File(path.join(COSIGN_PUB_PATH).into()))
                     .build(),
             ),
             // Gitlab keyless
-            (CiDriverType::Github | CiDriverType::Gitlab, _, _) => (
-                SignOpts::builder().image(&image_digest).build(),
+            (CiDriverType::Github | CiDriverType::Gitlab, _) => (
+                SignOpts::builder().dir(&path).image(&image_digest).build(),
                 VerifyOpts::builder()
                     .image(&image_name_tag)
                     .verify_type(VerifyType::Keyless {

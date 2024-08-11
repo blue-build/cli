@@ -83,6 +83,7 @@ impl DetermineDriver<BuildDriverType> for Option<BuildDriverType> {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum SigningDriverType {
     Cosign,
+    #[cfg(feature = "sigstore")]
     Sigstore,
 }
 
@@ -90,10 +91,18 @@ impl DetermineDriver<SigningDriverType> for Option<SigningDriverType> {
     fn determine_driver(&mut self) -> SigningDriverType {
         trace!("SigningDriverType::determine_signing_driver()");
 
-        *self.get_or_insert(
-            blue_build_utils::check_command_exists("cosign")
-                .map_or(SigningDriverType::Sigstore, |()| SigningDriverType::Cosign),
-        )
+        #[cfg(feature = "sigstore")]
+        {
+            *self.get_or_insert(
+                blue_build_utils::check_command_exists("cosign")
+                    .map_or(SigningDriverType::Sigstore, |()| SigningDriverType::Cosign),
+            )
+        }
+
+        #[cfg(not(feature = "sigstore"))]
+        {
+            SigningDriverType::Cosign
+        }
     }
 }
 

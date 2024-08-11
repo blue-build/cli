@@ -78,7 +78,7 @@ pub struct SignOpts<'scope> {
 
 #[derive(Debug, Clone)]
 pub enum VerifyType<'scope> {
-    File(Cow<'scope, str>),
+    File(Cow<'scope, Path>),
     Keyless {
         issuer: Cow<'scope, str>,
         identity: Cow<'scope, str>,
