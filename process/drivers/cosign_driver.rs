@@ -125,11 +125,7 @@ impl SigningDriver for CosignDriver {
         let mut command = cmd!(
             "cosign",
             "sign",
-            |c| {
-                if let Some(ref key) = opts.key {
-                    cmd!(c, format!("--key={key}"));
-                }
-            },
+            if let Some(ref key) = opts.key => format!("--key={key}"),
             "--recursive",
             image_digest,
             COSIGN_PASSWORD => "",

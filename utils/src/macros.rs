@@ -25,6 +25,62 @@ macro_rules! cmd {
         }
     };
     (@ $command:ident $(,)?) => { };
+    (@ $command:ident, for $for_expr:expr $(, $($tail:tt)*)?) => {
+        {
+            for arg in $for_expr.iter() {
+                cmd!($command, arg);
+            }
+            $(cmd!(@ $command, $($tail)*);)*
+        }
+    };
+    (@ $command:ident, for $iter:ident in $for_expr:expr => [ $($arg:expr),* $(,)? ] $(, $($tail:tt)*)?) => {
+        {
+            for $iter in $for_expr.iter() {
+                $(cmd!(@ $command, $arg);)*
+            }
+            $(cmd!(@ $command, $($tail)*);)*
+        }
+    };
+    (@ $command:ident, for $iter:ident in $for_expr:expr => $arg:expr $(, $($tail:tt)*)?) => {
+        {
+            for $iter in $for_expr.iter() {
+                cmd!(@ $command, $arg);
+            }
+            $(cmd!(@ $command, $($tail)*);)*
+        }
+    };
+    (@ $command:ident, if let $let_pat:pat = $if_expr:expr => [ $($arg:expr),* $(,)? ] $(, $($tail:tt)*)?) => {
+        {
+            if let $let_pat = $if_expr {
+                $(cmd!(@ $command, $arg);)*
+            }
+            $(cmd!(@ $command, $($tail)*);)*
+        }
+    };
+    (@ $command:ident, if let $let_pat:pat = $if_expr:expr => $arg:expr $(, $($tail:tt)*)?) => {
+        {
+            if let $let_pat = $if_expr {
+                cmd!(@ $command, $arg);
+            }
+            $(cmd!(@ $command, $($tail)*);)*
+        }
+    };
+    (@ $command:ident, if $if_expr:expr => [ $($arg:expr),* $(,)?] $(, $($tail:tt)*)?) => {
+        {
+            if $if_expr {
+                $(cmd!(@ $command, $arg);)*
+            }
+            $(cmd!(@ $command, $($tail)*);)*
+        }
+    };
+    (@ $command:ident, if $if_expr:expr => $arg:expr $(, $($tail:tt)*)?) => {
+        {
+            if $if_expr {
+                cmd!(@ $command, $arg);
+            }
+            $(cmd!(@ $command, $($tail)*);)*
+        }
+    };
     (@ $command:ident, |$cmd_ref:ident|? $op:block $(, $($tail:tt)*)?) => {
         {
             let op_fn = |$cmd_ref: &mut ::std::process::Command| -> Result<()>  {

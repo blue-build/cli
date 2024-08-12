@@ -233,18 +233,14 @@ impl BuildDriver for DockerDriver {
             "--pull",
             "-f",
             &*opts.containerfile,
-            |command| {
-                // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
-                if env::var(BB_BUILDKIT_CACHE_GHA).map_or_else(|_| false, |e| e == "true") {
-                    cmd!(
-                        command,
-                        "--cache-from",
-                        "type=gha",
-                        "--cache-to",
-                        "type=gha",
-                    );
-                }
-            },
+            // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
+            if env::var(BB_BUILDKIT_CACHE_GHA)
+                .map_or_else(|_| false, |e| e == "true") => [
+                    "--cache-from",
+                    "type=gha",
+                    "--cache-to",
+                    "type=gha",
+                ],
         );
 
         let mut final_image = String::new();
@@ -377,42 +373,29 @@ impl RunDriver for DockerDriver {
 }
 
 fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
-    let mut command = cmd!("docker", "run", format!("--cidfile={}", cid_file.display()));
-
-    if opts.privileged {
-        cmd!(command, "--privileged");
-    }
-
-    if opts.remove {
-        cmd!(command, "--rm");
-    }
-
-    if opts.pull {
-        cmd!(command, "--pull=always");
-    }
-
-    opts.volumes.iter().for_each(|volume| {
-        cmd!(
-            command,
+    cmd!(
+        "docker",
+        "run",
+        format!("--cidfile={}", cid_file.display()),
+        if opts.privileged => "--privileged",
+        if opts.remove => "--rm",
+        if opts.pull => "--pull=always",
+        for volume in opts.volumes => [
             "--volume",
-            format!("{}:{}", volume.path_or_vol_name, volume.container_path,)
-        );
-    });
-
-    opts.env_vars.iter().for_each(|env| {
-        cmd!(command, "--env", format!("{}={}", env.key, env.value));
-    });
-
-    match (opts.uid, opts.gid) {
-        (Some(uid), None) => cmd!(command, "-u", format!("{uid}")),
-        (Some(uid), Some(gid)) => cmd!(command, "-u", format!("{}:{}", uid, gid)),
-        _ => {}
-    }
-
-    cmd!(command, &*opts.image);
-
-    opts.args.iter().for_each(|arg| cmd!(command, arg));
-
-    // trace!("{command:?}");
-    command
+            format!("{}:{}", volume.path_or_vol_name, volume.container_path),
+        ],
+        for env in opts.env_vars => [
+            "--env",
+            format!("{}={}", env.key, env.value),
+        ],
+        |command| {
+            match (opts.uid, opts.gid) {
+                (Some(uid), None) => cmd!(command, "-u", format!("{uid}")),
+                (Some(uid), Some(gid)) => cmd!(command, "-u", format!("{}:{}", uid, gid)),
+                _ => {}
+            }
+        },
+        &*opts.image,
+        for opts.args,
+    )
 }

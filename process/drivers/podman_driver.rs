@@ -254,50 +254,31 @@ impl RunDriver for PodmanDriver {
 }
 
 fn podman_run(opts: &RunOpts, cid_file: &Path) -> Command {
-    let mut command = if opts.privileged {
-        warn!(
-            "Running 'podman' in privileged mode requires '{}'",
-            "sudo".bold().red()
-        );
-        cmd!("sudo")
-    } else {
-        cmd!("podman")
-    };
-
-    if opts.privileged {
-        cmd!(command, "podman");
-    }
-
-    cmd!(command, "run", format!("--cidfile={}", cid_file.display()));
-
-    if opts.privileged {
-        cmd!(command, "--privileged");
-    }
-
-    if opts.remove {
-        cmd!(command, "--rm");
-    }
-
-    if opts.pull {
-        cmd!(command, "--pull=always");
-    }
-
-    opts.volumes.iter().for_each(|volume| {
-        cmd!(
-            command,
+    cmd!(
+        if opts.privileged {
+            warn!(
+                "Running 'podman' in privileged mode requires '{}'",
+                "sudo".bold().red()
+            );
+            "sudo"
+        } else {
+            "podman"
+        },
+        if opts.privileged => "podman",
+        "run",
+        format!("--cidfile={}", cid_file.display()),
+        if opts.privileged => "--privileged",
+        if opts.remove => "--rm",
+        if opts.pull => "--pull=always",
+        for volume in opts.volumes => [
             "--volume",
-            format!("{}:{}", volume.path_or_vol_name, volume.container_path,)
-        );
-    });
-
-    opts.env_vars.iter().for_each(|env| {
-        cmd!(command, "--env", format!("{}={}", env.key, env.value));
-    });
-
-    cmd!(command, &*opts.image);
-
-    opts.args.iter().for_each(|arg| cmd!(command, arg));
-
-    trace!("{command:?}");
-    command
+            format!("{}:{}", volume.path_or_vol_name, volume.container_path),
+        ],
+        for env in opts.env_vars => [
+            "--env",
+            format!("{}={}", env.key, env.value),
+        ],
+        &*opts.image,
+        for opts.args,
+    )
 }
