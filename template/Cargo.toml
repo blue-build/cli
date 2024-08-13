@@ -9,14 +9,11 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-askama = { version = "0.12", features = ["serde-json", "serde-yaml"] }
-blue-build-recipe = { version = "=0.8.11", path = "../recipe" }
-blue-build-utils = { version = "=0.8.11", path = "../utils" }
+rinja = "0.3.0"
+blue-build-recipe = { version = "=0.8.12", path = "../recipe" }
+blue-build-utils = { version = "=0.8.12", path = "../utils" }
 
 log.workspace = true
-serde.workspace = true
-serde_yaml.workspace = true
-serde_json.workspace = true
 typed-builder.workspace = true
 uuid.workspace = true
 

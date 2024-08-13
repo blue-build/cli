@@ -3,23 +3,21 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::Result;
+use blue_build_process_management::drivers::{CiDriver, Driver, DriverArgs};
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
-    constants::{
-        CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CONFIG_PATH, GITHUB_REPOSITORY_OWNER,
-        RECIPE_FILE, RECIPE_PATH,
-    },
+    constants::{CONFIG_PATH, RECIPE_FILE, RECIPE_PATH},
     syntax_highlighting::{self, DefaultThemes},
 };
 use clap::{crate_version, Args};
 use log::{debug, info, trace, warn};
+use miette::{IntoDiagnostic, Result};
 use typed_builder::TypedBuilder;
 
-use crate::{drivers::Driver, shadow};
+use crate::shadow;
 
-use super::{BlueBuildCommand, DriverArgs};
+use super::BlueBuildCommand;
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
 pub struct GenerateCommand {
@@ -73,11 +71,7 @@ pub struct GenerateCommand {
 
 impl BlueBuildCommand for GenerateCommand {
     fn try_run(&mut self) -> Result<()> {
-        Driver::builder()
-            .build_driver(self.drivers.build_driver)
-            .inspect_driver(self.drivers.inspect_driver)
-            .build()
-            .init();
+        Driver::init(self.drivers);
 
         self.template_file()
     }
@@ -104,7 +98,8 @@ impl GenerateCommand {
 
         if self.display_full_recipe {
             if let Some(output) = self.output.as_ref() {
-                std::fs::write(output, serde_yaml::to_string(&recipe_de)?)?;
+                std::fs::write(output, serde_yaml::to_string(&recipe_de).into_diagnostic()?)
+                    .into_diagnostic()?;
             } else {
                 syntax_highlighting::print_ser(&recipe_de, "yml", self.syntax_theme)?;
             }
@@ -118,7 +113,8 @@ impl GenerateCommand {
             .build_id(Driver::get_build_id())
             .recipe(&recipe_de)
             .recipe_path(recipe_path.as_path())
-            .registry(self.get_registry())
+            .registry(Driver::get_registry()?)
+            .repo(Driver::get_repo_url()?)
             .exports_tag({
                 #[allow(clippy::const_is_empty)]
                 if shadow::COMMIT_HASH.is_empty() {
@@ -132,49 +128,18 @@ impl GenerateCommand {
             })
             .build();
 
-        let output_str = template.render()?;
+        let output_str = template.render().into_diagnostic()?;
         if let Some(output) = self.output.as_ref() {
             debug!("Templating to file {}", output.display());
             trace!("Containerfile:\n{output_str}");
 
-            std::fs::write(output, output_str)?;
+            std::fs::write(output, output_str).into_diagnostic()?;
         } else {
             debug!("Templating to stdout");
             syntax_highlighting::print(&output_str, "Dockerfile", self.syntax_theme)?;
         }
 
         Ok(())
-    }
-
-    fn get_registry(&self) -> String {
-        match (
-            self.registry.as_ref(),
-            self.registry_namespace.as_ref(),
-            Self::get_github_repo_owner(),
-            Self::get_gitlab_registry_path(),
-        ) {
-            (Some(r), Some(rn), _, _) => format!("{r}/{rn}"),
-            (Some(r), None, _, _) => r.to_string(),
-            (None, None, Some(gh_repo_owner), None) => format!("ghcr.io/{gh_repo_owner}"),
-            (None, None, None, Some(gl_reg_path)) => gl_reg_path,
-            _ => "localhost".to_string(),
-        }
-    }
-
-    fn get_github_repo_owner() -> Option<String> {
-        Some(env::var(GITHUB_REPOSITORY_OWNER).ok()?.to_lowercase())
-    }
-
-    fn get_gitlab_registry_path() -> Option<String> {
-        Some(
-            format!(
-                "{}/{}/{}",
-                env::var(CI_REGISTRY).ok()?,
-                env::var(CI_PROJECT_NAMESPACE).ok()?,
-                env::var(CI_PROJECT_NAME).ok()?,
-            )
-            .to_lowercase(),
-        )
     }
 }
 

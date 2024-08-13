@@ -1,16 +1,14 @@
-use std::{borrow::Cow, env, fs, path::Path, process};
+use std::{borrow::Cow, fs, path::Path, process};
 
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::{
-    CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_SERVER_HOST, CI_SERVER_PROTOCOL, CONFIG_PATH,
-    CONTAINERFILES_PATH, CONTAINER_FILE, COSIGN_PUB_PATH, FILES_PATH, GITHUB_RESPOSITORY,
-    GITHUB_SERVER_URL,
+    CONFIG_PATH, CONTAINERFILES_PATH, CONTAINER_FILE, COSIGN_PUB_PATH, FILES_PATH,
 };
 use log::{debug, error, trace, warn};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
-pub use askama::Template;
+pub use rinja::Template;
 
 #[derive(Debug, Clone, Template, TypedBuilder)]
 #[template(path = "Containerfile.j2", escape = "none", whitespace = "minimize")]
@@ -30,6 +28,9 @@ pub struct ContainerFileTemplate<'a> {
 
     #[builder(setter(into))]
     exports_tag: Cow<'a, str>,
+
+    #[builder(setter(into))]
+    repo: Cow<'a, str>,
 }
 
 #[derive(Debug, Clone, Template, TypedBuilder)]
@@ -123,38 +124,6 @@ fn print_containerfile(containerfile: &str) -> String {
     file
 }
 
-fn get_repo_url() -> Option<String> {
-    Some(
-        match (
-            // GitHub vars
-            env::var(GITHUB_SERVER_URL),
-            env::var(GITHUB_RESPOSITORY),
-            // GitLab vars
-            env::var(CI_SERVER_PROTOCOL),
-            env::var(CI_SERVER_HOST),
-            env::var(CI_PROJECT_NAMESPACE),
-            env::var(CI_PROJECT_NAME),
-        ) {
-            (Ok(github_server), Ok(github_repo), _, _, _, _) => {
-                format!("{github_server}/{github_repo}")
-            }
-            (
-                _,
-                _,
-                Ok(ci_server_protocol),
-                Ok(ci_server_host),
-                Ok(ci_project_namespace),
-                Ok(ci_project_name),
-            ) => {
-                format!(
-                    "{ci_server_protocol}://{ci_server_host}/{ci_project_namespace}/{ci_project_name}"
-                )
-            }
-            _ => return None,
-        },
-    )
-}
-
 fn modules_exists() -> bool {
     let mod_path = Path::new("modules");
     mod_path.exists() && mod_path.is_dir()
@@ -178,7 +147,7 @@ fn config_dir_exists() -> bool {
 
 mod filters {
     #[allow(clippy::unnecessary_wraps)]
-    pub fn replace<T: std::fmt::Display>(input: T, from: char, to: &str) -> askama::Result<String> {
+    pub fn replace<T: std::fmt::Display>(input: T, from: char, to: &str) -> rinja::Result<String> {
         Ok(format!("{input}").replace(from, to))
     }
 }

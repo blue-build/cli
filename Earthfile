@@ -16,7 +16,6 @@ build:
 	WAIT
 		BUILD --platform=linux/amd64 --platform=linux/arm64 +build-scripts
 	END
-	BUILD +run-checks
 	BUILD --platform=linux/amd64 --platform=linux/arm64 +build-images
 
 run-checks:
@@ -34,15 +33,19 @@ prebuild:
 
 lint:
 	FROM +common
-	DO rust+CARGO --args="clippy -- -D warnings"
-	DO rust+CARGO --args="clippy --all-features -- -D warnings"
-	DO rust+CARGO --args="clippy --no-default-features -- -D warnings"
+	RUN cargo fmt --check
+	DO rust+CARGO --args="clippy"
+	DO rust+CARGO --args="clippy --all-features"
+	DO rust+CARGO --args="clippy --no-default-features"
 
 test:
 	FROM +common
-	DO rust+CARGO --args="test -- --show-output"
-	DO rust+CARGO --args="test --all-features -- --show-output"
-	DO rust+CARGO --args="test --no-default-features -- --show-output"
+	COPY --dir test-files/ integration-tests/ /app
+	COPY +cosign/cosign /usr/bin/cosign
+
+	DO rust+CARGO --args="test --workspace -- --show-output"
+	DO rust+CARGO --args="test --workspace --all-features -- --show-output"
+	DO rust+CARGO --args="test --workspace --no-default-features -- --show-output"
 
 install:
 	FROM +common
@@ -64,7 +67,7 @@ common:
 	FROM --platform=native ghcr.io/blue-build/earthly-lib/cargo-builder
 
 	WORKDIR /app
-	COPY --keep-ts --dir src/ template/ recipe/ utils/ /app
+	COPY --keep-ts --dir src/ template/ recipe/ utils/ process/ /app
 	COPY --keep-ts Cargo.* /app
 	COPY --keep-ts *.md /app
 	COPY --keep-ts LICENSE /app
@@ -78,7 +81,7 @@ build-scripts:
 	ARG BASE_IMAGE="alpine"
 	FROM $BASE_IMAGE
 
-	COPY (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
+	COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
 	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
 	LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
@@ -94,7 +97,7 @@ blue-build-cli-prebuild:
 	ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
 	FROM DOCKERFILE -f Dockerfile.fedora .
 
-	COPY (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
+	COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
 	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
 	LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
@@ -124,7 +127,7 @@ blue-build-cli-alpine-prebuild:
 	ARG BASE_IMAGE="alpine"
 	FROM DOCKERFILE -f Dockerfile.alpine .
 
-	COPY (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
+	COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
 	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
 	LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
@@ -155,7 +158,7 @@ installer:
 	ARG BASE_IMAGE="alpine"
 	FROM $BASE_IMAGE
 
-	COPY (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
+	COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
 	LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
 	LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
@@ -205,9 +208,9 @@ INSTALL:
 	ARG --required OUT_DIR
 
 	IF [ "$TAGGED" = "true" ]
-		COPY (+install/bluebuild --BUILD_TARGET="$BUILD_TARGET") $OUT_DIR
+		COPY --platform=native (+install/bluebuild --BUILD_TARGET="$BUILD_TARGET") $OUT_DIR
 	ELSE
-		COPY (+install-all-features/bluebuild --BUILD_TARGET="$BUILD_TARGET") $OUT_DIR
+		COPY --platform=native (+install-all-features/bluebuild --BUILD_TARGET="$BUILD_TARGET") $OUT_DIR
 	END
 
 SAVE_IMAGE:

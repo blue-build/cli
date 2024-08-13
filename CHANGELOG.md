@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.12] - 2024-08-11
+
+### Bug Fixes
+
+- Add Ctrl-C handler for spawned children (#193)
+- Support other signals properly (#194)
+- Builds failing due to new Rust version
+- Add typespec schemas for cli modules, remove modules.json (not needed anymore) (#209)
+- Allow copying keys to both /etc and /usr/etc
+- Out of bounds panic when not retrying push
+
+### Features
+
+- Add arm support (#191)
+- Build multiple recipes in parallel (#182)
+- Create RunDriver (#196)
+
+### Miscellaneous Tasks
+
+- Add gh cli to just release
+- Build with priveleged
+- Checkout proper branch and build using cargo for buildah-build
+- Use proper out directory for installer image
+- Capitalize AS
+- Stop using secureblue for integration testing
+- Move files for test-repo to work with new files module update
+- Add Justfile commands for easier development (#205)
+- Fix integration tests failing
+- Switch from askama to rinja
+- Move files from `/usr/etc/` to `/etc/` in build-time (#214)
+
+### Refactor
+
+- Switch to using miette for errors instead of anyhow (#198)
+
 ## [0.8.11] - 2024-06-03
 
 ### Bug Fixes
@@ -19,6 +54,7 @@ All notable changes to this project will be documented in this file.
 - Add action to test external login
 - Add registry for external login test
 - Add external login job and buildah jobs
+- Release
 
 ## [0.8.10] - 2024-05-29
 
