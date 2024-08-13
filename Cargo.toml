@@ -1,5 +1,5 @@
 [workspace]
-members = ["utils", "recipe", "template"]
+members = ["utils", "recipe", "template", "process"]
 
 [workspace.package]
 description = "A CLI tool built for creating Containerfile templates for ostree based atomic distros"
@@ -13,30 +13,29 @@ version = "0.8.12"
 chrono = "0.4"
 clap = "4"
 colored = "2"
-format_serde_error = "0.3"
 indexmap = { version = "2", features = ["serde"] }
 indicatif = { version = "0.17", features = ["improved_unicode"] }
-indicatif-log-bridge = "0.2"
 log = "0.4"
 miette = "7"
-once_cell = "1"
+rstest = "0.18"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
 tempdir = "0.3"
 typed-builder = "0.18"
+users = "0.11"
 uuid = { version = "1", features = ["v4"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
 
 [workspace.lints.clippy]
-correctness = "warn"
-suspicious = "warn"
-perf = "warn"
-style = "warn"
-nursery = "warn"
-pedantic = "warn"
+correctness = "deny"
+suspicious = "deny"
+perf = "deny"
+style = "deny"
+nursery = "deny"
+pedantic = "deny"
 module_name_repetitions = { level = "allow", priority = 1 }
 
 [package]
@@ -59,34 +58,28 @@ pre-release-replacements = [
 blue-build-recipe = { version = "=0.8.12", path = "./recipe" }
 blue-build-template = { version = "=0.8.12", path = "./template" }
 blue-build-utils = { version = "=0.8.12", path = "./utils" }
+blue-build-process-management = { version = "=0.8.12", path = "./process" }
 clap-verbosity-flag = "2"
 clap_complete = "4"
-clap_complete_nushell = "4"
 fuzzy-matcher = "0.3"
-lenient_semver = "0.4"
 open = "5"
 os_info = "3"
 rayon = { version = "1.10.0", optional = true }
 requestty = { version = "0.5", features = ["macros", "termion"] }
-semver = { version = "1", features = ["serde"] }
 shadow-rs = "0.26"
 urlencoding = "2"
-users = "0.11"
 
-chrono.workspace = true
 clap = { workspace = true, features = ["derive", "cargo", "unicode", "env"] }
 colored.workspace = true
-indexmap.workspace = true
 indicatif.workspace = true
 log.workspace = true
 miette = { workspace = true, features = ["fancy"] }
-once_cell.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 tempdir.workspace = true
 typed-builder.workspace = true
-uuid.workspace = true
+users.workspace = true
 
 [features]
 default = []
@@ -94,6 +87,8 @@ stages = ["blue-build-recipe/stages"]
 copy = ["blue-build-recipe/copy"]
 multi-recipe = ["rayon", "indicatif/rayon"]
 switch = []
+sigstore = ["blue-build-process-management/sigstore"]
+login = []
 
 [dev-dependencies]
 rusty-hook = "0.11"
@@ -107,5 +102,10 @@ workspace = true
 [profile.release]
 lto = true
 codegen-units = 1
-strip = true
+strip = "none"
 debug = false
+panic = "abort"
+
+[patch.crates-io]
+# sigstore = { path = "../../sigstore-rs/" }
+sigstore = { git = "https://github.com/gmpinder/sigstore-rs.git", rev = "3a804bff" }

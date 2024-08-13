@@ -1,13 +1,12 @@
 pub mod command_output;
 pub mod constants;
-pub mod logging;
-pub mod signal_handler;
+pub mod credentials;
+mod macros;
 pub mod syntax_highlighting;
 
 use std::{
     os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
-    process::Command,
     thread,
     time::Duration,
 };
@@ -17,9 +16,10 @@ use blake2::{
     digest::{Update, VariableOutput},
     Blake2bVar,
 };
+use chrono::Local;
 use format_serde_error::SerdeError;
 use log::trace;
-use miette::{miette, IntoDiagnostic, Result};
+use miette::{miette, Context, IntoDiagnostic, Result};
 
 use crate::constants::CONTAINER_FILE;
 
@@ -33,8 +33,7 @@ pub fn check_command_exists(command: &str) -> Result<()> {
     trace!("check_command_exists({command})");
 
     trace!("which {command}");
-    if Command::new("which")
-        .arg(command)
+    if cmd!("which", command)
         .output()
         .into_diagnostic()?
         .status
@@ -108,4 +107,19 @@ pub fn generate_containerfile_path<T: AsRef<Path>>(path: T) -> Result<PathBuf> {
         "{CONTAINER_FILE}.{}",
         BASE64_URL_SAFE_NO_PAD.encode(buf)
     )))
+}
+
+#[must_use]
+pub fn get_tag_timestamp() -> String {
+    Local::now().format("%Y%m%d").to_string()
+}
+
+/// Get's the env var wrapping it with a miette error
+///
+/// # Errors
+/// Will error if the env var doesn't exist.
+pub fn get_env_var(key: &str) -> Result<String> {
+    std::env::var(key)
+        .into_diagnostic()
+        .with_context(|| format!("Failed to get {key}'"))
 }

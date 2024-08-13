@@ -57,7 +57,7 @@ pub struct BuildTagPushOpts<'a> {
 
     /// The list of tags for the image being built.
     #[builder(default, setter(into))]
-    pub tags: Cow<'a, [&'a str]>,
+    pub tags: Cow<'a, [String]>,
 
     /// Enable pushing the image.
     #[builder(default)]

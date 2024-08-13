@@ -11,7 +11,6 @@ license.workspace = true
 [dependencies]
 blue-build-utils = { version = "=0.8.12", path = "../utils" }
 
-chrono.workspace = true
 colored.workspace = true
 log.workspace = true
 miette.workspace = true
