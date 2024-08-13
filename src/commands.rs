@@ -11,6 +11,7 @@ pub mod bug_report;
 pub mod build;
 pub mod completions;
 pub mod generate;
+#[cfg(feature = "login")]
 pub mod login;
 // #[cfg(feature = "init")]
 // pub mod init;
@@ -105,6 +106,7 @@ pub enum CommandArgs {
     Switch(switch::SwitchCommand),
 
     /// Login to all services used for building.
+    #[cfg(feature = "login")]
     Login(login::LoginCommand),
 
     // /// Initialize a new Ublue Starting Point repo
