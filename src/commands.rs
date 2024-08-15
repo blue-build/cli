@@ -11,12 +11,12 @@ pub mod bug_report;
 pub mod build;
 pub mod completions;
 pub mod generate;
-#[cfg(feature = "login")]
-pub mod login;
-// #[cfg(feature = "init")]
-// pub mod init;
+#[cfg(feature = "init")]
+pub mod init;
 #[cfg(not(feature = "switch"))]
 pub mod local;
+#[cfg(feature = "login")]
+pub mod login;
 #[cfg(feature = "switch")]
 pub mod switch;
 
@@ -108,6 +108,14 @@ pub enum CommandArgs {
     /// Login to all services used for building.
     #[cfg(feature = "login")]
     Login(login::LoginCommand),
+
+    /// Create a new bluebuild project.
+    #[cfg(feature = "init")]
+    New(init::NewCommand),
+
+    /// Create a new bluebuild project.
+    #[cfg(feature = "init")]
+    Init(init::InitCommand),
 
     // /// Initialize a new Ublue Starting Point repo
     // #[cfg(feature = "init")]

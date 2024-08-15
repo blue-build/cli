@@ -104,6 +104,12 @@ macro_rules! cmd {
             $(cmd!(@ $command, $($tail)*);)*
         }
     };
+    (@ $command:ident, current_dir = $dir:expr $(, $($tail:tt)*)?) => {
+        {
+            $command.current_dir($dir);
+            $(cmd!(@ $command, $($tail)*);)*
+        }
+    };
     (@ $command:ident, stdin = $pipe:expr $(, $($tail:tt)*)?) => {
         {
             $command.stdin($pipe);

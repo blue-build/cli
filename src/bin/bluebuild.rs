@@ -39,6 +39,12 @@ fn main() {
         #[cfg(feature = "login")]
         CommandArgs::Login(mut command) => command.run(),
 
+        #[cfg(feature = "init")]
+        CommandArgs::New(mut command) => command.run(),
+
+        #[cfg(feature = "init")]
+        CommandArgs::Init(mut command) => command.run(),
+
         CommandArgs::BugReport(mut command) => command.run(),
 
         CommandArgs::Completions(mut command) => command.run(),
