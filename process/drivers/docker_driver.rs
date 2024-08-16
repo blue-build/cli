@@ -15,7 +15,7 @@ use blue_build_utils::{
 };
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, info, trace, warn};
-use miette::{bail, IntoDiagnostic, Result};
+use miette::{bail, miette, IntoDiagnostic, Result};
 use once_cell::sync::Lazy;
 use semver::Version;
 use serde::Deserialize;
@@ -199,7 +199,14 @@ impl BuildDriver for DockerDriver {
             trace!("{command:?}");
             let mut child = command.spawn().into_diagnostic()?;
 
-            write!(child.stdin.as_mut().unwrap(), "{password}").into_diagnostic()?;
+            write!(
+                child
+                    .stdin
+                    .as_mut()
+                    .ok_or_else(|| miette!("Unable to open pipe to stdin"))?,
+                "{password}"
+            )
+            .into_diagnostic()?;
 
             let output = child.wait_with_output().into_diagnostic()?;
 

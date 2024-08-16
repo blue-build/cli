@@ -5,6 +5,7 @@ use blue_build_utils::{cmd, constants::TEMPLATE_REPO_URL};
 use clap::{Args, ValueEnum};
 use log::{debug, info, trace};
 use miette::{bail, Context, IntoDiagnostic, Result};
+use requestty::{questions, Answers, OnEsc};
 use typed_builder::TypedBuilder;
 
 use crate::commands::BlueBuildCommand;
@@ -19,33 +20,53 @@ pub enum CiProvider {
 
 #[derive(Debug, Clone, Default, Args, TypedBuilder)]
 pub struct NewInitCommon {
-    /// Disable setting up git.
-    #[arg(long)]
-    #[builder(default)]
-    no_git: bool,
-
-    /// Name of the GitHub repository to create.
+    /// The name of the image for the recipe.
     #[arg(long)]
     #[builder(default, setter(into, strip_option))]
-    repo_name: Option<String>,
+    image_name: Option<String>,
+
+    /// The name of the org where your repo will be located.
+    /// This could end up being your username.
+    #[arg(long)]
+    #[builder(default, setter(into, strip_option))]
+    org_name: Option<String>,
 
     /// Optional description for the GitHub repository.
     #[arg(long)]
     #[builder(default, setter(into, strip_option))]
-    repo_description: Option<String>,
+    description: Option<String>,
 
     /// The CI provider that will be building the image.
     ///
     /// GitHub Actions and Gitlab CI are currently the
     /// officially supported CI providers.
-    #[arg(long, short, default_value = "github")]
+    #[arg(long, short)]
     #[builder(default)]
-    ci_provider: CiProvider,
+    ci_provider: Option<CiProvider>,
 
-    /// The name of the image for the frist recipe.
+    /// Disable setting up git.
     #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
-    image_name: Option<String>,
+    #[builder(default)]
+    no_git: bool,
+}
+
+#[derive(Debug, Clone, Args, TypedBuilder)]
+pub struct NewCommand {
+    #[arg()]
+    dir: PathBuf,
+
+    #[clap(flatten)]
+    common: NewInitCommon,
+}
+
+impl BlueBuildCommand for NewCommand {
+    fn try_run(&mut self) -> Result<()> {
+        InitCommand::builder()
+            .dir(self.dir.clone())
+            .common(self.common.clone())
+            .build()
+            .try_run()
+    }
 }
 
 #[derive(Debug, Clone, Args, TypedBuilder)]
@@ -69,12 +90,50 @@ impl BlueBuildCommand for InitCommand {
             bail!("Must be in an empty directory!");
         }
 
-        self.start()
+        self.start(&self.questions()?)
     }
 }
 
+macro_rules! impl_when {
+    ($check:expr) => {
+        |_answers: &::requestty::Answers| $check
+    };
+}
+
 impl InitCommand {
-    fn start(&self) -> Result<()> {
+    fn questions(&self) -> Result<Answers> {
+        let questions = questions![
+            Input {
+                name: "image_name",
+                message: "What would you like to name your image?",
+                when: impl_when!(self.common.image_name.is_none()),
+                on_esc: OnEsc::Terminate,
+            },
+            Input {
+                name: "org_name",
+                message: "What is the name of your org/username?",
+                when: impl_when!(self.common.org_name.is_none()),
+                on_esc: OnEsc::Terminate,
+            },
+            Input {
+                name: "description",
+                message: "Write a short description of your image:",
+                when: impl_when!(self.common.description.is_none()),
+                on_esc: OnEsc::Terminate,
+            },
+            Select {
+                name: "ci_provider",
+                message: "Are you building on Github or Gitlab?",
+                when: impl_when!(!self.common.no_git && self.common.ci_provider.is_none()),
+                should_loop: true,
+                on_esc: OnEsc::Terminate,
+            }
+        ];
+
+        requestty::prompt(questions).into_diagnostic()
+    }
+
+    fn start(&self, _answers: &Answers) -> Result<()> {
         self.clone_repository()?;
         self.remove_git_directory()?;
         self.remove_codeowners_file()?;
@@ -226,7 +285,7 @@ impl InitCommand {
         let readme = InitReadmeTemplate::builder()
             .repo_name(
                 self.common
-                    .repo_name
+                    .org_name
                     .as_ref()
                     .map_or("image_repo", String::as_str),
             )
@@ -250,24 +309,5 @@ impl InitCommand {
 
     fn set_ci_provider(&self) -> Result<()> {
         todo!()
-    }
-}
-
-#[derive(Debug, Clone, Args, TypedBuilder)]
-pub struct NewCommand {
-    #[arg()]
-    dir: PathBuf,
-
-    #[clap(flatten)]
-    common: NewInitCommon,
-}
-
-impl BlueBuildCommand for NewCommand {
-    fn try_run(&mut self) -> Result<()> {
-        InitCommand::builder()
-            .dir(self.dir.clone())
-            .common(self.common.clone())
-            .build()
-            .try_run()
     }
 }
