@@ -194,10 +194,11 @@ version:
 	RUN apt-get update && apt-get install -y jq
 
 	WORKDIR /app
-	COPY --keep-ts --dir src/ template/ recipe/ utils/ /app
+	COPY --keep-ts --dir src/ template/ recipe/ utils/ process/ /app
 	COPY --keep-ts Cargo.* /app
 
-	RUN echo "$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "blue-build") .version')" > /version
+	RUN /bin/bash -c 'set -eo pipefail; cargo metadata --no-deps --format-version 1 \
+			| jq -r ".packages[] | select(.name == \"blue-build\") .version" > /version'
 
 	SAVE ARTIFACT /version
 
