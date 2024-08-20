@@ -87,7 +87,16 @@ where
     signals.extend(TERM_SIGNALS);
     let mut signals = SignalsInfo::<WithOrigin>::new(signals).expect("Need signal info");
 
-    thread::spawn(app_exec);
+    thread::spawn(|| {
+        let app = thread::spawn(app_exec);
+
+        if matches!(app.join(), Ok(())) {
+            expect_exit::exit_unwind(0);
+        } else {
+            error!("App thread panic!");
+            expect_exit::exit_unwind(1);
+        }
+    });
 
     let mut has_terminal = true;
     for info in &mut signals {
