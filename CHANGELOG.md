@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.13] - 2024-08-20
+
+### Bug Fixes
+
+- Include $crate for macro calls
+- Don't let process continue running if the main app thread panics
+
+### Refactor
+
+- Create SigningDriver and CiDriver (#197)
+
 ## [0.8.12] - 2024-08-11
 
 ### Bug Fixes
@@ -32,6 +43,8 @@ All notable changes to this project will be documented in this file.
 - Fix integration tests failing
 - Switch from askama to rinja
 - Move files from `/usr/etc/` to `/etc/` in build-time (#214)
+- Release
+- Fix tag CI to build prebuild separately from main build
 
 ### Refactor
 
@@ -446,9 +459,21 @@ All notable changes to this project will be documented in this file.
 
 ### Miscellaneous Tasks
 
+- Create GitHub Workflow (#9)
+- Don't build integration tests in +all
+- Allow write for contents and id-token
+- Allow workflow_dispatch on build
+- Use docker/login-action@v3
+- Set packages permissions to write
+- Update README.md (#10)
+- Use GHCR for install.sh (#11)
+- Remove input for release
+- Add CARGO_REGISTRY_TOKEN
+- Fetch all to get history for changelog updates
+- Allow write for id-token
 - Bump version
 
-## [0.5.2] - 2024-01-24
+## [0.5.2] - 2024-01-22
 
 ### Bug Fixes
 
@@ -468,18 +493,6 @@ All notable changes to this project will be documented in this file.
 
 - Update Cargo.toml with new repo URL
 - Manual bump of version
-- Create GitHub Workflow (#9)
-- Don't build integration tests in +all
-- Allow write for contents and id-token
-- Allow workflow_dispatch on build
-- Use docker/login-action@v3
-- Set packages permissions to write
-- Update README.md (#10)
-- Use GHCR for install.sh (#11)
-- Remove input for release
-- Add CARGO_REGISTRY_TOKEN
-- Fetch all to get history for changelog updates
-- Allow write for id-token
 
 ## [0.5.1] - 2024-01-22
 
