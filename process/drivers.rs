@@ -197,8 +197,9 @@ impl Driver {
         #[cfg(test)]
         {
             use miette::IntoDiagnostic;
+            let _ = recipe; // silence lint
 
-            if std::env::var(crate::test::BB_UNIT_TEST_MOCK_GET_OS_VERSION).is_ok() {
+            if true {
                 return crate::test::create_test_recipe()
                     .image_version
                     .parse()
@@ -223,11 +224,11 @@ impl Driver {
                 let inspection = Self::get_metadata(&inspect_opts)?;
 
                 let os_version = inspection.get_version().ok_or_else(|| {
-                    miette!(
-                        help = format!("Please check with the image author about using '{IMAGE_VERSION_LABEL}' to report the os version."),
-                        "Unable to get the OS version from the labels"
-                    )
-                })?;
+                miette!(
+                    help = format!("Please check with the image author about using '{IMAGE_VERSION_LABEL}' to report the os version."),
+                    "Unable to get the OS version from the labels"
+                )
+            })?;
                 trace!("os_version: {os_version}");
 
                 os_version

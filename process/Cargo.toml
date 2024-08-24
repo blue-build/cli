@@ -43,6 +43,10 @@ typed-builder.workspace = true
 users.workspace = true
 uuid.workspace = true
 
+[dev-dependencies]
+rstest.workspace = true
+blue-build-utils = { version = "=0.8.13", path = "../utils", features = ["test"]  }
+
 [lints]
 workspace = true
 
