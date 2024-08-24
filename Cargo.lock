@@ -366,6 +366,7 @@ dependencies = [
  "once_cell",
  "os_pipe",
  "rand 0.8.5",
+ "rstest",
  "semver",
  "serde",
  "serde_json",
