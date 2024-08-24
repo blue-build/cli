@@ -1,10 +1,10 @@
-use std::{env, fs, path::PathBuf};
+use std::{env, fmt::Display, fs, io::Write, path::PathBuf, str::FromStr};
 
 use blue_build_template::{InitReadmeTemplate, Template};
 use blue_build_utils::{cmd, constants::TEMPLATE_REPO_URL};
 use clap::{Args, ValueEnum};
 use log::{debug, info, trace};
-use miette::{bail, Context, IntoDiagnostic, Result};
+use miette::{bail, Context, IntoDiagnostic, Report, Result};
 use requestty::{questions, Answers, OnEsc};
 use typed_builder::TypedBuilder;
 
@@ -16,6 +16,33 @@ pub enum CiProvider {
     Github,
     Gitlab,
     None,
+}
+
+impl FromStr for CiProvider {
+    type Err = Report;
+
+    fn from_str(s: &str) -> std::prelude::v1::Result<Self, Self::Err> {
+        Ok(match s {
+            "gitlab" => Self::Gitlab,
+            "github" => Self::Github,
+            "none" => Self::None,
+            _ => bail!("Unable to parse for CiProvider"),
+        })
+    }
+}
+
+impl Display for CiProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match *self {
+                Self::Github => "github",
+                Self::Gitlab => "gitlab",
+                Self::None => "none",
+            }
+        )
+    }
 }
 
 #[derive(Debug, Clone, Default, Args, TypedBuilder)]
@@ -35,6 +62,11 @@ pub struct NewInitCommon {
     #[arg(long)]
     #[builder(default, setter(into, strip_option))]
     description: Option<String>,
+
+    /// The registry to store the image.
+    #[arg(long)]
+    #[builder(default, setter(into, strip_option))]
+    registry: Option<String>,
 
     /// The CI provider that will be building the image.
     ///
@@ -125,19 +157,19 @@ impl InitCommand {
                 name: "ci_provider",
                 message: "Are you building on Github or Gitlab?",
                 when: impl_when!(!self.common.no_git && self.common.ci_provider.is_none()),
-                should_loop: true,
                 on_esc: OnEsc::Terminate,
+                choices: vec!["Github", "Gitlab"],
             }
         ];
 
         requestty::prompt(questions).into_diagnostic()
     }
 
-    fn start(&self, _answers: &Answers) -> Result<()> {
+    fn start(&self, answers: &Answers) -> Result<()> {
         self.clone_repository()?;
         self.remove_git_directory()?;
         self.remove_codeowners_file()?;
-        self.template_readme()?;
+        self.template_readme(answers)?;
         self.set_ci_provider()?;
 
         if !self.common.no_git {
@@ -277,25 +309,24 @@ impl InitCommand {
         Ok(())
     }
 
-    fn template_readme(&self) -> Result<()> {
+    fn template_readme(&self, answers: &Answers) -> Result<()> {
         trace!("template_readme()");
 
         let readme_path = self.dir.as_ref().unwrap().join("README.md");
 
         let readme = InitReadmeTemplate::builder()
-            .repo_name(
-                self.common
-                    .org_name
-                    .as_ref()
-                    .map_or("image_repo", String::as_str),
-            )
-            .image_name(
-                self.common
-                    .image_name
-                    .as_ref()
-                    .map_or("template", String::as_str),
-            )
-            .registry("registry.example.io")
+            .repo_name(self.common.org_name.as_ref().map_or_else(
+                || answers.get("org_name").unwrap().as_string().unwrap(),
+                String::as_str,
+            ))
+            .image_name(self.common.image_name.as_ref().map_or_else(
+                || answers.get("image_name").unwrap().as_string().unwrap(),
+                String::as_str,
+            ))
+            .registry(self.common.registry.as_ref().map_or_else(
+                || answers.get("registry").unwrap().as_string().unwrap(),
+                String::as_str,
+            ))
             .build();
 
         debug!("Templating README");

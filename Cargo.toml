@@ -110,4 +110,4 @@ panic = "abort"
 
 [patch.crates-io]
 # sigstore = { path = "../../sigstore-rs/" }
-sigstore = { git = "https://github.com/gmpinder/sigstore-rs.git", rev = "3a804bff" }
+sigstore = { git = "https://github.com/gmpinder/sigstore-rs.git", rev = "300910f0fd0c12f402e80c998b9109fcddf216ef" }
