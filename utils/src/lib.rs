@@ -3,6 +3,8 @@ pub mod constants;
 pub mod credentials;
 mod macros;
 pub mod syntax_highlighting;
+#[cfg(feature = "test")]
+pub mod test_utils;
 
 use std::{
     os::unix::ffi::OsStrExt,

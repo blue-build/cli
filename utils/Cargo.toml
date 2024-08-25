@@ -37,3 +37,5 @@ rstest.workspace = true
 [lints]
 workspace = true
 
+[features]
+test = []

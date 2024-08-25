@@ -21,23 +21,16 @@ pub(crate) static RT: Lazy<Runtime> = Lazy::new(|| {
 
 #[cfg(test)]
 pub(crate) mod test {
-    use std::sync::Mutex;
+    use std::sync::LazyLock;
 
     use blue_build_recipe::{Module, ModuleExt, Recipe};
+    use blue_build_utils::cowstr_vec;
     use indexmap::IndexMap;
-    use once_cell::sync::Lazy;
 
-    pub const BB_UNIT_TEST_MOCK_GET_OS_VERSION: &str = "BB_UNIT_TEST_MOCK_GET_OS_VERSION";
+    pub const TEST_TAG_1: &str = "test-tag-1";
+    pub const TEST_TAG_2: &str = "test-tag-2";
 
-    /// This mutex is used for tests that require the reading of
-    /// environment variables. Env vars are an inheritly unsafe
-    /// as they can be changed and affect other threads functionality.
-    ///
-    /// For tests that require setting env vars, they need to lock this
-    /// mutex before making changes to the env. Any changes made to the env
-    /// MUST be undone in the same test before dropping the lock. Failure to
-    /// do so will cause unpredictable behavior with other tests.
-    pub static ENV_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+    pub static TIMESTAMP: LazyLock<String> = LazyLock::new(blue_build_utils::get_tag_timestamp);
 
     pub fn create_test_recipe() -> Recipe<'static> {
         Recipe::builder()
@@ -45,6 +38,23 @@ pub(crate) mod test {
             .description("This is a test")
             .base_image("base-image")
             .image_version("40")
+            .modules_ext(
+                ModuleExt::builder()
+                    .modules(vec![Module::builder().build()])
+                    .build(),
+            )
+            .stages_ext(None)
+            .extra(IndexMap::new())
+            .build()
+    }
+
+    pub fn create_test_recipe_alt_tags() -> Recipe<'static> {
+        Recipe::builder()
+            .name("test")
+            .description("This is a test")
+            .base_image("base-image")
+            .image_version("40")
+            .alt_tags(cowstr_vec![TEST_TAG_1, TEST_TAG_2])
             .modules_ext(
                 ModuleExt::builder()
                     .modules(vec![Module::builder().build()])
