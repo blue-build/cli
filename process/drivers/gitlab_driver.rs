@@ -1,9 +1,12 @@
-use blue_build_utils::constants::{
-    CI_COMMIT_REF_NAME, CI_COMMIT_SHORT_SHA, CI_DEFAULT_BRANCH, CI_MERGE_REQUEST_IID,
-    CI_PIPELINE_SOURCE, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_PROJECT_URL, CI_REGISTRY,
-    CI_SERVER_HOST, CI_SERVER_PROTOCOL,
+use blue_build_utils::{
+    constants::{
+        CI_COMMIT_REF_NAME, CI_COMMIT_SHORT_SHA, CI_DEFAULT_BRANCH, CI_MERGE_REQUEST_IID,
+        CI_PIPELINE_SOURCE, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_PROJECT_URL, CI_REGISTRY,
+        CI_SERVER_HOST, CI_SERVER_PROTOCOL,
+    },
+    string_vec,
 };
-use log::{debug, trace};
+use log::trace;
 
 #[cfg(not(test))]
 use blue_build_utils::get_env_var;
@@ -41,45 +44,77 @@ impl CiDriver for GitlabDriver {
     }
 
     fn generate_tags(recipe: &blue_build_recipe::Recipe) -> miette::Result<Vec<String>> {
-        let mut tags: Vec<String> = Vec::new();
+        const MR_EVENT: &str = "merge_request_event";
         let os_version = Driver::get_os_version(recipe)?;
+        let timestamp = blue_build_utils::get_tag_timestamp();
+        let short_sha =
+            get_env_var(CI_COMMIT_SHORT_SHA).inspect(|v| trace!("{CI_COMMIT_SHORT_SHA}={v}"))?;
+        let ref_name =
+            get_env_var(CI_COMMIT_REF_NAME).inspect(|v| trace!("{CI_COMMIT_REF_NAME}={v}"))?;
 
-        if Self::on_default_branch() {
-            debug!("Running on the default branch");
-
-            tags.push(os_version.to_string());
-
-            let timestamp = blue_build_utils::get_tag_timestamp();
-            tags.push(format!("{timestamp}-{os_version}"));
-
-            if let Some(ref alt_tags) = recipe.alt_tags {
-                tags.extend(alt_tags.iter().map(ToString::to_string));
-            } else {
-                tags.push("latest".into());
-                tags.push(timestamp);
+        let tags = match (
+            Self::on_default_branch(),
+            recipe.alt_tags.as_ref(),
+            get_env_var(CI_MERGE_REQUEST_IID).inspect(|v| trace!("{CI_MERGE_REQUEST_IID}={v}")),
+            get_env_var(CI_PIPELINE_SOURCE).inspect(|v| trace!("{CI_PIPELINE_SOURCE}={v}")),
+        ) {
+            (true, None, _, _) => {
+                string_vec![
+                    "latest",
+                    &timestamp,
+                    format!("{os_version}"),
+                    format!("{timestamp}-{os_version}"),
+                    format!("{short_sha}-{os_version}"),
+                ]
             }
-        } else if let Ok(mr_iid) = get_env_var(CI_MERGE_REQUEST_IID) {
-            trace!("{CI_MERGE_REQUEST_IID}={mr_iid}");
-
-            let pipeline_source = get_env_var(CI_PIPELINE_SOURCE)?;
-            trace!("{CI_PIPELINE_SOURCE}={pipeline_source}");
-
-            if pipeline_source == "merge_request_event" {
-                debug!("Running in a MR");
-                tags.push(format!("mr-{mr_iid}-{os_version}"));
+            (true, Some(alt_tags), _, _) => alt_tags
+                .iter()
+                .flat_map(|alt| {
+                    string_vec![
+                        format!("{timestamp}-{alt}-{os_version}"),
+                        format!("{short_sha}-{alt}-{os_version}"),
+                        format!("{alt}-{os_version}"),
+                        &**alt,
+                    ]
+                })
+                .collect(),
+            (false, None, Ok(mr_iid), Ok(pipeline_source)) if pipeline_source == MR_EVENT => {
+                vec![
+                    format!("{short_sha}-{os_version}"),
+                    format!("mr-{mr_iid}-{os_version}"),
+                ]
             }
-        } else {
-            let commit_branch = get_env_var(CI_COMMIT_REF_NAME)?;
-            trace!("{CI_COMMIT_REF_NAME}={commit_branch}");
+            (false, None, _, _) => {
+                vec![
+                    format!("{short_sha}-{os_version}"),
+                    format!("br-{ref_name}-{os_version}"),
+                ]
+            }
+            (false, Some(alt_tags), Ok(mr_iid), Ok(pipeline_source))
+                if pipeline_source == MR_EVENT =>
+            {
+                alt_tags
+                    .iter()
+                    .flat_map(|alt| {
+                        vec![
+                            format!("{short_sha}-{alt}-{os_version}"),
+                            format!("mr-{mr_iid}-{alt}-{os_version}"),
+                        ]
+                    })
+                    .collect()
+            }
+            (false, Some(alt_tags), _, _) => alt_tags
+                .iter()
+                .flat_map(|alt| {
+                    vec![
+                        format!("{short_sha}-{alt}-{os_version}"),
+                        format!("br-{ref_name}-{alt}-{os_version}"),
+                    ]
+                })
+                .collect(),
+        };
+        trace!("{tags:?}");
 
-            debug!("Running on branch {commit_branch}");
-            tags.push(format!("br-{commit_branch}-{os_version}"));
-        }
-
-        let commit_sha = get_env_var(CI_COMMIT_SHORT_SHA)?;
-        trace!("{CI_COMMIT_SHORT_SHA}={commit_sha}");
-
-        tags.push(format!("{commit_sha}-{os_version}"));
         Ok(tags)
     }
 
@@ -106,18 +141,29 @@ impl CiDriver for GitlabDriver {
 
 #[cfg(test)]
 mod test {
+    use blue_build_recipe::Recipe;
     use blue_build_utils::{
         constants::{
             CI_COMMIT_REF_NAME, CI_COMMIT_SHORT_SHA, CI_DEFAULT_BRANCH, CI_MERGE_REQUEST_IID,
             CI_PIPELINE_SOURCE, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CI_SERVER_HOST,
             CI_SERVER_PROTOCOL,
         },
+        string_vec,
         test_utils::set_env_var,
     };
+    use rstest::rstest;
 
-    use crate::{drivers::CiDriver, test::create_test_recipe};
+    use crate::{
+        drivers::CiDriver,
+        test::{
+            create_test_recipe, create_test_recipe_alt_tags, TEST_TAG_1, TEST_TAG_2, TIMESTAMP,
+        },
+    };
 
     use super::GitlabDriver;
+
+    const COMMIT_SHA: &str = "1234567";
+    const BR_REF_NAME: &str = "test";
 
     fn setup_default_branch() {
         setup();
@@ -128,17 +174,17 @@ mod test {
         setup();
         set_env_var(CI_MERGE_REQUEST_IID, "12");
         set_env_var(CI_PIPELINE_SOURCE, "merge_request_event");
-        set_env_var(CI_COMMIT_REF_NAME, "test");
+        set_env_var(CI_COMMIT_REF_NAME, BR_REF_NAME);
     }
 
     fn setup_branch() {
         setup();
-        set_env_var(CI_COMMIT_REF_NAME, "test");
+        set_env_var(CI_COMMIT_REF_NAME, BR_REF_NAME);
     }
 
     fn setup() {
         set_env_var(CI_DEFAULT_BRANCH, "main");
-        set_env_var(CI_COMMIT_SHORT_SHA, "1234567");
+        set_env_var(CI_COMMIT_SHORT_SHA, COMMIT_SHA);
         set_env_var(CI_REGISTRY, "registry.example.com");
         set_env_var(CI_PROJECT_NAMESPACE, "test-project");
         set_env_var(CI_PROJECT_NAME, "test");
@@ -178,74 +224,74 @@ mod test {
         assert_eq!(url, "https://gitlab.example.com/test-project/test");
     }
 
-    #[test]
-    fn generate_tags_default_branch() {
-        let timestamp = blue_build_utils::get_tag_timestamp();
-
-        setup_default_branch();
-
-        let mut tags = GitlabDriver::generate_tags(&create_test_recipe()).unwrap();
-        tags.sort();
-
-        let mut expected_tags = vec![
-            format!("{timestamp}-40"),
-            "latest".to_string(),
-            timestamp,
-            "1234567-40".to_string(),
-            "40".to_string(),
-        ];
-        expected_tags.sort();
-
-        assert_eq!(tags, expected_tags);
-    }
-
-    #[test]
-    fn generate_tags_default_branch_alt_tags() {
-        let timestamp = blue_build_utils::get_tag_timestamp();
-
-        setup_default_branch();
-
-        let mut recipe = create_test_recipe();
-
-        recipe.alt_tags = Some(vec!["test-tag1".into(), "test-tag2".into()]);
+    #[rstest]
+    #[case::default_branch(
+        setup_default_branch,
+        create_test_recipe,
+        string_vec![
+            format!("{}-40", &*TIMESTAMP),
+            "latest",
+            &*TIMESTAMP,
+            format!("{COMMIT_SHA}-40"),
+            "40",
+        ],
+    )]
+    #[case::default_branch_alt_tags(
+        setup_default_branch,
+        create_test_recipe_alt_tags,
+        string_vec![
+            TEST_TAG_1,
+            format!("{TEST_TAG_1}-40"),
+            format!("{}-{TEST_TAG_1}-40", &*TIMESTAMP),
+            format!("{COMMIT_SHA}-{TEST_TAG_1}-40"),
+            TEST_TAG_2,
+            format!("{TEST_TAG_2}-40"),
+            format!("{}-{TEST_TAG_2}-40", &*TIMESTAMP),
+            format!("{COMMIT_SHA}-{TEST_TAG_2}-40"),
+        ],
+    )]
+    #[case::pr_branch(
+        setup_mr_branch,
+        create_test_recipe,
+        string_vec!["mr-12-40", format!("{COMMIT_SHA}-40")],
+    )]
+    #[case::pr_branch_alt_tags(
+        setup_mr_branch,
+        create_test_recipe_alt_tags,
+        string_vec![
+            format!("mr-12-{TEST_TAG_1}-40"),
+            format!("{COMMIT_SHA}-{TEST_TAG_1}-40"),
+            format!("mr-12-{TEST_TAG_2}-40"),
+            format!("{COMMIT_SHA}-{TEST_TAG_2}-40"),
+        ],
+    )]
+    #[case::branch(
+        setup_branch,
+        create_test_recipe,
+        string_vec![format!("{COMMIT_SHA}-40"), "br-test-40"],
+    )]
+    #[case::branch_alt_tags(
+        setup_branch,
+        create_test_recipe_alt_tags,
+        string_vec![
+            format!("br-{BR_REF_NAME}-{TEST_TAG_1}-40"),
+            format!("{COMMIT_SHA}-{TEST_TAG_1}-40"),
+            format!("br-{BR_REF_NAME}-{TEST_TAG_2}-40"),
+            format!("{COMMIT_SHA}-{TEST_TAG_2}-40"),
+        ],
+    )]
+    fn generate_tags(
+        #[case] setup: impl FnOnce(),
+        #[case] recipe_fn: impl Fn() -> Recipe<'static>,
+        #[case] mut expected: Vec<String>,
+    ) {
+        setup();
+        expected.sort();
+        let recipe = recipe_fn();
 
         let mut tags = GitlabDriver::generate_tags(&recipe).unwrap();
         tags.sort();
 
-        let mut expected_tags = vec![
-            format!("{timestamp}-40"),
-            "1234567-40".to_string(),
-            "40".to_string(),
-        ];
-        expected_tags.extend(recipe.alt_tags.unwrap().iter().map(ToString::to_string));
-        expected_tags.sort();
-
-        assert_eq!(tags, expected_tags);
-    }
-
-    #[test]
-    fn generate_tags_mr_branch() {
-        setup_mr_branch();
-
-        let mut tags = GitlabDriver::generate_tags(&create_test_recipe()).unwrap();
-        tags.sort();
-
-        let mut expected_tags = vec!["mr-12-40".to_string(), "1234567-40".to_string()];
-        expected_tags.sort();
-
-        assert_eq!(tags, expected_tags);
-    }
-
-    #[test]
-    fn generate_tags_branch() {
-        setup_branch();
-
-        let mut tags = GitlabDriver::generate_tags(&create_test_recipe()).unwrap();
-        tags.sort();
-
-        let mut expected_tags = vec!["1234567-40".to_string(), "br-test-40".to_string()];
-        expected_tags.sort();
-
-        assert_eq!(tags, expected_tags);
+        assert_eq!(tags, expected);
     }
 }
