@@ -7,7 +7,7 @@ edition = "2021"
 repository = "https://github.com/blue-build/cli"
 license = "Apache-2.0"
 categories = ["command-line-utilities"]
-version = "0.8.13"
+version = "0.8.14"
 
 [workspace.dependencies]
 chrono = "0.4"
@@ -55,10 +55,10 @@ pre-release-replacements = [
 ]
 
 [dependencies]
-blue-build-recipe = { version = "=0.8.13", path = "./recipe" }
-blue-build-template = { version = "=0.8.13", path = "./template" }
-blue-build-utils = { version = "=0.8.13", path = "./utils" }
-blue-build-process-management = { version = "=0.8.13", path = "./process" }
+blue-build-recipe = { version = "=0.8.14", path = "./recipe" }
+blue-build-template = { version = "=0.8.14", path = "./template" }
+blue-build-utils = { version = "=0.8.14", path = "./utils" }
+blue-build-process-management = { version = "=0.8.14", path = "./process" }
 clap-verbosity-flag = "2"
 clap_complete = "4"
 fuzzy-matcher = "0.3"
