@@ -1,6 +1,9 @@
-use blue_build_utils::constants::{
-    GITHUB_EVENT_NAME, GITHUB_EVENT_PATH, GITHUB_REF_NAME, GITHUB_SHA, GITHUB_TOKEN_ISSUER_URL,
-    GITHUB_WORKFLOW_REF, PR_EVENT_NUMBER,
+use blue_build_utils::{
+    constants::{
+        GITHUB_EVENT_NAME, GITHUB_EVENT_PATH, GITHUB_REF_NAME, GITHUB_SHA, GITHUB_TOKEN_ISSUER_URL,
+        GITHUB_WORKFLOW_REF, PR_EVENT_NUMBER,
+    },
+    string_vec,
 };
 use event::Event;
 use log::trace;
@@ -32,38 +35,76 @@ impl CiDriver for GithubDriver {
     }
 
     fn generate_tags(recipe: &blue_build_recipe::Recipe) -> miette::Result<Vec<String>> {
-        let mut tags: Vec<String> = Vec::new();
-        let os_version = Driver::get_os_version(recipe)?;
-        let github_event_name = get_env_var(GITHUB_EVENT_NAME)?;
+        const PR_EVENT: &str = "pull_request";
+        let timestamp = blue_build_utils::get_tag_timestamp();
+        let os_version = Driver::get_os_version(recipe).inspect(|v| trace!("os_version={v}"))?;
+        let ref_name = get_env_var(GITHUB_REF_NAME).inspect(|v| trace!("{GITHUB_REF_NAME}={v}"))?;
+        let short_sha = {
+            let mut short_sha = get_env_var(GITHUB_SHA).inspect(|v| trace!("{GITHUB_SHA}={v}"))?;
+            short_sha.truncate(7);
+            short_sha
+        };
 
-        if github_event_name == "pull_request" {
-            trace!("Running in a PR");
-
-            let github_event_number = get_env_var(PR_EVENT_NUMBER)?;
-
-            tags.push(format!("pr-{github_event_number}-{os_version}"));
-        } else if Self::on_default_branch() {
-            tags.push(os_version.to_string());
-
-            let timestamp = blue_build_utils::get_tag_timestamp();
-            tags.push(format!("{timestamp}-{os_version}"));
-
-            if let Some(ref alt_tags) = recipe.alt_tags {
-                tags.extend(alt_tags.iter().map(ToString::to_string));
-            } else {
-                tags.push("latest".into());
-                tags.push(timestamp);
+        let tags = match (
+            Self::on_default_branch(),
+            recipe.alt_tags.as_ref(),
+            get_env_var(GITHUB_EVENT_NAME).inspect(|v| trace!("{GITHUB_EVENT_NAME}={v}")),
+            get_env_var(PR_EVENT_NUMBER).inspect(|v| trace!("{PR_EVENT_NUMBER}={v}")),
+        ) {
+            (true, None, _, _) => {
+                string_vec![
+                    "latest",
+                    &timestamp,
+                    format!("{os_version}"),
+                    format!("{timestamp}-{os_version}"),
+                    format!("{short_sha}-{os_version}"),
+                ]
             }
-        } else {
-            let github_ref_name = get_env_var(GITHUB_REF_NAME)?;
-
-            tags.push(format!("br-{github_ref_name}-{os_version}"));
-        }
-
-        let mut short_sha = get_env_var(GITHUB_SHA)?;
-        short_sha.truncate(7);
-
-        tags.push(format!("{short_sha}-{os_version}"));
+            (true, Some(alt_tags), _, _) => alt_tags
+                .iter()
+                .flat_map(|alt| {
+                    string_vec![
+                        format!("{timestamp}-{alt}-{os_version}"),
+                        format!("{short_sha}-{alt}-{os_version}"),
+                        format!("{alt}-{os_version}"),
+                        &**alt,
+                    ]
+                })
+                .collect(),
+            (false, None, Ok(event_name), Ok(event_num)) if event_name == PR_EVENT => {
+                vec![
+                    format!("{short_sha}-{os_version}"),
+                    format!("pr-{event_num}-{os_version}"),
+                ]
+            }
+            (false, None, _, _) => {
+                vec![
+                    format!("{short_sha}-{os_version}"),
+                    format!("br-{ref_name}-{os_version}"),
+                ]
+            }
+            (false, Some(alt_tags), Ok(event_name), Ok(event_num)) if event_name == PR_EVENT => {
+                alt_tags
+                    .iter()
+                    .flat_map(|alt| {
+                        vec![
+                            format!("{short_sha}-{alt}-{os_version}"),
+                            format!("pr-{event_num}-{alt}-{os_version}"),
+                        ]
+                    })
+                    .collect()
+            }
+            (false, Some(alt_tags), _, _) => alt_tags
+                .iter()
+                .flat_map(|alt| {
+                    vec![
+                        format!("{short_sha}-{alt}-{os_version}"),
+                        format!("br-{ref_name}-{alt}-{os_version}"),
+                    ]
+                })
+                .collect(),
+        };
+        trace!("{tags:?}");
 
         Ok(tags)
     }
@@ -87,16 +128,27 @@ impl CiDriver for GithubDriver {
 
 #[cfg(test)]
 mod test {
+    use blue_build_recipe::Recipe;
     use blue_build_utils::{
         constants::{
             GITHUB_EVENT_NAME, GITHUB_EVENT_PATH, GITHUB_REF_NAME, GITHUB_SHA, PR_EVENT_NUMBER,
         },
+        string_vec,
         test_utils::set_env_var,
     };
+    use rstest::rstest;
 
-    use crate::{drivers::CiDriver, test::create_test_recipe};
+    use crate::{
+        drivers::CiDriver,
+        test::{
+            create_test_recipe, create_test_recipe_alt_tags, TEST_TAG_1, TEST_TAG_2, TIMESTAMP,
+        },
+    };
 
     use super::GithubDriver;
+
+    const COMMIT_SHA: &str = "1234567";
+    const BR_REF_NAME: &str = "test";
 
     fn setup_default_branch() {
         setup();
@@ -114,14 +166,14 @@ mod test {
             "../test-files/github-events/pr-branch.json",
         );
         set_env_var(GITHUB_EVENT_NAME, "pull_request");
-        set_env_var(GITHUB_REF_NAME, "test");
+        set_env_var(GITHUB_REF_NAME, BR_REF_NAME);
         set_env_var(PR_EVENT_NUMBER, "12");
     }
 
     fn setup_branch() {
         setup();
         set_env_var(GITHUB_EVENT_PATH, "../test-files/github-events/branch.json");
-        set_env_var(GITHUB_REF_NAME, "test");
+        set_env_var(GITHUB_REF_NAME, BR_REF_NAME);
     }
 
     fn setup() {
@@ -161,74 +213,74 @@ mod test {
         assert_eq!(url, "https://example.com/");
     }
 
-    #[test]
-    fn generate_tags_default_branch() {
-        let timestamp = blue_build_utils::get_tag_timestamp();
-
-        setup_default_branch();
-
-        let mut tags = GithubDriver::generate_tags(&create_test_recipe()).unwrap();
-        tags.sort();
-
-        let mut expected_tags = vec![
-            format!("{timestamp}-40"),
-            "latest".to_string(),
-            timestamp,
-            "1234567-40".to_string(),
-            "40".to_string(),
-        ];
-        expected_tags.sort();
-
-        assert_eq!(tags, expected_tags);
-    }
-
-    #[test]
-    fn generate_tags_default_branch_alt_tags() {
-        let timestamp = blue_build_utils::get_tag_timestamp();
-
-        setup_default_branch();
-
-        let mut recipe = create_test_recipe();
-
-        recipe.alt_tags = Some(vec!["test-tag1".into(), "test-tag2".into()]);
+    #[rstest]
+    #[case::default_branch(
+        setup_default_branch,
+        create_test_recipe,
+        string_vec![
+            format!("{}-40", &*TIMESTAMP),
+            "latest",
+            &*TIMESTAMP,
+            format!("{COMMIT_SHA}-40"),
+            "40",
+        ],
+    )]
+    #[case::default_branch_alt_tags(
+        setup_default_branch,
+        create_test_recipe_alt_tags,
+        string_vec![
+            TEST_TAG_1,
+            format!("{TEST_TAG_1}-40"),
+            format!("{}-{TEST_TAG_1}-40", &*TIMESTAMP),
+            format!("{COMMIT_SHA}-{TEST_TAG_1}-40"),
+            TEST_TAG_2,
+            format!("{TEST_TAG_2}-40"),
+            format!("{}-{TEST_TAG_2}-40", &*TIMESTAMP),
+            format!("{COMMIT_SHA}-{TEST_TAG_2}-40"),
+        ],
+    )]
+    #[case::pr_branch(
+        setup_pr_branch,
+        create_test_recipe,
+        string_vec!["pr-12-40", format!("{COMMIT_SHA}-40")],
+    )]
+    #[case::pr_branch_alt_tags(
+        setup_pr_branch,
+        create_test_recipe_alt_tags,
+        string_vec![
+            format!("pr-12-{TEST_TAG_1}-40"),
+            format!("{COMMIT_SHA}-{TEST_TAG_1}-40"),
+            format!("pr-12-{TEST_TAG_2}-40"),
+            format!("{COMMIT_SHA}-{TEST_TAG_2}-40"),
+        ],
+    )]
+    #[case::branch(
+        setup_branch,
+        create_test_recipe,
+        string_vec![format!("{COMMIT_SHA}-40"), "br-test-40"],
+    )]
+    #[case::branch_alt_tags(
+        setup_branch,
+        create_test_recipe_alt_tags,
+        string_vec![
+            format!("br-{BR_REF_NAME}-{TEST_TAG_1}-40"),
+            format!("{COMMIT_SHA}-{TEST_TAG_1}-40"),
+            format!("br-{BR_REF_NAME}-{TEST_TAG_2}-40"),
+            format!("{COMMIT_SHA}-{TEST_TAG_2}-40"),
+        ],
+    )]
+    fn generate_tags(
+        #[case] setup: impl FnOnce(),
+        #[case] recipe_fn: impl Fn() -> Recipe<'static>,
+        #[case] mut expected: Vec<String>,
+    ) {
+        setup();
+        expected.sort();
+        let recipe = recipe_fn();
 
         let mut tags = GithubDriver::generate_tags(&recipe).unwrap();
         tags.sort();
 
-        let mut expected_tags = vec![
-            format!("{timestamp}-40"),
-            "1234567-40".to_string(),
-            "40".to_string(),
-        ];
-        expected_tags.extend(recipe.alt_tags.unwrap().iter().map(ToString::to_string));
-        expected_tags.sort();
-
-        assert_eq!(tags, expected_tags);
-    }
-
-    #[test]
-    fn generate_tags_pr_branch() {
-        setup_pr_branch();
-
-        let mut tags = GithubDriver::generate_tags(&create_test_recipe()).unwrap();
-        tags.sort();
-
-        let mut expected_tags = vec!["pr-12-40".to_string(), "1234567-40".to_string()];
-        expected_tags.sort();
-
-        assert_eq!(tags, expected_tags);
-    }
-
-    #[test]
-    fn generate_tags_branch() {
-        setup_branch();
-
-        let mut tags = GithubDriver::generate_tags(&create_test_recipe()).unwrap();
-        tags.sort();
-
-        let mut expected_tags = vec!["1234567-40".to_string(), "br-test-40".to_string()];
-        expected_tags.sort();
-
-        assert_eq!(tags, expected_tags);
+        assert_eq!(tags, expected);
     }
 }
