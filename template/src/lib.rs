@@ -4,6 +4,7 @@ use blue_build_recipe::Recipe;
 use blue_build_utils::constants::{
     CONFIG_PATH, CONTAINERFILES_PATH, CONTAINER_FILE, COSIGN_PUB_PATH, FILES_PATH,
 };
+use colored::control::ShouldColorize;
 use log::{debug, error, trace, warn};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
@@ -143,6 +144,10 @@ fn config_dir_exists() -> bool {
     }
 
     exists
+}
+
+fn should_color() -> bool {
+    ShouldColorize::from_env().should_colorize()
 }
 
 mod filters {

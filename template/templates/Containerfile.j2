@@ -16,6 +16,12 @@ ARG MODULE_DIRECTORY="/tmp/modules"
 ARG IMAGE_NAME="{{ recipe.name }}"
 ARG BASE_IMAGE="{{ recipe.base_image }}"
 
+{%- if self::should_color() %}
+ARG FORCE_COLOR=1
+ARG CLICOLOR_FORCE=1
+ARG RUST_LOG_STYLE=always
+{%- endif %}
+
 # Key RUN
 RUN --mount=type=bind,from=stage-keys,src=/keys,dst=/tmp/keys \
   mkdir -p /etc/pki/containers/ \

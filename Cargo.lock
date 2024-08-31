@@ -401,6 +401,7 @@ version = "0.8.14"
 dependencies = [
  "blue-build-recipe",
  "blue-build-utils",
+ "colored",
  "log",
  "rinja",
  "typed-builder",

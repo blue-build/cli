@@ -14,6 +14,7 @@ blue-build-recipe = { version = "=0.8.14", path = "../recipe" }
 blue-build-utils = { version = "=0.8.14", path = "../utils" }
 
 log.workspace = true
+colored.workspace = true
 typed-builder.workspace = true
 uuid.workspace = true
 
