@@ -1,6 +1,5 @@
 name: containerfile
 shortdesc: The containerfile module enables the addition of custom Containerfile instructions into the build process.
-readme: https://raw.githubusercontent.com/blue-build/cli/main/template/templates/modules/containerfile/README.md
 example: |
   type: containerfile
   snippets:

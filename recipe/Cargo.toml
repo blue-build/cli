@@ -9,12 +9,11 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-blue-build-utils = { version = "=0.8.11", path = "../utils" }
+blue-build-utils = { version = "=0.8.14", path = "../utils" }
 
-anyhow.workspace = true
-chrono.workspace = true
 colored.workspace = true
 log.workspace = true
+miette.workspace = true
 indexmap.workspace = true
 serde.workspace = true
 serde_yaml.workspace = true

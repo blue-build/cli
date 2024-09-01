@@ -1,9 +1,10 @@
 VERSION 0.8
 PROJECT blue-build/cli
 
+IMPORT github.com/earthly/lib/utils/dind AS dind
+
 all:
 	BUILD +test-image
-	BUILD +test-secureblue
 	BUILD +test-legacy-image
 	BUILD +build
 	BUILD +rebase
@@ -24,20 +25,6 @@ test-legacy-image:
 
 	DO +RUN_TESTS
 
-test-secureblue:
-	FROM +build-template --src=template-secureblue
-	WORKDIR /tmp/test
-	COPY ./test-scripts/secureblue/*.sh ./
-
-	DO +RUN_TESTS
-
-test-secureblue-ucore:
-	FROM +build-template --src=template-secureblue-ucore
-	WORKDIR /tmp/test
-	COPY ./test-scripts/secureblue/*.sh ./
-
-	DO +RUN_TESTS
-
 build-template:
 	ARG --required src
 	FROM DOCKERFILE \
@@ -46,57 +33,51 @@ build-template:
 
 template-containerfile:
 	FROM +test-base
-	RUN bluebuild -vv generate recipes/recipe.yml | tee Containerfile
+	RUN bluebuild -v generate recipes/recipe.yml | tee Containerfile
 
 	SAVE ARTIFACT /test
 
 template-legacy-containerfile:
 	FROM +legacy-base
-	RUN bluebuild -vv template config/recipe.yml | tee Containerfile
-
-	SAVE ARTIFACT /test
-
-template-secureblue:
-	FROM +secureblue-base
-	RUN bluebuild -vv generate -o Containerfile recipes/general/recipe-silverblue-nvidia.yml
-
-	SAVE ARTIFACT /test
-
-template-secureblue-ucore:
-	FROM +secureblue-base
-	RUN bluebuild -vv generate -o Containerfile recipes/server/recipe-server-main.yml
+	RUN bluebuild -v template config/recipe.yml | tee Containerfile
 
 	SAVE ARTIFACT /test
 
 build:
 	FROM +test-base
 
-	RUN bluebuild -vv build recipes/recipe.yml
+	RUN bluebuild -v build recipes/recipe.yml
+
+build-full:
+	FROM +test-base --MOCK="false"
+
+	DO dind+INSTALL
+
+	ENV BB_USERNAME=gmpinder
+	ENV BB_REGISTRY=ghcr.io
+	ENV BB_REGISTRY_NAMESPACE=blue-build
+
+	WITH DOCKER
+		RUN --secret BB_PASSWORD=github/registry bluebuild build --push -S sigstore -vv recipes/recipe.yml
+	END
+	
 
 rebase:
 	FROM +legacy-base
 
-	RUN bluebuild -vv rebase config/recipe.yml
+	RUN bluebuild -v rebase config/recipe.yml
 
 upgrade:
 	FROM +legacy-base
 
 	RUN mkdir -p /etc/bluebuild && touch $BB_TEST_LOCAL_IMAGE
-	RUN bluebuild -vv upgrade config/recipe.yml
+	RUN bluebuild -v upgrade config/recipe.yml
 
 switch:
 	FROM +test-base
 
 	RUN mkdir -p /etc/bluebuild && touch $BB_TEST_LOCAL_IMAGE
-	RUN bluebuild -vv switch recipes/recipe.yml
-
-secureblue-base:
-	FROM +test-base
-
-	RUN rm -fr /test
-	GIT CLONE https://github.com/secureblue/secureblue.git /test
-
-	DO +GEN_KEYPAIR
+	RUN bluebuild -v switch recipes/recipe.yml
 
 legacy-base:
 	FROM ../+blue-build-cli-alpine
@@ -119,7 +100,10 @@ test-base:
 	ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test.tar.gz
 	ENV CLICOLOR_FORCE=1
 
-	COPY ./mock-scripts/ /usr/bin/
+	ARG MOCK="true"
+	IF [ "$MOCK" = "true" ]
+		COPY ./mock-scripts/ /usr/bin/
+	END
 
 	WORKDIR /test
 	COPY ./test-repo /test
@@ -129,7 +113,9 @@ test-base:
 GEN_KEYPAIR:
 	FUNCTION
 	# Setup a cosign key pair
-	RUN echo -n "\n\n" | cosign generate-key-pair
+	ENV COSIGN_PASSWORD=""
+	ENV COSIGN_YES="true"
+	RUN cosign generate-key-pair
 	ENV COSIGN_PRIVATE_KEY=$(cat cosign.key)
 	RUN rm cosign.key
 

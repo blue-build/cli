@@ -1,8 +1,8 @@
 use std::{borrow::Cow, fs, path::Path};
 
-use anyhow::{Context, Result};
 use blue_build_utils::constants::{CONFIG_PATH, RECIPE_PATH};
 use log::warn;
+use miette::{Context, IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 
@@ -32,12 +32,14 @@ impl<'a> StagesExt<'a> {
         };
 
         let file = fs::read_to_string(&file_path)
-            .context(format!("Failed to open {}", file_path.display()))?;
+            .into_diagnostic()
+            .with_context(|| format!("Failed to open {}", file_path.display()))?;
 
         serde_yaml::from_str::<Self>(&file).map_or_else(
             |_| -> Result<Self> {
                 let mut stage = serde_yaml::from_str::<Stage>(&file)
-                    .map_err(blue_build_utils::serde_yaml_err(&file))?;
+                    .map_err(blue_build_utils::serde_yaml_err(&file))
+                    .into_diagnostic()?;
                 if let Some(ref mut rf) = stage.required_fields {
                     rf.modules_ext.modules =
                         Module::get_modules(&rf.modules_ext.modules, None)?.into();

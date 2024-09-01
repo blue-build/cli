@@ -1,22 +1,19 @@
-use std::{
-    process::{Command, Stdio},
-    time::Duration,
-};
+use std::{process::Stdio, time::Duration};
 
-use anyhow::{bail, Result};
-use blue_build_utils::logging::Logger;
+use blue_build_utils::cmd;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, trace};
+use miette::{bail, IntoDiagnostic, Result};
 
-use crate::image_metadata::ImageMetadata;
+use crate::logging::Logger;
 
-use super::{opts::GetMetadataOpts, InspectDriver};
+use super::{image_metadata::ImageMetadata, opts::GetMetadataOpts, InspectDriver};
 
 #[derive(Debug)]
 pub struct SkopeoDriver;
 
 impl InspectDriver for SkopeoDriver {
-    fn get_metadata(&self, opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+    fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
         trace!("SkopeoDriver::get_metadata({opts:#?})");
 
         let url = opts.tag.as_ref().map_or_else(
@@ -32,11 +29,10 @@ impl InspectDriver for SkopeoDriver {
         progress.enable_steady_tick(Duration::from_millis(100));
 
         trace!("skopeo inspect {url}");
-        let output = Command::new("skopeo")
-            .arg("inspect")
-            .arg(&url)
+        let output = cmd!("skopeo", "inspect", &url)
             .stderr(Stdio::inherit())
-            .output()?;
+            .output()
+            .into_diagnostic()?;
 
         progress.finish();
         Logger::multi_progress().remove(&progress);
@@ -46,6 +42,6 @@ impl InspectDriver for SkopeoDriver {
         } else {
             bail!("Failed to inspect image {url}")
         }
-        Ok(serde_json::from_slice(&output.stdout)?)
+        serde_json::from_slice(&output.stdout).into_diagnostic()
     }
 }

@@ -1,10 +1,10 @@
 use std::{borrow::Cow, path::PathBuf, process};
 
-use anyhow::{bail, Result};
 use blue_build_utils::syntax_highlighting::highlight_ser;
 use colored::Colorize;
 use indexmap::IndexMap;
 use log::{error, trace, warn};
+use miette::{bail, Result};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;

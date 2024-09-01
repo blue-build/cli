@@ -2,23 +2,19 @@ use std::path::PathBuf;
 
 use log::error;
 
-use clap::{command, crate_authors, Args, Parser, Subcommand};
+use clap::{command, crate_authors, Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
-use typed_builder::TypedBuilder;
 
-use crate::{
-    drivers::types::{BuildDriverType, InspectDriverType, RunDriverType},
-    shadow,
-};
+use crate::shadow;
 
 pub mod bug_report;
 pub mod build;
 pub mod completions;
 pub mod generate;
-#[cfg(feature = "iso")]
-pub mod generate_iso;
-#[cfg(feature = "init")]
-pub mod init;
+#[cfg(feature = "login")]
+pub mod login;
+// #[cfg(feature = "init")]
+// pub mod init;
 #[cfg(not(feature = "switch"))]
 pub mod local;
 #[cfg(feature = "switch")]
@@ -30,12 +26,12 @@ pub trait BlueBuildCommand {
     ///
     /// # Errors
     /// Can return an `anyhow` Error
-    fn try_run(&mut self) -> anyhow::Result<()>;
+    fn try_run(&mut self) -> miette::Result<()>;
 
     /// Runs the command and exits if there is an error.
     fn run(&mut self) {
         if let Err(e) = self.try_run() {
-            error!("{e}");
+            error!("Failed:\n{e:?}");
             std::process::exit(1);
         }
         std::process::exit(0);
@@ -109,17 +105,16 @@ pub enum CommandArgs {
     #[cfg(feature = "switch")]
     Switch(switch::SwitchCommand),
 
-    /// Initialize a new Ublue Starting Point repo
-    #[cfg(feature = "init")]
-    Init(init::InitCommand),
+    /// Login to all services used for building.
+    #[cfg(feature = "login")]
+    Login(login::LoginCommand),
 
-    #[cfg(feature = "init")]
-    New(init::NewCommand),
+    // /// Initialize a new Ublue Starting Point repo
+    // #[cfg(feature = "init")]
+    // Init(init::InitCommand),
 
-    /// Create an ISO image of your recipe.
-    #[cfg(feature = "iso")]
-    GenerateIso(generate_iso::GenerateIsoCommand),
-
+    // #[cfg(feature = "init")]
+    // New(init::NewCommand),
     /// Create a pre-populated GitHub issue with information about your configuration
     BugReport(bug_report::BugReportCommand),
 
@@ -127,22 +122,14 @@ pub enum CommandArgs {
     Completions(completions::CompletionsCommand),
 }
 
-#[derive(Default, Clone, Copy, Debug, TypedBuilder, Args)]
-pub struct DriverArgs {
-    /// Select which driver to use to build
-    /// your image.
-    #[builder(default)]
-    #[arg(short = 'B', long)]
-    build_driver: Option<BuildDriverType>,
+#[cfg(test)]
+mod test {
+    use clap::CommandFactory;
 
-    /// Select which driver to use to inspect
-    /// images.
-    #[builder(default)]
-    #[arg(short = 'I', long)]
-    inspect_driver: Option<InspectDriverType>,
+    use super::BlueBuildArgs;
 
-    /// Select which driver to use to run containers.
-    #[builder(default)]
-    #[arg(short = 'R', long)]
-    run_driver: Option<RunDriverType>,
+    #[test]
+    fn test_cli() {
+        BlueBuildArgs::command().debug_assert();
+    }
 }

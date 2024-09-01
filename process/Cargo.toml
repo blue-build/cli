@@ -1,0 +1,57 @@
+[package]
+name = "blue-build-process-management"
+description.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+version.workspace = true
+
+[lib]
+path = "process.rs"
+
+[dependencies]
+anyhow = "1"
+blue-build-recipe = { version = "=0.8.14", path = "../recipe" }
+blue-build-utils = { version = "=0.8.14", path = "../utils" }
+expect-exit = "0.5"
+indicatif-log-bridge = "0.2"
+lenient_semver = "0.4"
+log4rs = { version = "1", features = ["background_rotation"] }
+nu-ansi-term = { version = "0.50", features = ["gnu_legacy"] }
+nix = { version = "0.29", features = ["signal"] }
+once_cell = "1"
+os_pipe = { version = "1", features = ["io_safety"] }
+rand = "0.8"
+semver = { version = "1", features = ["serde"] }
+signal-hook = { version = "0.3", features = ["extended-siginfo"] }
+sigstore = { version = "0.9", features = ["full-rustls-tls", "cached-client", "sigstore-trust-root", "sign"], default-features = false, optional = true }
+tokio = { version = "1.39.2", features = ["rt", "rt-multi-thread"], optional = true }
+zeroize = { version = "1", features = ["aarch64", "derive", "serde"] }
+
+chrono.workspace = true
+clap = { workspace = true, features = ["derive", "env"] }
+colored.workspace = true
+indicatif.workspace = true
+indexmap.workspace = true
+log.workspace = true
+miette.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempdir.workspace = true
+typed-builder.workspace = true
+users.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+rstest.workspace = true
+blue-build-utils = { version = "=0.8.14", path = "../utils", features = ["test"]  }
+
+[lints]
+workspace = true
+
+[features]
+sigstore = ["dep:tokio", "dep:sigstore"]
+
+[patch.crates-io]
+sigstore = { git = "https://github.com/gmpinder/sigstore-rs.git", rev = "3a804bff" }

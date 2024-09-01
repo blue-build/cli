@@ -1,11 +1,11 @@
 use std::{
     fs,
     path::PathBuf,
-    process::{self, Command},
     sync::{atomic::AtomicBool, Arc, Mutex},
     thread,
 };
 
+use blue_build_utils::cmd;
 use log::{debug, error, trace, warn};
 use nix::{
     libc::{SIGABRT, SIGCONT, SIGHUP, SIGTSTP},
@@ -26,21 +26,34 @@ use crate::logging::Logger;
 pub struct ContainerId {
     cid_path: PathBuf,
     requires_sudo: bool,
-    crt: String,
+    container_runtime: ContainerRuntime,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ContainerRuntime {
+    Podman,
+    Docker,
+}
+
+impl std::fmt::Display for ContainerRuntime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match *self {
+            Self::Podman => "podman",
+            Self::Docker => "docker",
+        })
+    }
 }
 
 impl ContainerId {
-    pub fn new<P, S>(cid_path: P, container_runtime: S, requires_sudo: bool) -> Self
+    pub fn new<P>(cid_path: P, container_runtime: ContainerRuntime, requires_sudo: bool) -> Self
     where
         P: Into<PathBuf>,
-        S: Into<String>,
     {
         let cid_path = cid_path.into();
-        let crt = container_runtime.into();
         Self {
             cid_path,
             requires_sudo,
-            crt,
+            container_runtime,
         }
     }
 }
@@ -74,7 +87,16 @@ where
     signals.extend(TERM_SIGNALS);
     let mut signals = SignalsInfo::<WithOrigin>::new(signals).expect("Need signal info");
 
-    thread::spawn(app_exec);
+    thread::spawn(|| {
+        let app = thread::spawn(app_exec);
+
+        if matches!(app.join(), Ok(())) {
+            expect_exit::exit_unwind(0);
+        } else {
+            error!("App thread panic!");
+            expect_exit::exit_unwind(1);
+        }
+    });
 
     let mut has_terminal = true;
     for info in &mut signals {
@@ -96,22 +118,20 @@ where
                         let id = id.trim();
                         debug!("Killing container {id}");
 
-                        if let Err(e) = if cid.requires_sudo {
-                            Command::new("sudo")
-                                .arg(&cid.crt)
-                                .arg("stop")
-                                .arg(id)
-                                .status()
+                        let status = if cid.requires_sudo {
+                            cmd!("sudo", cid.container_runtime.to_string(), "stop", id).status()
                         } else {
-                            Command::new(&cid.crt).arg("stop").arg(id).status()
-                        } {
+                            cmd!(cid.container_runtime.to_string(), "stop", id).status()
+                        };
+
+                        if let Err(e) = status {
                             error!("Failed to kill container {id}: Error {e}");
                         }
                     }
                 });
                 drop(cid_list);
 
-                process::exit(1);
+                expect_exit::exit_unwind(1);
             }
             SIGTSTP => {
                 if has_terminal {

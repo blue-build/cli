@@ -3,10 +3,12 @@ use clap::ValueEnum;
 pub use build::*;
 pub use inspect::*;
 pub use run::*;
+pub use signing::*;
 
 mod build;
 mod inspect;
 mod run;
+mod signing;
 
 #[derive(Debug, Copy, Clone, Default, ValueEnum)]
 pub enum CompressionType {
