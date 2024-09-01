@@ -14,6 +14,7 @@ blue-build-utils = { version = "=0.8.14", path = "../utils" }
 colored.workspace = true
 log.workspace = true
 miette.workspace = true
+oci-distribution.workspace = true
 indexmap.workspace = true
 serde.workspace = true
 serde_yaml.workspace = true

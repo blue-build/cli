@@ -93,15 +93,15 @@ impl GenerateCommand {
         });
 
         debug!("Deserializing recipe");
-        let recipe_de = Recipe::parse(&recipe_path)?;
-        trace!("recipe_de: {recipe_de:#?}");
+        let recipe = Recipe::parse(&recipe_path)?;
+        trace!("recipe_de: {recipe:#?}");
 
         if self.display_full_recipe {
             if let Some(output) = self.output.as_ref() {
-                std::fs::write(output, serde_yaml::to_string(&recipe_de).into_diagnostic()?)
+                std::fs::write(output, serde_yaml::to_string(&recipe).into_diagnostic()?)
                     .into_diagnostic()?;
             } else {
-                syntax_highlighting::print_ser(&recipe_de, "yml", self.syntax_theme)?;
+                syntax_highlighting::print_ser(&recipe, "yml", self.syntax_theme)?;
             }
             return Ok(());
         }
@@ -109,9 +109,11 @@ impl GenerateCommand {
         info!("Templating for recipe at {}", recipe_path.display());
 
         let template = ContainerFileTemplate::builder()
-            .os_version(Driver::get_os_version(&recipe_de)?)
+            .os_version(Driver::get_os_version(
+                &recipe.base_image.parse().into_diagnostic()?,
+            )?)
             .build_id(Driver::get_build_id())
-            .recipe(&recipe_de)
+            .recipe(&recipe)
             .recipe_path(recipe_path.as_path())
             .registry(Driver::get_registry()?)
             .repo(Driver::get_repo_url()?)
@@ -142,7 +144,3 @@ impl GenerateCommand {
         Ok(())
     }
 }
-
-// ======================================================== //
-// ========================= Helpers ====================== //
-// ======================================================== //

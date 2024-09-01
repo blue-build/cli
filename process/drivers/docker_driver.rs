@@ -349,8 +349,9 @@ impl RunDriver for DockerDriver {
 
         add_cid(&cid);
 
-        let status = docker_run(opts, &cid_file)
-            .status_image_ref_progress(&*opts.image, "Running container")?;
+        let command = docker_run(opts, &cid_file);
+        trace!("{command:?}");
+        let status = command.status_image_ref_progress(&*opts.image, "Running container")?;
 
         remove_cid(&cid);
 

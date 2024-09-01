@@ -349,7 +349,6 @@ name = "blue-build-process-management"
 version = "0.8.14"
 dependencies = [
  "anyhow",
- "blue-build-recipe",
  "blue-build-utils",
  "chrono",
  "clap",
@@ -364,6 +363,7 @@ dependencies = [
  "miette",
  "nix",
  "nu-ansi-term",
+ "oci-distribution",
  "once_cell",
  "os_pipe",
  "rand 0.8.5",
@@ -390,6 +390,7 @@ dependencies = [
  "indexmap 2.3.0",
  "log",
  "miette",
+ "oci-distribution",
  "serde",
  "serde_json",
  "serde_yaml 0.9.34+deprecated",

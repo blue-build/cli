@@ -4,7 +4,7 @@ use std::{
 };
 
 use blue_build_process_management::drivers::{
-    opts::{BuildTagPushOpts, CheckKeyPairOpts, CompressionType},
+    opts::{BuildTagPushOpts, CheckKeyPairOpts, CompressionType, GenerateTagsOpts, SignVerifyOpts},
     BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
 };
 use blue_build_recipe::Recipe;
@@ -19,6 +19,7 @@ use clap::Args;
 use colored::Colorize;
 use log::{debug, info, trace, warn};
 use miette::{bail, Context, IntoDiagnostic, Result};
+use oci_distribution::Reference;
 use typed_builder::TypedBuilder;
 
 use crate::commands::generate::GenerateCommand;
@@ -197,7 +198,6 @@ impl BlueBuildCommand for BuildCommand {
 impl BuildCommand {
     #[cfg(feature = "multi-recipe")]
     fn start(&self, recipe_paths: &[PathBuf]) -> Result<()> {
-        use blue_build_process_management::drivers::opts::SignVerifyOpts;
         use rayon::prelude::*;
 
         trace!("BuildCommand::build_image()");
@@ -211,8 +211,13 @@ impl BuildCommand {
                 } else {
                     PathBuf::from(CONTAINER_FILE)
                 };
-                let tags = Driver::generate_tags(&recipe)?;
                 let image_name = self.generate_full_image_name(&recipe)?;
+                let tags = Driver::generate_tags(
+                    &GenerateTagsOpts::builder()
+                        .oci_ref(&image_name)
+                        .alt_tags(recipe.alt_tags())
+                        .build(),
+                )?;
 
                 let opts = if let Some(archive_dir) = self.archive.as_ref() {
                     BuildTagPushOpts::builder()
@@ -226,7 +231,7 @@ impl BuildCommand {
                         .build()
                 } else {
                     BuildTagPushOpts::builder()
-                        .image(&image_name)
+                        .image(image_name.to_string())
                         .containerfile(&containerfile)
                         .tags(&tags)
                         .push(self.push)
@@ -241,7 +246,7 @@ impl BuildCommand {
 
                 if self.push && !self.no_sign {
                     let opts = SignVerifyOpts::builder()
-                        .image(&image_name)
+                        .image(image_name.to_string())
                         .retry_push(self.retry_push)
                         .retry_count(self.retry_count);
                     let opts = if let Some(tag) = tags.first() {
@@ -261,14 +266,17 @@ impl BuildCommand {
 
     #[cfg(not(feature = "multi-recipe"))]
     fn start(&self, recipe_path: &Path) -> Result<()> {
-        use blue_build_process_management::drivers::opts::SignVerifyOpts;
-
         trace!("BuildCommand::start()");
 
         let recipe = Recipe::parse(recipe_path)?;
         let containerfile = PathBuf::from(CONTAINER_FILE);
-        let tags = Driver::generate_tags(&recipe)?;
         let image_name = self.generate_full_image_name(&recipe)?;
+        let tags = Driver::generate_tags(
+            &GenerateTagsOpts::builder()
+                .oci_ref(&image_name)
+                .alt_tags(recipe.alt_tags())
+                .build(),
+        )?;
 
         let opts = if let Some(archive_dir) = self.archive.as_ref() {
             BuildTagPushOpts::builder()
@@ -282,7 +290,7 @@ impl BuildCommand {
                 .build()
         } else {
             BuildTagPushOpts::builder()
-                .image(&image_name)
+                .image(image_name.to_string())
                 .containerfile(&containerfile)
                 .tags(&tags)
                 .push(self.push)
@@ -297,7 +305,7 @@ impl BuildCommand {
 
         if self.push && !self.no_sign {
             let opts = SignVerifyOpts::builder()
-                .image(&image_name)
+                .image(image_name.to_string())
                 .retry_push(self.retry_push)
                 .retry_count(self.retry_count);
             let opts = if let Some(tag) = tags.first() {
@@ -315,7 +323,7 @@ impl BuildCommand {
     /// # Errors
     ///
     /// Will return `Err` if the image name cannot be generated.
-    fn generate_full_image_name(&self, recipe: &Recipe) -> Result<String> {
+    fn generate_full_image_name(&self, recipe: &Recipe) -> Result<Reference> {
         trace!("BuildCommand::generate_full_image_name({recipe:#?})");
         info!("Generating full image name");
 
@@ -324,14 +332,18 @@ impl BuildCommand {
             self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
         ) {
             trace!("registry={registry}, registry_path={registry_path}");
-            format!(
+            let image = format!(
                 "{}/{}/{}",
                 registry.trim().trim_matches('/'),
                 registry_path.trim().trim_matches('/'),
                 recipe.name.trim(),
-            )
+            );
+            image
+                .parse()
+                .into_diagnostic()
+                .with_context(|| format!("Unable to parse {image}"))?
         } else {
-            Driver::generate_image_name(recipe)?
+            Driver::generate_image_name(&recipe.name)?
         };
 
         debug!("Using image name '{image_name}'");

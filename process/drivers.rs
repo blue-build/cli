@@ -11,12 +11,13 @@ use std::{
     sync::{Mutex, RwLock},
 };
 
-use blue_build_recipe::Recipe;
 use blue_build_utils::constants::IMAGE_VERSION_LABEL;
 use clap::Args;
 use log::{debug, info, trace};
 use miette::{miette, Result};
+use oci_distribution::Reference;
 use once_cell::sync::Lazy;
+use opts::GenerateTagsOpts;
 #[cfg(feature = "sigstore")]
 use sigstore_driver::SigstoreDriver;
 use typed_builder::TypedBuilder;
@@ -193,33 +194,31 @@ impl Driver {
     ///
     /// # Panics
     /// Panics if the mutex fails to lock.
-    pub fn get_os_version(recipe: &Recipe) -> Result<u64> {
+    pub fn get_os_version(oci_ref: &Reference) -> Result<u64> {
         #[cfg(test)]
         {
-            use miette::IntoDiagnostic;
-            let _ = recipe; // silence lint
+            let _ = oci_ref; // silence lint
 
             if true {
-                return crate::test::create_test_recipe()
-                    .image_version
-                    .parse()
-                    .into_diagnostic();
+                return Ok(40);
             }
         }
 
-        trace!("Driver::get_os_version({recipe:#?})");
-        let image = format!("{}:{}", &recipe.base_image, &recipe.image_version);
-
+        trace!("Driver::get_os_version({oci_ref:#?})");
         let mut os_version_lock = OS_VERSION.lock().expect("Should lock");
 
-        let entry = os_version_lock.get(&image);
+        let entry = os_version_lock.get(&oci_ref.to_string());
 
         let os_version = match entry {
             None => {
-                info!("Retrieving OS version from {image}. This might take a bit");
+                info!("Retrieving OS version from {oci_ref}. This might take a bit");
                 let inspect_opts = GetMetadataOpts::builder()
-                    .image(&*recipe.base_image)
-                    .tag(&*recipe.image_version)
+                    .image(format!(
+                        "{}/{}",
+                        oci_ref.resolve_registry(),
+                        oci_ref.repository()
+                    ))
+                    .tag(oci_ref.tag().unwrap_or("latest"))
                     .build();
                 let inspection = Self::get_metadata(&inspect_opts)?;
 
@@ -234,13 +233,13 @@ impl Driver {
                 os_version
             }
             Some(os_version) => {
-                debug!("Found cached {os_version} for {image}");
+                debug!("Found cached {os_version} for {oci_ref}");
                 *os_version
             }
         };
 
-        if let Entry::Vacant(entry) = os_version_lock.entry(image.clone()) {
-            trace!("Caching version {os_version} for {image}");
+        if let Entry::Vacant(entry) = os_version_lock.entry(oci_ref.to_string()) {
+            trace!("Caching version {os_version} for {oci_ref}");
             entry.insert(os_version);
         }
         drop(os_version_lock);
@@ -391,8 +390,8 @@ impl CiDriver for Driver {
         impl_ci_driver!(oidc_provider())
     }
 
-    fn generate_tags(recipe: &Recipe) -> Result<Vec<String>> {
-        impl_ci_driver!(generate_tags(recipe))
+    fn generate_tags(opts: &GenerateTagsOpts) -> Result<Vec<String>> {
+        impl_ci_driver!(generate_tags(opts))
     }
 
     fn get_repo_url() -> Result<String> {
@@ -403,7 +402,10 @@ impl CiDriver for Driver {
         impl_ci_driver!(get_registry())
     }
 
-    fn generate_image_name(recipe: &Recipe) -> Result<String> {
-        impl_ci_driver!(generate_image_name(recipe))
+    fn generate_image_name<S>(name: S) -> Result<Reference>
+    where
+        S: AsRef<str>,
+    {
+        impl_ci_driver!(generate_image_name(name))
     }
 }

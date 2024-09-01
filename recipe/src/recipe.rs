@@ -1,8 +1,10 @@
 use std::{borrow::Cow, fs, path::Path};
 
+use blue_build_utils::cowstr;
 use indexmap::IndexMap;
 use log::{debug, trace};
 use miette::{Context, IntoDiagnostic, Result};
+use oci_distribution::Reference;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use typed_builder::TypedBuilder;
@@ -53,7 +55,7 @@ pub struct Recipe<'a> {
     /// Any user input will override the `latest` and timestamp tags.
     #[serde(alias = "alt-tags", skip_serializing_if = "Option::is_none")]
     #[builder(default, setter(into, strip_option))]
-    pub alt_tags: Option<Cow<'a, [Cow<'a, str>]>>,
+    alt_tags: Option<Vec<Cow<'a, str>>>,
 
     /// The stages extension of the recipe.
     ///
@@ -117,5 +119,23 @@ impl<'a> Recipe<'a> {
         }
 
         Ok(recipe)
+    }
+
+    /// Get a `Reference` object of the `base_image`.
+    ///
+    /// # Errors
+    /// Will error if it fails to parse the `base_image`.
+    pub fn base_image_ref(&self) -> Result<Reference> {
+        self.base_image
+            .parse()
+            .into_diagnostic()
+            .with_context(|| format!("Unable to parse base image {}", self.base_image))
+    }
+
+    #[must_use]
+    pub fn alt_tags(&'a self) -> Option<Vec<Cow<'a, str>>> {
+        self.alt_tags
+            .as_ref()
+            .map(|tags| tags.iter().map(|tag| cowstr!(&**tag)).collect())
     }
 }
