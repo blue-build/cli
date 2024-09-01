@@ -11,6 +11,8 @@ pub mod bug_report;
 pub mod build;
 pub mod completions;
 pub mod generate;
+#[cfg(feature = "iso")]
+pub mod generate_iso;
 #[cfg(feature = "login")]
 pub mod login;
 // #[cfg(feature = "init")]
@@ -67,6 +69,9 @@ pub enum CommandArgs {
     /// Generate a Containerfile from a recipe
     #[clap(visible_alias = "template")]
     Generate(generate::GenerateCommand),
+
+    #[cfg(feature = "iso")]
+    GenerateIso(generate_iso::GenerateIsoCommand),
 
     /// Upgrade your current OS with the
     /// local image saved at `/etc/bluebuild/`.
