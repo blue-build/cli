@@ -4011,7 +4011,7 @@ dependencies = [
 [[package]]
 name = "sigstore"
 version = "0.9.0"
-source = "git+https://github.com/gmpinder/sigstore-rs.git?rev=3a804bff#3a804bff5805dde3140c17b4fc9272572447472d"
+source = "git+https://github.com/gmpinder/sigstore-rs.git?rev=cd0d10429fc09ddb08a8d1c7244a1623772113af#cd0d10429fc09ddb08a8d1c7244a1623772113af"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
