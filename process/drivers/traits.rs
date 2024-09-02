@@ -314,18 +314,23 @@ pub trait CiDriver {
     ///
     /// # Errors
     /// Will error if the environment variables aren't set.
-    fn generate_image_name<S>(name: S) -> Result<Reference>
+    fn generate_image_name<S, T>(name: S, tag: T) -> Result<Reference>
     where
         S: AsRef<str>,
+        T: AsRef<str>,
     {
-        fn inner(name: &str, registry: &str) -> Result<Reference> {
-            let image = format!("{registry}/{name}",);
+        fn inner(name: &str, registry: &str, tag: &str) -> Result<Reference> {
+            let image = format!("{registry}/{name}:{tag}");
             image
                 .parse()
                 .into_diagnostic()
                 .with_context(|| format!("Unable to parse image {image}"))
         }
-        inner(name.as_ref(), &Self::get_registry()?)
+        inner(
+            &name.as_ref().trim().to_lowercase(),
+            &Self::get_registry()?.to_lowercase(),
+            &tag.as_ref().trim().to_lowercase(),
+        )
     }
 
     /// Get the URL for the repository.

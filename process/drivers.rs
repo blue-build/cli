@@ -370,9 +370,9 @@ impl RunDriver for Driver {
 macro_rules! impl_ci_driver {
     ($func:ident($($args:expr),*)) => {
         match Self::get_ci_driver() {
-            CiDriverType::Local => LocalDriver::$func($($args)*),
-            CiDriverType::Gitlab => GitlabDriver::$func($($args)*),
-            CiDriverType::Github => GithubDriver::$func($($args)*),
+            CiDriverType::Local => LocalDriver::$func($($args,)*),
+            CiDriverType::Gitlab => GitlabDriver::$func($($args,)*),
+            CiDriverType::Github => GithubDriver::$func($($args,)*),
         }
     };
 }
@@ -402,10 +402,11 @@ impl CiDriver for Driver {
         impl_ci_driver!(get_registry())
     }
 
-    fn generate_image_name<S>(name: S) -> Result<Reference>
+    fn generate_image_name<S, T>(name: S, tag: T) -> Result<Reference>
     where
         S: AsRef<str>,
+        T: AsRef<str>,
     {
-        impl_ci_driver!(generate_image_name(name))
+        impl_ci_driver!(generate_image_name(name, tag))
     }
 }

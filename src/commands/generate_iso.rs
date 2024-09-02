@@ -208,7 +208,7 @@ impl GenerateIsoCommand {
                 args.extend([
                     format!(
                         "IMAGE_SRC=oci-archive:/img_src/{}.{ARCHIVE_SUFFIX}",
-                        recipe.name
+                        recipe.name.replace('/', "_")
                     ),
                     format!(
                         "VERSION={}",

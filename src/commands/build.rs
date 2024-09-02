@@ -217,7 +217,10 @@ impl BuildCommand {
                         .alt_tags(recipe.alt_tags())
                         .build(),
                 )?;
-                let image_name = self.generate_full_image_name(&recipe)?;
+                let image_name = self.generate_full_image_name(
+                    &recipe,
+                    tags.first().map_or("latest", String::as_str),
+                )?;
 
                 let opts = if let Some(archive_dir) = self.archive.as_ref() {
                     BuildTagPushOpts::builder()
@@ -276,7 +279,8 @@ impl BuildCommand {
                 .alt_tags(recipe.alt_tags())
                 .build(),
         )?;
-        let image_name = self.generate_full_image_name(&recipe)?;
+        let image_name =
+            self.generate_full_image_name(&recipe, tags.first().map_or("latest", String::as_str))?;
 
         let opts = if let Some(archive_dir) = self.archive.as_ref() {
             BuildTagPushOpts::builder()
@@ -323,7 +327,7 @@ impl BuildCommand {
     /// # Errors
     ///
     /// Will return `Err` if the image name cannot be generated.
-    fn generate_full_image_name(&self, recipe: &Recipe) -> Result<Reference> {
+    fn generate_full_image_name(&self, recipe: &Recipe, tag: &str) -> Result<Reference> {
         trace!("BuildCommand::generate_full_image_name({recipe:#?})");
         info!("Generating full image name");
 
@@ -333,7 +337,7 @@ impl BuildCommand {
         ) {
             trace!("registry={registry}, registry_path={registry_path}");
             let image = format!(
-                "{}/{}/{}",
+                "{}/{}/{}:{tag}",
                 registry.trim().trim_matches('/'),
                 registry_path.trim().trim_matches('/'),
                 recipe.name.trim(),
@@ -343,7 +347,7 @@ impl BuildCommand {
                 .into_diagnostic()
                 .with_context(|| format!("Unable to parse {image}"))?
         } else {
-            Driver::generate_image_name(&recipe.name)?
+            Driver::generate_image_name(&recipe.name, tag)?
         };
 
         debug!("Using image name '{image_name}'");
