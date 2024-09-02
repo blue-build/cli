@@ -197,16 +197,6 @@ impl BlueBuildCommand for BuildCommand {
 }
 
 impl BuildCommand {
-    #[cfg(not(feature = "multi-recipe"))]
-    fn start(&self, recipe_path: &Path) -> Result<()> {
-        trace!("BuildCommand::start()");
-
-        self.build(recipe_path, Path::new(CONTAINER_FILE))?;
-
-        info!("Build complete!");
-        Ok(())
-    }
-
     #[cfg(feature = "multi-recipe")]
     fn start(&self, recipe_paths: &[PathBuf]) -> Result<()> {
         use rayon::prelude::*;
@@ -223,6 +213,16 @@ impl BuildCommand {
                 };
                 self.build(recipe_path, &containerfile)
             })?;
+
+        info!("Build complete!");
+        Ok(())
+    }
+
+    #[cfg(not(feature = "multi-recipe"))]
+    fn start(&self, recipe_path: &Path) -> Result<()> {
+        trace!("BuildCommand::start()");
+
+        self.build(recipe_path, Path::new(CONTAINER_FILE))?;
 
         info!("Build complete!");
         Ok(())
@@ -265,7 +265,7 @@ impl BuildCommand {
 
         if self.push && !self.no_sign {
             let opts = SignVerifyOpts::builder()
-                .image(image_name.to_string())
+                .image(&image_name)
                 .retry_push(self.retry_push)
                 .retry_count(self.retry_count);
             let opts = if let Some(tag) = tags.first() {
