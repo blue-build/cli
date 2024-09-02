@@ -1,6 +1,6 @@
 use std::{
     env, fs,
-    path::{self, PathBuf},
+    path::{self, Path, PathBuf},
 };
 
 use blue_build_recipe::Recipe;
@@ -143,7 +143,6 @@ impl BlueBuildCommand for GenerateIsoCommand {
             let mut build_command = {
                 BuildCommand::builder()
                     .recipe(recipe.to_path_buf())
-                    .output_dir(image_out_dir.path())
                     .archive(image_out_dir.path())
                     .build()
             };
@@ -161,6 +160,12 @@ impl BlueBuildCommand for GenerateIsoCommand {
             fs::remove_file(iso_path).into_diagnostic()?;
         }
 
+        self.build_iso(iso_name, &output_dir, image_out_dir.path())
+    }
+}
+
+impl GenerateIsoCommand {
+    fn build_iso(&self, iso_name: &str, output_dir: &Path, image_out_dir: &Path) -> Result<()> {
         let mut args = string_vec![
             format!("VARIANT={}", self.variant),
             format!("ISO_NAME=build/{iso_name}"),
@@ -201,14 +206,17 @@ impl BlueBuildCommand for GenerateIsoCommand {
                 let recipe = Recipe::parse(recipe)?;
 
                 args.extend([
-                    format!("IMAGE_SRC=/img_src/{}.{ARCHIVE_SUFFIX}", recipe.name),
+                    format!(
+                        "IMAGE_SRC=oci-archive:/img_src/{}.{ARCHIVE_SUFFIX}",
+                        recipe.name
+                    ),
                     format!(
                         "VERSION={}",
                         Driver::get_os_version(&recipe.base_image_ref()?)?
                     ),
                 ]);
                 vols.extend(run_volumes![
-                    image_out_dir.path().display().to_string() => "/img_src/"
+                    image_out_dir.display().to_string() => "/img_src/"
                 ]);
             }
         }
