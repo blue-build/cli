@@ -4,7 +4,7 @@ modules:
   # Tests installing rpms from a combo image stage
   - type: akmods
     base: surface
-    nvidia-version: 545
+    nvidia-version: 550
     # install:
     #   - nvidia
     #   - openrazer
@@ -15,7 +15,7 @@ modules:
 
   # Tests pulling image for main nvidia
   - type: akmods
-    nvidia-version: 545
+    nvidia-version: 550
 
   # Test pulling image for base asus
   - type: akmods
