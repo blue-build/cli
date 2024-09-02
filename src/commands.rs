@@ -70,6 +70,7 @@ pub enum CommandArgs {
     #[clap(visible_alias = "template")]
     Generate(generate::GenerateCommand),
 
+    /// Generate an ISO for an image or recipe.
     #[cfg(feature = "iso")]
     GenerateIso(generate_iso::GenerateIsoCommand),
 
