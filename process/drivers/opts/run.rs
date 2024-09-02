@@ -48,7 +48,7 @@ pub struct RunOptsVolume<'scope> {
 macro_rules! run_volumes {
     ($($host:expr => $container:expr),+ $(,)?) => {
         {
-            [
+            vec![
                 $($crate::drivers::opts::RunOptsVolume::builder()
                     .path_or_vol_name($host)
                     .container_path($container)
@@ -71,7 +71,7 @@ pub struct RunOptsEnv<'scope> {
 macro_rules! run_envs {
     ($($key:expr => $value:expr),+ $(,)?) => {
         {
-            [
+            vec![
                 $($crate::drivers::opts::RunOptsEnv::builder()
                     .key($key)
                     .value($value)

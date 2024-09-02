@@ -109,9 +109,7 @@ impl GenerateCommand {
         info!("Templating for recipe at {}", recipe_path.display());
 
         let template = ContainerFileTemplate::builder()
-            .os_version(Driver::get_os_version(
-                &recipe.base_image.parse().into_diagnostic()?,
-            )?)
+            .os_version(Driver::get_os_version(&recipe.base_image_ref()?)?)
             .build_id(Driver::get_build_id())
             .recipe(&recipe)
             .recipe_path(recipe_path.as_path())

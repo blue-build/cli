@@ -3,7 +3,8 @@ use std::{
     path::{self, PathBuf},
 };
 
-use blue_build_utils::string_vec;
+use blue_build_recipe::Recipe;
+use blue_build_utils::{constants::ARCHIVE_SUFFIX, string_vec};
 use clap::{Args, Subcommand, ValueEnum};
 use miette::{bail, Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
@@ -125,16 +126,29 @@ impl BlueBuildCommand for GenerateIsoCommand {
                 fs::create_dir(&output_dir).into_diagnostic()?;
             }
 
-            output_dir
+            path::absolute(output_dir).into_diagnostic()?
         } else {
             env::current_dir().into_diagnostic()?
         };
 
         if let GenIsoSubcommand::Recipe { recipe } = &self.command {
-            // BuildCommand::builder().recipe(
+            #[cfg(feature = "multi-recipe")]
+            let mut build_command = {
+                BuildCommand::builder()
+                    .recipe(vec![recipe.clone()])
+                    .archive(image_out_dir.path())
+                    .build()
+            };
+            #[cfg(not(feature = "multi-recipe"))]
+            let mut build_command = {
+                BuildCommand::builder()
+                    .recipe(recipe.to_path_buf())
+                    .output_dir(image_out_dir.path())
+                    .archive(image_out_dir.path())
+                    .build()
+            };
 
-            // )
-            todo!()
+            build_command.try_run()?;
         }
 
         let iso_name = self
@@ -153,6 +167,10 @@ impl BlueBuildCommand for GenerateIsoCommand {
             "DNF_CACHE=/cache/dnf",
             format!("SECURE_BOOT_KEY_URL={}", self.secure_boot_url),
             format!("ENROLLMENT_PASSWORD={}", self.enrollment_password),
+        ];
+        let mut vols = run_volumes![
+            output_dir.display().to_string() => "/build-container-installer/build",
+            "dnf-cache" => "/cache/dnf/",
         ];
 
         match &self.command {
@@ -180,7 +198,18 @@ impl BlueBuildCommand for GenerateIsoCommand {
                 ]);
             }
             GenIsoSubcommand::Recipe { recipe } => {
-                todo!()
+                let recipe = Recipe::parse(recipe)?;
+
+                args.extend([
+                    format!("IMAGE_SRC=/img_src/{}.{ARCHIVE_SUFFIX}", recipe.name),
+                    format!(
+                        "VERSION={}",
+                        Driver::get_os_version(&recipe.base_image_ref()?)?
+                    ),
+                ]);
+                vols.extend(run_volumes![
+                    image_out_dir.path().display().to_string() => "/img_src/"
+                ]);
             }
         }
 
@@ -190,10 +219,7 @@ impl BlueBuildCommand for GenerateIsoCommand {
             .privileged(true)
             .remove(true)
             .args(&args)
-            .volumes(run_volumes![
-                path::absolute(output_dir).into_diagnostic()?.display().to_string() => "/build-container-installer/build",
-                "dnf-cache" => "/cache/dnf/",
-            ])
+            .volumes(vols)
             .build();
 
         let status = Driver::run(&opts).into_diagnostic()?;

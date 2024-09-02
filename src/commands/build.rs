@@ -211,13 +211,13 @@ impl BuildCommand {
                 } else {
                     PathBuf::from(CONTAINER_FILE)
                 };
-                let image_name = self.generate_full_image_name(&recipe)?;
                 let tags = Driver::generate_tags(
                     &GenerateTagsOpts::builder()
-                        .oci_ref(&image_name)
+                        .oci_ref(&recipe.base_image_ref()?)
                         .alt_tags(recipe.alt_tags())
                         .build(),
                 )?;
+                let image_name = self.generate_full_image_name(&recipe)?;
 
                 let opts = if let Some(archive_dir) = self.archive.as_ref() {
                     BuildTagPushOpts::builder()
@@ -270,13 +270,13 @@ impl BuildCommand {
 
         let recipe = Recipe::parse(recipe_path)?;
         let containerfile = PathBuf::from(CONTAINER_FILE);
-        let image_name = self.generate_full_image_name(&recipe)?;
         let tags = Driver::generate_tags(
             &GenerateTagsOpts::builder()
-                .oci_ref(&image_name)
+                .oci_ref(&recipe.base_image_ref()?)
                 .alt_tags(recipe.alt_tags())
                 .build(),
         )?;
+        let image_name = self.generate_full_image_name(&recipe)?;
 
         let opts = if let Some(archive_dir) = self.archive.as_ref() {
             BuildTagPushOpts::builder()

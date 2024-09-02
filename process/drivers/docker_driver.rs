@@ -349,9 +349,8 @@ impl RunDriver for DockerDriver {
 
         add_cid(&cid);
 
-        let command = docker_run(opts, &cid_file);
-        trace!("{command:?}");
-        let status = command.status_image_ref_progress(&*opts.image, "Running container")?;
+        let status = docker_run(opts, &cid_file)
+            .status_image_ref_progress(&*opts.image, "Running container")?;
 
         remove_cid(&cid);
 
@@ -374,7 +373,7 @@ impl RunDriver for DockerDriver {
 }
 
 fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
-    cmd!(
+    let command = cmd!(
         "docker",
         "run",
         format!("--cidfile={}", cid_file.display()),
@@ -398,5 +397,8 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
         },
         &*opts.image,
         for opts.args,
-    )
+    );
+    trace!("{command:?}");
+
+    command
 }
