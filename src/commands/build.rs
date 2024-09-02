@@ -14,6 +14,7 @@ use blue_build_utils::{
         GITIGNORE_PATH, LABELED_ERROR_MESSAGE, NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH,
     },
     credentials::{Credentials, CredentialsArgs},
+    string,
 };
 use clap::Args;
 use colored::Colorize;
@@ -217,10 +218,7 @@ impl BuildCommand {
                         .alt_tags(recipe.alt_tags())
                         .build(),
                 )?;
-                let image_name = self.generate_full_image_name(
-                    &recipe,
-                    tags.first().map_or("latest", String::as_str),
-                )?;
+                let image_name = self.image_name(&recipe)?;
 
                 let opts = if let Some(archive_dir) = self.archive.as_ref() {
                     BuildTagPushOpts::builder()
@@ -234,7 +232,7 @@ impl BuildCommand {
                         .build()
                 } else {
                     BuildTagPushOpts::builder()
-                        .image(image_name.to_string())
+                        .image(&image_name)
                         .containerfile(&containerfile)
                         .tags(&tags)
                         .push(self.push)
@@ -267,6 +265,22 @@ impl BuildCommand {
         Ok(())
     }
 
+    fn image_name(&self, recipe: &Recipe) -> Result<String> {
+        let image_name = self.generate_full_image_name(recipe)?;
+
+        let image_name = if image_name.registry().is_empty() {
+            string!(image_name.repository())
+        } else {
+            format!(
+                "{}/{}",
+                image_name.resolve_registry(),
+                image_name.repository()
+            )
+        };
+
+        Ok(image_name)
+    }
+
     #[cfg(not(feature = "multi-recipe"))]
     fn start(&self, recipe_path: &Path) -> Result<()> {
         trace!("BuildCommand::start()");
@@ -279,8 +293,12 @@ impl BuildCommand {
                 .alt_tags(recipe.alt_tags())
                 .build(),
         )?;
-        let image_name =
-            self.generate_full_image_name(&recipe, tags.first().map_or("latest", String::as_str))?;
+        let image_name = self.generate_full_image_name(&recipe)?;
+        let image_name = format!(
+            "{}/{}",
+            image_name.resolve_registry(),
+            image_name.repository()
+        );
 
         let opts = if let Some(archive_dir) = self.archive.as_ref() {
             BuildTagPushOpts::builder()
@@ -294,7 +312,7 @@ impl BuildCommand {
                 .build()
         } else {
             BuildTagPushOpts::builder()
-                .image(image_name.to_string())
+                .image(&image_name)
                 .containerfile(&containerfile)
                 .tags(&tags)
                 .push(self.push)
@@ -327,7 +345,7 @@ impl BuildCommand {
     /// # Errors
     ///
     /// Will return `Err` if the image name cannot be generated.
-    fn generate_full_image_name(&self, recipe: &Recipe, tag: &str) -> Result<Reference> {
+    fn generate_full_image_name(&self, recipe: &Recipe) -> Result<Reference> {
         trace!("BuildCommand::generate_full_image_name({recipe:#?})");
         info!("Generating full image name");
 
@@ -337,7 +355,7 @@ impl BuildCommand {
         ) {
             trace!("registry={registry}, registry_path={registry_path}");
             let image = format!(
-                "{}/{}/{}:{tag}",
+                "{}/{}/{}",
                 registry.trim().trim_matches('/'),
                 registry_path.trim().trim_matches('/'),
                 recipe.name.trim(),
@@ -347,7 +365,7 @@ impl BuildCommand {
                 .into_diagnostic()
                 .with_context(|| format!("Unable to parse {image}"))?
         } else {
-            Driver::generate_image_name(&recipe.name, tag)?
+            Driver::generate_image_name(&recipe.name)?
         };
 
         debug!("Using image name '{image_name}'");
