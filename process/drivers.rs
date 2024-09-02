@@ -402,11 +402,10 @@ impl CiDriver for Driver {
         impl_ci_driver!(get_registry())
     }
 
-    fn generate_image_name<S, T>(name: S, tag: T) -> Result<Reference>
+    fn generate_image_name<S>(name: S) -> Result<Reference>
     where
         S: AsRef<str>,
-        T: AsRef<str>,
     {
-        impl_ci_driver!(generate_image_name(name, tag))
+        impl_ci_driver!(generate_image_name(name))
     }
 }

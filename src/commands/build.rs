@@ -197,6 +197,16 @@ impl BlueBuildCommand for BuildCommand {
 }
 
 impl BuildCommand {
+    #[cfg(not(feature = "multi-recipe"))]
+    fn start(&self, recipe_path: &Path) -> Result<()> {
+        trace!("BuildCommand::start()");
+
+        self.build(recipe_path, Path::new(CONTAINER_FILE))?;
+
+        info!("Build complete!");
+        Ok(())
+    }
+
     #[cfg(feature = "multi-recipe")]
     fn start(&self, recipe_paths: &[PathBuf]) -> Result<()> {
         use rayon::prelude::*;
@@ -206,103 +216,31 @@ impl BuildCommand {
         recipe_paths
             .par_iter()
             .try_for_each(|recipe_path| -> Result<()> {
-                let recipe = Recipe::parse(recipe_path)?;
                 let containerfile = if recipe_paths.len() > 1 {
                     blue_build_utils::generate_containerfile_path(recipe_path)?
                 } else {
                     PathBuf::from(CONTAINER_FILE)
                 };
-                let tags = Driver::generate_tags(
-                    &GenerateTagsOpts::builder()
-                        .oci_ref(&recipe.base_image_ref()?)
-                        .alt_tags(recipe.alt_tags())
-                        .build(),
-                )?;
-                let image_name = self.image_name(&recipe)?;
-
-                let opts = if let Some(archive_dir) = self.archive.as_ref() {
-                    BuildTagPushOpts::builder()
-                        .containerfile(&containerfile)
-                        .archive_path(format!(
-                            "{}/{}.{ARCHIVE_SUFFIX}",
-                            archive_dir.to_string_lossy().trim_end_matches('/'),
-                            recipe.name.to_lowercase().replace('/', "_"),
-                        ))
-                        .squash(self.squash)
-                        .build()
-                } else {
-                    BuildTagPushOpts::builder()
-                        .image(&image_name)
-                        .containerfile(&containerfile)
-                        .tags(&tags)
-                        .push(self.push)
-                        .retry_push(self.retry_push)
-                        .retry_count(self.retry_count)
-                        .compression(self.compression_format)
-                        .squash(self.squash)
-                        .build()
-                };
-
-                Driver::build_tag_push(&opts)?;
-
-                if self.push && !self.no_sign {
-                    let opts = SignVerifyOpts::builder()
-                        .image(image_name.to_string())
-                        .retry_push(self.retry_push)
-                        .retry_count(self.retry_count);
-                    let opts = if let Some(tag) = tags.first() {
-                        opts.tag(tag).build()
-                    } else {
-                        opts.build()
-                    };
-                    Driver::sign_and_verify(&opts)?;
-                }
-
-                Ok(())
+                self.build(recipe_path, &containerfile)
             })?;
 
         info!("Build complete!");
         Ok(())
     }
 
-    fn image_name(&self, recipe: &Recipe) -> Result<String> {
-        let image_name = self.generate_full_image_name(recipe)?;
-
-        let image_name = if image_name.registry().is_empty() {
-            string!(image_name.repository())
-        } else {
-            format!(
-                "{}/{}",
-                image_name.resolve_registry(),
-                image_name.repository()
-            )
-        };
-
-        Ok(image_name)
-    }
-
-    #[cfg(not(feature = "multi-recipe"))]
-    fn start(&self, recipe_path: &Path) -> Result<()> {
-        trace!("BuildCommand::start()");
-
+    fn build(&self, recipe_path: &Path, containerfile: &Path) -> Result<()> {
         let recipe = Recipe::parse(recipe_path)?;
-        let containerfile = PathBuf::from(CONTAINER_FILE);
         let tags = Driver::generate_tags(
             &GenerateTagsOpts::builder()
                 .oci_ref(&recipe.base_image_ref()?)
                 .alt_tags(recipe.alt_tags())
                 .build(),
         )?;
-        let image_name = self.generate_full_image_name(&recipe)?;
-        let image_name = format!(
-            "{}/{}",
-            image_name.resolve_registry(),
-            image_name.repository()
-        );
+        let image_name = self.image_name(&recipe)?;
 
         let opts = if let Some(archive_dir) = self.archive.as_ref() {
             BuildTagPushOpts::builder()
-                .containerfile(&containerfile)
+                .containerfile(containerfile)
                 .archive_path(format!(
                     "{}/{}.{ARCHIVE_SUFFIX}",
                     archive_dir.to_string_lossy().trim_end_matches('/'),
@@ -313,7 +251,7 @@ impl BuildCommand {
         } else {
             BuildTagPushOpts::builder()
                 .image(&image_name)
-                .containerfile(&containerfile)
+                .containerfile(containerfile)
                 .tags(&tags)
                 .push(self.push)
                 .retry_push(self.retry_push)
@@ -338,8 +276,23 @@ impl BuildCommand {
             Driver::sign_and_verify(&opts)?;
         }
 
-        info!("Build complete!");
         Ok(())
+    }
+
+    fn image_name(&self, recipe: &Recipe) -> Result<String> {
+        let image_name = self.generate_full_image_name(recipe)?;
+
+        let image_name = if image_name.registry().is_empty() {
+            string!(image_name.repository())
+        } else {
+            format!(
+                "{}/{}",
+                image_name.resolve_registry(),
+                image_name.repository()
+            )
+        };
+
+        Ok(image_name)
     }
 
     /// # Errors

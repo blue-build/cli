@@ -37,24 +37,17 @@ impl CiDriver for LocalDriver {
         ))
     }
 
-    fn generate_image_name<S, T>(name: S, tag: T) -> miette::Result<Reference>
+    fn generate_image_name<S>(name: S) -> miette::Result<Reference>
     where
         S: AsRef<str>,
-        T: AsRef<str>,
     {
-        fn inner(name: &str, tag: &str) -> miette::Result<Reference> {
+        fn inner(name: &str) -> miette::Result<Reference> {
             trace!("LocalDriver::generate_image_name({name})");
-            let image = format!("{name}:{tag}");
-
-            image
-                .parse()
+            name.parse()
                 .into_diagnostic()
-                .with_context(|| format!("Unable to parse {image}"))
+                .with_context(|| format!("Unable to parse {name}"))
         }
-        inner(
-            &name.as_ref().trim().to_lowercase(),
-            &tag.as_ref().trim().to_lowercase(),
-        )
+        inner(&name.as_ref().trim().to_lowercase())
     }
 
     fn get_repo_url() -> miette::Result<String> {
