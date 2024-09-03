@@ -26,12 +26,7 @@ script_path="/tmp/modules/${module}/${module}.sh"
 color_string "$(print_banner "Start '${module}' Module")" "33"
 chmod +x ${script_path}
 
-set +e
-${script_path} "${params}"
-RETVAL=$?
-set -e
-
-if [ $RETVAL ]; then
+if ${script_path} "${params}"; then
   color_string "$(print_banner  "End '${module}' Module")" "32"
 else
   color_string "$(print_banner "Failed '${module}' Module")" "31"
