@@ -150,10 +150,7 @@ impl BlueBuildCommand for GenerateIsoCommand {
             build_command.try_run()?;
         }
 
-        let iso_name = self
-            .iso_name
-            .as_ref()
-            .map_or_else(|| "deploy.iso", |name| name.as_str());
+        let iso_name = self.iso_name.as_ref().map_or("deploy.iso", String::as_str);
         let iso_path = output_dir.join(iso_name);
 
         if iso_path.exists() {
@@ -208,15 +205,15 @@ impl GenerateIsoCommand {
                 args.extend([
                     format!(
                         "IMAGE_SRC=oci-archive:/img_src/{}.{ARCHIVE_SUFFIX}",
-                        recipe.name.replace('/', "_")
+                        recipe.name.replace('/', "_"),
                     ),
                     format!(
                         "VERSION={}",
-                        Driver::get_os_version(&recipe.base_image_ref()?)?
+                        Driver::get_os_version(&recipe.base_image_ref()?)?,
                     ),
                 ]);
                 vols.extend(run_volumes![
-                    image_out_dir.display().to_string() => "/img_src/"
+                    image_out_dir.display().to_string() => "/img_src/",
                 ]);
             }
         }
