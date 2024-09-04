@@ -38,7 +38,7 @@ pub struct GenerateIsoCommand {
     ///
     /// The Server variant is more useful for
     /// images built for a server like UCore.
-    #[arg(short = 'V', long)]
+    #[arg(short = 'V', long, default_value = "server")]
     variant: GenIsoVariant,
 
     /// The url to the secure boot public key.
@@ -90,11 +90,12 @@ pub enum GenIsoSubcommand {
     },
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Debug, Default, Clone, Copy, ValueEnum)]
 pub enum GenIsoVariant {
-    Gnome,
-    Kinoite,
+    #[default]
     Server,
+    Silverblue,
+    Kinoite,
 }
 
 impl std::fmt::Display for GenIsoVariant {
@@ -103,9 +104,9 @@ impl std::fmt::Display for GenIsoVariant {
             f,
             "{}",
             match *self {
-                Self::Gnome => "Gnome",
-                Self::Kinoite => "Kinoite",
                 Self::Server => "Server",
+                Self::Silverblue => "Silverblue",
+                Self::Kinoite => "Kinoite",
             }
         )
     }
