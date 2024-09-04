@@ -462,7 +462,7 @@ jobs:
           BB_BUILDKIT_CACHE_GHA: true
         run: |
           cd integration-tests/test-repo
-          bluebuild generate-iso -V gnome image ghcr.io/blue-build/cli/test:40
+          bluebuild generate-iso image ghcr.io/blue-build/cli/test:40
 
   iso-from-recipe:
     timeout-minutes: 60
@@ -509,4 +509,4 @@ jobs:
           BB_BUILDKIT_CACHE_GHA: true
         run: |
           cd integration-tests/test-repo
-          bluebuild generate-iso -vv -V gnome recipe recipes/recipe.yml
+          bluebuild generate-iso -vv recipe recipes/recipe.yml
