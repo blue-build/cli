@@ -29,15 +29,17 @@ pub struct GenerateIsoCommand {
 
     /// The variant of the installer to use.
     ///
-    /// The Gnome variant will ask for a user
+    /// The Kinoite variant will ask for a user
+    /// and password before installing the OS.
+    /// This version is the most stable and is
+    /// recommended.
+    ///
+    /// The Silverblue variant will ask for a user
     /// and password on first boot after the OS
     /// is installed.
     ///
-    /// The Kinoite variant will ask for a user
-    /// and password before installing the OS.
-    ///
-    /// The Server variant is more useful for
-    /// images built for a server like UCore.
+    /// The Server variant is the basic installer
+    /// and will ask to setup a user at install time.
     #[arg(short = 'V', long, default_value = "server")]
     variant: GenIsoVariant,
 
@@ -93,9 +95,9 @@ pub enum GenIsoSubcommand {
 #[derive(Debug, Default, Clone, Copy, ValueEnum)]
 pub enum GenIsoVariant {
     #[default]
-    Server,
-    Silverblue,
     Kinoite,
+    Silverblue,
+    Server,
 }
 
 impl std::fmt::Display for GenIsoVariant {
