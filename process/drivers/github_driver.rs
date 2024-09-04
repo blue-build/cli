@@ -14,7 +14,7 @@ use blue_build_utils::get_env_var;
 #[cfg(test)]
 use blue_build_utils::test_utils::get_env_var;
 
-use super::{CiDriver, Driver};
+use super::{opts::GenerateTagsOpts, CiDriver, Driver};
 
 mod event;
 
@@ -34,10 +34,11 @@ impl CiDriver for GithubDriver {
         Ok(GITHUB_TOKEN_ISSUER_URL.to_string())
     }
 
-    fn generate_tags(recipe: &blue_build_recipe::Recipe) -> miette::Result<Vec<String>> {
+    fn generate_tags(opts: &GenerateTagsOpts) -> miette::Result<Vec<String>> {
         const PR_EVENT: &str = "pull_request";
         let timestamp = blue_build_utils::get_tag_timestamp();
-        let os_version = Driver::get_os_version(recipe).inspect(|v| trace!("os_version={v}"))?;
+        let os_version =
+            Driver::get_os_version(opts.oci_ref).inspect(|v| trace!("os_version={v}"))?;
         let ref_name = get_env_var(GITHUB_REF_NAME).inspect(|v| trace!("{GITHUB_REF_NAME}={v}"))?;
         let short_sha = {
             let mut short_sha = get_env_var(GITHUB_SHA).inspect(|v| trace!("{GITHUB_SHA}={v}"))?;
@@ -47,7 +48,7 @@ impl CiDriver for GithubDriver {
 
         let tags = match (
             Self::on_default_branch(),
-            recipe.alt_tags.as_ref(),
+            opts.alt_tags.as_ref(),
             get_env_var(GITHUB_EVENT_NAME).inspect(|v| trace!("{GITHUB_EVENT_NAME}={v}")),
             get_env_var(PR_EVENT_NUMBER).inspect(|v| trace!("{PR_EVENT_NUMBER}={v}")),
         ) {
@@ -128,21 +129,21 @@ impl CiDriver for GithubDriver {
 
 #[cfg(test)]
 mod test {
-    use blue_build_recipe::Recipe;
+    use std::borrow::Cow;
+
     use blue_build_utils::{
         constants::{
             GITHUB_EVENT_NAME, GITHUB_EVENT_PATH, GITHUB_REF_NAME, GITHUB_SHA, PR_EVENT_NUMBER,
         },
-        string_vec,
+        cowstr_vec, string_vec,
         test_utils::set_env_var,
     };
+    use oci_distribution::Reference;
     use rstest::rstest;
 
     use crate::{
-        drivers::CiDriver,
-        test::{
-            create_test_recipe, create_test_recipe_alt_tags, TEST_TAG_1, TEST_TAG_2, TIMESTAMP,
-        },
+        drivers::{opts::GenerateTagsOpts, CiDriver},
+        test::{TEST_TAG_1, TEST_TAG_2, TIMESTAMP},
     };
 
     use super::GithubDriver;
@@ -216,7 +217,7 @@ mod test {
     #[rstest]
     #[case::default_branch(
         setup_default_branch,
-        create_test_recipe,
+        None,
         string_vec![
             format!("{}-40", &*TIMESTAMP),
             "latest",
@@ -227,7 +228,7 @@ mod test {
     )]
     #[case::default_branch_alt_tags(
         setup_default_branch,
-        create_test_recipe_alt_tags,
+        Some(cowstr_vec![TEST_TAG_1, TEST_TAG_2]),
         string_vec![
             TEST_TAG_1,
             format!("{TEST_TAG_1}-40"),
@@ -241,12 +242,12 @@ mod test {
     )]
     #[case::pr_branch(
         setup_pr_branch,
-        create_test_recipe,
+        None,
         string_vec!["pr-12-40", format!("{COMMIT_SHA}-40")],
     )]
     #[case::pr_branch_alt_tags(
         setup_pr_branch,
-        create_test_recipe_alt_tags,
+        Some(cowstr_vec![TEST_TAG_1, TEST_TAG_2]),
         string_vec![
             format!("pr-12-{TEST_TAG_1}-40"),
             format!("{COMMIT_SHA}-{TEST_TAG_1}-40"),
@@ -256,12 +257,12 @@ mod test {
     )]
     #[case::branch(
         setup_branch,
-        create_test_recipe,
+        None,
         string_vec![format!("{COMMIT_SHA}-40"), "br-test-40"],
     )]
     #[case::branch_alt_tags(
         setup_branch,
-        create_test_recipe_alt_tags,
+        Some(cowstr_vec![TEST_TAG_1, TEST_TAG_2]),
         string_vec![
             format!("br-{BR_REF_NAME}-{TEST_TAG_1}-40"),
             format!("{COMMIT_SHA}-{TEST_TAG_1}-40"),
@@ -271,14 +272,20 @@ mod test {
     )]
     fn generate_tags(
         #[case] setup: impl FnOnce(),
-        #[case] recipe_fn: impl Fn() -> Recipe<'static>,
+        #[case] alt_tags: Option<Vec<Cow<'_, str>>>,
         #[case] mut expected: Vec<String>,
     ) {
         setup();
         expected.sort();
-        let recipe = recipe_fn();
+        let oci_ref: Reference = "ghcr.io/ublue-os/silverblue-main".parse().unwrap();
 
-        let mut tags = GithubDriver::generate_tags(&recipe).unwrap();
+        let mut tags = GithubDriver::generate_tags(
+            &GenerateTagsOpts::builder()
+                .oci_ref(&oci_ref)
+                .alt_tags(alt_tags)
+                .build(),
+        )
+        .unwrap();
         tags.sort();
 
         assert_eq!(tags, expected);

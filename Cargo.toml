@@ -16,6 +16,7 @@ colored = "2"
 indexmap = { version = "2", features = ["serde"] }
 indicatif = { version = "0.17", features = ["improved_unicode"] }
 log = "0.4"
+oci-distribution = { version = "0.11.0", default-features = false, features = ["rustls-tls", "rustls-tls-native-roots"] }
 miette = "7"
 rstest = "0.18"
 serde = { version = "1", features = ["derive"] }
@@ -37,6 +38,7 @@ style = "deny"
 nursery = "deny"
 pedantic = "deny"
 module_name_repetitions = { level = "allow", priority = 1 }
+doc_markdown = { level = "allow", priority = 1 }
 
 [package]
 name = "blue-build"
@@ -74,6 +76,7 @@ colored.workspace = true
 indicatif.workspace = true
 log.workspace = true
 miette = { workspace = true, features = ["fancy"] }
+oci-distribution.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
@@ -86,6 +89,7 @@ default = []
 stages = ["blue-build-recipe/stages"]
 copy = ["blue-build-recipe/copy"]
 multi-recipe = ["rayon", "indicatif/rayon"]
+iso = []
 switch = []
 sigstore = ["blue-build-process-management/sigstore"]
 login = []

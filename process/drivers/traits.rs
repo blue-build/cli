@@ -3,10 +3,10 @@ use std::{
     process::{ExitStatus, Output},
 };
 
-use blue_build_recipe::Recipe;
 use blue_build_utils::{constants::COSIGN_PUB_PATH, retry};
 use log::{debug, info, trace};
-use miette::{bail, miette, Result};
+use miette::{bail, miette, Context, IntoDiagnostic, Result};
+use oci_distribution::Reference;
 use semver::{Version, VersionReq};
 
 use crate::drivers::{functions::get_private_key, types::CiDriverType, Driver};
@@ -14,8 +14,9 @@ use crate::drivers::{functions::get_private_key, types::CiDriverType, Driver};
 use super::{
     image_metadata::ImageMetadata,
     opts::{
-        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateKeyPairOpts, GetMetadataOpts,
-        PushOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts, VerifyOpts, VerifyType,
+        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateKeyPairOpts, GenerateTagsOpts,
+        GetMetadataOpts, PushOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts, VerifyOpts,
+        VerifyType,
     },
 };
 
@@ -307,18 +308,27 @@ pub trait CiDriver {
     ///
     /// # Errors
     /// Will error if the environment variables aren't set.
-    fn generate_tags(recipe: &Recipe) -> Result<Vec<String>>;
+    fn generate_tags(oci_ref: &GenerateTagsOpts) -> Result<Vec<String>>;
 
     /// Generates the image name based on CI.
     ///
     /// # Errors
     /// Will error if the environment variables aren't set.
-    fn generate_image_name(recipe: &Recipe) -> Result<String> {
-        Ok(format!(
-            "{}/{}",
-            Self::get_registry()?,
-            recipe.name.trim().to_lowercase()
-        ))
+    fn generate_image_name<S>(name: S) -> Result<Reference>
+    where
+        S: AsRef<str>,
+    {
+        fn inner(name: &str, registry: &str) -> Result<Reference> {
+            let image = format!("{registry}/{name}");
+            image
+                .parse()
+                .into_diagnostic()
+                .with_context(|| format!("Unable to parse image {image}"))
+        }
+        inner(
+            &name.as_ref().trim().to_lowercase(),
+            &Self::get_registry()?.to_lowercase(),
+        )
     }
 
     /// Get the URL for the repository.

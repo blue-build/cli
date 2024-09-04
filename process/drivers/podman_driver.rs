@@ -227,8 +227,12 @@ impl RunDriver for PodmanDriver {
 
         add_cid(&cid);
 
-        let status = podman_run(opts, &cid_file)
-            .status_image_ref_progress(&*opts.image, "Running container")?;
+        let status = if opts.privileged {
+            podman_run(opts, &cid_file).status()?
+        } else {
+            podman_run(opts, &cid_file)
+                .status_image_ref_progress(&*opts.image, "Running container")?
+        };
 
         remove_cid(&cid);
 
@@ -254,7 +258,7 @@ impl RunDriver for PodmanDriver {
 }
 
 fn podman_run(opts: &RunOpts, cid_file: &Path) -> Command {
-    cmd!(
+    let command = cmd!(
         if opts.privileged {
             warn!(
                 "Running 'podman' in privileged mode requires '{}'",
@@ -267,7 +271,10 @@ fn podman_run(opts: &RunOpts, cid_file: &Path) -> Command {
         if opts.privileged => "podman",
         "run",
         format!("--cidfile={}", cid_file.display()),
-        if opts.privileged => "--privileged",
+        if opts.privileged => [
+            "--privileged",
+            "--network=host",
+        ],
         if opts.remove => "--rm",
         if opts.pull => "--pull=always",
         for volume in opts.volumes => [
@@ -280,5 +287,8 @@ fn podman_run(opts: &RunOpts, cid_file: &Path) -> Command {
         ],
         &*opts.image,
         for opts.args,
-    )
+    );
+    trace!("{command:?}");
+
+    command
 }

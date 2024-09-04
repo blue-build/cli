@@ -11,10 +11,10 @@ pub struct RunOpts<'scope> {
     pub args: Cow<'scope, [String]>,
 
     #[builder(default, setter(into))]
-    pub env_vars: Cow<'scope, [RunOptsEnv<'scope>]>,
+    pub env_vars: Vec<RunOptsEnv<'scope>>,
 
     #[builder(default, setter(into))]
-    pub volumes: Cow<'scope, [RunOptsVolume<'scope>]>,
+    pub volumes: Vec<RunOptsVolume<'scope>>,
 
     #[builder(default, setter(strip_option))]
     pub uid: Option<u32>,
@@ -48,7 +48,7 @@ pub struct RunOptsVolume<'scope> {
 macro_rules! run_volumes {
     ($($host:expr => $container:expr),+ $(,)?) => {
         {
-            [
+            vec![
                 $($crate::drivers::opts::RunOptsVolume::builder()
                     .path_or_vol_name($host)
                     .container_path($container)
@@ -71,7 +71,7 @@ pub struct RunOptsEnv<'scope> {
 macro_rules! run_envs {
     ($($key:expr => $value:expr),+ $(,)?) => {
         {
-            [
+            vec![
                 $($crate::drivers::opts::RunOptsEnv::builder()
                     .key($key)
                     .value($value)

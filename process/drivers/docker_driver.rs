@@ -373,7 +373,7 @@ impl RunDriver for DockerDriver {
 }
 
 fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
-    cmd!(
+    let command = cmd!(
         "docker",
         "run",
         format!("--cidfile={}", cid_file.display()),
@@ -397,5 +397,8 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
         },
         &*opts.image,
         for opts.args,
-    )
+    );
+    trace!("{command:?}");
+
+    command
 }

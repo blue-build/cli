@@ -1,11 +1,13 @@
 use clap::ValueEnum;
 
 pub use build::*;
+pub use ci::*;
 pub use inspect::*;
 pub use run::*;
 pub use signing::*;
 
 mod build;
+mod ci;
 mod inspect;
 mod run;
 mod signing;
