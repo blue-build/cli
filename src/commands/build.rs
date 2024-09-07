@@ -3,12 +3,15 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use blue_build_process_management::drivers::{
-    opts::{
-        BuildTagPushOpts, CheckKeyPairOpts, CompressionType, GenerateImageNameOpts,
-        GenerateTagsOpts, SignVerifyOpts,
+use blue_build_process_management::{
+    drivers::{
+        opts::{
+            BuildTagPushOpts, CheckKeyPairOpts, CompressionType, GenerateImageNameOpts,
+            GenerateTagsOpts, SignVerifyOpts,
+        },
+        BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
     },
-    BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
+    logging::{color_str, gen_random_ansi_color},
 };
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
@@ -206,18 +209,31 @@ impl BuildCommand {
 
         trace!("BuildCommand::build_image()");
 
-        recipe_paths
+        let images = recipe_paths
             .par_iter()
-            .try_for_each(|recipe_path| -> Result<()> {
+            .try_fold(Vec::new, |mut images, recipe_path| -> Result<Vec<String>> {
                 let containerfile = if recipe_paths.len() > 1 {
                     blue_build_utils::generate_containerfile_path(recipe_path)?
                 } else {
                     PathBuf::from(CONTAINER_FILE)
                 };
-                self.build(recipe_path, &containerfile)
+                images.extend(self.build(recipe_path, &containerfile)?);
+                Ok(images)
+            })
+            .try_reduce(Vec::new, |mut init, image_names| {
+                let color = gen_random_ansi_color();
+                init.extend(image_names.iter().map(|image| color_str(image, color)));
+                Ok(init)
             })?;
 
-        info!("Build complete!");
+        info!(
+            "Finished building:\n{}",
+            images
+                .iter()
+                .map(|image| format!("\t- {image}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
         Ok(())
     }
 
@@ -225,13 +241,21 @@ impl BuildCommand {
     fn start(&self, recipe_path: &Path) -> Result<()> {
         trace!("BuildCommand::start()");
 
-        self.build(recipe_path, Path::new(CONTAINER_FILE))?;
+        let images = self.build(recipe_path, Path::new(CONTAINER_FILE))?;
+        let color = gen_random_ansi_color();
 
-        info!("Build complete!");
+        info!(
+            "Finished building:\n{}",
+            images
+                .iter()
+                .map(|image| format!("\t- {}", color_str(image, color)))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
         Ok(())
     }
 
-    fn build(&self, recipe_path: &Path, containerfile: &Path) -> Result<()> {
+    fn build(&self, recipe_path: &Path, containerfile: &Path) -> Result<Vec<String>> {
         let recipe = Recipe::parse(recipe_path)?;
         let tags = Driver::generate_tags(
             &GenerateTagsOpts::builder()
@@ -264,7 +288,7 @@ impl BuildCommand {
                 .build()
         };
 
-        Driver::build_tag_push(&opts)?;
+        let images = Driver::build_tag_push(&opts)?;
 
         if self.push && !self.no_sign {
             let opts = SignVerifyOpts::builder()
@@ -279,7 +303,7 @@ impl BuildCommand {
             Driver::sign_and_verify(&opts)?;
         }
 
-        Ok(())
+        Ok(images)
     }
 
     fn image_name(&self, recipe: &Recipe) -> Result<String> {

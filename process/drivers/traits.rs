@@ -4,7 +4,7 @@ use std::{
     process::{ExitStatus, Output},
 };
 
-use blue_build_utils::{constants::COSIGN_PUB_PATH, retry};
+use blue_build_utils::{constants::COSIGN_PUB_PATH, retry, string_vec};
 use log::{debug, info, trace};
 use miette::{bail, miette, Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
@@ -72,7 +72,7 @@ pub trait BuildDriver {
     ///
     /// # Errors
     /// Will error if building, tagging, or pusing fails.
-    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<()> {
+    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<Vec<String>> {
         trace!("BuildDriver::build_tag_push({opts:#?})");
 
         let full_image = match (opts.archive_path.as_ref(), opts.image.as_ref()) {
@@ -96,22 +96,26 @@ pub trait BuildDriver {
         info!("Building image {full_image}");
         Self::build(&build_opts)?;
 
-        if !opts.tags.is_empty() && opts.archive_path.is_none() {
+        let image_list: Vec<String> = if !opts.tags.is_empty() && opts.archive_path.is_none() {
             let image = opts
                 .image
                 .as_ref()
                 .ok_or_else(|| miette!("Image is required in order to tag"))?;
             debug!("Tagging all images");
 
+            let mut image_list = Vec::with_capacity(opts.tags.len());
+
             for tag in opts.tags.as_ref() {
                 debug!("Tagging {} with {tag}", &full_image);
+                let tagged_image = format!("{image}:{tag}");
 
                 let tag_opts = TagOpts::builder()
                     .src_image(&full_image)
-                    .dest_image(format!("{image}:{tag}"))
+                    .dest_image(&tagged_image)
                     .build();
 
                 Self::tag(&tag_opts)?;
+                image_list.push(tagged_image);
 
                 if opts.push {
                     let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
@@ -132,9 +136,13 @@ pub trait BuildDriver {
                     })?;
                 }
             }
-        }
 
-        Ok(())
+            image_list
+        } else {
+            string_vec![&full_image]
+        };
+
+        Ok(image_list)
     }
 }
 
