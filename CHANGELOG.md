@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.15] - 2024-09-07
+
+### Bug Fixes
+
+- Ensure that debug logs header for builds properly display the time
+- Make build fail if module fails
+- Generate correct image names based on user supplied arguments
+
+### Features
+
+- Color output in terminal if running in TTY
+- Create generate-iso command (#192)
+- Display list of image refs at the end of a build
+
+### Miscellaneous Tasks
+
+- Make sigstore an optional dep
+- Update CODEOWNERS
+- Update patch rev for sigstore
+- Fix legacy integration tests
+
 ## [0.8.14] - 2024-08-25
 
 ### Bug Fixes
@@ -9,6 +30,10 @@ All notable changes to this project will be documented in this file.
 - Make sure getting version fails if not all dirs were copied
 - Make sure GitHub job pushes latest image on scheduled job
 - Properly handle alt-tags so they don't collide with default tags
+
+### Miscellaneous Tasks
+
+- Release
 
 ## [0.8.13] - 2024-08-20
 
