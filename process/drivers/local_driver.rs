@@ -1,4 +1,4 @@
-use blue_build_utils::string_vec;
+use blue_build_utils::{cmd, string_vec};
 use log::trace;
 use miette::bail;
 
@@ -25,12 +25,39 @@ impl CiDriver for LocalDriver {
     fn generate_tags(opts: &GenerateTagsOpts) -> miette::Result<Vec<String>> {
         trace!("LocalDriver::generate_tags({opts:?})");
         let os_version = Driver::get_os_version(opts.oci_ref)?;
+        let timestamp = blue_build_utils::get_tag_timestamp();
+        let short_sha = commit_sha();
+
         Ok(opts.alt_tags.as_ref().map_or_else(
-            || string_vec![format!("local-{os_version}")],
+            || {
+                let mut tags = string_vec![
+                    "latest",
+                    &timestamp,
+                    format!("{os_version}"),
+                    format!("{timestamp}-{os_version}"),
+                ];
+
+                if let Some(short_sha) = &short_sha {
+                    tags.push(format!("{short_sha}-{os_version}"));
+                }
+
+                tags
+            },
             |alt_tags| {
                 alt_tags
                     .iter()
-                    .flat_map(|alt| string_vec![format!("local-{alt}-{os_version}")])
+                    .flat_map(|alt| {
+                        let mut tags = string_vec![
+                            &**alt,
+                            format!("{alt}-{os_version}"),
+                            format!("{timestamp}-{alt}-{os_version}"),
+                        ];
+                        if let Some(short_sha) = &short_sha {
+                            tags.push(format!("{short_sha}-{alt}-{os_version}"));
+                        }
+
+                        tags
+                    })
                     .collect()
             },
         ))
@@ -44,5 +71,17 @@ impl CiDriver for LocalDriver {
     fn get_registry() -> miette::Result<String> {
         trace!("LocalDriver::get_registry()");
         Ok(String::from("localhost"))
+    }
+}
+
+fn commit_sha() -> Option<String> {
+    let output = cmd!("git", "rev-parse", "--short", "HEAD").output().ok()?;
+
+    if output.status.success() {
+        String::from_utf8(output.stdout)
+            .ok()
+            .map(|s| s.trim().to_string())
+    } else {
+        None
     }
 }

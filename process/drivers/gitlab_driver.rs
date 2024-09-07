@@ -71,23 +71,23 @@ impl CiDriver for GitlabDriver {
                 .iter()
                 .flat_map(|alt| {
                     string_vec![
+                        &**alt,
+                        format!("{alt}-{os_version}"),
                         format!("{timestamp}-{alt}-{os_version}"),
                         format!("{short_sha}-{alt}-{os_version}"),
-                        format!("{alt}-{os_version}"),
-                        &**alt,
                     ]
                 })
                 .collect(),
             (false, None, Ok(mr_iid), Ok(pipeline_source)) if pipeline_source == MR_EVENT => {
                 vec![
-                    format!("{short_sha}-{os_version}"),
                     format!("mr-{mr_iid}-{os_version}"),
+                    format!("{short_sha}-{os_version}"),
                 ]
             }
             (false, None, _, _) => {
                 vec![
-                    format!("{short_sha}-{os_version}"),
                     format!("br-{ref_name}-{os_version}"),
+                    format!("{short_sha}-{os_version}"),
                 ]
             }
             (false, Some(alt_tags), Ok(mr_iid), Ok(pipeline_source))
@@ -97,8 +97,8 @@ impl CiDriver for GitlabDriver {
                     .iter()
                     .flat_map(|alt| {
                         vec![
-                            format!("{short_sha}-{alt}-{os_version}"),
                             format!("mr-{mr_iid}-{alt}-{os_version}"),
+                            format!("{short_sha}-{alt}-{os_version}"),
                         ]
                     })
                     .collect()
@@ -107,8 +107,8 @@ impl CiDriver for GitlabDriver {
                 .iter()
                 .flat_map(|alt| {
                     vec![
-                        format!("{short_sha}-{alt}-{os_version}"),
                         format!("br-{ref_name}-{alt}-{os_version}"),
+                        format!("{short_sha}-{alt}-{os_version}"),
                     ]
                 })
                 .collect(),

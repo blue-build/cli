@@ -295,7 +295,7 @@ impl BuildDriver for Driver {
         impl_build_driver!(login())
     }
 
-    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<()> {
+    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<Vec<String>> {
         impl_build_driver!(build_tag_push(opts))
     }
 }

@@ -395,7 +395,8 @@ where
     }
 }
 
-fn gen_random_ansi_color() -> u8 {
+#[must_use]
+pub fn gen_random_ansi_color() -> u8 {
     // ANSI extended color range
     // https://www.ditig.com/publications/256-colors-cheat-sheet
     const LOW_END: u8 = 21; // Blue1 #0000ff rgb(0,0,255) hsl(240,100%,50%)
@@ -404,7 +405,7 @@ fn gen_random_ansi_color() -> u8 {
     rand::thread_rng().gen_range(LOW_END..=HIGH_END)
 }
 
-fn color_str<T>(text: T, ansi_color: u8) -> String
+pub fn color_str<T>(text: T, ansi_color: u8) -> String
 where
     T: AsRef<str>,
 {
