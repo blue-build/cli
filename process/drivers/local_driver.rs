@@ -1,7 +1,6 @@
 use blue_build_utils::string_vec;
 use log::trace;
-use miette::{bail, Context, IntoDiagnostic};
-use oci_distribution::Reference;
+use miette::bail;
 
 use super::{opts::GenerateTagsOpts, CiDriver, Driver};
 
@@ -37,19 +36,6 @@ impl CiDriver for LocalDriver {
         ))
     }
 
-    fn generate_image_name<S>(name: S) -> miette::Result<Reference>
-    where
-        S: AsRef<str>,
-    {
-        fn inner(name: &str) -> miette::Result<Reference> {
-            trace!("LocalDriver::generate_image_name({name})");
-            name.parse()
-                .into_diagnostic()
-                .with_context(|| format!("Unable to parse {name}"))
-        }
-        inner(&name.as_ref().trim().to_lowercase())
-    }
-
     fn get_repo_url() -> miette::Result<String> {
         trace!("LocalDriver::get_repo_url()");
         Ok(String::new())
@@ -57,6 +43,6 @@ impl CiDriver for LocalDriver {
 
     fn get_registry() -> miette::Result<String> {
         trace!("LocalDriver::get_registry()");
-        Ok(String::new())
+        Ok(String::from("localhost"))
     }
 }

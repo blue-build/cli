@@ -4,7 +4,10 @@ use std::{
 };
 
 use blue_build_process_management::drivers::{
-    opts::{BuildTagPushOpts, CheckKeyPairOpts, CompressionType, GenerateTagsOpts, SignVerifyOpts},
+    opts::{
+        BuildTagPushOpts, CheckKeyPairOpts, CompressionType, GenerateImageNameOpts,
+        GenerateTagsOpts, SignVerifyOpts,
+    },
     BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
 };
 use blue_build_recipe::Recipe;
@@ -13,14 +16,14 @@ use blue_build_utils::{
         ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, BUILD_ID_LABEL, CONFIG_PATH, CONTAINER_FILE,
         GITIGNORE_PATH, LABELED_ERROR_MESSAGE, NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH,
     },
+    cowstr,
     credentials::{Credentials, CredentialsArgs},
     string,
 };
 use clap::Args;
 use colored::Colorize;
-use log::{debug, info, trace, warn};
+use log::{info, trace, warn};
 use miette::{bail, Context, IntoDiagnostic, Result};
-use oci_distribution::Reference;
 use typed_builder::TypedBuilder;
 
 use crate::commands::generate::GenerateCommand;
@@ -280,48 +283,21 @@ impl BuildCommand {
     }
 
     fn image_name(&self, recipe: &Recipe) -> Result<String> {
-        let image_name = self.generate_full_image_name(recipe)?;
+        let image_name = Driver::generate_image_name(
+            GenerateImageNameOpts::builder()
+                .name(recipe.name.trim())
+                .registry(self.credentials.registry.as_ref().map(|r| cowstr!(r)))
+                .registry_namespace(self.registry_namespace.as_ref().map(|r| cowstr!(r)))
+                .build(),
+        )?;
 
         let image_name = if image_name.registry().is_empty() {
             string!(image_name.repository())
+        } else if image_name.registry() == "" {
+            image_name.repository().to_string()
         } else {
-            format!(
-                "{}/{}",
-                image_name.resolve_registry(),
-                image_name.repository()
-            )
+            format!("{}/{}", image_name.registry(), image_name.repository())
         };
-
-        Ok(image_name)
-    }
-
-    /// # Errors
-    ///
-    /// Will return `Err` if the image name cannot be generated.
-    fn generate_full_image_name(&self, recipe: &Recipe) -> Result<Reference> {
-        trace!("BuildCommand::generate_full_image_name({recipe:#?})");
-        info!("Generating full image name");
-
-        let image_name = if let (Some(registry), Some(registry_path)) = (
-            self.credentials.registry.as_ref().map(|r| r.to_lowercase()),
-            self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
-        ) {
-            trace!("registry={registry}, registry_path={registry_path}");
-            let image = format!(
-                "{}/{}/{}",
-                registry.trim().trim_matches('/'),
-                registry_path.trim().trim_matches('/'),
-                recipe.name.trim(),
-            );
-            image
-                .parse()
-                .into_diagnostic()
-                .with_context(|| format!("Unable to parse {image}"))?
-        } else {
-            Driver::generate_image_name(&recipe.name)?
-        };
-
-        debug!("Using image name '{image_name}'");
 
         Ok(image_name)
     }

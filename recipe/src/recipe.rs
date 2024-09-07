@@ -126,10 +126,11 @@ impl<'a> Recipe<'a> {
     /// # Errors
     /// Will error if it fails to parse the `base_image`.
     pub fn base_image_ref(&self) -> Result<Reference> {
-        self.base_image
+        let base_image = format!("{}:{}", self.base_image, self.image_version);
+        base_image
             .parse()
             .into_diagnostic()
-            .with_context(|| format!("Unable to parse base image {}", self.base_image))
+            .with_context(|| format!("Unable to parse base image {base_image}"))
     }
 
     #[must_use]

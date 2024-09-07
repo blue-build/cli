@@ -5,6 +5,7 @@
 //! labels for an image.
 
 use std::{
+    borrow::Borrow,
     collections::{hash_map::Entry, HashMap},
     fmt::Debug,
     process::{ExitStatus, Output},
@@ -17,7 +18,7 @@ use log::{debug, info, trace};
 use miette::{miette, Result};
 use oci_distribution::Reference;
 use once_cell::sync::Lazy;
-use opts::GenerateTagsOpts;
+use opts::{GenerateImageNameOpts, GenerateTagsOpts};
 #[cfg(feature = "sigstore")]
 use sigstore_driver::SigstoreDriver;
 use typed_builder::TypedBuilder;
@@ -402,10 +403,10 @@ impl CiDriver for Driver {
         impl_ci_driver!(get_registry())
     }
 
-    fn generate_image_name<S>(name: S) -> Result<Reference>
+    fn generate_image_name<'a, O>(opts: O) -> Result<Reference>
     where
-        S: AsRef<str>,
+        O: Borrow<GenerateImageNameOpts<'a>>,
     {
-        impl_ci_driver!(generate_image_name(name))
+        impl_ci_driver!(generate_image_name(opts))
     }
 }

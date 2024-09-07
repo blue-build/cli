@@ -91,6 +91,13 @@ impl GenerateCommand {
                 legacy_path.join(RECIPE_FILE)
             }
         });
+        let registry = if let (Some(registry), Some(registry_namespace)) =
+            (&self.registry, &self.registry_namespace)
+        {
+            format!("{registry}/{registry_namespace}")
+        } else {
+            Driver::get_registry()?
+        };
 
         debug!("Deserializing recipe");
         let recipe = Recipe::parse(&recipe_path)?;
@@ -113,7 +120,7 @@ impl GenerateCommand {
             .build_id(Driver::get_build_id())
             .recipe(&recipe)
             .recipe_path(recipe_path.as_path())
-            .registry(Driver::get_registry()?)
+            .registry(registry)
             .repo(Driver::get_repo_url()?)
             .exports_tag({
                 #[allow(clippy::const_is_empty)]

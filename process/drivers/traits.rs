@@ -1,4 +1,5 @@
 use std::{
+    borrow::Borrow,
     path::PathBuf,
     process::{ExitStatus, Output},
 };
@@ -14,9 +15,9 @@ use crate::drivers::{functions::get_private_key, types::CiDriverType, Driver};
 use super::{
     image_metadata::ImageMetadata,
     opts::{
-        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateKeyPairOpts, GenerateTagsOpts,
-        GetMetadataOpts, PushOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts, VerifyOpts,
-        VerifyType,
+        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
+        GenerateTagsOpts, GetMetadataOpts, PushOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts,
+        VerifyOpts, VerifyType,
     },
 };
 
@@ -308,27 +309,34 @@ pub trait CiDriver {
     ///
     /// # Errors
     /// Will error if the environment variables aren't set.
-    fn generate_tags(oci_ref: &GenerateTagsOpts) -> Result<Vec<String>>;
+    fn generate_tags(opts: &GenerateTagsOpts) -> Result<Vec<String>>;
 
     /// Generates the image name based on CI.
     ///
     /// # Errors
     /// Will error if the environment variables aren't set.
-    fn generate_image_name<S>(name: S) -> Result<Reference>
+    fn generate_image_name<'a, O>(opts: O) -> Result<Reference>
     where
-        S: AsRef<str>,
+        O: Borrow<GenerateImageNameOpts<'a>>,
     {
-        fn inner(name: &str, registry: &str) -> Result<Reference> {
-            let image = format!("{registry}/{name}");
+        fn inner(opts: &GenerateImageNameOpts, driver_registry: &str) -> Result<Reference> {
+            let image = match (&opts.registry, &opts.registry_namespace) {
+                (Some(registry), Some(registry_namespace)) => {
+                    format!("{registry}/{registry_namespace}/{}", &opts.name)
+                }
+                (Some(registry), None) => {
+                    format!("{registry}/{}", &opts.name)
+                }
+                _ => {
+                    format!("{}/{}", driver_registry, &opts.name)
+                }
+            };
             image
                 .parse()
                 .into_diagnostic()
                 .with_context(|| format!("Unable to parse image {image}"))
         }
-        inner(
-            &name.as_ref().trim().to_lowercase(),
-            &Self::get_registry()?.to_lowercase(),
-        )
+        inner(opts.borrow(), &Self::get_registry()?)
     }
 
     /// Get the URL for the repository.

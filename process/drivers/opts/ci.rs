@@ -10,3 +10,15 @@ pub struct GenerateTagsOpts<'scope> {
     #[builder(default, setter(into))]
     pub alt_tags: Option<Vec<Cow<'scope, str>>>,
 }
+
+#[derive(Debug, Clone, TypedBuilder)]
+pub struct GenerateImageNameOpts<'scope> {
+    #[builder(default, setter(into))]
+    pub name: Cow<'scope, str>,
+
+    #[builder(default, setter(into))]
+    pub registry: Option<Cow<'scope, str>>,
+
+    #[builder(default, setter(into))]
+    pub registry_namespace: Option<Cow<'scope, str>>,
+}
