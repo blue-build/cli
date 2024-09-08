@@ -330,13 +330,26 @@ pub trait CiDriver {
         fn inner(opts: &GenerateImageNameOpts, driver_registry: &str) -> Result<Reference> {
             let image = match (&opts.registry, &opts.registry_namespace) {
                 (Some(registry), Some(registry_namespace)) => {
-                    format!("{registry}/{registry_namespace}/{}", &opts.name)
+                    format!(
+                        "{}/{}/{}",
+                        registry.trim().to_lowercase(),
+                        registry_namespace.trim().to_lowercase(),
+                        opts.name.trim().to_lowercase()
+                    )
                 }
                 (Some(registry), None) => {
-                    format!("{registry}/{}", &opts.name)
+                    format!(
+                        "{}/{}",
+                        registry.trim().to_lowercase(),
+                        opts.name.trim().to_lowercase()
+                    )
                 }
                 _ => {
-                    format!("{}/{}", driver_registry, &opts.name)
+                    format!(
+                        "{}/{}",
+                        driver_registry.trim().to_lowercase(),
+                        opts.name.trim().to_lowercase()
+                    )
                 }
             };
             image

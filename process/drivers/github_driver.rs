@@ -123,7 +123,9 @@ impl CiDriver for GithubDriver {
                 .repository
                 .owner
                 .login
-        ))
+        )
+        .trim()
+        .to_lowercase())
     }
 }
 
