@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.16] - 2024-09-08
+
+### Bug Fixes
+
+- Ensure image names are lowercase
+
+### Miscellaneous Tasks
+
+- Update tests for lowercasing image names
+
 ## [0.8.15] - 2024-09-07
 
 ### Bug Fixes
@@ -22,6 +32,7 @@ All notable changes to this project will be documented in this file.
 - Update CODEOWNERS
 - Update patch rev for sigstore
 - Fix legacy integration tests
+- Release
 
 ## [0.8.14] - 2024-08-25
 
