@@ -23,7 +23,7 @@ use tempdir::TempDir;
 
 use crate::{
     drivers::image_metadata::ImageMetadata,
-    logging::{CommandLogging, Logger},
+    logging::{CommandLogging, DockerLogging, Logger},
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
 };
 
@@ -231,6 +231,7 @@ impl BuildDriver for DockerDriver {
             },
             "build",
             "--pull",
+            "--progress=rawjson",
             "-f",
             &*opts.containerfile,
             // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
@@ -285,20 +286,17 @@ impl BuildDriver for DockerDriver {
         cmd!(command, ".");
 
         trace!("{command:?}");
-        if command
-            .status_image_ref_progress(display_image, "Building Image")
-            .into_diagnostic()?
-            .success()
-        {
-            if opts.push {
-                info!("Successfully built and pushed image {}", display_image);
-            } else {
-                info!("Successfully built image {}", display_image);
-            }
-        } else {
-            bail!("Failed to build image {}", display_image);
-        }
+        command.docker_log(display_image)?;
         Ok(final_images)
+
+        // let status = command
+        //     .status_image_ref_progress(display_image, "Building image")
+        //     .into_diagnostic()?;
+
+        // if !status.success() {
+        //     bail!("Failed to build image {display_image}");
+        // }
+        // Ok(final_images)
     }
 }
 
