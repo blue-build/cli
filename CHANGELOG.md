@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.17] - 2024-09-11
+
+### Bug Fixes
+
+- Fix docker login for oauth logins
+
+### Miscellaneous Tasks
+
+- Upgrade sigstore to use contributed changes
+
 ## [0.8.16] - 2024-09-08
 
 ### Bug Fixes
@@ -11,6 +21,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Update tests for lowercasing image names
+- Release
 
 ## [0.8.15] - 2024-09-07
 
