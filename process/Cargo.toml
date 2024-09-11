@@ -24,7 +24,7 @@ os_pipe = { version = "1", features = ["io_safety"] }
 rand = "0.8"
 semver = { version = "1", features = ["serde"] }
 signal-hook = { version = "0.3", features = ["extended-siginfo"] }
-sigstore = { version = "0.9", features = ["full-rustls-tls", "cached-client", "sigstore-trust-root", "sign"], default-features = false, optional = true }
+sigstore = { version = "0.10", features = ["full-rustls-tls", "cached-client", "sigstore-trust-root", "sign"], default-features = false, optional = true }
 tokio = { version = "1.39.2", features = ["rt", "rt-multi-thread"], optional = true }
 zeroize = { version = "1", features = ["aarch64", "derive", "serde"] }
 
