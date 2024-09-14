@@ -152,7 +152,10 @@ fn should_color() -> bool {
 
 mod filters {
     #[allow(clippy::unnecessary_wraps)]
-    pub fn replace<T: std::fmt::Display>(input: T, from: char, to: &str) -> rinja::Result<String> {
+    pub fn replace<T>(input: T, from: char, to: &str) -> rinja::Result<String>
+    where
+        T: std::fmt::Display,
+    {
         Ok(format!("{input}").replace(from, to))
     }
 }

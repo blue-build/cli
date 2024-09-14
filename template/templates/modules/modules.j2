@@ -27,7 +27,7 @@ RUN \
         {%- endif %}
   --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
-  /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module.print_module_context() }}' \
+  /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module|json|safe }}' \
   && ostree container commit
       {%- endif %}
     {%- endif %}
@@ -59,7 +59,7 @@ RUN \
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
         {%- endif %}
   --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
-  /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module.print_module_context() }}'
+  /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module|json|safe }}'
       {%- endif %}
     {%- endif %}
   {%- endfor %}

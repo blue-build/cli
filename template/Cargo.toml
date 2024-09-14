@@ -9,7 +9,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rinja = "0.3.0"
+rinja = { version = "0.3.0", features = ["serde_json"] }
 blue-build-recipe = { version = "=0.8.17", path = "../recipe" }
 blue-build-utils = { version = "=0.8.17", path = "../utils" }
 

@@ -52,6 +52,3 @@ workspace = true
 
 [features]
 sigstore = ["dep:tokio", "dep:sigstore"]
-
-[patch.crates-io]
-sigstore = { git = "https://github.com/gmpinder/sigstore-rs.git", rev = "cd0d10429fc09ddb08a8d1c7244a1623772113af" }

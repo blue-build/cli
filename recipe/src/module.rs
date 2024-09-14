@@ -1,9 +1,9 @@
-use std::{borrow::Cow, path::PathBuf, process};
+use std::{borrow::Cow, path::PathBuf};
 
 use blue_build_utils::syntax_highlighting::highlight_ser;
 use colored::Colorize;
 use indexmap::IndexMap;
-use log::{error, trace, warn};
+use log::{trace, warn};
 use miette::{bail, Result};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
@@ -60,14 +60,6 @@ impl<'a> ModuleRequiredFields<'a> {
     #[must_use]
     pub fn get_containerfile_snippets(&'a self) -> Option<Vec<String>> {
         self.get_module_type_list("containerfile", "snippets")
-    }
-
-    #[must_use]
-    pub fn print_module_context(&'a self) -> String {
-        serde_json::to_string(self).unwrap_or_else(|e| {
-            error!("Failed to parse module!!!!!: {e}");
-            process::exit(1);
-        })
     }
 
     #[must_use]

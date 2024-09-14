@@ -3385,6 +3385,8 @@ dependencies = [
  "num-traits",
  "percent-encoding",
  "rinja_derive",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
