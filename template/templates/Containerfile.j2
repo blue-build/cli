@@ -38,7 +38,8 @@ RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
 
 {% call modules::main_modules_run(recipe.modules_ext, os_version) %}
 
-RUN rm -fr /tmp/* /var/* && ostree container commit
+RUN --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/scripts/ \
+  /scripts/post_build.sh
 
 # Labels are added last since they cause cache misses with buildah
 LABEL {{ blue_build_utils::constants::BUILD_ID_LABEL }}="{{ build_id }}"
