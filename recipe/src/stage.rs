@@ -78,7 +78,7 @@ pub struct Stage<'a> {
     /// - name: hello-world
     ///   image: alpine
     ///   modules:
-    ///   - type: script
+    ///   - type: scripts
     ///     snippets:
     ///     - echo "Hello World!"
     /// ```
