@@ -4,13 +4,25 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use bon::Builder;
 use miette::{IntoDiagnostic, Result};
-use typed_builder::TypedBuilder;
 use zeroize::{Zeroize, Zeroizing};
 
 pub enum PrivateKey {
     Env(String),
     Path(PathBuf),
+}
+
+impl std::fmt::Display for PrivateKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+            match *self {
+                Self::Env(ref env) => format!("env://{env}"),
+                Self::Path(ref path) => format!("{}", path.display()),
+            }
+            .as_str(),
+        )
+    }
 }
 
 pub trait PrivateKeyContents<T>
@@ -40,39 +52,27 @@ impl PrivateKeyContents<String> for PrivateKey {
     }
 }
 
-impl std::fmt::Display for PrivateKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(
-            match *self {
-                Self::Env(ref env) => format!("env://{env}"),
-                Self::Path(ref path) => format!("{}", path.display()),
-            }
-            .as_str(),
-        )
-    }
-}
-
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone, Builder)]
 pub struct GenerateKeyPairOpts<'scope> {
-    #[builder(setter(into, strip_option))]
+    #[builder(into)]
     pub dir: Option<Cow<'scope, Path>>,
 }
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone, Builder)]
 pub struct CheckKeyPairOpts<'scope> {
-    #[builder(setter(into, strip_option))]
+    #[builder(into)]
     pub dir: Option<Cow<'scope, Path>>,
 }
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone, Builder)]
 pub struct SignOpts<'scope> {
-    #[builder(setter(into))]
+    #[builder(into)]
     pub image: Cow<'scope, str>,
 
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     pub key: Option<Cow<'scope, str>>,
 
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     pub dir: Option<Cow<'scope, Path>>,
 }
 
@@ -85,22 +85,22 @@ pub enum VerifyType<'scope> {
     },
 }
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone, Builder)]
 pub struct VerifyOpts<'scope> {
-    #[builder(setter(into))]
+    #[builder(into)]
     pub image: Cow<'scope, str>,
     pub verify_type: VerifyType<'scope>,
 }
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone, Builder)]
 pub struct SignVerifyOpts<'scope> {
-    #[builder(setter(into))]
+    #[builder(into)]
     pub image: Cow<'scope, str>,
 
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     pub tag: Option<Cow<'scope, str>>,
 
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     pub dir: Option<Cow<'scope, Path>>,
 
     /// Enable retry logic for pushing.

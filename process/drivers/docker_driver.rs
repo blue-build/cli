@@ -22,7 +22,10 @@ use serde::Deserialize;
 use tempdir::TempDir;
 
 use crate::{
-    drivers::image_metadata::ImageMetadata,
+    drivers::{
+        image_metadata::ImageMetadata,
+        opts::{RunOptsEnv, RunOptsVolume},
+    },
     logging::{CommandLogging, Logger},
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
 };
@@ -321,7 +324,7 @@ impl InspectDriver for DockerDriver {
         let output = Self::run_output(
             &RunOpts::builder()
                 .image(SKOPEO_IMAGE)
-                .args(string_vec!["inspect", url.clone()])
+                .args(bon::vec!["inspect", &url])
                 .remove(true)
                 .build(),
         )
@@ -379,13 +382,13 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
         if opts.privileged => "--privileged",
         if opts.remove => "--rm",
         if opts.pull => "--pull=always",
-        for volume in opts.volumes => [
+        for RunOptsVolume { path_or_vol_name, container_path } in opts.volumes.iter() => [
             "--volume",
-            format!("{}:{}", volume.path_or_vol_name, volume.container_path),
+            format!("{path_or_vol_name}:{container_path}"),
         ],
-        for env in opts.env_vars => [
+        for RunOptsEnv { key, value } in opts.env_vars.iter() => [
             "--env",
-            format!("{}={}", env.key, env.value),
+            format!("{key}={value}"),
         ],
         |command| {
             match (opts.uid, opts.gid) {
@@ -395,7 +398,7 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
             }
         },
         &*opts.image,
-        for opts.args,
+        for arg in opts.args.iter() => &**arg,
     );
     trace!("{command:?}");
 

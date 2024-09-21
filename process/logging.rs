@@ -9,6 +9,7 @@ use std::{
     time::Duration,
 };
 
+use bon::Builder;
 use chrono::Local;
 use colored::{control::ShouldColorize, ColoredString, Colorize};
 use indicatif::{MultiProgress, ProgressBar};
@@ -31,7 +32,6 @@ use log4rs::{
 use nu_ansi_term::Color;
 use once_cell::sync::Lazy;
 use rand::Rng;
-use typed_builder::TypedBuilder;
 
 use crate::signal_handler::{add_pid, remove_pid};
 
@@ -258,9 +258,9 @@ impl CommandLogging for Command {
     }
 }
 
-#[derive(Debug, TypedBuilder)]
+#[derive(Debug, Builder)]
 struct CustomPatternEncoder {
-    #[builder(default, setter(into))]
+    #[builder(default, into)]
     filter_modules: Vec<(String, LevelFilter)>,
 }
 

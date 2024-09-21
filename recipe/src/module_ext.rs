@@ -1,17 +1,17 @@
-use std::{borrow::Cow, collections::HashSet, fs, path::Path};
+use std::{collections::HashSet, fs, path::Path};
 
 use blue_build_utils::constants::{CONFIG_PATH, RECIPE_PATH};
+use bon::Builder;
 use log::{trace, warn};
 use miette::{Context, IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
-use typed_builder::TypedBuilder;
 
 use crate::{AkmodsInfo, Module};
 
-#[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
+#[derive(Default, Serialize, Clone, Deserialize, Debug, Builder)]
 pub struct ModuleExt<'a> {
-    #[builder(default, setter(into))]
-    pub modules: Cow<'a, [Module<'a>]>,
+    #[builder(default)]
+    pub modules: Vec<Module<'a>>,
 }
 
 impl ModuleExt<'_> {

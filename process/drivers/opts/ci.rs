@@ -1,24 +1,24 @@
 use std::borrow::Cow;
 
+use bon::Builder;
 use oci_distribution::Reference;
-use typed_builder::TypedBuilder;
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone, Builder)]
 pub struct GenerateTagsOpts<'scope> {
     pub oci_ref: &'scope Reference,
 
-    #[builder(default, setter(into))]
+    #[builder(into)]
     pub alt_tags: Option<Vec<Cow<'scope, str>>>,
 }
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone, Builder)]
 pub struct GenerateImageNameOpts<'scope> {
-    #[builder(default, setter(into))]
+    #[builder(into)]
     pub name: Cow<'scope, str>,
 
-    #[builder(default, setter(into))]
+    #[builder(into)]
     pub registry: Option<Cow<'scope, str>>,
 
-    #[builder(default, setter(into))]
+    #[builder(into)]
     pub registry_namespace: Option<Cow<'scope, str>>,
 }

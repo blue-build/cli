@@ -105,7 +105,7 @@ pub trait BuildDriver {
 
             let mut image_list = Vec::with_capacity(opts.tags.len());
 
-            for tag in opts.tags.as_ref() {
+            for tag in &opts.tags {
                 debug!("Tagging {} with {tag}", &full_image);
                 let tagged_image = format!("{image}:{tag}");
 
