@@ -1,10 +1,10 @@
 use std::{
     env,
-    fs::OpenOptions,
-    io::{BufRead, BufReader, Result, Write as IoWrite},
+    fs::{File, OpenOptions},
+    io::{BufReader, BufWriter, Result},
     path::{Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
-    sync::Mutex,
+    sync::RwLock,
     thread,
     time::Duration,
 };
@@ -13,7 +13,7 @@ use chrono::Local;
 use colored::{control::ShouldColorize, ColoredString, Colorize};
 use indicatif::{MultiProgress, ProgressBar};
 use indicatif_log_bridge::LogWrapper;
-use log::{warn, Level, LevelFilter, Record};
+use log::{Level, LevelFilter, Record};
 use log4rs::{
     append::{
         console::ConsoleAppender,
@@ -30,13 +30,20 @@ use log4rs::{
 };
 use nu_ansi_term::Color;
 use once_cell::sync::Lazy;
+use os_pipe::PipeReader;
 use rand::Rng;
 use typed_builder::TypedBuilder;
+
+mod command;
+mod docker;
+
+pub use command::*;
+pub use docker::*;
 
 use crate::signal_handler::{add_pid, remove_pid};
 
 static MULTI_PROGRESS: Lazy<MultiProgress> = Lazy::new(MultiProgress::new);
-static LOG_DIR: Lazy<Mutex<PathBuf>> = Lazy::new(|| Mutex::new(PathBuf::new()));
+static LOG_DIR: Lazy<RwLock<PathBuf>> = Lazy::new(|| RwLock::new(PathBuf::new()));
 
 #[derive(Debug, Clone)]
 pub struct Logger {
@@ -56,24 +63,28 @@ impl Logger {
         Self::default()
     }
 
-    pub fn filter_modules<I, S>(&mut self, filter_modules: I) -> &mut Self
+    #[must_use]
+    pub fn filter_modules<I, S>(mut self, filter_modules: I) -> Self
     where
-        I: IntoIterator<Item = (S, LevelFilter)>,
-        S: AsRef<str>,
+        I: AsRef<[(S, LevelFilter)]>,
+        S: ToString,
     {
         self.modules = filter_modules
-            .into_iter()
-            .map(|(module, level)| (module.as_ref().to_string(), level))
+            .as_ref()
+            .iter()
+            .map(|(module, level)| (module.to_string(), *level))
             .collect::<Vec<_>>();
         self
     }
 
-    pub fn filter_level(&mut self, filter_level: LevelFilter) -> &mut Self {
+    #[must_use]
+    pub const fn filter_level(mut self, filter_level: LevelFilter) -> Self {
         self.level = filter_level;
         self
     }
 
-    pub fn log_out_dir<P>(&mut self, path: Option<P>) -> &mut Self
+    #[must_use]
+    pub fn log_out_dir<P>(mut self, path: Option<P>) -> Self
     where
         P: AsRef<Path>,
     {
@@ -85,14 +96,14 @@ impl Logger {
     ///
     /// # Panics
     /// Will panic if logging is unable to be initialized.
-    pub fn init(&self) {
+    pub fn init(self) {
         let home = env::var("HOME").expect("$HOME should be defined");
         let log_dir = self.log_dir.as_ref().map_or_else(
             || Path::new(home.as_str()).join(".local/share/bluebuild"),
             Clone::clone,
         );
 
-        let mut lock = LOG_DIR.lock().expect("Should lock LOG_DIR");
+        let mut lock = LOG_DIR.write().expect("Should lock LOG_DIR");
         lock.clone_from(&log_dir);
         drop(lock);
 
@@ -174,90 +185,6 @@ impl ColoredLevel for Level {
     }
 }
 
-pub trait CommandLogging {
-    /// Prints each line of stdout/stderr with an image ref string
-    /// and a progress spinner. This helps to keep track of every
-    /// build running in parallel.
-    ///
-    /// # Errors
-    /// Will error if there was an issue executing the process.
-    fn status_image_ref_progress<T, U>(self, image_ref: T, message: U) -> Result<ExitStatus>
-    where
-        T: AsRef<str>,
-        U: AsRef<str>;
-}
-
-impl CommandLogging for Command {
-    fn status_image_ref_progress<T, U>(mut self, image_ref: T, message: U) -> Result<ExitStatus>
-    where
-        T: AsRef<str>,
-        U: AsRef<str>,
-    {
-        let ansi_color = gen_random_ansi_color();
-        let name = color_str(&image_ref, ansi_color);
-        let short_name = color_str(shorten_name(&image_ref), ansi_color);
-        let (reader, writer) = os_pipe::pipe()?;
-
-        self.stdout(writer.try_clone()?)
-            .stderr(writer)
-            .stdin(Stdio::piped());
-
-        let progress = Logger::multi_progress()
-            .add(ProgressBar::new_spinner().with_message(format!("{} {name}", message.as_ref())));
-        progress.enable_steady_tick(Duration::from_millis(100));
-
-        let mut child = self.spawn()?;
-
-        let child_pid = child.id();
-        add_pid(child_pid);
-
-        // We drop the `Command` to prevent blocking on writer
-        // https://docs.rs/os_pipe/latest/os_pipe/#examples
-        drop(self);
-
-        let reader = BufReader::new(reader);
-        let log_file_path = {
-            let lock = LOG_DIR.lock().expect("Should lock LOG_DIR");
-            lock.join(format!(
-                "{}.log",
-                image_ref.as_ref().replace(['/', ':', '.'], "_")
-            ))
-        };
-        let log_file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(log_file_path.as_path())?;
-
-        thread::spawn(move || {
-            let mp = Logger::multi_progress();
-            reader.lines().for_each(|line| {
-                if let Ok(l) = line {
-                    let text = format!("{log_prefix} {l}", log_prefix = log_header(&short_name));
-                    if mp.is_hidden() {
-                        eprintln!("{text}");
-                    } else {
-                        mp.println(text).unwrap();
-                    }
-                    if let Err(e) = writeln!(&log_file, "{l}") {
-                        warn!(
-                            "Failed to write to log for build {}: {e:?}",
-                            log_file_path.display()
-                        );
-                    }
-                }
-            });
-        });
-
-        let status = child.wait()?;
-        remove_pid(child_pid);
-
-        progress.finish();
-        Logger::multi_progress().remove(&progress);
-
-        Ok(status)
-    }
-}
-
 #[derive(Debug, TypedBuilder)]
 struct CustomPatternEncoder {
     #[builder(default, setter(into))]
@@ -315,6 +242,86 @@ impl Encode for CustomPatternEncoder {
                 LevelFilter::Off => Ok(()),
             }
         }
+    }
+}
+
+trait ProgressLogger {
+    /// Prints each line of stdout/stderr with an image ref string
+    /// and a progress spinner. This helps to keep track of every
+    /// build running in parallel.
+    ///
+    /// # Errors
+    /// Will error if there was an issue executing the process.
+    fn progress_log<N, M, F>(
+        self,
+        color: u8,
+        name: N,
+        message: M,
+        log_handler: F,
+    ) -> Result<ExitStatus>
+    where
+        N: AsRef<str>,
+        M: AsRef<str>,
+        F: FnOnce(BufReader<PipeReader>, BufWriter<File>) + Send + 'static;
+}
+
+impl ProgressLogger for Command {
+    fn progress_log<I, M, F>(
+        mut self,
+        color: u8,
+        name: I,
+        message: M,
+        log_handler: F,
+    ) -> Result<ExitStatus>
+    where
+        I: AsRef<str>,
+        M: AsRef<str>,
+        F: FnOnce(BufReader<PipeReader>, BufWriter<File>) + Send + 'static,
+    {
+        let name = name.as_ref();
+        let log_file_path = {
+            let lock = LOG_DIR.read().expect("Should lock LOG_DIR");
+            lock.join(format!("{}.log", name.replace(['/', ':', '.'], "_")))
+        };
+
+        let message = message.as_ref();
+        let (reader, writer) = os_pipe::pipe()?;
+        let name_color = color_str(name, color);
+
+        self.stdout(writer.try_clone()?)
+            .stderr(writer)
+            .stdin(Stdio::piped());
+
+        let progress = Logger::multi_progress()
+            .add(ProgressBar::new_spinner().with_message(format!("{message} {name_color}")));
+        progress.enable_steady_tick(Duration::from_millis(100));
+
+        let mut child = self.spawn()?;
+
+        let child_pid = child.id();
+        add_pid(child_pid);
+
+        // We drop the `Command` to prevent blocking on writer
+        // https://docs.rs/os_pipe/latest/os_pipe/#examples
+        drop(self);
+
+        let reader = BufReader::new(reader);
+        let log_file = BufWriter::new(
+            OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(log_file_path.as_path())?,
+        );
+
+        thread::spawn(move || log_handler(reader, log_file));
+
+        let status = child.wait()?;
+        remove_pid(child_pid);
+
+        progress.finish();
+        Logger::multi_progress().remove(&progress);
+
+        Ok(status)
     }
 }
 

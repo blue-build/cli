@@ -247,23 +247,23 @@ impl Driver {
         Ok(os_version)
     }
 
-    fn get_build_driver() -> BuildDriverType {
+    pub fn get_build_driver() -> BuildDriverType {
         impl_driver_type!(SELECTED_BUILD_DRIVER)
     }
 
-    fn get_inspect_driver() -> InspectDriverType {
+    pub fn get_inspect_driver() -> InspectDriverType {
         impl_driver_type!(SELECTED_INSPECT_DRIVER)
     }
 
-    fn get_signing_driver() -> SigningDriverType {
+    pub fn get_signing_driver() -> SigningDriverType {
         impl_driver_type!(SELECTED_SIGNING_DRIVER)
     }
 
-    fn get_run_driver() -> RunDriverType {
+    pub fn get_run_driver() -> RunDriverType {
         impl_driver_type!(SELECTED_RUN_DRIVER)
     }
 
-    fn get_ci_driver() -> CiDriverType {
+    pub fn get_ci_driver() -> CiDriverType {
         impl_driver_type!(SELECTED_CI_DRIVER)
     }
 }
