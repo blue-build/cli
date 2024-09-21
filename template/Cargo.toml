@@ -15,7 +15,7 @@ blue-build-utils = { version = "=0.8.17", path = "../utils" }
 
 log.workspace = true
 colored.workspace = true
-typed-builder.workspace = true
+bon.workspace = true
 uuid.workspace = true
 
 [lints]

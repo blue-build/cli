@@ -22,30 +22,31 @@ use blue_build_utils::{
     cowstr,
     credentials::{Credentials, CredentialsArgs},
     string,
+    traits::CowCollecter,
 };
+use bon::Builder;
 use clap::Args;
 use colored::Colorize;
 use log::{info, trace, warn};
 use miette::{bail, Context, IntoDiagnostic, Result};
-use typed_builder::TypedBuilder;
 
 use crate::commands::generate::GenerateCommand;
 
 use super::BlueBuildCommand;
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone, Args, TypedBuilder)]
+#[derive(Debug, Clone, Args, Builder)]
 pub struct BuildCommand {
     /// The recipe file to build an image
     #[arg()]
     #[cfg(feature = "multi-recipe")]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     recipe: Option<Vec<PathBuf>>,
 
     /// The recipe file to build an image
     #[arg()]
     #[cfg(not(feature = "multi-recipe"))]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     recipe: Option<PathBuf>,
 
     /// Push the image with all the tags.
@@ -85,14 +86,13 @@ pub struct BuildCommand {
     /// Archives the built image into a tarfile
     /// in the specified directory.
     #[arg(short, long)]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     archive: Option<PathBuf>,
 
     /// The url path to your base
     /// project images.
-    #[arg(long, env = BB_REGISTRY_NAMESPACE)]
-    #[builder(default, setter(into, strip_option))]
-    #[arg(visible_alias("registry-path"))]
+    #[arg(long, env = BB_REGISTRY_NAMESPACE, visible_alias("registry-path"))]
+    #[builder(into)]
     registry_namespace: Option<String>,
 
     /// Do not sign the image on push.
@@ -260,7 +260,7 @@ impl BuildCommand {
         let tags = Driver::generate_tags(
             &GenerateTagsOpts::builder()
                 .oci_ref(&recipe.base_image_ref()?)
-                .alt_tags(recipe.alt_tags())
+                .maybe_alt_tags(recipe.alt_tags.as_ref().map(CowCollecter::to_cow_vec))
                 .build(),
         )?;
         let image_name = self.image_name(&recipe)?;
@@ -279,7 +279,7 @@ impl BuildCommand {
             BuildTagPushOpts::builder()
                 .image(&image_name)
                 .containerfile(containerfile)
-                .tags(&tags)
+                .tags(tags.to_cow_vec())
                 .push(self.push)
                 .retry_push(self.retry_push)
                 .retry_count(self.retry_count)
@@ -291,16 +291,14 @@ impl BuildCommand {
         let images = Driver::build_tag_push(&opts)?;
 
         if self.push && !self.no_sign {
-            let opts = SignVerifyOpts::builder()
-                .image(&image_name)
-                .retry_push(self.retry_push)
-                .retry_count(self.retry_count);
-            let opts = if let Some(tag) = tags.first() {
-                opts.tag(tag).build()
-            } else {
-                opts.build()
-            };
-            Driver::sign_and_verify(&opts)?;
+            Driver::sign_and_verify(
+                &SignVerifyOpts::builder()
+                    .image(&image_name)
+                    .retry_push(self.retry_push)
+                    .retry_count(self.retry_count)
+                    .maybe_tag(tags.first())
+                    .build(),
+            )?;
         }
 
         Ok(images)
@@ -310,8 +308,8 @@ impl BuildCommand {
         let image_name = Driver::generate_image_name(
             GenerateImageNameOpts::builder()
                 .name(recipe.name.trim())
-                .registry(self.credentials.registry.as_ref().map(|r| cowstr!(r)))
-                .registry_namespace(self.registry_namespace.as_ref().map(|r| cowstr!(r)))
+                .maybe_registry(self.credentials.registry.as_ref().map(|r| cowstr!(r)))
+                .maybe_registry_namespace(self.registry_namespace.as_ref().map(|r| cowstr!(r)))
                 .build(),
         )?;
 

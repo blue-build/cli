@@ -137,7 +137,7 @@ mod test {
         constants::{
             GITHUB_EVENT_NAME, GITHUB_EVENT_PATH, GITHUB_REF_NAME, GITHUB_SHA, PR_EVENT_NUMBER,
         },
-        cowstr_vec, string_vec,
+        string_vec,
         test_utils::set_env_var,
     };
     use oci_distribution::Reference;
@@ -230,7 +230,7 @@ mod test {
     )]
     #[case::default_branch_alt_tags(
         setup_default_branch,
-        Some(cowstr_vec![TEST_TAG_1, TEST_TAG_2]),
+        Some(bon::vec![TEST_TAG_1, TEST_TAG_2]),
         string_vec![
             TEST_TAG_1,
             format!("{TEST_TAG_1}-40"),
@@ -249,7 +249,7 @@ mod test {
     )]
     #[case::pr_branch_alt_tags(
         setup_pr_branch,
-        Some(cowstr_vec![TEST_TAG_1, TEST_TAG_2]),
+        Some(bon::vec![TEST_TAG_1, TEST_TAG_2]),
         string_vec![
             format!("pr-12-{TEST_TAG_1}-40"),
             format!("{COMMIT_SHA}-{TEST_TAG_1}-40"),
@@ -264,7 +264,7 @@ mod test {
     )]
     #[case::branch_alt_tags(
         setup_branch,
-        Some(cowstr_vec![TEST_TAG_1, TEST_TAG_2]),
+        Some(bon::vec![TEST_TAG_1, TEST_TAG_2]),
         string_vec![
             format!("br-{BR_REF_NAME}-{TEST_TAG_1}-40"),
             format!("{COMMIT_SHA}-{TEST_TAG_1}-40"),
@@ -284,7 +284,7 @@ mod test {
         let mut tags = GithubDriver::generate_tags(
             &GenerateTagsOpts::builder()
                 .oci_ref(&oci_ref)
-                .alt_tags(alt_tags)
+                .maybe_alt_tags(alt_tags)
                 .build(),
         )
         .unwrap();

@@ -4,12 +4,12 @@ use std::{
 };
 
 use blue_build_recipe::Recipe;
-use blue_build_utils::{constants::ARCHIVE_SUFFIX, string_vec};
+use blue_build_utils::{constants::ARCHIVE_SUFFIX, string_vec, traits::CowCollecter};
+use bon::Builder;
 use clap::{Args, Subcommand, ValueEnum};
 use miette::{bail, Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use tempdir::TempDir;
-use typed_builder::TypedBuilder;
 
 use blue_build_process_management::{
     drivers::{opts::RunOpts, Driver, DriverArgs, RunDriver},
@@ -18,13 +18,14 @@ use blue_build_process_management::{
 
 use super::{build::BuildCommand, BlueBuildCommand};
 
-#[derive(Clone, Debug, TypedBuilder, Args)]
+#[derive(Clone, Debug, Builder, Args)]
 pub struct GenerateIsoCommand {
     #[command(subcommand)]
     command: GenIsoSubcommand,
 
     /// The directory to save the resulting ISO file.
     #[arg(short, long)]
+    #[builder(into)]
     output_dir: Option<PathBuf>,
 
     /// The variant of the installer to use.
@@ -52,6 +53,7 @@ pub struct GenerateIsoCommand {
         long,
         default_value = "https://github.com/ublue-os/bazzite/raw/main/secure_boot.der"
     )]
+    #[builder(into)]
     secure_boot_url: String,
 
     /// The enrollment password for the secure boot
@@ -61,10 +63,12 @@ pub struct GenerateIsoCommand {
     /// It's recommended to change this if your base
     /// image is not from UBlue.
     #[arg(long, default_value = "universalblue")]
+    #[builder(into)]
     enrollment_password: String,
 
     /// The name of your ISO image file.
     #[arg(long)]
+    #[builder(into)]
     iso_name: Option<String>,
 
     #[clap(flatten)]
@@ -226,7 +230,7 @@ impl GenerateIsoCommand {
             .image("ghcr.io/jasonn3/build-container-installer")
             .privileged(true)
             .remove(true)
-            .args(&args)
+            .args(args.to_cow_vec())
             .volumes(vols)
             .build();
 

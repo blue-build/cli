@@ -13,6 +13,7 @@ use std::{
 };
 
 use blue_build_utils::constants::IMAGE_VERSION_LABEL;
+use bon::Builder;
 use clap::Args;
 use log::{debug, info, trace};
 use miette::{miette, Result};
@@ -21,7 +22,6 @@ use once_cell::sync::Lazy;
 use opts::{GenerateImageNameOpts, GenerateTagsOpts};
 #[cfg(feature = "sigstore")]
 use sigstore_driver::SigstoreDriver;
-use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
 use self::{
@@ -82,29 +82,25 @@ static OS_VERSION: Lazy<Mutex<HashMap<String, u64>>> = Lazy::new(|| Mutex::new(H
 ///
 /// If the args are left uninitialized, the program will determine
 /// the best one available.
-#[derive(Default, Clone, Copy, Debug, TypedBuilder, Args)]
+#[derive(Default, Clone, Copy, Debug, Builder, Args)]
 pub struct DriverArgs {
     /// Select which driver to use to build
     /// your image.
-    #[builder(default)]
     #[arg(short = 'B', long)]
     build_driver: Option<BuildDriverType>,
 
     /// Select which driver to use to inspect
     /// images.
-    #[builder(default)]
     #[arg(short = 'I', long)]
     inspect_driver: Option<InspectDriverType>,
 
     /// Select which driver to use to sign
     /// images.
-    #[builder(default)]
     #[arg(short = 'S', long)]
     signing_driver: Option<SigningDriverType>,
 
     /// Select which driver to use to run
     /// containers.
-    #[builder(default)]
     #[arg(short = 'R', long)]
     run_driver: Option<RunDriverType>,
 }

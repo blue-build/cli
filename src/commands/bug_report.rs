@@ -4,6 +4,7 @@ use blue_build_utils::constants::{
     BUG_REPORT_WARNING_MESSAGE, GITHUB_CHAR_LIMIT, LC_TERMINAL, LC_TERMINAL_VERSION, TERM_PROGRAM,
     TERM_PROGRAM_VERSION, UNKNOWN_SHELL, UNKNOWN_TERMINAL, UNKNOWN_VERSION,
 };
+use bon::Builder;
 use clap::Args;
 use clap_complete::Shell;
 use colored::Colorize;
@@ -12,23 +13,21 @@ use log::{debug, error, trace};
 use miette::{IntoDiagnostic, Result};
 use requestty::question::{completions, Completions};
 use std::time::Duration;
-use typed_builder::TypedBuilder;
 
 use super::BlueBuildCommand;
 
 use crate::shadow;
 
-#[derive(Default, Debug, Clone, TypedBuilder, Args)]
+#[derive(Default, Debug, Clone, Builder, Args)]
 pub struct BugReportRecipe {
     recipe_dir: Option<String>,
     recipe_path: Option<String>,
 }
 
-#[derive(Debug, Clone, Args, TypedBuilder)]
+#[derive(Debug, Clone, Args, Builder)]
 pub struct BugReportCommand {
     /// Path to the recipe file
     #[arg(short, long)]
-    #[builder(default)]
     recipe_path: Option<String>,
 }
 

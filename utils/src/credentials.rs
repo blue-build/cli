@@ -3,10 +3,10 @@ use std::{
     sync::{LazyLock, Mutex},
 };
 
+use bon::Builder;
 use clap::Args;
 use docker_credential::DockerCredential;
 use log::trace;
-use typed_builder::TypedBuilder;
 
 use crate::{
     constants::{
@@ -94,7 +94,7 @@ static ENV_CREDENTIALS: LazyLock<Option<Credentials>> = LazyLock::new(|| {
 });
 
 /// The credentials for logging into image registries.
-#[derive(Debug, Default, Clone, TypedBuilder)]
+#[derive(Debug, Default, Clone, Builder)]
 pub struct Credentials {
     pub registry: String,
     pub username: String,
@@ -132,22 +132,20 @@ impl Credentials {
     }
 }
 
-#[derive(Debug, Default, Clone, TypedBuilder, Args)]
+#[derive(Debug, Default, Clone, Builder, Args)]
+#[builder(on(String, into))]
 pub struct CredentialsArgs {
     /// The registry's domain name.
     #[arg(long, env = BB_REGISTRY)]
-    #[builder(default, setter(into, strip_option))]
     pub registry: Option<String>,
 
     /// The username to login to the
     /// container registry.
     #[arg(short = 'U', long, env = BB_USERNAME, hide_env_values = true)]
-    #[builder(default, setter(into, strip_option))]
     pub username: Option<String>,
 
     /// The password to login to the
     /// container registry.
     #[arg(short = 'P', long, env = BB_PASSWORD, hide_env_values = true)]
-    #[builder(default, setter(into, strip_option))]
     pub password: Option<String>,
 }

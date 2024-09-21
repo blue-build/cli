@@ -27,23 +27,23 @@ macro_rules! cmd {
     (@ $command:ident $(,)?) => { };
     (@ $command:ident, for $for_expr:expr $(, $($tail:tt)*)?) => {
         {
-            for arg in $for_expr.iter() {
+            for arg in $for_expr {
                 $crate::cmd!($command, arg);
             }
             $($crate::cmd!(@ $command, $($tail)*);)*
         }
     };
-    (@ $command:ident, for $iter:ident in $for_expr:expr => [ $($arg:expr),* $(,)? ] $(, $($tail:tt)*)?) => {
+    (@ $command:ident, for $iter:pat in $for_expr:expr => [ $($arg:expr),* $(,)? ] $(, $($tail:tt)*)?) => {
         {
-            for $iter in $for_expr.iter() {
+            for $iter in $for_expr {
                 $($crate::cmd!(@ $command, $arg);)*
             }
             $($crate::cmd!(@ $command, $($tail)*);)*
         }
     };
-    (@ $command:ident, for $iter:ident in $for_expr:expr => $arg:expr $(, $($tail:tt)*)?) => {
+    (@ $command:ident, for $iter:pat in $for_expr:expr => $arg:expr $(, $($tail:tt)*)?) => {
         {
-            for $iter in $for_expr.iter() {
+            for $iter in $for_expr {
                 $crate::cmd!(@ $command, $arg);
             }
             $($crate::cmd!(@ $command, $($tail)*);)*

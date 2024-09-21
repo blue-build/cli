@@ -12,19 +12,19 @@ use blue_build_utils::{
     cmd,
     constants::{ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_UNVERIFIED_IMAGE},
 };
+use bon::Builder;
 use clap::Args;
 use colored::Colorize;
 use indicatif::ProgressBar;
 use log::{debug, trace, warn};
 use miette::{bail, IntoDiagnostic, Result};
 use tempdir::TempDir;
-use typed_builder::TypedBuilder;
 
 use crate::{commands::build::BuildCommand, rpm_ostree_status::RpmOstreeStatus};
 
 use super::BlueBuildCommand;
 
-#[derive(Default, Clone, Debug, TypedBuilder, Args)]
+#[derive(Default, Clone, Debug, Builder, Args)]
 pub struct SwitchCommand {
     /// The recipe file to build an image.
     #[arg()]

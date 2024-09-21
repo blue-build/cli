@@ -149,7 +149,7 @@ mod test {
             CI_PIPELINE_SOURCE, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CI_SERVER_HOST,
             CI_SERVER_PROTOCOL,
         },
-        cowstr_vec, string_vec,
+        string_vec,
         test_utils::set_env_var,
     };
     use oci_distribution::Reference;
@@ -238,7 +238,7 @@ mod test {
     )]
     #[case::default_branch_alt_tags(
         setup_default_branch,
-        Some(cowstr_vec![TEST_TAG_1, TEST_TAG_2]),
+        Some(bon::vec![TEST_TAG_1, TEST_TAG_2]),
         string_vec![
             TEST_TAG_1,
             format!("{TEST_TAG_1}-40"),
@@ -257,7 +257,7 @@ mod test {
     )]
     #[case::pr_branch_alt_tags(
         setup_mr_branch,
-        Some(cowstr_vec![TEST_TAG_1, TEST_TAG_2]),
+        Some(bon::vec![TEST_TAG_1, TEST_TAG_2]),
         string_vec![
             format!("mr-12-{TEST_TAG_1}-40"),
             format!("{COMMIT_SHA}-{TEST_TAG_1}-40"),
@@ -272,7 +272,7 @@ mod test {
     )]
     #[case::branch_alt_tags(
         setup_branch,
-        Some(cowstr_vec![TEST_TAG_1, TEST_TAG_2]),
+        Some(bon::vec![TEST_TAG_1, TEST_TAG_2]),
         string_vec![
             format!("br-{BR_REF_NAME}-{TEST_TAG_1}-40"),
             format!("{COMMIT_SHA}-{TEST_TAG_1}-40"),
@@ -292,7 +292,7 @@ mod test {
         let mut tags = GitlabDriver::generate_tags(
             &GenerateTagsOpts::builder()
                 .oci_ref(&oci_ref)
-                .alt_tags(alt_tags)
+                .maybe_alt_tags(alt_tags)
                 .build(),
         )
         .unwrap();

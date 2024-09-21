@@ -5,6 +5,7 @@ mod macros;
 pub mod syntax_highlighting;
 #[cfg(feature = "test")]
 pub mod test_utils;
+pub mod traits;
 
 use std::{
     os::unix::ffi::OsStrExt,

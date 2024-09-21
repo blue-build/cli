@@ -10,25 +10,25 @@ use blue_build_utils::{
     constants::{CONFIG_PATH, RECIPE_FILE, RECIPE_PATH},
     syntax_highlighting::{self, DefaultThemes},
 };
+use bon::Builder;
 use clap::{crate_version, Args};
 use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Result};
-use typed_builder::TypedBuilder;
 
 use crate::shadow;
 
 use super::BlueBuildCommand;
 
-#[derive(Debug, Clone, Args, TypedBuilder)]
+#[derive(Debug, Clone, Args, Builder)]
 pub struct GenerateCommand {
     /// The recipe file to create a template from
     #[arg()]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     recipe: Option<PathBuf>,
 
     /// File to output to instead of STDOUT
     #[arg(short, long)]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     output: Option<PathBuf>,
 
     /// The registry domain the image will be published to.
@@ -36,7 +36,7 @@ pub struct GenerateCommand {
     /// This is used for modules that need to know where
     /// the image is being published (i.e. the signing module).
     #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     registry: Option<String>,
 
     /// The registry namespace the image will be published to.
@@ -44,7 +44,7 @@ pub struct GenerateCommand {
     /// This is used for modules that need to know where
     /// the image is being published (i.e. the signing module).
     #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     registry_namespace: Option<String>,
 
     /// Instead of creating a Containerfile, display
@@ -61,7 +61,6 @@ pub struct GenerateCommand {
     ///
     /// The default is `mocha-dark`.
     #[arg(short = 't', long)]
-    #[builder(default, setter(strip_option))]
     syntax_theme: Option<DefaultThemes>,
 
     #[clap(flatten)]
