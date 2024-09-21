@@ -13,6 +13,7 @@ use super::{
 use blue_build_utils::{
     constants::{COSIGN_PRIV_PATH, COSIGN_PUB_PATH},
     credentials::Credentials,
+    retry,
 };
 use log::{debug, trace};
 use miette::{bail, miette, Context, IntoDiagnostic};
@@ -133,10 +134,11 @@ impl SigningDriver for SigstoreDriver {
         let auth = Auth::Basic(username.clone(), password.clone());
         debug!("Credentials retrieved");
 
-        let (cosign_signature_image, source_image_digest) = RT
-            .block_on(client.triangulate(&image_digest, &auth))
-            .into_diagnostic()
-            .with_context(|| format!("Failed to triangulate image {image_digest}"))?;
+        let (cosign_signature_image, source_image_digest) = retry(2, 5, || {
+            RT.block_on(client.triangulate(&image_digest, &auth))
+                .into_diagnostic()
+                .with_context(|| format!("Failed to triangulate image {image_digest}"))
+        })?;
         debug!("Triangulating image");
         trace!("{cosign_signature_image}, {source_image_digest}");
 
@@ -148,15 +150,19 @@ impl SigningDriver for SigstoreDriver {
         debug!("Created signing layer");
 
         debug!("Pushing signature");
-        RT.block_on(client.push_signature(
-            None,
-            &auth,
-            &cosign_signature_image,
-            vec![signature_layer],
-        ))
-        .into_diagnostic()
-        .with_context(|| {
-            format!("Failed to push signature {cosign_signature_image} for image {image_digest}")
+        retry(2, 5, || {
+            RT.block_on(client.push_signature(
+                None,
+                &auth,
+                &cosign_signature_image,
+                vec![signature_layer.clone()],
+            ))
+            .into_diagnostic()
+            .with_context(|| {
+                format!(
+                    "Failed to push signature {cosign_signature_image} for image {image_digest}"
+                )
+            })
         })?;
         debug!("Successfully pushed signature");
 
@@ -187,21 +193,23 @@ impl SigningDriver for SigstoreDriver {
             PublicKeyVerifier::new(pub_key.as_bytes(), &signing_scheme).into_diagnostic()?;
         let verification_constraints: VerificationConstraintVec = vec![Box::new(verifier)];
 
-        let auth = Auth::Anonymous;
-        let (cosign_signature_image, source_image_digest) = RT
-            .block_on(client.triangulate(&image_digest, &auth))
-            .into_diagnostic()
-            .with_context(|| format!("Failed to triangulate image {image_digest}"))?;
         debug!("Triangulating image");
+        let auth = Auth::Anonymous;
+        let (cosign_signature_image, source_image_digest) = retry(2, 5, || {
+            RT.block_on(client.triangulate(&image_digest, &auth))
+                .into_diagnostic()
+                .with_context(|| format!("Failed to triangulate image {image_digest}"))
+        })?;
         trace!("{cosign_signature_image}, {source_image_digest}");
 
-        let trusted_layers = RT
-            .block_on(client.trusted_signature_layers(
+        let trusted_layers = retry(2, 5, || {
+            RT.block_on(client.trusted_signature_layers(
                 &auth,
                 &source_image_digest,
                 &cosign_signature_image,
             ))
-            .into_diagnostic()?;
+            .into_diagnostic()
+        })?;
 
         sigstore::cosign::verify_constraints(&trusted_layers, verification_constraints.iter())
             .map_err(
