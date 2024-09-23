@@ -2,10 +2,9 @@
 
 set -euo pipefail
 
-if ! command -v bootc; then
-  rpm-ostree install bootc
+if command -v bootc; then
+  bootupctl backend generate-update-metadata
 fi
 
-bootupctl backend generate-update-metadata
 rm -fr /tmp/* /var/*
 ostree container commit
