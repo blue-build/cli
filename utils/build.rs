@@ -21,4 +21,5 @@ fn main() {
         PathBuf::from(env::var("OUT_DIR").unwrap()).join("docker_syntax.bin"),
     )
     .unwrap();
+    println!("cargo:rerun-if-changed=highlights/Dockerfile.sublime-syntax");
 }
