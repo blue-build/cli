@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use blue_build_process_management::drivers::{CiDriver, Driver, DriverArgs};
+use blue_build_process_management::drivers::{types::Platform, CiDriver, Driver, DriverArgs};
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
@@ -63,6 +63,12 @@ pub struct GenerateCommand {
     #[arg(short = 't', long)]
     syntax_theme: Option<DefaultThemes>,
 
+    /// Inspect the image for a specific platform
+    /// when retrieving the version.
+    #[arg(long, default_value = "native")]
+    #[builder(default)]
+    platform: Platform,
+
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,
@@ -115,7 +121,12 @@ impl GenerateCommand {
         info!("Templating for recipe at {}", recipe_path.display());
 
         let template = ContainerFileTemplate::builder()
-            .os_version(Driver::get_os_version(&recipe.base_image_ref()?)?)
+            .os_version(
+                Driver::get_os_version()
+                    .oci_ref(&recipe.base_image_ref()?)
+                    .platform(self.platform)
+                    .call()?,
+            )
             .build_id(Driver::get_build_id())
             .recipe(&recipe)
             .recipe_path(recipe_path.as_path())

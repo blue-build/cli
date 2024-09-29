@@ -6,7 +6,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, trace};
 use miette::{bail, IntoDiagnostic, Result};
 
-use crate::logging::Logger;
+use crate::{drivers::types::Platform, logging::Logger};
 
 use super::{image_metadata::ImageMetadata, opts::GetMetadataOpts, InspectDriver};
 
@@ -29,11 +29,19 @@ impl InspectDriver for SkopeoDriver {
         );
         progress.enable_steady_tick(Duration::from_millis(100));
 
-        trace!("skopeo inspect {url}");
-        let output = cmd!("skopeo", "inspect", &url)
-            .stderr(Stdio::inherit())
-            .output()
-            .into_diagnostic()?;
+        let mut command = cmd!(
+            "skopeo",
+            if !matches!(opts.platform, Platform::Native) => [
+                "--override-arch",
+                opts.platform.arch(),
+            ],
+            "inspect",
+            &url,
+            stderr = Stdio::inherit(),
+        );
+        trace!("{command:?}");
+
+        let output = command.output().into_diagnostic()?;
 
         progress.finish_and_clear();
         Logger::multi_progress().remove(&progress);

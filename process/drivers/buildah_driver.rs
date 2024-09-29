@@ -6,7 +6,7 @@ use miette::{bail, miette, IntoDiagnostic, Result};
 use semver::Version;
 use serde::Deserialize;
 
-use crate::logging::CommandLogging;
+use crate::{drivers::types::Platform, logging::CommandLogging};
 
 use super::{
     opts::{BuildOpts, PushOpts, TagOpts},
@@ -50,6 +50,10 @@ impl BuildDriver for BuildahDriver {
         let command = cmd!(
             "buildah",
             "build",
+            if !matches!(opts.platform, Platform::Native) => [
+                "--platform",
+                opts.platform.to_string(),
+            ],
             "--pull=true",
             format!("--layers={}", !opts.squash),
             "-f",

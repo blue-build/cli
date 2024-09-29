@@ -8,6 +8,8 @@ use bon::Builder;
 use miette::{IntoDiagnostic, Result};
 use zeroize::{Zeroize, Zeroizing};
 
+use crate::drivers::types::Platform;
+
 pub enum PrivateKey {
     Env(String),
     Path(PathBuf),
@@ -112,4 +114,7 @@ pub struct SignVerifyOpts<'scope> {
     /// Defaults to 1.
     #[builder(default = 1)]
     pub retry_count: u8,
+
+    #[builder(default)]
+    pub platform: Platform,
 }
