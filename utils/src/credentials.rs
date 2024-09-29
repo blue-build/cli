@@ -3,10 +3,10 @@ use std::{
     sync::{LazyLock, Mutex},
 };
 
+use bon::Builder;
 use clap::Args;
 use docker_credential::DockerCredential;
 use log::trace;
-use typed_builder::TypedBuilder;
 
 use crate::{
     constants::{
@@ -55,58 +55,34 @@ static ENV_CREDENTIALS: LazyLock<Option<Credentials>> = LazyLock::new(|| {
         env::var(CI_REGISTRY).ok(),
         env::var(GITHUB_ACTIONS).ok(),
     ) {
-        (Some(registry), _, _) if !registry.is_empty() => registry,
-        (None, Some(ci_registry), None) if !ci_registry.is_empty() => ci_registry,
-        (None, None, Some(_)) => string!("ghcr.io"),
+        (Some(registry), _, _) | (_, Some(registry), _) if !registry.is_empty() => registry,
+        (_, _, Some(_)) => string!("ghcr.io"),
         _ => return None,
     };
     trace!("Registry: {registry:?}");
 
-    let docker_creds = docker_credential::get_credential(&registry).ok();
-    let podman_creds = docker_credential::get_podman_credential(&registry).ok();
-
-    let username = match (
-        username,
-        env::var(CI_REGISTRY_USER).ok(),
-        env::var(GITHUB_ACTOR).ok(),
-        &docker_creds,
-        &podman_creds,
+    let (username, password) = match (
+        (username, password),
+        docker_credential::get_credential(&registry).ok(),
+        docker_credential::get_podman_credential(&registry).ok(),
+        (
+            env::var(CI_REGISTRY_USER).ok(),
+            env::var(CI_REGISTRY_PASSWORD).ok(),
+        ),
+        (env::var(GITHUB_ACTOR).ok(), env::var(GITHUB_TOKEN).ok()),
     ) {
-        (Some(username), _, _, _, _) if !username.is_empty() => username,
-        (_, _, _, Some(DockerCredential::UsernamePassword(username, _)), _)
-        | (_, _, _, _, Some(DockerCredential::UsernamePassword(username, _)))
-            if !username.is_empty() =>
+        ((Some(username), Some(password)), _, _, _, _)
+        | (_, Some(DockerCredential::UsernamePassword(username, password)), _, _, _)
+        | (_, _, Some(DockerCredential::UsernamePassword(username, password)), _, _)
+        | (_, _, _, (Some(username), Some(password)), _)
+        | (_, _, _, _, (Some(username), Some(password)))
+            if !username.is_empty() && !password.is_empty() =>
         {
-            username.clone()
+            (username, password)
         }
-        (None, Some(ci_registry_user), None, _, _) if !ci_registry_user.is_empty() => {
-            ci_registry_user
-        }
-        (None, None, Some(github_actor), _, _) if !github_actor.is_empty() => github_actor,
         _ => return None,
     };
-    trace!("Username: {username:?}");
-
-    let password = match (
-        password,
-        env::var(CI_REGISTRY_PASSWORD).ok(),
-        env::var(GITHUB_TOKEN).ok(),
-        &docker_creds,
-        &podman_creds,
-    ) {
-        (Some(password), _, _, _, _) if !password.is_empty() => password,
-        (_, _, _, Some(DockerCredential::UsernamePassword(_, password)), _)
-        | (_, _, _, _, Some(DockerCredential::UsernamePassword(_, password)))
-            if !password.is_empty() =>
-        {
-            password.clone()
-        }
-        (None, Some(ci_registry_password), None, _, _) if !ci_registry_password.is_empty() => {
-            ci_registry_password
-        }
-        (None, None, Some(registry_token), _, _) if !registry_token.is_empty() => registry_token,
-        _ => return None,
-    };
+    trace!("Username: {username}");
 
     Some(
         Credentials::builder()
@@ -118,7 +94,7 @@ static ENV_CREDENTIALS: LazyLock<Option<Credentials>> = LazyLock::new(|| {
 });
 
 /// The credentials for logging into image registries.
-#[derive(Debug, Default, Clone, TypedBuilder)]
+#[derive(Debug, Default, Clone, Builder)]
 pub struct Credentials {
     pub registry: String,
     pub username: String,
@@ -156,22 +132,20 @@ impl Credentials {
     }
 }
 
-#[derive(Debug, Default, Clone, TypedBuilder, Args)]
+#[derive(Debug, Default, Clone, Builder, Args)]
+#[builder(on(String, into))]
 pub struct CredentialsArgs {
     /// The registry's domain name.
     #[arg(long, env = BB_REGISTRY)]
-    #[builder(default, setter(into, strip_option))]
     pub registry: Option<String>,
 
     /// The username to login to the
     /// container registry.
     #[arg(short = 'U', long, env = BB_USERNAME, hide_env_values = true)]
-    #[builder(default, setter(into, strip_option))]
     pub username: Option<String>,
 
     /// The password to login to the
     /// container registry.
     #[arg(short = 'P', long, env = BB_PASSWORD, hide_env_values = true)]
-    #[builder(default, setter(into, strip_option))]
     pub password: Option<String>,
 }

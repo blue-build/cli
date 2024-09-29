@@ -1,12 +1,12 @@
 use std::borrow::Cow;
 
-use typed_builder::TypedBuilder;
+use bon::Builder;
 
-#[derive(Debug, Clone, TypedBuilder)]
-pub struct GetMetadataOpts<'a> {
-    #[builder(setter(into))]
-    pub image: Cow<'a, str>,
+#[derive(Debug, Clone, Builder)]
+pub struct GetMetadataOpts<'scope> {
+    #[builder(into)]
+    pub image: Cow<'scope, str>,
 
-    #[builder(default, setter(into, strip_option))]
-    pub tag: Option<Cow<'a, str>>,
+    #[builder(into)]
+    pub tag: Option<Cow<'scope, str>>,
 }

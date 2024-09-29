@@ -10,3 +10,4 @@ cosign.key
 # Local testing for bluebuild recipe files
 /config/*
 /Containerfile
+/expand.rs

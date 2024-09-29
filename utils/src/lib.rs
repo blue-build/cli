@@ -5,6 +5,7 @@ mod macros;
 pub mod syntax_highlighting;
 #[cfg(feature = "test")]
 pub mod test_utils;
+pub mod traits;
 
 use std::{
     os::unix::ffi::OsStrExt,
@@ -20,7 +21,7 @@ use blake2::{
 };
 use chrono::Local;
 use format_serde_error::SerdeError;
-use log::trace;
+use log::{trace, warn};
 use miette::{miette, Context, IntoDiagnostic, Result};
 
 use crate::constants::CONTAINER_FILE;
@@ -71,16 +72,17 @@ pub fn serde_yaml_err(contents: &str) -> impl Fn(serde_yaml::Error) -> SerdeErro
 ///
 /// # Errors
 /// Will error when retries have been expended.
-pub fn retry<V, F>(mut retries: u8, delay_secs: u64, f: F) -> miette::Result<V>
+pub fn retry<V, F>(mut retries: u8, delay_secs: u64, mut f: F) -> miette::Result<V>
 where
-    F: Fn() -> miette::Result<V>,
+    F: FnMut() -> miette::Result<V>,
 {
     loop {
         match f() {
             Ok(v) => return Ok(v),
             Err(e) if retries == 0 => return Err(e),
-            _ => {
+            Err(e) => {
                 retries -= 1;
+                warn!("Failed operation, will retry {retries} more time(s). Error:\n{e:?}");
                 thread::sleep(Duration::from_secs(delay_secs));
             }
         };

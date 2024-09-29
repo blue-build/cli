@@ -9,17 +9,17 @@ use blue_build_utils::{
     cmd,
     constants::{ARCHIVE_SUFFIX, LOCAL_BUILD},
 };
+use bon::Builder;
 use clap::Args;
 use log::{debug, info, trace};
 use miette::{bail, IntoDiagnostic, Result};
-use typed_builder::TypedBuilder;
 use users::{Users, UsersCache};
 
 use crate::commands::build::BuildCommand;
 
 use super::BlueBuildCommand;
 
-#[derive(Default, Clone, Debug, TypedBuilder, Args)]
+#[derive(Default, Clone, Debug, Builder, Args)]
 pub struct LocalCommonArgs {
     /// The recipe file to build an image.
     #[arg()]
@@ -45,7 +45,7 @@ pub struct LocalCommonArgs {
     drivers: DriverArgs,
 }
 
-#[derive(Default, Clone, Debug, TypedBuilder, Args)]
+#[derive(Default, Clone, Debug, Builder, Args)]
 pub struct UpgradeCommand {
     #[clap(flatten)]
     common: LocalCommonArgs,
@@ -103,7 +103,7 @@ impl BlueBuildCommand for UpgradeCommand {
     }
 }
 
-#[derive(Default, Clone, Debug, TypedBuilder, Args)]
+#[derive(Default, Clone, Debug, Builder, Args)]
 pub struct RebaseCommand {
     #[clap(flatten)]
     common: LocalCommonArgs,

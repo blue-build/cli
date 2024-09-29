@@ -4,11 +4,12 @@ use std::{
     io::{BufRead, BufReader, Result, Write as IoWrite},
     path::{Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
-    sync::{Arc, Mutex},
+    sync::Mutex,
     thread,
     time::Duration,
 };
 
+use bon::Builder;
 use chrono::Local;
 use colored::{control::ShouldColorize, ColoredString, Colorize};
 use indicatif::{MultiProgress, ProgressBar};
@@ -31,7 +32,6 @@ use log4rs::{
 use nu_ansi_term::Color;
 use once_cell::sync::Lazy;
 use rand::Rng;
-use typed_builder::TypedBuilder;
 
 use crate::signal_handler::{add_pid, remove_pid};
 
@@ -196,7 +196,6 @@ impl CommandLogging for Command {
         let ansi_color = gen_random_ansi_color();
         let name = color_str(&image_ref, ansi_color);
         let short_name = color_str(shorten_name(&image_ref), ansi_color);
-        let log_prefix = Arc::new(log_header(short_name));
         let (reader, writer) = os_pipe::pipe()?;
 
         self.stdout(writer.try_clone()?)
@@ -233,7 +232,7 @@ impl CommandLogging for Command {
             let mp = Logger::multi_progress();
             reader.lines().for_each(|line| {
                 if let Ok(l) = line {
-                    let text = format!("{log_prefix} {l}");
+                    let text = format!("{log_prefix} {l}", log_prefix = log_header(&short_name));
                     if mp.is_hidden() {
                         eprintln!("{text}");
                     } else {
@@ -259,9 +258,9 @@ impl CommandLogging for Command {
     }
 }
 
-#[derive(Debug, TypedBuilder)]
+#[derive(Debug, Builder)]
 struct CustomPatternEncoder {
-    #[builder(default, setter(into))]
+    #[builder(default, into)]
     filter_modules: Vec<(String, LevelFilter)>,
 }
 
@@ -321,19 +320,24 @@ impl Encode for CustomPatternEncoder {
 
 /// Used to keep the style of logs consistent between
 /// normal log use and command output.
-fn log_header<T: AsRef<str>>(text: T) -> String {
-    let text = text.as_ref();
-    match log::max_level() {
-        LevelFilter::Error | LevelFilter::Warn | LevelFilter::Info => {
-            format!("{text} {sep}", sep = "=>".bold())
+fn log_header<T>(text: T) -> String
+where
+    T: AsRef<str>,
+{
+    fn inner(text: &str) -> String {
+        match log::max_level() {
+            LevelFilter::Error | LevelFilter::Warn | LevelFilter::Info => {
+                format!("{text} {sep}", sep = "=>".bold())
+            }
+            LevelFilter::Debug | LevelFilter::Trace => format!(
+                "[{time} {text}] {sep}",
+                time = Local::now().format("%H:%M:%S"),
+                sep = "=>".bold(),
+            ),
+            LevelFilter::Off => String::new(),
         }
-        LevelFilter::Debug | LevelFilter::Trace => format!(
-            "[{time} {text}] {sep}",
-            time = Local::now().format("%H:%M:%S"),
-            sep = "=>".bold(),
-        ),
-        LevelFilter::Off => String::new(),
     }
+    inner(text.as_ref())
 }
 
 /// Shortens the image name so that it won't take up the
@@ -391,7 +395,8 @@ where
     }
 }
 
-fn gen_random_ansi_color() -> u8 {
+#[must_use]
+pub fn gen_random_ansi_color() -> u8 {
     // ANSI extended color range
     // https://www.ditig.com/publications/256-colors-cheat-sheet
     const LOW_END: u8 = 21; // Blue1 #0000ff rgb(0,0,255) hsl(240,100%,50%)
@@ -400,7 +405,7 @@ fn gen_random_ansi_color() -> u8 {
     rand::thread_rng().gen_range(LOW_END..=HIGH_END)
 }
 
-fn color_str<T>(text: T, ansi_color: u8) -> String
+pub fn color_str<T>(text: T, ansi_color: u8) -> String
 where
     T: AsRef<str>,
 {

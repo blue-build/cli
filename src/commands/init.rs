@@ -1,12 +1,13 @@
-use std::{env, fmt::Display, fs, io::Write, path::PathBuf, str::FromStr};
+use std::{env, fmt::Display, fs, path::PathBuf, str::FromStr};
 
+use blue_build_process_management::drivers::types::CiDriverType;
 use blue_build_template::{InitReadmeTemplate, Template};
 use blue_build_utils::{cmd, constants::TEMPLATE_REPO_URL};
+use bon::Builder;
 use clap::{Args, ValueEnum};
 use log::{debug, info, trace};
 use miette::{bail, Context, IntoDiagnostic, Report, Result};
 use requestty::{questions, Answers, OnEsc};
-use typed_builder::TypedBuilder;
 
 use crate::commands::BlueBuildCommand;
 
@@ -18,16 +19,24 @@ pub enum CiProvider {
     None,
 }
 
-impl FromStr for CiProvider {
-    type Err = Report;
+impl TryFrom<&str> for CiProvider {
+    type Error = Report;
 
-    fn from_str(s: &str) -> std::prelude::v1::Result<Self, Self::Err> {
-        Ok(match s {
+    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+        Ok(match value {
             "gitlab" => Self::Gitlab,
             "github" => Self::Github,
             "none" => Self::None,
             _ => bail!("Unable to parse for CiProvider"),
         })
+    }
+}
+
+impl FromStr for CiProvider {
+    type Err = Report;
+
+    fn from_str(s: &str) -> std::prelude::v1::Result<Self, Self::Err> {
+        Self::try_from(s)
     }
 }
 
@@ -45,27 +54,34 @@ impl Display for CiProvider {
     }
 }
 
-#[derive(Debug, Clone, Default, Args, TypedBuilder)]
+impl From<CiProvider> for CiDriverType {
+    fn from(value: CiProvider) -> Self {
+        match value {
+            CiProvider::Github => Self::Github,
+            CiProvider::Gitlab => Self::Gitlab,
+            CiProvider::None => unimplemented!(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Args, Builder)]
+#[builder(on(String, into))]
 pub struct NewInitCommon {
     /// The name of the image for the recipe.
     #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
     image_name: Option<String>,
 
     /// The name of the org where your repo will be located.
     /// This could end up being your username.
     #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
     org_name: Option<String>,
 
     /// Optional description for the GitHub repository.
     #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
     description: Option<String>,
 
     /// The registry to store the image.
     #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
     registry: Option<String>,
 
     /// The CI provider that will be building the image.
@@ -73,16 +89,14 @@ pub struct NewInitCommon {
     /// GitHub Actions and Gitlab CI are currently the
     /// officially supported CI providers.
     #[arg(long, short)]
-    #[builder(default)]
     ci_provider: Option<CiProvider>,
 
     /// Disable setting up git.
     #[arg(long)]
-    #[builder(default)]
     no_git: bool,
 }
 
-#[derive(Debug, Clone, Args, TypedBuilder)]
+#[derive(Debug, Clone, Args, Builder)]
 pub struct NewCommand {
     #[arg()]
     dir: PathBuf,
@@ -101,14 +115,13 @@ impl BlueBuildCommand for NewCommand {
     }
 }
 
-#[derive(Debug, Clone, Args, TypedBuilder)]
+#[derive(Debug, Clone, Args, Builder)]
 pub struct InitCommand {
     #[clap(skip)]
-    #[builder(setter(into), default)]
+    #[builder(into)]
     dir: Option<PathBuf>,
 
     #[clap(flatten)]
-    #[builder(default)]
     common: NewInitCommon,
 }
 
@@ -133,28 +146,33 @@ macro_rules! impl_when {
 }
 
 impl InitCommand {
+    const CI_PROVIDER: &str = "ci_provider";
+    const IMAGE_NAME: &str = "image_name";
+    const ORG_NAME: &str = "org_name";
+    const DESCRIPTION: &str = "description";
+
     fn questions(&self) -> Result<Answers> {
         let questions = questions![
             Input {
-                name: "image_name",
+                name: Self::IMAGE_NAME,
                 message: "What would you like to name your image?",
                 when: impl_when!(self.common.image_name.is_none()),
                 on_esc: OnEsc::Terminate,
             },
             Input {
-                name: "org_name",
+                name: Self::ORG_NAME,
                 message: "What is the name of your org/username?",
                 when: impl_when!(self.common.org_name.is_none()),
                 on_esc: OnEsc::Terminate,
             },
             Input {
-                name: "description",
+                name: Self::DESCRIPTION,
                 message: "Write a short description of your image:",
                 when: impl_when!(self.common.description.is_none()),
                 on_esc: OnEsc::Terminate,
             },
             Select {
-                name: "ci_provider",
+                name: Self::CI_PROVIDER,
                 message: "Are you building on Github or Gitlab?",
                 when: impl_when!(!self.common.no_git && self.common.ci_provider.is_none()),
                 on_esc: OnEsc::Terminate,
@@ -170,7 +188,7 @@ impl InitCommand {
         self.remove_git_directory()?;
         self.remove_codeowners_file()?;
         self.template_readme(answers)?;
-        self.set_ci_provider()?;
+        self.set_ci_provider(answers)?;
 
         if !self.common.no_git {
             self.initialize_git()?;
@@ -338,7 +356,11 @@ impl InitCommand {
         Ok(())
     }
 
-    fn set_ci_provider(&self) -> Result<()> {
+    fn set_ci_provider(&self, answers: &Answers) -> Result<()> {
+        let _ci_provider =
+            CiProvider::try_from(answers.get(Self::CI_PROVIDER).unwrap().as_string().unwrap())
+                .unwrap();
+
         todo!()
     }
 }

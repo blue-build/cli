@@ -22,7 +22,10 @@ use serde::Deserialize;
 use tempdir::TempDir;
 
 use crate::{
-    drivers::image_metadata::ImageMetadata,
+    drivers::{
+        opts::{RunOptsEnv, RunOptsVolume},
+        types::ImageMetadata,
+    },
     logging::{CommandLogging, Logger},
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
 };
@@ -220,7 +223,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<()> {
+    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<Vec<String>> {
         trace!("DockerDriver::build_tag_push({opts:#?})");
 
         if opts.squash {
@@ -250,63 +253,62 @@ impl BuildDriver for DockerDriver {
                 ],
         );
 
-        let mut final_image = String::new();
-
-        match (opts.image.as_deref(), opts.archive_path.as_deref()) {
+        let final_images = match (opts.image.as_deref(), opts.archive_path.as_deref()) {
             (Some(image), None) => {
-                if opts.tags.is_empty() {
-                    final_image.push_str(image);
+                let images = if opts.tags.is_empty() {
                     cmd!(command, "-t", image);
+                    string_vec![image]
                 } else {
-                    final_image.push_str(
-                        format!("{image}:{}", opts.tags.first().map_or("", String::as_str))
-                            .as_str(),
-                    );
-
                     opts.tags.iter().for_each(|tag| {
                         cmd!(command, "-t", format!("{image}:{tag}"));
                     });
-                }
+                    opts.tags
+                        .iter()
+                        .map(|tag| format!("{image}:{tag}"))
+                        .collect()
+                };
+                let first_image = images.first().unwrap();
 
                 if opts.push {
                     cmd!(
                         command,
                         "--output",
                         format!(
-                            "type=image,name={image},push=true,compression={},oci-mediatypes=true",
+                            "type=image,name={first_image},push=true,compression={},oci-mediatypes=true",
                             opts.compression
                         )
                     );
                 } else {
                     cmd!(command, "--load");
                 }
+                images
             }
             (None, Some(archive_path)) => {
-                final_image.push_str(archive_path);
-
                 cmd!(command, "--output", format!("type=oci,dest={archive_path}"));
+                string_vec![archive_path]
             }
             (Some(_), Some(_)) => bail!("Cannot use both image and archive path"),
             (None, None) => bail!("Need either the image or archive path set"),
-        }
+        };
+        let display_image = final_images.first().unwrap(); // There will always be at least one image
 
         cmd!(command, ".");
 
         trace!("{command:?}");
         if command
-            .status_image_ref_progress(&final_image, "Building Image")
+            .status_image_ref_progress(display_image, "Building Image")
             .into_diagnostic()?
             .success()
         {
             if opts.push {
-                info!("Successfully built and pushed image {}", final_image);
+                info!("Successfully built and pushed image {}", display_image);
             } else {
-                info!("Successfully built image {}", final_image);
+                info!("Successfully built image {}", display_image);
             }
         } else {
-            bail!("Failed to build image {}", final_image);
+            bail!("Failed to build image {}", display_image);
         }
-        Ok(())
+        Ok(final_images)
     }
 }
 
@@ -329,7 +331,7 @@ impl InspectDriver for DockerDriver {
         let output = Self::run_output(
             &RunOpts::builder()
                 .image(SKOPEO_IMAGE)
-                .args(string_vec!["inspect", url.clone()])
+                .args(bon::vec!["inspect", &url])
                 .remove(true)
                 .build(),
         )
@@ -384,7 +386,7 @@ impl RunDriver for DockerDriver {
 }
 
 fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
-    cmd!(
+    let command = cmd!(
         "docker",
         "run",
         "--cidfile",
@@ -392,13 +394,13 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
         if opts.privileged => "--privileged",
         if opts.remove => "--rm",
         if opts.pull => "--pull=always",
-        for volume in opts.volumes => [
+        for RunOptsVolume { path_or_vol_name, container_path } in opts.volumes.iter() => [
             "--volume",
-            format!("{}:{}", volume.path_or_vol_name, volume.container_path),
+            format!("{path_or_vol_name}:{container_path}"),
         ],
-        for env in opts.env_vars => [
+        for RunOptsEnv { key, value } in opts.env_vars.iter() => [
             "--env",
-            format!("{}={}", env.key, env.value),
+            format!("{key}={value}"),
         ],
         |command| {
             match (opts.uid, opts.gid) {
@@ -408,6 +410,9 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
             }
         },
         &*opts.image,
-        for opts.args,
-    )
+        for arg in opts.args.iter() => &**arg,
+    );
+    trace!("{command:?}");
+
+    command
 }

@@ -5,44 +5,37 @@
 //! labels for an image.
 
 use std::{
+    borrow::Borrow,
     collections::{hash_map::Entry, HashMap},
     fmt::Debug,
     process::{ExitStatus, Output},
     sync::{Mutex, RwLock},
 };
 
-use blue_build_recipe::Recipe;
 use blue_build_utils::constants::IMAGE_VERSION_LABEL;
+use bon::Builder;
 use clap::Args;
 use log::{debug, info, trace};
 use miette::{miette, Result};
+use oci_distribution::Reference;
 use once_cell::sync::Lazy;
-#[cfg(feature = "sigstore")]
-use sigstore_driver::SigstoreDriver;
-use typed_builder::TypedBuilder;
+use opts::{
+    BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
+    GenerateTagsOpts, GetMetadataOpts, PushOpts, RunOpts, SignOpts, TagOpts, VerifyOpts,
+};
+use types::{
+    BuildDriverType, CiDriverType, DetermineDriver, ImageMetadata, InspectDriverType,
+    RunDriverType, SigningDriverType,
+};
 use uuid::Uuid;
 
-use self::{
-    buildah_driver::BuildahDriver,
-    cosign_driver::CosignDriver,
-    docker_driver::DockerDriver,
-    github_driver::GithubDriver,
-    gitlab_driver::GitlabDriver,
-    image_metadata::ImageMetadata,
-    local_driver::LocalDriver,
-    opts::{
-        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateKeyPairOpts, GetMetadataOpts,
-        PushOpts, RunOpts, SignOpts, TagOpts, VerifyOpts,
-    },
-    podman_driver::PodmanDriver,
-    skopeo_driver::SkopeoDriver,
-    types::{
-        BuildDriverType, CiDriverType, DetermineDriver, InspectDriverType, RunDriverType,
-        SigningDriverType,
-    },
+pub use self::{
+    buildah_driver::BuildahDriver, cosign_driver::CosignDriver, docker_driver::DockerDriver,
+    github_driver::GithubDriver, gitlab_driver::GitlabDriver, local_driver::LocalDriver,
+    podman_driver::PodmanDriver, skopeo_driver::SkopeoDriver, traits::*,
 };
-
-pub use traits::*;
+#[cfg(feature = "sigstore")]
+pub use sigstore_driver::SigstoreDriver;
 
 mod buildah_driver;
 mod cosign_driver;
@@ -50,7 +43,6 @@ mod docker_driver;
 mod functions;
 mod github_driver;
 mod gitlab_driver;
-pub mod image_metadata;
 mod local_driver;
 pub mod opts;
 mod podman_driver;
@@ -80,29 +72,25 @@ static OS_VERSION: Lazy<Mutex<HashMap<String, u64>>> = Lazy::new(|| Mutex::new(H
 ///
 /// If the args are left uninitialized, the program will determine
 /// the best one available.
-#[derive(Default, Clone, Copy, Debug, TypedBuilder, Args)]
+#[derive(Default, Clone, Copy, Debug, Builder, Args)]
 pub struct DriverArgs {
     /// Select which driver to use to build
     /// your image.
-    #[builder(default)]
     #[arg(short = 'B', long)]
     build_driver: Option<BuildDriverType>,
 
     /// Select which driver to use to inspect
     /// images.
-    #[builder(default)]
     #[arg(short = 'I', long)]
     inspect_driver: Option<InspectDriverType>,
 
     /// Select which driver to use to sign
     /// images.
-    #[builder(default)]
     #[arg(short = 'S', long)]
     signing_driver: Option<SigningDriverType>,
 
     /// Select which driver to use to run
     /// containers.
-    #[builder(default)]
     #[arg(short = 'R', long)]
     run_driver: Option<RunDriverType>,
 }
@@ -193,33 +181,31 @@ impl Driver {
     ///
     /// # Panics
     /// Panics if the mutex fails to lock.
-    pub fn get_os_version(recipe: &Recipe) -> Result<u64> {
+    pub fn get_os_version(oci_ref: &Reference) -> Result<u64> {
         #[cfg(test)]
         {
-            use miette::IntoDiagnostic;
-            let _ = recipe; // silence lint
+            let _ = oci_ref; // silence lint
 
             if true {
-                return crate::test::create_test_recipe()
-                    .image_version
-                    .parse()
-                    .into_diagnostic();
+                return Ok(40);
             }
         }
 
-        trace!("Driver::get_os_version({recipe:#?})");
-        let image = format!("{}:{}", &recipe.base_image, &recipe.image_version);
-
+        trace!("Driver::get_os_version({oci_ref:#?})");
         let mut os_version_lock = OS_VERSION.lock().expect("Should lock");
 
-        let entry = os_version_lock.get(&image);
+        let entry = os_version_lock.get(&oci_ref.to_string());
 
         let os_version = match entry {
             None => {
-                info!("Retrieving OS version from {image}. This might take a bit");
+                info!("Retrieving OS version from {oci_ref}. This might take a bit");
                 let inspect_opts = GetMetadataOpts::builder()
-                    .image(&*recipe.base_image)
-                    .tag(&*recipe.image_version)
+                    .image(format!(
+                        "{}/{}",
+                        oci_ref.resolve_registry(),
+                        oci_ref.repository()
+                    ))
+                    .tag(oci_ref.tag().unwrap_or("latest"))
                     .build();
                 let inspection = Self::get_metadata(&inspect_opts)?;
 
@@ -234,13 +220,13 @@ impl Driver {
                 os_version
             }
             Some(os_version) => {
-                debug!("Found cached {os_version} for {image}");
+                debug!("Found cached {os_version} for {oci_ref}");
                 *os_version
             }
         };
 
-        if let Entry::Vacant(entry) = os_version_lock.entry(image.clone()) {
-            trace!("Caching version {os_version} for {image}");
+        if let Entry::Vacant(entry) = os_version_lock.entry(oci_ref.to_string()) {
+            trace!("Caching version {os_version} for {oci_ref}");
             entry.insert(os_version);
         }
         drop(os_version_lock);
@@ -295,7 +281,7 @@ impl BuildDriver for Driver {
         impl_build_driver!(login())
     }
 
-    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<()> {
+    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<Vec<String>> {
         impl_build_driver!(build_tag_push(opts))
     }
 }
@@ -371,9 +357,9 @@ impl RunDriver for Driver {
 macro_rules! impl_ci_driver {
     ($func:ident($($args:expr),*)) => {
         match Self::get_ci_driver() {
-            CiDriverType::Local => LocalDriver::$func($($args)*),
-            CiDriverType::Gitlab => GitlabDriver::$func($($args)*),
-            CiDriverType::Github => GithubDriver::$func($($args)*),
+            CiDriverType::Local => LocalDriver::$func($($args,)*),
+            CiDriverType::Gitlab => GitlabDriver::$func($($args,)*),
+            CiDriverType::Github => GithubDriver::$func($($args,)*),
         }
     };
 }
@@ -391,8 +377,8 @@ impl CiDriver for Driver {
         impl_ci_driver!(oidc_provider())
     }
 
-    fn generate_tags(recipe: &Recipe) -> Result<Vec<String>> {
-        impl_ci_driver!(generate_tags(recipe))
+    fn generate_tags(opts: &GenerateTagsOpts) -> Result<Vec<String>> {
+        impl_ci_driver!(generate_tags(opts))
     }
 
     fn get_repo_url() -> Result<String> {
@@ -403,7 +389,14 @@ impl CiDriver for Driver {
         impl_ci_driver!(get_registry())
     }
 
-    fn generate_image_name(recipe: &Recipe) -> Result<String> {
-        impl_ci_driver!(generate_image_name(recipe))
+    fn generate_image_name<'a, O>(opts: O) -> Result<Reference>
+    where
+        O: Borrow<GenerateImageNameOpts<'a>>,
+    {
+        impl_ci_driver!(generate_image_name(opts))
+    }
+
+    fn default_ci_file_path() -> std::path::PathBuf {
+        impl_ci_driver!(default_ci_file_path())
     }
 }

@@ -45,6 +45,9 @@ fn main() {
         #[cfg(feature = "init")]
         CommandArgs::Init(mut command) => command.run(),
 
+        #[cfg(feature = "iso")]
+        CommandArgs::GenerateIso(mut command) => command.run(),
+
         CommandArgs::BugReport(mut command) => command.run(),
 
         CommandArgs::Completions(mut command) => command.run(),

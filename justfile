@@ -69,12 +69,16 @@ watch-lint:
 watch-lint-all-features:
   cargo watch -c -x 'clippy --all-features'
 
+expand *args:
+  cargo expand $@ > ./expand.rs
+  echo "Expansion located in ./expand.rs"
+
 # Installs cargo tools that help with development
 tools:
   rustup toolchain install stable
   rustup override set stable
   rustup component add --toolchain stable rust-analyzer clippy rustfmt
-  cargo install cargo-watch
+  cargo install cargo-watch cargo-expand
 
 # Run cargo release and push the tag separately
 release *args:

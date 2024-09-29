@@ -5,11 +5,10 @@ use blue_build_utils::credentials::{Credentials, CredentialsArgs};
 use clap::Args;
 use miette::{bail, IntoDiagnostic, Result};
 use requestty::questions;
-use typed_builder::TypedBuilder;
 
 use super::BlueBuildCommand;
 
-#[derive(Debug, Clone, Args, TypedBuilder)]
+#[derive(Debug, Clone, Args)]
 pub struct LoginCommand {
     /// The server to login to.
     server: String,
@@ -31,7 +30,6 @@ pub struct LoginCommand {
     username: Option<String>,
 
     #[clap(flatten)]
-    #[builder(default)]
     drivers: DriverArgs,
 }
 

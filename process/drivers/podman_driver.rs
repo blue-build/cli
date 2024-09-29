@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use blue_build_utils::{cmd, constants::SKOPEO_IMAGE, credentials::Credentials, string_vec};
+use blue_build_utils::{cmd, constants::SKOPEO_IMAGE, credentials::Credentials};
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace, warn};
@@ -15,7 +15,10 @@ use serde::Deserialize;
 use tempdir::TempDir;
 
 use crate::{
-    drivers::image_metadata::ImageMetadata,
+    drivers::{
+        opts::{RunOptsEnv, RunOptsVolume},
+        types::ImageMetadata,
+    },
     logging::{CommandLogging, Logger},
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
 };
@@ -198,7 +201,7 @@ impl InspectDriver for PodmanDriver {
         let output = Self::run_output(
             &RunOpts::builder()
                 .image(SKOPEO_IMAGE)
-                .args(string_vec!["inspect", url.clone()])
+                .args(bon::vec!["inspect", &url])
                 .remove(true)
                 .build(),
         )
@@ -227,8 +230,12 @@ impl RunDriver for PodmanDriver {
 
         add_cid(&cid);
 
-        let status = podman_run(opts, &cid_file)
-            .status_image_ref_progress(&*opts.image, "Running container")?;
+        let status = if opts.privileged {
+            podman_run(opts, &cid_file).status()?
+        } else {
+            podman_run(opts, &cid_file)
+                .status_image_ref_progress(&*opts.image, "Running container")?
+        };
 
         remove_cid(&cid);
 
@@ -254,7 +261,7 @@ impl RunDriver for PodmanDriver {
 }
 
 fn podman_run(opts: &RunOpts, cid_file: &Path) -> Command {
-    cmd!(
+    let command = cmd!(
         if opts.privileged {
             warn!(
                 "Running 'podman' in privileged mode requires '{}'",
@@ -267,18 +274,24 @@ fn podman_run(opts: &RunOpts, cid_file: &Path) -> Command {
         if opts.privileged => "podman",
         "run",
         format!("--cidfile={}", cid_file.display()),
-        if opts.privileged => "--privileged",
+        if opts.privileged => [
+            "--privileged",
+            "--network=host",
+        ],
         if opts.remove => "--rm",
         if opts.pull => "--pull=always",
-        for volume in opts.volumes => [
+        for RunOptsVolume { path_or_vol_name, container_path } in opts.volumes.iter() => [
             "--volume",
-            format!("{}:{}", volume.path_or_vol_name, volume.container_path),
+            format!("{path_or_vol_name}:{container_path}"),
         ],
-        for env in opts.env_vars => [
+        for RunOptsEnv { key, value } in opts.env_vars.iter() => [
             "--env",
-            format!("{}={}", env.key, env.value),
+            format!("{key}={value}"),
         ],
         &*opts.image,
-        for opts.args,
-    )
+        for arg in opts.args.iter() => &**arg,
+    );
+    trace!("{command:?}");
+
+    command
 }

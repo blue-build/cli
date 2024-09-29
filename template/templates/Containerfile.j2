@@ -16,6 +16,12 @@ ARG MODULE_DIRECTORY="/tmp/modules"
 ARG IMAGE_NAME="{{ recipe.name }}"
 ARG BASE_IMAGE="{{ recipe.base_image }}"
 
+{%- if self::should_color() %}
+ARG FORCE_COLOR=1
+ARG CLICOLOR_FORCE=1
+ARG RUST_LOG_STYLE=always
+{%- endif %}
+
 # Key RUN
 RUN --mount=type=bind,from=stage-keys,src=/keys,dst=/tmp/keys \
   mkdir -p /etc/pki/containers/ \
@@ -32,7 +38,8 @@ RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
 
 {% call modules::main_modules_run(recipe.modules_ext, os_version) %}
 
-RUN rm -fr /tmp/* /var/* && ostree container commit
+RUN --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/scripts/ \
+  /scripts/post_build.sh
 
 # Labels are added last since they cause cache misses with buildah
 LABEL {{ blue_build_utils::constants::BUILD_ID_LABEL }}="{{ build_id }}"

@@ -1,26 +1,60 @@
 use std::{
+    borrow::Borrow,
     path::PathBuf,
     process::{ExitStatus, Output},
 };
 
-use blue_build_recipe::Recipe;
-use blue_build_utils::{constants::COSIGN_PUB_PATH, retry};
+use blue_build_utils::{constants::COSIGN_PUB_PATH, retry, string_vec};
 use log::{debug, info, trace};
-use miette::{bail, miette, Result};
+use miette::{bail, miette, Context, IntoDiagnostic, Result};
+use oci_distribution::Reference;
 use semver::{Version, VersionReq};
 
 use crate::drivers::{functions::get_private_key, types::CiDriverType, Driver};
 
+#[cfg(feature = "sigstore")]
+use super::sigstore_driver::SigstoreDriver;
 use super::{
-    image_metadata::ImageMetadata,
+    buildah_driver::BuildahDriver,
+    cosign_driver::CosignDriver,
+    docker_driver::DockerDriver,
+    github_driver::GithubDriver,
+    gitlab_driver::GitlabDriver,
+    local_driver::LocalDriver,
     opts::{
-        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateKeyPairOpts, GetMetadataOpts,
-        PushOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts, VerifyOpts, VerifyType,
+        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
+        GenerateTagsOpts, GetMetadataOpts, PushOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts,
+        VerifyOpts, VerifyType,
     },
+    podman_driver::PodmanDriver,
+    skopeo_driver::SkopeoDriver,
+    types::ImageMetadata,
 };
 
+trait PrivateDriver {}
+
+macro_rules! impl_private_driver {
+    ($driver:ty) => {
+        impl PrivateDriver for $driver {}
+    };
+}
+
+impl_private_driver!(Driver);
+impl_private_driver!(DockerDriver);
+impl_private_driver!(PodmanDriver);
+impl_private_driver!(BuildahDriver);
+impl_private_driver!(GithubDriver);
+impl_private_driver!(GitlabDriver);
+impl_private_driver!(LocalDriver);
+impl_private_driver!(CosignDriver);
+impl_private_driver!(SkopeoDriver);
+
+#[cfg(feature = "sigstore")]
+impl_private_driver!(SigstoreDriver);
+
 /// Trait for retrieving version of a driver.
-pub trait DriverVersion {
+#[allow(private_bounds)]
+pub trait DriverVersion: PrivateDriver {
     /// The version req string slice that follows
     /// the semver standard <https://semver.org/>.
     const VERSION_REQ: &'static str;
@@ -41,7 +75,8 @@ pub trait DriverVersion {
 
 /// Allows agnostic building, tagging
 /// pushing, and login.
-pub trait BuildDriver {
+#[allow(private_bounds)]
+pub trait BuildDriver: PrivateDriver {
     /// Runs the build logic for the driver.
     ///
     /// # Errors
@@ -70,7 +105,7 @@ pub trait BuildDriver {
     ///
     /// # Errors
     /// Will error if building, tagging, or pusing fails.
-    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<()> {
+    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<Vec<String>> {
         trace!("BuildDriver::build_tag_push({opts:#?})");
 
         let full_image = match (opts.archive_path.as_ref(), opts.image.as_ref()) {
@@ -94,22 +129,26 @@ pub trait BuildDriver {
         info!("Building image {full_image}");
         Self::build(&build_opts)?;
 
-        if !opts.tags.is_empty() && opts.archive_path.is_none() {
+        let image_list: Vec<String> = if !opts.tags.is_empty() && opts.archive_path.is_none() {
             let image = opts
                 .image
                 .as_ref()
                 .ok_or_else(|| miette!("Image is required in order to tag"))?;
             debug!("Tagging all images");
 
-            for tag in opts.tags.as_ref() {
+            let mut image_list = Vec::with_capacity(opts.tags.len());
+
+            for tag in &opts.tags {
                 debug!("Tagging {} with {tag}", &full_image);
+                let tagged_image = format!("{image}:{tag}");
 
                 let tag_opts = TagOpts::builder()
                     .src_image(&full_image)
-                    .dest_image(format!("{image}:{tag}"))
+                    .dest_image(&tagged_image)
                     .build();
 
                 Self::tag(&tag_opts)?;
+                image_list.push(tagged_image);
 
                 if opts.push {
                     let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
@@ -130,14 +169,19 @@ pub trait BuildDriver {
                     })?;
                 }
             }
-        }
 
-        Ok(())
+            image_list
+        } else {
+            string_vec![&full_image]
+        };
+
+        Ok(image_list)
     }
 }
 
 /// Allows agnostic inspection of images.
-pub trait InspectDriver {
+#[allow(private_bounds)]
+pub trait InspectDriver: PrivateDriver {
     /// Gets the metadata on an image tag.
     ///
     /// # Errors
@@ -145,7 +189,9 @@ pub trait InspectDriver {
     fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata>;
 }
 
-pub trait RunDriver: Sync + Send {
+/// Allows agnostic running of containers.
+#[allow(private_bounds)]
+pub trait RunDriver: PrivateDriver {
     /// Run a container to perform an action.
     ///
     /// # Errors
@@ -159,7 +205,9 @@ pub trait RunDriver: Sync + Send {
     fn run_output(opts: &RunOpts) -> std::io::Result<Output>;
 }
 
-pub trait SigningDriver {
+/// Allows agnostic management of signature keys.
+#[allow(private_bounds)]
+pub trait SigningDriver: PrivateDriver {
     /// Generate a new private/public key pair.
     ///
     /// # Errors
@@ -262,7 +310,8 @@ pub trait SigningDriver {
 }
 
 /// Allows agnostic retrieval of CI-based information.
-pub trait CiDriver {
+#[allow(private_bounds)]
+pub trait CiDriver: PrivateDriver {
     /// Determines if we're on the main branch of
     /// a repository.
     fn on_default_branch() -> bool;
@@ -307,18 +356,47 @@ pub trait CiDriver {
     ///
     /// # Errors
     /// Will error if the environment variables aren't set.
-    fn generate_tags(recipe: &Recipe) -> Result<Vec<String>>;
+    fn generate_tags(opts: &GenerateTagsOpts) -> Result<Vec<String>>;
 
     /// Generates the image name based on CI.
     ///
     /// # Errors
     /// Will error if the environment variables aren't set.
-    fn generate_image_name(recipe: &Recipe) -> Result<String> {
-        Ok(format!(
-            "{}/{}",
-            Self::get_registry()?,
-            recipe.name.trim().to_lowercase()
-        ))
+    fn generate_image_name<'a, O>(opts: O) -> Result<Reference>
+    where
+        O: Borrow<GenerateImageNameOpts<'a>>,
+    {
+        fn inner(opts: &GenerateImageNameOpts, driver_registry: &str) -> Result<Reference> {
+            let image = match (&opts.registry, &opts.registry_namespace) {
+                (Some(registry), Some(registry_namespace)) => {
+                    format!(
+                        "{}/{}/{}",
+                        registry.trim().to_lowercase(),
+                        registry_namespace.trim().to_lowercase(),
+                        opts.name.trim().to_lowercase()
+                    )
+                }
+                (Some(registry), None) => {
+                    format!(
+                        "{}/{}",
+                        registry.trim().to_lowercase(),
+                        opts.name.trim().to_lowercase()
+                    )
+                }
+                _ => {
+                    format!(
+                        "{}/{}",
+                        driver_registry.trim().to_lowercase(),
+                        opts.name.trim().to_lowercase()
+                    )
+                }
+            };
+            image
+                .parse()
+                .into_diagnostic()
+                .with_context(|| format!("Unable to parse image {image}"))
+        }
+        inner(opts.borrow(), &Self::get_registry()?)
     }
 
     /// Get the URL for the repository.
@@ -332,4 +410,6 @@ pub trait CiDriver {
     /// # Errors
     /// Will error if the environment variables aren't set.
     fn get_registry() -> Result<String>;
+
+    fn default_ci_file_path() -> PathBuf;
 }

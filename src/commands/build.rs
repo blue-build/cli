@@ -3,9 +3,15 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use blue_build_process_management::drivers::{
-    opts::{BuildTagPushOpts, CheckKeyPairOpts, CompressionType},
-    BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
+use blue_build_process_management::{
+    drivers::{
+        opts::{
+            BuildTagPushOpts, CheckKeyPairOpts, CompressionType, GenerateImageNameOpts,
+            GenerateTagsOpts, SignVerifyOpts,
+        },
+        BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
+    },
+    logging::{color_str, gen_random_ansi_color},
 };
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
@@ -13,31 +19,34 @@ use blue_build_utils::{
         ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, BUILD_ID_LABEL, CONFIG_PATH, CONTAINER_FILE,
         GITIGNORE_PATH, LABELED_ERROR_MESSAGE, NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH,
     },
+    cowstr,
     credentials::{Credentials, CredentialsArgs},
+    string,
+    traits::CowCollecter,
 };
+use bon::Builder;
 use clap::Args;
 use colored::Colorize;
-use log::{debug, info, trace, warn};
+use log::{info, trace, warn};
 use miette::{bail, Context, IntoDiagnostic, Result};
-use typed_builder::TypedBuilder;
 
 use crate::commands::generate::GenerateCommand;
 
 use super::BlueBuildCommand;
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone, Args, TypedBuilder)]
+#[derive(Debug, Clone, Args, Builder)]
 pub struct BuildCommand {
     /// The recipe file to build an image
     #[arg()]
     #[cfg(feature = "multi-recipe")]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     recipe: Option<Vec<PathBuf>>,
 
     /// The recipe file to build an image
     #[arg()]
     #[cfg(not(feature = "multi-recipe"))]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     recipe: Option<PathBuf>,
 
     /// Push the image with all the tags.
@@ -77,14 +86,13 @@ pub struct BuildCommand {
     /// Archives the built image into a tarfile
     /// in the specified directory.
     #[arg(short, long)]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     archive: Option<PathBuf>,
 
     /// The url path to your base
     /// project images.
-    #[arg(long, env = BB_REGISTRY_NAMESPACE)]
-    #[builder(default, setter(into, strip_option))]
-    #[arg(visible_alias("registry-path"))]
+    #[arg(long, env = BB_REGISTRY_NAMESPACE, visible_alias("registry-path"))]
+    #[builder(into)]
     registry_namespace: Option<String>,
 
     /// Do not sign the image on push.
@@ -197,82 +205,69 @@ impl BlueBuildCommand for BuildCommand {
 impl BuildCommand {
     #[cfg(feature = "multi-recipe")]
     fn start(&self, recipe_paths: &[PathBuf]) -> Result<()> {
-        use blue_build_process_management::drivers::opts::SignVerifyOpts;
         use rayon::prelude::*;
 
         trace!("BuildCommand::build_image()");
 
-        recipe_paths
+        let images = recipe_paths
             .par_iter()
-            .try_for_each(|recipe_path| -> Result<()> {
-                let recipe = Recipe::parse(recipe_path)?;
+            .try_fold(Vec::new, |mut images, recipe_path| -> Result<Vec<String>> {
                 let containerfile = if recipe_paths.len() > 1 {
                     blue_build_utils::generate_containerfile_path(recipe_path)?
                 } else {
                     PathBuf::from(CONTAINER_FILE)
                 };
-                let tags = Driver::generate_tags(&recipe)?;
-                let image_name = self.generate_full_image_name(&recipe)?;
-
-                let opts = if let Some(archive_dir) = self.archive.as_ref() {
-                    BuildTagPushOpts::builder()
-                        .containerfile(&containerfile)
-                        .archive_path(format!(
-                            "{}/{}.{ARCHIVE_SUFFIX}",
-                            archive_dir.to_string_lossy().trim_end_matches('/'),
-                            recipe.name.to_lowercase().replace('/', "_"),
-                        ))
-                        .squash(self.squash)
-                        .build()
-                } else {
-                    BuildTagPushOpts::builder()
-                        .image(&image_name)
-                        .containerfile(&containerfile)
-                        .tags(&tags)
-                        .push(self.push)
-                        .retry_push(self.retry_push)
-                        .retry_count(self.retry_count)
-                        .compression(self.compression_format)
-                        .squash(self.squash)
-                        .build()
-                };
-
-                Driver::build_tag_push(&opts)?;
-
-                if self.push && !self.no_sign {
-                    let opts = SignVerifyOpts::builder()
-                        .image(&image_name)
-                        .retry_push(self.retry_push)
-                        .retry_count(self.retry_count);
-                    let opts = if let Some(tag) = tags.first() {
-                        opts.tag(tag).build()
-                    } else {
-                        opts.build()
-                    };
-                    Driver::sign_and_verify(&opts)?;
-                }
-
-                Ok(())
+                images.extend(self.build(recipe_path, &containerfile)?);
+                Ok(images)
+            })
+            .try_reduce(Vec::new, |mut init, image_names| {
+                let color = gen_random_ansi_color();
+                init.extend(image_names.iter().map(|image| color_str(image, color)));
+                Ok(init)
             })?;
 
-        info!("Build complete!");
+        info!(
+            "Finished building:\n{}",
+            images
+                .iter()
+                .map(|image| format!("\t- {image}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
         Ok(())
     }
 
     #[cfg(not(feature = "multi-recipe"))]
     fn start(&self, recipe_path: &Path) -> Result<()> {
-        use blue_build_process_management::drivers::opts::SignVerifyOpts;
-
         trace!("BuildCommand::start()");
 
+        let images = self.build(recipe_path, Path::new(CONTAINER_FILE))?;
+        let color = gen_random_ansi_color();
+
+        info!(
+            "Finished building:\n{}",
+            images
+                .iter()
+                .map(|image| format!("\t- {}", color_str(image, color)))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+        Ok(())
+    }
+
+    fn build(&self, recipe_path: &Path, containerfile: &Path) -> Result<Vec<String>> {
         let recipe = Recipe::parse(recipe_path)?;
-        let containerfile = PathBuf::from(CONTAINER_FILE);
-        let tags = Driver::generate_tags(&recipe)?;
-        let image_name = self.generate_full_image_name(&recipe)?;
+        let tags = Driver::generate_tags(
+            &GenerateTagsOpts::builder()
+                .oci_ref(&recipe.base_image_ref()?)
+                .maybe_alt_tags(recipe.alt_tags.as_ref().map(CowCollecter::to_cow_vec))
+                .build(),
+        )?;
+        let image_name = self.image_name(&recipe)?;
 
         let opts = if let Some(archive_dir) = self.archive.as_ref() {
             BuildTagPushOpts::builder()
-                .containerfile(&containerfile)
+                .containerfile(containerfile)
                 .archive_path(format!(
                     "{}/{}.{ARCHIVE_SUFFIX}",
                     archive_dir.to_string_lossy().trim_end_matches('/'),
@@ -283,8 +278,8 @@ impl BuildCommand {
         } else {
             BuildTagPushOpts::builder()
                 .image(&image_name)
-                .containerfile(&containerfile)
-                .tags(&tags)
+                .containerfile(containerfile)
+                .tags(tags.to_cow_vec())
                 .push(self.push)
                 .retry_push(self.retry_push)
                 .retry_count(self.retry_count)
@@ -293,48 +288,38 @@ impl BuildCommand {
                 .build()
         };
 
-        Driver::build_tag_push(&opts)?;
+        let images = Driver::build_tag_push(&opts)?;
 
         if self.push && !self.no_sign {
-            let opts = SignVerifyOpts::builder()
-                .image(&image_name)
-                .retry_push(self.retry_push)
-                .retry_count(self.retry_count);
-            let opts = if let Some(tag) = tags.first() {
-                opts.tag(tag).build()
-            } else {
-                opts.build()
-            };
-            Driver::sign_and_verify(&opts)?;
+            Driver::sign_and_verify(
+                &SignVerifyOpts::builder()
+                    .image(&image_name)
+                    .retry_push(self.retry_push)
+                    .retry_count(self.retry_count)
+                    .maybe_tag(tags.first())
+                    .build(),
+            )?;
         }
 
-        info!("Build complete!");
-        Ok(())
+        Ok(images)
     }
 
-    /// # Errors
-    ///
-    /// Will return `Err` if the image name cannot be generated.
-    fn generate_full_image_name(&self, recipe: &Recipe) -> Result<String> {
-        trace!("BuildCommand::generate_full_image_name({recipe:#?})");
-        info!("Generating full image name");
+    fn image_name(&self, recipe: &Recipe) -> Result<String> {
+        let image_name = Driver::generate_image_name(
+            GenerateImageNameOpts::builder()
+                .name(recipe.name.trim())
+                .maybe_registry(self.credentials.registry.as_ref().map(|r| cowstr!(r)))
+                .maybe_registry_namespace(self.registry_namespace.as_ref().map(|r| cowstr!(r)))
+                .build(),
+        )?;
 
-        let image_name = if let (Some(registry), Some(registry_path)) = (
-            self.credentials.registry.as_ref().map(|r| r.to_lowercase()),
-            self.registry_namespace.as_ref().map(|s| s.to_lowercase()),
-        ) {
-            trace!("registry={registry}, registry_path={registry_path}");
-            format!(
-                "{}/{}/{}",
-                registry.trim().trim_matches('/'),
-                registry_path.trim().trim_matches('/'),
-                recipe.name.trim(),
-            )
+        let image_name = if image_name.registry().is_empty() {
+            string!(image_name.repository())
+        } else if image_name.registry() == "" {
+            image_name.repository().to_string()
         } else {
-            Driver::generate_image_name(recipe)?
+            format!("{}/{}", image_name.registry(), image_name.repository())
         };
-
-        debug!("Using image name '{image_name}'");
 
         Ok(image_name)
     }

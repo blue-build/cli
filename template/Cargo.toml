@@ -9,12 +9,13 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rinja = "0.3.0"
-blue-build-recipe = { version = "=0.8.14", path = "../recipe" }
-blue-build-utils = { version = "=0.8.14", path = "../utils" }
+rinja = { version = "0.3.0", features = ["serde_json"] }
+blue-build-recipe = { version = "=0.8.17", path = "../recipe" }
+blue-build-utils = { version = "=0.8.17", path = "../utils" }
 
 log.workspace = true
-typed-builder.workspace = true
+colored.workspace = true
+bon.workspace = true
 uuid.workspace = true
 
 [lints]

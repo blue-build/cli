@@ -7,22 +7,23 @@ edition = "2021"
 repository = "https://github.com/blue-build/cli"
 license = "Apache-2.0"
 categories = ["command-line-utilities"]
-version = "0.8.14"
+version = "0.8.17"
 
 [workspace.dependencies]
+bon = "2"
 chrono = "0.4"
 clap = "4"
 colored = "2"
 indexmap = { version = "2", features = ["serde"] }
 indicatif = { version = "0.17", features = ["improved_unicode"] }
 log = "0.4"
+oci-distribution = { version = "0.11.0", default-features = false, features = ["rustls-tls", "rustls-tls-native-roots"] }
 miette = "7"
 rstest = "0.18"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
 tempdir = "0.3"
-typed-builder = "0.18"
 users = "0.11"
 uuid = { version = "1", features = ["v4"] }
 
@@ -37,6 +38,7 @@ style = "deny"
 nursery = "deny"
 pedantic = "deny"
 module_name_repetitions = { level = "allow", priority = 1 }
+doc_markdown = { level = "allow", priority = 1 }
 
 [package]
 name = "blue-build"
@@ -55,10 +57,10 @@ pre-release-replacements = [
 ]
 
 [dependencies]
-blue-build-recipe = { version = "=0.8.14", path = "./recipe" }
-blue-build-template = { version = "=0.8.14", path = "./template" }
-blue-build-utils = { version = "=0.8.14", path = "./utils" }
-blue-build-process-management = { version = "=0.8.14", path = "./process" }
+blue-build-recipe = { version = "=0.8.17", path = "./recipe" }
+blue-build-template = { version = "=0.8.17", path = "./template" }
+blue-build-utils = { version = "=0.8.17", path = "./utils" }
+blue-build-process-management = { version = "=0.8.17", path = "./process" }
 clap-verbosity-flag = "2"
 clap_complete = "4"
 fuzzy-matcher = "0.3"
@@ -74,11 +76,12 @@ colored.workspace = true
 indicatif.workspace = true
 log.workspace = true
 miette = { workspace = true, features = ["fancy"] }
+oci-distribution.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 tempdir.workspace = true
-typed-builder.workspace = true
+bon.workspace = true
 users.workspace = true
 
 [features]
@@ -88,6 +91,7 @@ init = []
 stages = ["blue-build-recipe/stages"]
 copy = ["blue-build-recipe/copy"]
 multi-recipe = ["rayon", "indicatif/rayon"]
+iso = []
 switch = []
 sigstore = ["blue-build-process-management/sigstore"]
 login = []
@@ -107,7 +111,3 @@ codegen-units = 1
 strip = "none"
 debug = false
 panic = "abort"
-
-[patch.crates-io]
-# sigstore = { path = "../../sigstore-rs/" }
-sigstore = { git = "https://github.com/gmpinder/sigstore-rs.git", rev = "300910f0fd0c12f402e80c998b9109fcddf216ef" }

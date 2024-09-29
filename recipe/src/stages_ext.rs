@@ -1,17 +1,17 @@
-use std::{borrow::Cow, fs, path::Path};
+use std::{fs, path::Path};
 
 use blue_build_utils::constants::{CONFIG_PATH, RECIPE_PATH};
+use bon::Builder;
 use log::warn;
 use miette::{Context, IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
-use typed_builder::TypedBuilder;
 
 use crate::{Module, Stage};
 
-#[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
+#[derive(Default, Serialize, Clone, Deserialize, Debug, Builder)]
 pub struct StagesExt<'a> {
-    #[builder(default, setter(into))]
-    pub stages: Cow<'a, [Stage<'a>]>,
+    #[builder(default)]
+    pub stages: Vec<Stage<'a>>,
 }
 
 impl<'a> StagesExt<'a> {
@@ -41,8 +41,7 @@ impl<'a> StagesExt<'a> {
                     .map_err(blue_build_utils::serde_yaml_err(&file))
                     .into_diagnostic()?;
                 if let Some(ref mut rf) = stage.required_fields {
-                    rf.modules_ext.modules =
-                        Module::get_modules(&rf.modules_ext.modules, None)?.into();
+                    rf.modules_ext.modules = Module::get_modules(&rf.modules_ext.modules, None)?;
                 }
                 Ok(Self::builder().stages(vec![stage]).build())
             },
@@ -52,10 +51,10 @@ impl<'a> StagesExt<'a> {
                 for stage in &mut stages {
                     if let Some(ref mut rf) = stage.required_fields {
                         rf.modules_ext.modules =
-                            Module::get_modules(&rf.modules_ext.modules, None)?.into();
+                            Module::get_modules(&rf.modules_ext.modules, None)?;
                     }
                 }
-                stages_ext.stages = stages.into();
+                stages_ext.stages = stages;
                 Ok(stages_ext)
             },
         )

@@ -10,25 +10,25 @@ use blue_build_utils::{
     constants::{CONFIG_PATH, RECIPE_FILE, RECIPE_PATH},
     syntax_highlighting::{self, DefaultThemes},
 };
+use bon::Builder;
 use clap::{crate_version, Args};
 use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Result};
-use typed_builder::TypedBuilder;
 
 use crate::shadow;
 
 use super::BlueBuildCommand;
 
-#[derive(Debug, Clone, Args, TypedBuilder)]
+#[derive(Debug, Clone, Args, Builder)]
 pub struct GenerateCommand {
     /// The recipe file to create a template from
     #[arg()]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     recipe: Option<PathBuf>,
 
     /// File to output to instead of STDOUT
     #[arg(short, long)]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     output: Option<PathBuf>,
 
     /// The registry domain the image will be published to.
@@ -36,7 +36,7 @@ pub struct GenerateCommand {
     /// This is used for modules that need to know where
     /// the image is being published (i.e. the signing module).
     #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     registry: Option<String>,
 
     /// The registry namespace the image will be published to.
@@ -44,7 +44,7 @@ pub struct GenerateCommand {
     /// This is used for modules that need to know where
     /// the image is being published (i.e. the signing module).
     #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     registry_namespace: Option<String>,
 
     /// Instead of creating a Containerfile, display
@@ -61,7 +61,6 @@ pub struct GenerateCommand {
     ///
     /// The default is `mocha-dark`.
     #[arg(short = 't', long)]
-    #[builder(default, setter(strip_option))]
     syntax_theme: Option<DefaultThemes>,
 
     #[clap(flatten)]
@@ -91,17 +90,24 @@ impl GenerateCommand {
                 legacy_path.join(RECIPE_FILE)
             }
         });
+        let registry = if let (Some(registry), Some(registry_namespace)) =
+            (&self.registry, &self.registry_namespace)
+        {
+            format!("{registry}/{registry_namespace}")
+        } else {
+            Driver::get_registry()?
+        };
 
         debug!("Deserializing recipe");
-        let recipe_de = Recipe::parse(&recipe_path)?;
-        trace!("recipe_de: {recipe_de:#?}");
+        let recipe = Recipe::parse(&recipe_path)?;
+        trace!("recipe_de: {recipe:#?}");
 
         if self.display_full_recipe {
             if let Some(output) = self.output.as_ref() {
-                std::fs::write(output, serde_yaml::to_string(&recipe_de).into_diagnostic()?)
+                std::fs::write(output, serde_yaml::to_string(&recipe).into_diagnostic()?)
                     .into_diagnostic()?;
             } else {
-                syntax_highlighting::print_ser(&recipe_de, "yml", self.syntax_theme)?;
+                syntax_highlighting::print_ser(&recipe, "yml", self.syntax_theme)?;
             }
             return Ok(());
         }
@@ -109,11 +115,11 @@ impl GenerateCommand {
         info!("Templating for recipe at {}", recipe_path.display());
 
         let template = ContainerFileTemplate::builder()
-            .os_version(Driver::get_os_version(&recipe_de)?)
+            .os_version(Driver::get_os_version(&recipe.base_image_ref()?)?)
             .build_id(Driver::get_build_id())
-            .recipe(&recipe_de)
+            .recipe(&recipe)
             .recipe_path(recipe_path.as_path())
-            .registry(Driver::get_registry()?)
+            .registry(registry)
             .repo(Driver::get_repo_url()?)
             .exports_tag({
                 #[allow(clippy::const_is_empty)]
@@ -142,7 +148,3 @@ impl GenerateCommand {
         Ok(())
     }
 }
-
-// ======================================================== //
-// ========================= Helpers ====================== //
-// ======================================================== //

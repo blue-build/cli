@@ -7,7 +7,7 @@ use miette::{bail, IntoDiagnostic, Result};
 
 use crate::logging::Logger;
 
-use super::{image_metadata::ImageMetadata, opts::GetMetadataOpts, InspectDriver};
+use super::{opts::GetMetadataOpts, types::ImageMetadata, InspectDriver};
 
 #[derive(Debug)]
 pub struct SkopeoDriver;

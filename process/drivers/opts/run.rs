@@ -1,29 +1,22 @@
 use std::borrow::Cow;
 
-use typed_builder::TypedBuilder;
+use bon::Builder;
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone, Builder)]
 pub struct RunOpts<'scope> {
-    #[builder(setter(into))]
+    #[builder(into)]
     pub image: Cow<'scope, str>,
 
-    #[builder(default, setter(into))]
-    pub args: Cow<'scope, [String]>,
+    #[builder(default, into)]
+    pub args: Vec<Cow<'scope, str>>,
 
-    #[builder(default, setter(into))]
-    pub env_vars: Cow<'scope, [RunOptsEnv<'scope>]>,
+    #[builder(default, into)]
+    pub env_vars: Vec<RunOptsEnv<'scope>>,
 
-    #[builder(default, setter(into))]
-    pub volumes: Cow<'scope, [RunOptsVolume<'scope>]>,
-
-    #[builder(default, setter(strip_option))]
+    #[builder(default, into)]
+    pub volumes: Vec<RunOptsVolume<'scope>>,
     pub uid: Option<u32>,
-
-    #[builder(default, setter(strip_option))]
     pub gid: Option<u32>,
-
-    #[builder(default, setter(into))]
-    pub workdir: Cow<'scope, str>,
 
     #[builder(default)]
     pub privileged: bool,
@@ -35,12 +28,12 @@ pub struct RunOpts<'scope> {
     pub remove: bool,
 }
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone, Builder)]
 pub struct RunOptsVolume<'scope> {
-    #[builder(setter(into))]
+    #[builder(into)]
     pub path_or_vol_name: Cow<'scope, str>,
 
-    #[builder(setter(into))]
+    #[builder(into)]
     pub container_path: Cow<'scope, str>,
 }
 
@@ -48,7 +41,7 @@ pub struct RunOptsVolume<'scope> {
 macro_rules! run_volumes {
     ($($host:expr => $container:expr),+ $(,)?) => {
         {
-            [
+            ::bon::vec![
                 $($crate::drivers::opts::RunOptsVolume::builder()
                     .path_or_vol_name($host)
                     .container_path($container)
@@ -58,12 +51,12 @@ macro_rules! run_volumes {
     };
 }
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone, Builder)]
 pub struct RunOptsEnv<'scope> {
-    #[builder(setter(into))]
+    #[builder(into)]
     pub key: Cow<'scope, str>,
 
-    #[builder(setter(into))]
+    #[builder(into)]
     pub value: Cow<'scope, str>,
 }
 
@@ -71,7 +64,7 @@ pub struct RunOptsEnv<'scope> {
 macro_rules! run_envs {
     ($($key:expr => $value:expr),+ $(,)?) => {
         {
-            [
+            ::bon::vec![
                 $($crate::drivers::opts::RunOptsEnv::builder()
                     .key($key)
                     .value($value)

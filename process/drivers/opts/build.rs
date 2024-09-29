@@ -1,63 +1,63 @@
 use std::{borrow::Cow, path::Path};
 
-use typed_builder::TypedBuilder;
+use bon::Builder;
 
 use super::CompressionType;
 
 /// Options for building
-#[derive(Debug, Clone, TypedBuilder)]
-pub struct BuildOpts<'a> {
-    #[builder(setter(into))]
-    pub image: Cow<'a, str>,
+#[derive(Debug, Clone, Builder)]
+pub struct BuildOpts<'scope> {
+    #[builder(into)]
+    pub image: Cow<'scope, str>,
 
     #[builder(default)]
     pub squash: bool,
 
-    #[builder(setter(into))]
-    pub containerfile: Cow<'a, Path>,
+    #[builder(into)]
+    pub containerfile: Cow<'scope, Path>,
 }
 
-#[derive(Debug, Clone, TypedBuilder)]
-pub struct TagOpts<'a> {
-    #[builder(setter(into))]
-    pub src_image: Cow<'a, str>,
+#[derive(Debug, Clone, Builder)]
+pub struct TagOpts<'scope> {
+    #[builder(into)]
+    pub src_image: Cow<'scope, str>,
 
-    #[builder(setter(into))]
-    pub dest_image: Cow<'a, str>,
+    #[builder(into)]
+    pub dest_image: Cow<'scope, str>,
 }
 
-#[derive(Debug, Clone, TypedBuilder)]
-pub struct PushOpts<'a> {
-    #[builder(setter(into))]
-    pub image: Cow<'a, str>,
-
-    #[builder(default, setter(strip_option))]
+#[derive(Debug, Clone, Builder)]
+pub struct PushOpts<'scope> {
+    #[builder(into)]
+    pub image: Cow<'scope, str>,
     pub compression_type: Option<CompressionType>,
 }
 
 /// Options for building, tagging, and pusing images.
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone, TypedBuilder)]
-pub struct BuildTagPushOpts<'a> {
+#[derive(Debug, Clone, Builder)]
+pub struct BuildTagPushOpts<'scope> {
     /// The base image name.
     ///
+    /// NOTE: This SHOULD NOT contain the tag of the image.
+    ///
     /// NOTE: You cannot have this set with `archive_path` set.
-    #[builder(default, setter(into, strip_option))]
-    pub image: Option<Cow<'a, str>>,
+    #[builder(into)]
+    pub image: Option<Cow<'scope, str>>,
 
     /// The path to the archive file.
     ///
     /// NOTE: You cannot have this set with image set.
-    #[builder(default, setter(into, strip_option))]
-    pub archive_path: Option<Cow<'a, str>>,
+    #[builder(into)]
+    pub archive_path: Option<Cow<'scope, str>>,
 
     /// The path to the Containerfile to build.
-    #[builder(setter(into))]
-    pub containerfile: Cow<'a, Path>,
+    #[builder(into)]
+    pub containerfile: Cow<'scope, Path>,
 
     /// The list of tags for the image being built.
-    #[builder(default, setter(into))]
-    pub tags: Cow<'a, [String]>,
+    #[builder(default, into)]
+    pub tags: Vec<Cow<'scope, str>>,
 
     /// Enable pushing the image.
     #[builder(default)]

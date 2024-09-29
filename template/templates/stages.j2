@@ -53,6 +53,12 @@ COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
 # {{ stage.name|capitalize }} stage
 FROM {{ stage.from }} AS {{ stage.name }}
 
+      {%- if self::should_color() %}
+ARG FORCE_COLOR=1
+ARG CLICOLOR_FORCE=1
+ARG RUST_LOG_STYLE=always
+      {%- endif %}
+
       {%- if stage.from != "scratch" %}
 # Add compatibility for modules
 RUN --mount=type=bind,from=stage-bins,src=/bins/,dst=/tmp/bins/ \
