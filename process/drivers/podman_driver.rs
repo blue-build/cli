@@ -5,7 +5,9 @@ use std::{
     time::Duration,
 };
 
-use blue_build_utils::{cmd, constants::SKOPEO_IMAGE, credentials::Credentials};
+use blue_build_utils::{
+    cmd, constants::SKOPEO_IMAGE, credentials::Credentials, traits::IntoCollector,
+};
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace, warn};
@@ -18,6 +20,7 @@ use crate::{
     drivers::{
         image_metadata::ImageMetadata,
         opts::{RunOptsEnv, RunOptsVolume},
+        types::Platform,
     },
     logging::{CommandLogging, Logger},
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
@@ -72,6 +75,10 @@ impl BuildDriver for PodmanDriver {
         let command = cmd!(
             "podman",
             "build",
+            if !matches!(opts.platform, Platform::Native) => [
+                "--platform",
+                opts.platform.to_string(),
+            ],
             "--pull=true",
             format!("--layers={}", !opts.squash),
             "-f",
@@ -198,10 +205,16 @@ impl InspectDriver for PodmanDriver {
         );
         progress.enable_steady_tick(Duration::from_millis(100));
 
+        let mut args = Vec::new();
+        if !matches!(opts.platform, Platform::Native) {
+            args.extend(["--override-arch", opts.platform.arch()]);
+        }
+        args.extend(["inspect", &url]);
+
         let output = Self::run_output(
             &RunOpts::builder()
                 .image(SKOPEO_IMAGE)
-                .args(bon::vec!["inspect", &url])
+                .args(args.collect_into_vec())
                 .remove(true)
                 .build(),
         )

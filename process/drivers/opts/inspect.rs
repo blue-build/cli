@@ -2,6 +2,8 @@ use std::borrow::Cow;
 
 use bon::Builder;
 
+use crate::drivers::types::Platform;
+
 #[derive(Debug, Clone, Builder)]
 pub struct GetMetadataOpts<'scope> {
     #[builder(into)]
@@ -9,4 +11,7 @@ pub struct GetMetadataOpts<'scope> {
 
     #[builder(into)]
     pub tag: Option<Cow<'scope, str>>,
+
+    #[builder(default)]
+    pub platform: Platform,
 }

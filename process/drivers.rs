@@ -12,7 +12,7 @@ use std::{
     time::Duration,
 };
 
-use bon::Builder;
+use bon::{bon, Builder};
 use cached::proc_macro::cached;
 use clap::Args;
 use colored::Colorize;
@@ -24,6 +24,7 @@ use once_cell::sync::Lazy;
 use opts::{GenerateImageNameOpts, GenerateTagsOpts};
 #[cfg(feature = "sigstore")]
 use sigstore_driver::SigstoreDriver;
+use types::Platform;
 use uuid::Uuid;
 
 use crate::logging::Logger;
@@ -152,6 +153,7 @@ macro_rules! impl_driver_init {
 
 pub struct Driver;
 
+#[bon]
 impl Driver {
     /// Initializes the Strategy with user provided credentials.
     ///
@@ -192,7 +194,14 @@ impl Driver {
     ///
     /// # Panics
     /// Panics if the mutex fails to lock.
-    pub fn get_os_version(oci_ref: &Reference) -> Result<u64> {
+    #[builder]
+    pub fn get_os_version(
+        /// The OCI image reference.
+        oci_ref: &Reference,
+        /// The platform of the image to pull the version info from.
+        #[builder(default)]
+        platform: Platform,
+    ) -> Result<u64> {
         #[cfg(test)]
         {
             let _ = oci_ref; // silence lint
@@ -203,7 +212,7 @@ impl Driver {
         }
 
         trace!("Driver::get_os_version({oci_ref:#?})");
-        get_version(oci_ref)
+        get_version(oci_ref, platform)
     }
 
     fn get_build_driver() -> BuildDriverType {
@@ -230,10 +239,10 @@ impl Driver {
 #[cached(
     result = true,
     key = "String",
-    convert = "{ oci_ref.to_string() }",
+    convert = r#"{ format!("{oci_ref}-{platform}") }"#,
     sync_writes = true
 )]
-fn get_version(oci_ref: &Reference) -> Result<u64> {
+fn get_version(oci_ref: &Reference, platform: Platform) -> Result<u64> {
     info!("Retrieving OS version from {oci_ref}. This might take a bit");
     let inspect_opts = GetMetadataOpts::builder()
         .image(format!(
@@ -242,6 +251,7 @@ fn get_version(oci_ref: &Reference) -> Result<u64> {
             oci_ref.repository()
         ))
         .tag(oci_ref.tag().unwrap_or("latest"))
+        .platform(platform)
         .build();
     let os_version = Driver::get_metadata(&inspect_opts)
         .and_then(|inspection| {

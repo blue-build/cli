@@ -12,6 +12,7 @@ use blue_build_utils::{
     constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
     credentials::Credentials,
     string_vec,
+    traits::IntoCollector,
 };
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -26,6 +27,7 @@ use crate::{
     drivers::{
         image_metadata::ImageMetadata,
         opts::{RunOptsEnv, RunOptsVolume},
+        types::Platform,
     },
     logging::{CommandLogging, Logger},
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
@@ -130,6 +132,10 @@ impl BuildDriver for DockerDriver {
         let status = cmd!(
             "docker",
             "build",
+            if !matches!(opts.platform, Platform::Native) => [
+                "--platform",
+                opts.platform.to_string(),
+            ],
             "-t",
             &*opts.image,
             "-f",
@@ -235,6 +241,10 @@ impl BuildDriver for DockerDriver {
             },
             "build",
             "--pull",
+            if !matches!(opts.platform, Platform::Native) => [
+                "--platform",
+                opts.platform.to_string(),
+            ],
             "-f",
             &*opts.containerfile,
             // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
@@ -322,10 +332,16 @@ impl InspectDriver for DockerDriver {
         );
         progress.enable_steady_tick(Duration::from_millis(100));
 
+        let mut args = Vec::new();
+        if !matches!(opts.platform, Platform::Native) {
+            args.extend(["--override-arch", opts.platform.arch()]);
+        }
+        args.extend(["inspect", &url]);
+
         let output = Self::run_output(
             &RunOpts::builder()
                 .image(SKOPEO_IMAGE)
-                .args(bon::vec!["inspect", &url])
+                .args(args.collect_into_vec())
                 .remove(true)
                 .build(),
         )
