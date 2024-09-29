@@ -149,7 +149,7 @@ impl BlueBuildCommand for GenerateIsoCommand {
             #[cfg(not(feature = "multi-recipe"))]
             let mut build_command = {
                 BuildCommand::builder()
-                    .recipe(recipe.to_path_buf())
+                    .recipe(recipe.clone())
                     .archive(image_out_dir.path())
                     .build()
             };
