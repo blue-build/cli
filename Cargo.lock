@@ -351,6 +351,7 @@ dependencies = [
  "anyhow",
  "blue-build-utils",
  "bon",
+ "cached",
  "chrono",
  "clap",
  "colored",

@@ -194,7 +194,7 @@ impl InspectDriver for PodmanDriver {
         let progress = Logger::multi_progress().add(
             ProgressBar::new_spinner()
                 .with_style(ProgressStyle::default_spinner())
-                .with_message(format!("Inspecting metadata for {url}")),
+                .with_message(format!("Inspecting metadata for {}", url.bold())),
         );
         progress.enable_steady_tick(Duration::from_millis(100));
 
@@ -207,7 +207,7 @@ impl InspectDriver for PodmanDriver {
         )
         .into_diagnostic()?;
 
-        progress.finish();
+        progress.finish_and_clear();
         Logger::multi_progress().remove(&progress);
 
         if output.status.success() {

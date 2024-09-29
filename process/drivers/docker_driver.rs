@@ -13,6 +13,7 @@ use blue_build_utils::{
     credentials::Credentials,
     string_vec,
 };
+use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, info, trace, warn};
 use miette::{bail, IntoDiagnostic, Result};
@@ -317,7 +318,7 @@ impl InspectDriver for DockerDriver {
         let progress = Logger::multi_progress().add(
             ProgressBar::new_spinner()
                 .with_style(ProgressStyle::default_spinner())
-                .with_message(format!("Inspecting metadata for {url}")),
+                .with_message(format!("Inspecting metadata for {}", url.bold())),
         );
         progress.enable_steady_tick(Duration::from_millis(100));
 
@@ -330,7 +331,7 @@ impl InspectDriver for DockerDriver {
         )
         .into_diagnostic()?;
 
-        progress.finish();
+        progress.finish_and_clear();
         Logger::multi_progress().remove(&progress);
 
         if output.status.success() {

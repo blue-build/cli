@@ -42,6 +42,7 @@ tempdir.workspace = true
 bon.workspace = true
 users.workspace = true
 uuid.workspace = true
+cached = "0.53.1"
 
 [dev-dependencies]
 rstest.workspace = true
