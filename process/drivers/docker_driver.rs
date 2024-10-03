@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     env,
     io::Write,
     path::Path,
@@ -9,15 +10,15 @@ use std::{
 
 use blue_build_utils::{
     cmd,
-    constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
+    constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST},
     credentials::Credentials,
     string_vec,
-    traits::IntoCollector,
 };
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, info, trace, warn};
-use miette::{bail, IntoDiagnostic, Result};
+use miette::{bail, miette, IntoDiagnostic, Report, Result};
+use oci_distribution::Reference;
 use once_cell::sync::Lazy;
 use semver::Version;
 use serde::Deserialize;
@@ -25,9 +26,9 @@ use tempdir::TempDir;
 
 use crate::{
     drivers::{
-        image_metadata::ImageMetadata,
         opts::{RunOptsEnv, RunOptsVolume},
-        types::Platform,
+        types::{InspectDriverType, Platform},
+        Driver,
     },
     logging::{CommandLogging, Logger},
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
@@ -35,8 +36,52 @@ use crate::{
 
 use super::{
     opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
+    types::ImageMetadata,
     BuildDriver, DriverVersion, InspectDriver, RunDriver,
 };
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+struct DockerImageMetadata {
+    config: DockerImageMetadataConfig,
+    repo_digests: Vec<String>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+struct DockerImageMetadataConfig {
+    labels: HashMap<String, serde_json::Value>,
+}
+
+impl TryFrom<Vec<DockerImageMetadata>> for ImageMetadata {
+    type Error = Report;
+
+    fn try_from(mut value: Vec<DockerImageMetadata>) -> Result<Self> {
+        if value.is_empty() {
+            bail!("Need at least one metadata entry:\n{value:?}");
+        }
+
+        let mut value = value.swap_remove(0);
+        if value.repo_digests.is_empty() {
+            bail!("Metadata requires at least 1 digest:\n{value:#?}");
+        }
+
+        let digest: Reference = value
+            .repo_digests
+            .swap_remove(0)
+            .parse()
+            .into_diagnostic()?;
+        let digest = digest
+            .digest()
+            .ok_or_else(|| miette!("Unable to read digest from {digest}"))?
+            .to_string();
+
+        Ok(Self {
+            labels: value.config.labels,
+            digest,
+        })
+    }
+}
 
 #[derive(Debug, Deserialize)]
 struct DockerVerisonJsonClient {
@@ -280,7 +325,14 @@ impl BuildDriver for DockerDriver {
                         format!(
                             "type=image,name={first_image},push=true,compression={},oci-mediatypes=true",
                             opts.compression
-                        )
+                        ),
+                        // Load the image to the local image registry
+                        // if the inspect driver is docker so that
+                        // we don't have to pull the image again to inspect.
+                        if matches!(
+                            Driver::get_inspect_driver(),
+                            InspectDriverType::Docker,
+                        ) => "--load",
                     );
                 } else {
                     cmd!(command, "--load");
@@ -318,34 +370,44 @@ impl BuildDriver for DockerDriver {
 
 impl InspectDriver for DockerDriver {
     fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
-        trace!("DockerDriver::get_labels({opts:#?})");
+        trace!("DockerDriver::get_metadata({opts:#?})");
 
         let url = opts.tag.as_ref().map_or_else(
-            || format!("docker://{}", opts.image),
-            |tag| format!("docker://{}:{tag}", opts.image),
+            || format!("{}", opts.image),
+            |tag| format!("{}:{tag}", opts.image),
         );
 
         let progress = Logger::multi_progress().add(
             ProgressBar::new_spinner()
                 .with_style(ProgressStyle::default_spinner())
-                .with_message(format!("Inspecting metadata for {}", url.bold())),
+                .with_message(format!(
+                    "Inspecting metadata for {}, pulling image...",
+                    url.bold()
+                )),
         );
         progress.enable_steady_tick(Duration::from_millis(100));
 
-        let mut args = Vec::new();
-        if !matches!(opts.platform, Platform::Native) {
-            args.extend(["--override-arch", opts.platform.arch()]);
-        }
-        args.extend(["inspect", &url]);
+        let mut command = cmd!(
+            "docker",
+            "pull",
+            if !matches!(opts.platform, Platform::Native) => [
+                "--platform",
+                opts.platform.to_string(),
+            ],
+            &url,
+        );
+        trace!("{command:?}");
 
-        let output = Self::run_output(
-            &RunOpts::builder()
-                .image(SKOPEO_IMAGE)
-                .args(args.collect_into_vec())
-                .remove(true)
-                .build(),
-        )
-        .into_diagnostic()?;
+        let output = command.output().into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to pull {} for inspection!", url.bold());
+        }
+
+        let mut command = cmd!("docker", "image", "inspect", "--format=json", &url);
+        trace!("{command:?}");
+
+        let output = command.output().into_diagnostic()?;
 
         progress.finish_and_clear();
         Logger::multi_progress().remove(&progress);
@@ -356,7 +418,11 @@ impl InspectDriver for DockerDriver {
             bail!("Failed to inspect image {url}")
         }
 
-        serde_json::from_slice(&output.stdout).into_diagnostic()
+        serde_json::from_slice::<Vec<DockerImageMetadata>>(&output.stdout)
+            .into_diagnostic()
+            .inspect(|metadata| trace!("{metadata:#?}"))
+            .and_then(ImageMetadata::try_from)
+            .inspect(|metadata| trace!("{metadata:#?}"))
     }
 }
 

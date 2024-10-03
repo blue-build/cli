@@ -179,6 +179,7 @@ impl BlueBuildCommand for BuildCommand {
                     } else {
                         PathBuf::from(CONTAINER_FILE)
                     })
+                    .platform(self.platform)
                     .recipe(recipe)
                     .drivers(self.drivers)
                     .build()

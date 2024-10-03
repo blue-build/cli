@@ -1,8 +1,10 @@
-use std::env;
+use std::{collections::HashMap, env};
 
-use blue_build_utils::constants::{GITHUB_ACTIONS, GITLAB_CI};
+use blue_build_utils::constants::{GITHUB_ACTIONS, GITLAB_CI, IMAGE_VERSION_LABEL};
 use clap::ValueEnum;
 use log::trace;
+use serde::Deserialize;
+use serde_json::Value;
 
 use crate::drivers::{
     buildah_driver::BuildahDriver, docker_driver::DockerDriver, podman_driver::PodmanDriver,
@@ -202,6 +204,26 @@ impl std::fmt::Display for Platform {
                 Self::LinuxAmd64 => "linux/amd64",
                 Self::LinuxArm64 => "linux/arm64",
             }
+        )
+    }
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct ImageMetadata {
+    pub labels: HashMap<String, Value>,
+    pub digest: String,
+}
+
+impl ImageMetadata {
+    #[must_use]
+    pub fn get_version(&self) -> Option<u64> {
+        Some(
+            self.labels
+                .get(IMAGE_VERSION_LABEL)?
+                .as_str()
+                .and_then(|v| lenient_semver::parse(v).ok())?
+                .major,
         )
     }
 }
