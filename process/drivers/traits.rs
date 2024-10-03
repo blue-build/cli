@@ -13,12 +13,12 @@ use semver::{Version, VersionReq};
 use crate::drivers::{functions::get_private_key, types::CiDriverType, Driver};
 
 use super::{
-    image_metadata::ImageMetadata,
     opts::{
         BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
         GenerateTagsOpts, GetMetadataOpts, PushOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts,
         VerifyOpts, VerifyType,
     },
+    types::ImageMetadata,
 };
 
 /// Trait for retrieving version of a driver.

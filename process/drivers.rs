@@ -35,7 +35,6 @@ use self::{
     docker_driver::DockerDriver,
     github_driver::GithubDriver,
     gitlab_driver::GitlabDriver,
-    image_metadata::ImageMetadata,
     local_driver::LocalDriver,
     opts::{
         BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateKeyPairOpts, GetMetadataOpts,
@@ -44,8 +43,8 @@ use self::{
     podman_driver::PodmanDriver,
     skopeo_driver::SkopeoDriver,
     types::{
-        BuildDriverType, CiDriverType, DetermineDriver, InspectDriverType, RunDriverType,
-        SigningDriverType,
+        BuildDriverType, CiDriverType, DetermineDriver, ImageMetadata, InspectDriverType,
+        RunDriverType, SigningDriverType,
     },
 };
 
@@ -57,7 +56,6 @@ mod docker_driver;
 mod functions;
 mod github_driver;
 mod gitlab_driver;
-pub mod image_metadata;
 mod local_driver;
 pub mod opts;
 mod podman_driver;
