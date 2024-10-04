@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.19] - 2024-10-04
+
+### Bug Fixes
+
+- Use built-in image inspection for podman and docker
+
 ## [0.8.18] - 2024-10-03
 
 ### Bug Fixes
@@ -24,6 +30,7 @@ All notable changes to this project will be documented in this file.
 - Check for bootupctl in post-build script
 - Remove bootupctl until issue is resolved
 - Run clippy and test for every feature individually
+- Release
 
 ### Refactor
 
