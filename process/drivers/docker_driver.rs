@@ -23,8 +23,7 @@ use tempdir::TempDir;
 use crate::{
     drivers::{
         opts::{RunOptsEnv, RunOptsVolume},
-        types::{InspectDriverType, Platform},
-        Driver,
+        types::Platform,
     },
     logging::CommandLogging,
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
@@ -310,13 +309,6 @@ impl BuildDriver for DockerDriver {
                             "type=image,name={first_image},push=true,compression={},oci-mediatypes=true",
                             opts.compression
                         ),
-                        // Load the image to the local image registry
-                        // if the inspect driver is docker so that
-                        // we don't have to pull the image again to inspect.
-                        if matches!(
-                            Driver::get_inspect_driver(),
-                            InspectDriverType::Docker,
-                        ) => "--load",
                     );
                 } else {
                     cmd!(command, "--load");
