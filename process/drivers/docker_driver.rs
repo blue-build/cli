@@ -66,9 +66,22 @@ impl TryFrom<Vec<DockerImageMetadata>> for ImageMetadata {
             bail!("Metadata requires at least 1 digest:\n{value:#?}");
         }
 
+        let index = value
+            .repo_digests
+            .iter()
+            .enumerate()
+            .find(|(_, repo_digest)| verify_image(repo_digest))
+            .map(|(index, _)| index)
+            .ok_or_else(|| {
+                miette!(
+                    "No repo digest could be verified:\n{:?}",
+                    &value.repo_digests
+                )
+            })?;
+
         let digest: Reference = value
             .repo_digests
-            .swap_remove(0)
+            .swap_remove(index)
             .parse()
             .into_diagnostic()?;
         let digest = digest
@@ -81,6 +94,13 @@ impl TryFrom<Vec<DockerImageMetadata>> for ImageMetadata {
             digest,
         })
     }
+}
+
+fn verify_image(repo_digest: &str) -> bool {
+    let mut command = cmd!("docker", "pull", repo_digest);
+    trace!("{command:?}");
+
+    command.output().is_ok_and(|out| out.status.success())
 }
 
 #[derive(Debug, Deserialize)]
