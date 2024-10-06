@@ -38,20 +38,31 @@ use super::{
 
 #[derive(Deserialize, Debug, Clone)]
 struct DockerImageMetadata {
-    config: DockerImageMetadataConfig,
-    annotations: HashMap<String, serde_json::Value>,
+    manifest: DockerImageMetadataManifest,
+    image: DockerImageMetadataImage,
 }
 
 #[derive(Deserialize, Debug, Clone)]
-struct DockerImageMetadataConfig {
+struct DockerImageMetadataManifest {
     digest: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct DockerImageMetadataImage {
+    config: DockerImageConfig,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+struct DockerImageConfig {
+    labels: HashMap<String, serde_json::Value>,
 }
 
 impl From<DockerImageMetadata> for ImageMetadata {
     fn from(value: DockerImageMetadata) -> Self {
         Self {
-            labels: value.annotations,
-            digest: value.config.digest,
+            labels: value.image.config.labels,
+            digest: value.manifest.digest,
         }
     }
 }
@@ -361,7 +372,8 @@ impl InspectDriver for DockerDriver {
             },
             "imagetools",
             "inspect",
-            "--raw",
+            "--format",
+            "{{json .}}",
             &url
         );
         trace!("{command:?}");
