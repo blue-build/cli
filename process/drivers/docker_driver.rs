@@ -5,7 +5,6 @@ use std::{
     path::Path,
     process::{Command, ExitStatus, Stdio},
     sync::Mutex,
-    time::Duration,
 };
 
 use blue_build_utils::{
@@ -14,11 +13,8 @@ use blue_build_utils::{
     credentials::Credentials,
     string_vec,
 };
-use colored::Colorize;
-use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, info, trace, warn};
-use miette::{bail, miette, IntoDiagnostic, Report, Result};
-use oci_distribution::Reference;
+use miette::{bail, IntoDiagnostic, Result};
 use once_cell::sync::Lazy;
 use semver::Version;
 use serde::Deserialize;
@@ -30,7 +26,7 @@ use crate::{
         types::{InspectDriverType, Platform},
         Driver,
     },
-    logging::{CommandLogging, Logger},
+    logging::CommandLogging,
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
 };
 
@@ -41,66 +37,23 @@ use super::{
 };
 
 #[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
 struct DockerImageMetadata {
     config: DockerImageMetadataConfig,
-    repo_digests: Vec<String>,
+    annotations: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
 struct DockerImageMetadataConfig {
-    labels: HashMap<String, serde_json::Value>,
+    digest: String,
 }
 
-impl TryFrom<Vec<DockerImageMetadata>> for ImageMetadata {
-    type Error = Report;
-
-    fn try_from(mut value: Vec<DockerImageMetadata>) -> Result<Self> {
-        if value.is_empty() {
-            bail!("Need at least one metadata entry:\n{value:?}");
+impl From<DockerImageMetadata> for ImageMetadata {
+    fn from(value: DockerImageMetadata) -> Self {
+        Self {
+            labels: value.annotations,
+            digest: value.config.digest,
         }
-
-        let mut value = value.swap_remove(0);
-        if value.repo_digests.is_empty() {
-            bail!("Metadata requires at least 1 digest:\n{value:#?}");
-        }
-
-        let index = value
-            .repo_digests
-            .iter()
-            .enumerate()
-            .find(|(_, repo_digest)| verify_image(repo_digest))
-            .map(|(index, _)| index)
-            .ok_or_else(|| {
-                miette!(
-                    "No repo digest could be verified:\n{:?}",
-                    &value.repo_digests
-                )
-            })?;
-
-        let digest: Reference = value
-            .repo_digests
-            .swap_remove(index)
-            .parse()
-            .into_diagnostic()?;
-        let digest = digest
-            .digest()
-            .ok_or_else(|| miette!("Unable to read digest from {digest}"))?
-            .to_string();
-
-        Ok(Self {
-            labels: value.config.labels,
-            digest,
-        })
     }
-}
-
-fn verify_image(repo_digest: &str) -> bool {
-    let mut command = cmd!("docker", "pull", repo_digest);
-    trace!("{command:?}");
-
-    command.output().is_ok_and(|out| out.status.success())
 }
 
 #[derive(Debug, Deserialize)]
@@ -397,40 +350,23 @@ impl InspectDriver for DockerDriver {
             |tag| format!("{}:{tag}", opts.image),
         );
 
-        let progress = Logger::multi_progress().add(
-            ProgressBar::new_spinner()
-                .with_style(ProgressStyle::default_spinner())
-                .with_message(format!(
-                    "Inspecting metadata for {}, pulling image...",
-                    url.bold()
-                )),
-        );
-        progress.enable_steady_tick(Duration::from_millis(100));
-
         let mut command = cmd!(
             "docker",
-            "pull",
-            if !matches!(opts.platform, Platform::Native) => [
-                "--platform",
-                opts.platform.to_string(),
-            ],
-            &url,
+            "buildx",
+            |command|? {
+                if !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty()) {
+                    Self::setup()?;
+                    cmd!(command, "--builder=bluebuild");
+                }
+            },
+            "imagetools",
+            "inspect",
+            "--raw",
+            &url
         );
         trace!("{command:?}");
 
         let output = command.output().into_diagnostic()?;
-
-        if !output.status.success() {
-            bail!("Failed to pull {} for inspection!", url.bold());
-        }
-
-        let mut command = cmd!("docker", "image", "inspect", "--format=json", &url);
-        trace!("{command:?}");
-
-        let output = command.output().into_diagnostic()?;
-
-        progress.finish_and_clear();
-        Logger::multi_progress().remove(&progress);
 
         if output.status.success() {
             info!("Successfully inspected image {url}!");
@@ -438,10 +374,10 @@ impl InspectDriver for DockerDriver {
             bail!("Failed to inspect image {url}")
         }
 
-        serde_json::from_slice::<Vec<DockerImageMetadata>>(&output.stdout)
+        serde_json::from_slice::<DockerImageMetadata>(&output.stdout)
             .into_diagnostic()
             .inspect(|metadata| trace!("{metadata:#?}"))
-            .and_then(ImageMetadata::try_from)
+            .map(ImageMetadata::from)
             .inspect(|metadata| trace!("{metadata:#?}"))
     }
 }
