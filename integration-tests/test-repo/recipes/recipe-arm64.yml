@@ -6,7 +6,6 @@ alt_tags:
   - arm64
 stages:
 modules:
-  - from-file: akmods.yml
   - from-file: flatpaks.yml
 
   - type: files
