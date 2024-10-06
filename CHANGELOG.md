@@ -2,11 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.20] - 2024-10-06
+
+### Bug Fixes
+
+- Ensure the correct digest is used for docker and podman inspect drivers
+- Use docker buildx imagetools to inspect for the docker inspect driver
+- Use full json inspection for docker inspect driver
+- Switch cosign registry from GCR to GHCR (#237)
+- Remove --load for docker build since we no longer pull the image for inspection
+
+### Miscellaneous Tasks
+
+- Fix akmods tests
+- Remove akmods module for arm64 build
+
 ## [0.8.19] - 2024-10-04
 
 ### Bug Fixes
 
 - Use built-in image inspection for podman and docker
+
+### Miscellaneous Tasks
+
+- Release
 
 ## [0.8.18] - 2024-10-03
 

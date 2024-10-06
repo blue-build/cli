@@ -12,7 +12,7 @@ path = "process.rs"
 
 [dependencies]
 anyhow = "1"
-blue-build-utils = { version = "=0.8.19", path = "../utils" }
+blue-build-utils = { version = "=0.8.20", path = "../utils" }
 expect-exit = "0.5"
 indicatif-log-bridge = "0.2"
 lenient_semver = "0.4"
@@ -46,7 +46,7 @@ cached = "0.53.1"
 
 [dev-dependencies]
 rstest.workspace = true
-blue-build-utils = { version = "=0.8.19", path = "../utils", features = ["test"]  }
+blue-build-utils = { version = "=0.8.20", path = "../utils", features = ["test"]  }
 
 [lints]
 workspace = true
