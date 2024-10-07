@@ -25,7 +25,7 @@ pub struct ContainerFileTemplate<'a> {
     build_id: Uuid,
     os_version: u64,
     registry: Cow<'a, str>,
-    exports_tag: Cow<'a, str>,
+    build_scripts_image: Cow<'a, str>,
     repo: Cow<'a, str>,
 }
 

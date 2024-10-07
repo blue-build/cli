@@ -170,7 +170,7 @@ impl DetermineDriver<CiDriverType> for Option<CiDriverType> {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, ValueEnum)]
+#[derive(Debug, Default, Clone, Copy, ValueEnum, PartialEq, Eq, Hash)]
 pub enum Platform {
     #[default]
     #[value(name = "native")]

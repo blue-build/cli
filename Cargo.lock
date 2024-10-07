@@ -321,6 +321,7 @@ dependencies = [
  "blue-build-template",
  "blue-build-utils",
  "bon",
+ "cached",
  "clap",
  "clap-verbosity-flag",
  "clap_complete",

@@ -12,12 +12,6 @@ all:
 	BUILD +build
 	BUILD ./integration-tests+all
 
-build:
-	WAIT
-		BUILD --platform=linux/amd64 --platform=linux/arm64 +build-scripts
-	END
-	BUILD --platform=linux/amd64 --platform=linux/arm64 +build-images
-
 run-checks:
 	BUILD +lint
 	BUILD +test
@@ -103,7 +97,7 @@ build-scripts:
 			chmod +x "scripts/${script}"
 	END
 
-	DO --pass-args +SAVE_IMAGE --SUFFIX="-build-scripts"
+	DO --pass-args +SAVE_IMAGE --IMAGE="$IMAGE/build-scripts"
 
 blue-build-cli-prebuild:
 	ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
@@ -229,6 +223,7 @@ INSTALL:
 SAVE_IMAGE:
 	FUNCTION
 	ARG SUFFIX=""
+	ARG IMAGE="$IMAGE"
 	ARG TAGGED="false"
 
 	COPY --platform=native +version/version /
