@@ -2,6 +2,5 @@ modules:
   # Tests installing rpms from a combo image stage
   - type: akmods
     install:
-      - nct6687d
       - openrazer
       - openrgb

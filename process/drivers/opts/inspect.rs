@@ -5,6 +5,7 @@ use bon::Builder;
 use crate::drivers::types::Platform;
 
 #[derive(Debug, Clone, Builder)]
+#[builder(derive(Clone))]
 pub struct GetMetadataOpts<'scope> {
     #[builder(into)]
     pub image: Cow<'scope, str>,

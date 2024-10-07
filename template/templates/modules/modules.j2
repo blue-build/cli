@@ -25,7 +25,7 @@ RUN \
         {%- if module.module_type == "akmods" %}
   --mount=type=bind,from=stage-akmods-{{ module.generate_akmods_info(os_version).stage_name }},src=/rpms,dst=/tmp/rpms,rw \
         {%- endif %}
-  --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
+  --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/tmp/scripts/ \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
   /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module|json|safe }}' \
   && ostree container commit
@@ -58,7 +58,7 @@ RUN \
         {%- else %}
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
         {%- endif %}
-  --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
+  --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/tmp/scripts/ \
   /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module|json|safe }}'
       {%- endif %}
     {%- endif %}

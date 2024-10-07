@@ -1,5 +1,3 @@
-#!/usr/bin/env just --justfile
-
 export RUST_BACKTRACE := "1"
 
 set dotenv-load := true
@@ -8,6 +6,20 @@ set positional-arguments := true
 # default recipe to display help information
 default:
   @just --list
+
+# Clean up development files and images
+clean:
+  cargo clean
+  command -v docker \
+    && docker buildx --builder bluebuild prune -f \
+    && docker system prune -f \
+    || true
+  command -v podman \
+    && podman system prune -f \
+    || true
+  command -v earthly \
+    && earthly prune --reset \
+    || true
 
 # Install bluebuild using cargo with release optimization
 install:
@@ -69,9 +81,10 @@ watch-lint:
 watch-lint-all-features:
   cargo watch -c -x 'clippy --all-features'
 
+# Expand the macros of a module for debugging
 expand *args:
   cargo expand $@ > ./expand.rs
-  echo "Expansion located in ./expand.rs"
+  $EDITOR ./expand.rs
 
 # Installs cargo tools that help with development
 tools:
@@ -99,3 +112,99 @@ release *args:
   git tag "v${VERSION}"
   git push origin "v${VERSION}"
   gh release create --generate-notes --latest "v${VERSION}"
+
+should_push := if env('GITHUB_ACTIONS', '') != '' { 
+  if env('COSIGN_PRIVATE_KEY', '') != '' {
+    '--push'
+  } else {
+    ''
+  }
+} else { 
+  '' 
+}
+
+# Run all integration tests
+integration-tests: test-docker-build test-arm64-build test-podman-build test-buildah-build test-generate-iso-image test-generate-iso-recipe
+
+# Run docker driver integration test
+test-docker-build: install-debug-all-features
+  cd integration-tests/test-repo \
+  && bluebuild build \
+    --retry-push \
+    -B docker \
+    -I docker \
+    -S sigstore \
+    {{ should_push }} \
+    -vv \
+    recipes/recipe.yml recipes/recipe-39.yml
+
+# Run arm integration test
+test-arm64-build: install-debug-all-features
+  cd integration-tests/test-repo \
+  && bluebuild build \
+    --retry-push \
+    --platform linux/arm64 \
+    {{ should_push }} \
+    -vv \
+    recipes/recipe-arm64.yml
+
+# Run docker driver external login integration test
+test-docker-build-external-login: install-debug-all-features
+  cd integration-tests/test-repo \
+  && bluebuild build \
+    --retry-push \
+    -S sigstore \
+    {{ should_push }} \
+    -vv \
+    recipes/recipe.yml recipes/recipe-39.yml
+
+# Run docker driver oauth login integration test
+test-docker-build-oauth-login: install-debug-all-features
+  cd integration-tests/test-repo \
+  && bluebuild build \
+    --registry us-east1-docker.pkg.dev \
+    --registry-namespace bluebuild-oidc/bluebuild \
+    --retry-push \
+    {{ should_push }} \
+    -vv \
+    recipes/recipe.yml recipes/recipe-39.yml
+
+# Run podman driver integration test
+test-podman-build: install-debug-all-features
+  cd integration-tests/test-repo \
+  && bluebuild build \
+    --retry-push \
+    -B podman \
+    -I podman \
+    -S sigstore \
+    {{ should_push }} \
+    -vv \
+    recipes/recipe.yml recipes/recipe-39.yml
+
+# Run buildah driver integration test
+test-buildah-build: install-debug-all-features
+  cd integration-tests/test-repo \
+  && bluebuild build \
+    --retry-push \
+    -B buildah \
+    -I podman \
+    -S sigstore \
+    {{ should_push }} \
+    -vv \
+    recipes/recipe.yml recipes/recipe-39.yml
+
+# Run ISO generator for images
+test-generate-iso-image: install-debug-all-features
+  #!/usr/bin/env bash
+  set -eu
+  ISO_OUT=$(mktemp -d)
+  bluebuild generate-iso -vv --output-dir "$ISO_OUT" image ghcr.io/blue-build/cli/test:40
+
+# Run ISO generator for images
+test-generate-iso-recipe: install-debug-all-features
+  #!/usr/bin/env bash
+  set -eu
+  ISO_OUT=$(mktemp -d)
+  cd integration-tests/test-repo
+  bluebuild generate-iso -vv --output-dir "$ISO_OUT" recipe recipes/recipe.yml
+
