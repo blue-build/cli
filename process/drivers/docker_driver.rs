@@ -14,7 +14,7 @@ use blue_build_utils::{
     string_vec,
 };
 use log::{debug, info, trace, warn};
-use miette::{bail, IntoDiagnostic, Result};
+use miette::{bail, miette, IntoDiagnostic, Result};
 use once_cell::sync::Lazy;
 use semver::Version;
 use serde::Deserialize;
@@ -22,17 +22,16 @@ use tempdir::TempDir;
 
 use crate::{
     drivers::{
-        opts::{RunOptsEnv, RunOptsVolume},
+        opts::{
+            BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, RunOptsEnv,
+            RunOptsVolume, TagOpts,
+        },
+        traits::{BuildDriver, DriverVersion, InspectDriver, RunDriver},
+        types::ImageMetadata,
         types::Platform,
     },
     logging::CommandLogging,
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
-};
-
-use super::{
-    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
-    types::ImageMetadata,
-    BuildDriver, DriverVersion, InspectDriver, RunDriver,
 };
 
 #[derive(Deserialize, Debug, Clone)]
@@ -237,7 +236,14 @@ impl BuildDriver for DockerDriver {
             trace!("{command:?}");
             let mut child = command.spawn().into_diagnostic()?;
 
-            write!(child.stdin.as_mut().unwrap(), "{password}").into_diagnostic()?;
+            write!(
+                child
+                    .stdin
+                    .as_mut()
+                    .ok_or_else(|| miette!("Unable to open pipe to stdin"))?,
+                "{password}"
+            )
+            .into_diagnostic()?;
 
             let output = child.wait_with_output().into_diagnostic()?;
 
@@ -388,6 +394,8 @@ impl InspectDriver for DockerDriver {
 
 impl RunDriver for DockerDriver {
     fn run(opts: &RunOpts) -> std::io::Result<ExitStatus> {
+        trace!("DockerDriver::run({opts:#?})");
+
         let cid_path = TempDir::new("docker")?;
         let cid_file = cid_path.path().join("cid");
         let cid = ContainerId::new(&cid_file, ContainerRuntime::Docker, false);
@@ -403,6 +411,8 @@ impl RunDriver for DockerDriver {
     }
 
     fn run_output(opts: &RunOpts) -> std::io::Result<std::process::Output> {
+        trace!("DockerDriver::run({opts:#?})");
+
         let cid_path = TempDir::new("docker")?;
         let cid_file = cid_path.path().join("cid");
         let cid = ContainerId::new(&cid_file, ContainerRuntime::Docker, false);
@@ -421,7 +431,8 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
     let command = cmd!(
         "docker",
         "run",
-        format!("--cidfile={}", cid_file.display()),
+        "--cidfile",
+        cid_file,
         if opts.privileged => "--privileged",
         if opts.remove => "--rm",
         if opts.pull => "--pull=always",

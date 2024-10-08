@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use blue_build_utils::{
     constants::{
         GITHUB_EVENT_NAME, GITHUB_EVENT_PATH, GITHUB_REF_NAME, GITHUB_SHA, GITHUB_TOKEN_ISSUER_URL,
@@ -129,6 +131,10 @@ impl CiDriver for GithubDriver {
         )
         .trim()
         .to_lowercase())
+    }
+
+    fn default_ci_file_path() -> PathBuf {
+        PathBuf::from(".github/workflows/build.yml")
     }
 }
 

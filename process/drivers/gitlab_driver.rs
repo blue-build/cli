@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use blue_build_utils::{
     constants::{
         CI_COMMIT_REF_NAME, CI_COMMIT_SHORT_SHA, CI_DEFAULT_BRANCH, CI_MERGE_REQUEST_IID,
@@ -139,6 +141,10 @@ impl CiDriver for GitlabDriver {
             get_env_var(CI_PROJECT_NAME)?,
         )
         .to_lowercase())
+    }
+
+    fn default_ci_file_path() -> PathBuf {
+        PathBuf::from(".gitlab-ci.yml")
     }
 }
 

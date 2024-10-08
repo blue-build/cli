@@ -1,0 +1,40 @@
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"
+      when: never
+    - if: "$CI_COMMIT_TAG"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: "$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS"
+      when: never
+    - if: "$CI_COMMIT_BRANCH"
+
+stages:
+  - build
+
+build-image:
+  stage: build
+  image:
+    name: ghcr.io/blue-build/cli:{{ version }}
+    entrypoint: [""]
+  services:
+    - docker:dind
+  parallel:
+    matrix:
+      - RECIPE:
+          # Add your recipe files here
+          - recipe.yml
+  variables:
+    # Setup a secure connection with docker-in-docker service
+    # https://docs.gitlab.com/ee/ci/docker/using_docker_build.html
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: /certs
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: $DOCKER_TLS_CERTDIR/client
+  before_script:
+    # Pulls secure files into the build
+    - curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/main/installer" | bash
+    - export COSIGN_PRIVATE_KEY=$(cat .secure_files/cosign.key)
+  script:
+    - sleep 5 # Wait a bit for the docker-in-docker service to start
+    - bluebuild build --push ./recipes/$RECIPE
+
