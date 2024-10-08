@@ -336,6 +336,7 @@ dependencies = [
  "rayon",
  "requestty",
  "rusty-hook",
+ "semver",
  "serde",
  "serde_json",
  "serde_yaml 0.9.34+deprecated",

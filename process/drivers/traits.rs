@@ -48,6 +48,7 @@ impl_private_driver!(GitlabDriver);
 impl_private_driver!(LocalDriver);
 impl_private_driver!(CosignDriver);
 impl_private_driver!(SkopeoDriver);
+impl_private_driver!(CiDriverType);
 
 #[cfg(feature = "sigstore")]
 impl_private_driver!(SigstoreDriver);

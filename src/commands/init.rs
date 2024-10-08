@@ -1,17 +1,25 @@
-use std::{env, fmt::Display, fs, path::PathBuf, str::FromStr};
+use std::{
+    env,
+    fmt::Display,
+    fs::{self, OpenOptions},
+    io::Write,
+    path::PathBuf,
+    str::FromStr,
+};
 
-use blue_build_process_management::drivers::types::CiDriverType;
-use blue_build_template::{InitReadmeTemplate, Template};
+use blue_build_process_management::drivers::{CiDriver, GithubDriver, GitlabDriver};
+use blue_build_template::{GithubCiTemplate, GitlabCiTemplate, InitReadmeTemplate, Template};
 use blue_build_utils::{cmd, constants::TEMPLATE_REPO_URL};
 use bon::Builder;
-use clap::{Args, ValueEnum};
+use clap::{crate_version, Args, ValueEnum};
 use log::{debug, info, trace};
-use miette::{bail, Context, IntoDiagnostic, Report, Result};
-use requestty::{questions, Answers, OnEsc};
+use miette::{bail, miette, Context, IntoDiagnostic, Report, Result};
+use requestty::{questions, Answer, Answers, OnEsc};
+use semver::Version;
 
 use crate::commands::BlueBuildCommand;
 
-#[derive(Debug, Default, Clone, ValueEnum)]
+#[derive(Debug, Default, Clone, Copy, ValueEnum)]
 pub enum CiProvider {
     #[default]
     Github,
@@ -19,11 +27,41 @@ pub enum CiProvider {
     None,
 }
 
+impl CiProvider {
+    fn default_ci_file_path(self) -> std::path::PathBuf {
+        match self {
+            Self::Github => GithubDriver::default_ci_file_path(),
+            Self::Gitlab => GitlabDriver::default_ci_file_path(),
+            Self::None => unimplemented!(),
+        }
+    }
+
+    fn render_file(self) -> Result<String> {
+        match self {
+            Self::Github => GithubCiTemplate::builder()
+                .build()
+                .render()
+                .into_diagnostic(),
+            Self::Gitlab => GitlabCiTemplate::builder()
+                .version({
+                    let version = crate_version!();
+                    let version: Version = version.parse().into_diagnostic()?;
+
+                    format!("v{}.{}", version.major, version.minor)
+                })
+                .build()
+                .render()
+                .into_diagnostic(),
+            Self::None => unimplemented!(),
+        }
+    }
+}
+
 impl TryFrom<&str> for CiProvider {
     type Error = Report;
 
     fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
-        Ok(match value {
+        Ok(match value.to_lowercase().as_str() {
             "gitlab" => Self::Gitlab,
             "github" => Self::Github,
             "none" => Self::None,
@@ -51,16 +89,6 @@ impl Display for CiProvider {
                 Self::None => "none",
             }
         )
-    }
-}
-
-impl From<CiProvider> for CiDriverType {
-    fn from(value: CiProvider) -> Self {
-        match value {
-            CiProvider::Github => Self::Github,
-            CiProvider::Gitlab => Self::Gitlab,
-            CiProvider::None => unimplemented!(),
-        }
     }
 }
 
@@ -139,7 +167,7 @@ impl BlueBuildCommand for InitCommand {
     }
 }
 
-macro_rules! impl_when {
+macro_rules! when {
     ($check:expr) => {
         |_answers: &::requestty::Answers| $check
     };
@@ -147,6 +175,7 @@ macro_rules! impl_when {
 
 impl InitCommand {
     const CI_PROVIDER: &str = "ci_provider";
+    const REGISTRY: &str = "registry";
     const IMAGE_NAME: &str = "image_name";
     const ORG_NAME: &str = "org_name";
     const DESCRIPTION: &str = "description";
@@ -156,27 +185,34 @@ impl InitCommand {
             Input {
                 name: Self::IMAGE_NAME,
                 message: "What would you like to name your image?",
-                when: impl_when!(self.common.image_name.is_none()),
+                when: when!(self.common.image_name.is_none()),
+                on_esc: OnEsc::Terminate,
+            },
+            Input {
+                name: Self::REGISTRY,
+                message:
+                    "What is the registry for the image? (e.g. ghcr.io or registry.gitlab.com)",
+                when: when!(self.common.registry.is_none()),
                 on_esc: OnEsc::Terminate,
             },
             Input {
                 name: Self::ORG_NAME,
                 message: "What is the name of your org/username?",
-                when: impl_when!(self.common.org_name.is_none()),
+                when: when!(self.common.org_name.is_none()),
                 on_esc: OnEsc::Terminate,
             },
             Input {
                 name: Self::DESCRIPTION,
                 message: "Write a short description of your image:",
-                when: impl_when!(self.common.description.is_none()),
+                when: when!(self.common.description.is_none()),
                 on_esc: OnEsc::Terminate,
             },
             Select {
                 name: Self::CI_PROVIDER,
                 message: "Are you building on Github or Gitlab?",
-                when: impl_when!(!self.common.no_git && self.common.ci_provider.is_none()),
+                when: when!(!self.common.no_git && self.common.ci_provider.is_none()),
                 on_esc: OnEsc::Terminate,
-                choices: vec!["Github", "Gitlab"],
+                choices: vec!["Github", "Gitlab", "None"],
             }
         ];
 
@@ -186,9 +222,9 @@ impl InitCommand {
     fn start(&self, answers: &Answers) -> Result<()> {
         self.clone_repository()?;
         self.remove_git_directory()?;
-        self.remove_codeowners_file()?;
+        self.remove_github_directory()?;
         self.template_readme(answers)?;
-        self.set_ci_provider(answers)?;
+        self.template_ci_file(answers)?;
 
         if !self.common.no_git {
             self.initialize_git()?;
@@ -238,17 +274,17 @@ impl InitCommand {
         Ok(())
     }
 
-    fn remove_codeowners_file(&self) -> Result<()> {
-        trace!("remove_codeowners_file()");
+    fn remove_github_directory(&self) -> Result<()> {
+        trace!("remove_github_directory()");
 
         let dir = self.dir.as_ref().unwrap();
-        let codeowners_path = dir.join(".github/CODEOWNERS");
+        let github_path = dir.join(".github");
 
-        if codeowners_path.exists() {
-            fs::remove_file(codeowners_path)
+        if github_path.exists() {
+            fs::remove_dir_all(github_path)
                 .into_diagnostic()
-                .context("Failed to remove CODEOWNERS file")?;
-            debug!("CODEOWNERS file removed.");
+                .context("Failed to remove .github directory")?;
+            debug!(".github directory removed.");
         }
 
         Ok(())
@@ -333,18 +369,27 @@ impl InitCommand {
         let readme_path = self.dir.as_ref().unwrap().join("README.md");
 
         let readme = InitReadmeTemplate::builder()
-            .repo_name(self.common.org_name.as_ref().map_or_else(
-                || answers.get("org_name").unwrap().as_string().unwrap(),
-                String::as_str,
-            ))
-            .image_name(self.common.image_name.as_ref().map_or_else(
-                || answers.get("image_name").unwrap().as_string().unwrap(),
-                String::as_str,
-            ))
-            .registry(self.common.registry.as_ref().map_or_else(
-                || answers.get("registry").unwrap().as_string().unwrap(),
-                String::as_str,
-            ))
+            .repo_name(
+                self.common
+                    .org_name
+                    .as_deref()
+                    .or_else(|| answers.get(Self::ORG_NAME).and_then(Answer::as_string))
+                    .ok_or_else(|| miette!("Failed to get organization name"))?,
+            )
+            .image_name(
+                self.common
+                    .image_name
+                    .as_deref()
+                    .or_else(|| answers.get(Self::IMAGE_NAME).and_then(Answer::as_string))
+                    .ok_or_else(|| miette!("Failed to get image name"))?,
+            )
+            .registry(
+                self.common
+                    .registry
+                    .as_deref()
+                    .or_else(|| answers.get(Self::REGISTRY).and_then(Answer::as_string))
+                    .ok_or_else(|| miette!("Failed to get registry"))?,
+            )
             .build();
 
         debug!("Templating README");
@@ -356,11 +401,45 @@ impl InitCommand {
         Ok(())
     }
 
-    fn set_ci_provider(&self, answers: &Answers) -> Result<()> {
-        let _ci_provider =
-            CiProvider::try_from(answers.get(Self::CI_PROVIDER).unwrap().as_string().unwrap())
-                .unwrap();
+    fn template_ci_file(&self, answers: &Answers) -> Result<()> {
+        let ci_provider = self
+            .common
+            .ci_provider
+            .ok_or("CLI Arg not set")
+            .or_else(|e| {
+                answers
+                    .get(Self::CI_PROVIDER)
+                    .and_then(Answer::as_string)
+                    .ok_or_else(|| miette!("Failed to get CI Provider answer:\n{e}"))
+                    .and_then(CiProvider::try_from)
+            })?;
 
-        todo!()
+        // Never run for None
+        if matches!(ci_provider, CiProvider::None) {
+            return Ok(());
+        }
+
+        let ci_file_path = ci_provider.default_ci_file_path();
+        let parent_path = ci_file_path
+            .parent()
+            .ok_or_else(|| miette!("Couldn't get parent directory from {ci_file_path:?}"))?;
+        fs::create_dir_all(parent_path)
+            .into_diagnostic()
+            .with_context(|| format!("Couldn't create directory path {parent_path:?}"))?;
+
+        let file = &mut OpenOptions::new()
+            .truncate(true)
+            .create(true)
+            .open(&ci_file_path)
+            .into_diagnostic()
+            .with_context(|| format!("Failed to open file at {ci_file_path:?}"))?;
+
+        let template = ci_provider.render_file()?;
+
+        writeln!(file, "{template}")
+            .into_diagnostic()
+            .with_context(|| format!("Failed to write CI file {ci_file_path:?}"))?;
+
+        Ok(())
     }
 }
