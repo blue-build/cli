@@ -149,7 +149,7 @@ impl BlueBuildCommand for GenerateIsoCommand {
             #[cfg(not(feature = "multi-recipe"))]
             let mut build_command = {
                 BuildCommand::builder()
-                    .recipe(recipe.to_path_buf())
+                    .recipe(recipe.clone())
                     .archive(image_out_dir.path())
                     .build()
             };
@@ -203,7 +203,10 @@ impl GenerateIsoCommand {
                     format!("IMAGE_NAME={image_name}",),
                     format!("IMAGE_REPO={image_repo}"),
                     format!("IMAGE_TAG={}", image.tag().unwrap_or("latest")),
-                    format!("VERSION={}", Driver::get_os_version(&image)?),
+                    format!(
+                        "VERSION={}",
+                        Driver::get_os_version().oci_ref(&image).call()?
+                    ),
                 ]);
             }
             GenIsoSubcommand::Recipe { recipe } => {
@@ -216,7 +219,9 @@ impl GenerateIsoCommand {
                     ),
                     format!(
                         "VERSION={}",
-                        Driver::get_os_version(&recipe.base_image_ref()?)?,
+                        Driver::get_os_version()
+                            .oci_ref(&recipe.base_image_ref()?)
+                            .call()?,
                     ),
                 ]);
                 vols.extend(run_volumes![
@@ -230,7 +235,7 @@ impl GenerateIsoCommand {
             .image("ghcr.io/jasonn3/build-container-installer")
             .privileged(true)
             .remove(true)
-            .args(args.to_cow_vec())
+            .args(args.collect_cow_vec())
             .volumes(vols)
             .build();
 

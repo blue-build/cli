@@ -12,12 +12,6 @@ all:
 	BUILD +build
 	BUILD ./integration-tests+all
 
-build:
-	WAIT
-		BUILD --platform=linux/amd64 --platform=linux/arm64 +build-scripts
-	END
-	BUILD --platform=linux/amd64 --platform=linux/arm64 +build-images
-
 run-checks:
 	BUILD +lint
 	BUILD +test
@@ -37,15 +31,27 @@ lint:
 	DO rust+CARGO --args="clippy"
 	DO rust+CARGO --args="clippy --all-features"
 	DO rust+CARGO --args="clippy --no-default-features"
+	DO rust+CARGO --args="clippy --no-default-features --features stages"
+	DO rust+CARGO --args="clippy --no-default-features --features copy"
+	DO rust+CARGO --args="clippy --no-default-features --features multi-recipe"
+	DO rust+CARGO --args="clippy --no-default-features --features iso"
+	DO rust+CARGO --args="clippy --no-default-features --features switch"
+	DO rust+CARGO --args="clippy --no-default-features --features sigstore"
 
 test:
 	FROM +common
 	COPY --dir test-files/ integration-tests/ /app
 	COPY +cosign/cosign /usr/bin/cosign
 
-	DO rust+CARGO --args="test --workspace -- --show-output"
-	DO rust+CARGO --args="test --workspace --all-features -- --show-output"
-	DO rust+CARGO --args="test --workspace --no-default-features -- --show-output"
+	DO rust+CARGO --args="test --workspace"
+	DO rust+CARGO --args="test --workspace --all-features"
+	DO rust+CARGO --args="test --workspace --no-default-features"
+	DO rust+CARGO --args="test --workspace --no-default-features --features stages"
+	DO rust+CARGO --args="test --workspace --no-default-features --features copy"
+	DO rust+CARGO --args="test --workspace --no-default-features --features multi-recipe"
+	DO rust+CARGO --args="test --workspace --no-default-features --features iso"
+	DO rust+CARGO --args="test --workspace --no-default-features --features switch"
+	DO rust+CARGO --args="test --workspace --no-default-features --features sigstore"
 
 install:
 	FROM +common
@@ -91,7 +97,7 @@ build-scripts:
 			chmod +x "scripts/${script}"
 	END
 
-	DO --pass-args +SAVE_IMAGE --SUFFIX="-build-scripts"
+	DO --pass-args +SAVE_IMAGE --IMAGE="$IMAGE/build-scripts"
 
 blue-build-cli-prebuild:
 	ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
@@ -217,6 +223,7 @@ INSTALL:
 SAVE_IMAGE:
 	FUNCTION
 	ARG SUFFIX=""
+	ARG IMAGE="$IMAGE"
 	ARG TAGGED="false"
 
 	COPY --platform=native +version/version /

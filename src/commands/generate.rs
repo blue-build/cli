@@ -3,14 +3,17 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use blue_build_process_management::drivers::{CiDriver, Driver, DriverArgs};
+use blue_build_process_management::drivers::{
+    opts::GetMetadataOpts, types::Platform, CiDriver, Driver, DriverArgs, InspectDriver,
+};
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
-    constants::{CONFIG_PATH, RECIPE_FILE, RECIPE_PATH},
+    constants::{BUILD_SCRIPTS_IMAGE_REF, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH},
     syntax_highlighting::{self, DefaultThemes},
 };
 use bon::Builder;
+use cached::proc_macro::cached;
 use clap::{crate_version, Args};
 use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Result};
@@ -62,6 +65,12 @@ pub struct GenerateCommand {
     /// The default is `mocha-dark`.
     #[arg(short = 't', long)]
     syntax_theme: Option<DefaultThemes>,
+
+    /// Inspect the image for a specific platform
+    /// when retrieving the version.
+    #[arg(long, default_value = "native")]
+    #[builder(default)]
+    platform: Platform,
 
     #[clap(flatten)]
     #[builder(default)]
@@ -115,23 +124,18 @@ impl GenerateCommand {
         info!("Templating for recipe at {}", recipe_path.display());
 
         let template = ContainerFileTemplate::builder()
-            .os_version(Driver::get_os_version(&recipe.base_image_ref()?)?)
+            .os_version(
+                Driver::get_os_version()
+                    .oci_ref(&recipe.base_image_ref()?)
+                    .platform(self.platform)
+                    .call()?,
+            )
             .build_id(Driver::get_build_id())
             .recipe(&recipe)
             .recipe_path(recipe_path.as_path())
             .registry(registry)
             .repo(Driver::get_repo_url()?)
-            .exports_tag({
-                #[allow(clippy::const_is_empty)]
-                if shadow::COMMIT_HASH.is_empty() {
-                    // This is done for users who install via
-                    // cargo. Cargo installs do not carry git
-                    // information via shadow
-                    format!("v{}", crate_version!())
-                } else {
-                    shadow::COMMIT_HASH.to_string()
-                }
-            })
+            .build_scripts_image(determine_scripts_tag(self.platform)?)
             .build();
 
         let output_str = template.render().into_diagnostic()?;
@@ -147,4 +151,32 @@ impl GenerateCommand {
 
         Ok(())
     }
+}
+
+#[cached(
+    result = true,
+    key = "Platform",
+    convert = r#"{ platform }"#,
+    sync_writes = true
+)]
+fn determine_scripts_tag(platform: Platform) -> Result<String> {
+    let version = format!("v{}", crate_version!());
+    let opts = GetMetadataOpts::builder()
+        .image(BUILD_SCRIPTS_IMAGE_REF)
+        .platform(platform);
+
+    Driver::get_metadata(&opts.clone().tag(shadow::COMMIT_HASH).build())
+        .inspect_err(|e| trace!("{e:?}"))
+        .map(|_| format!("{BUILD_SCRIPTS_IMAGE_REF}:{}", shadow::COMMIT_HASH))
+        .or_else(|_| {
+            Driver::get_metadata(&opts.clone().tag(shadow::BRANCH).build())
+                .inspect_err(|e| trace!("{e:?}"))
+                .map(|_| format!("{BUILD_SCRIPTS_IMAGE_REF}:{}", shadow::BRANCH))
+        })
+        .or_else(|_| {
+            Driver::get_metadata(&opts.tag(&version).build())
+                .inspect_err(|e| trace!("{e:?}"))
+                .map(|_| format!("{BUILD_SCRIPTS_IMAGE_REF}:{version}"))
+        })
+        .inspect(|image| debug!("Using build scripts image: {image}"))
 }

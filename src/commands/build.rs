@@ -9,6 +9,7 @@ use blue_build_process_management::{
             BuildTagPushOpts, CheckKeyPairOpts, CompressionType, GenerateImageNameOpts,
             GenerateTagsOpts, SignVerifyOpts,
         },
+        types::Platform,
         BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
     },
     logging::{color_str, gen_random_ansi_color},
@@ -57,6 +58,16 @@ pub struct BuildCommand {
     #[arg(short, long)]
     #[builder(default)]
     push: bool,
+
+    /// Build for a specific platform.
+    ///
+    /// NOTE: Building for a different architecture
+    /// than your hardware will require installing
+    /// qemu. Build times will be much greater when
+    /// building for a non-native architecture.
+    #[arg(long, default_value = "native")]
+    #[builder(default)]
+    platform: Platform,
 
     /// The compression format the images
     /// will be pushed in.
@@ -168,6 +179,7 @@ impl BlueBuildCommand for BuildCommand {
                     } else {
                         PathBuf::from(CONTAINER_FILE)
                     })
+                    .platform(self.platform)
                     .recipe(recipe)
                     .drivers(self.drivers)
                     .build()
@@ -260,7 +272,8 @@ impl BuildCommand {
         let tags = Driver::generate_tags(
             &GenerateTagsOpts::builder()
                 .oci_ref(&recipe.base_image_ref()?)
-                .maybe_alt_tags(recipe.alt_tags.as_ref().map(CowCollecter::to_cow_vec))
+                .maybe_alt_tags(recipe.alt_tags.as_ref().map(CowCollecter::collect_cow_vec))
+                .platform(self.platform)
                 .build(),
         )?;
         let image_name = self.image_name(&recipe)?;
@@ -268,6 +281,7 @@ impl BuildCommand {
         let opts = if let Some(archive_dir) = self.archive.as_ref() {
             BuildTagPushOpts::builder()
                 .containerfile(containerfile)
+                .platform(self.platform)
                 .archive_path(format!(
                     "{}/{}.{ARCHIVE_SUFFIX}",
                     archive_dir.to_string_lossy().trim_end_matches('/'),
@@ -279,7 +293,8 @@ impl BuildCommand {
             BuildTagPushOpts::builder()
                 .image(&image_name)
                 .containerfile(containerfile)
-                .tags(tags.to_cow_vec())
+                .platform(self.platform)
+                .tags(tags.collect_cow_vec())
                 .push(self.push)
                 .retry_push(self.retry_push)
                 .retry_count(self.retry_count)
@@ -297,6 +312,7 @@ impl BuildCommand {
                     .retry_push(self.retry_push)
                     .retry_count(self.retry_count)
                     .maybe_tag(tags.first())
+                    .platform(self.platform)
                     .build(),
             )?;
         }

@@ -12,7 +12,7 @@ path = "process.rs"
 
 [dependencies]
 anyhow = "1"
-blue-build-utils = { version = "=0.8.17", path = "../utils" }
+blue-build-utils = { version = "=0.8.20", path = "../utils" }
 expect-exit = "0.5"
 indicatif-log-bridge = "0.2"
 lenient_semver = "0.4"
@@ -28,6 +28,7 @@ sigstore = { version = "0.10", features = ["full-rustls-tls", "cached-client", "
 tokio = { version = "1.39.2", features = ["rt", "rt-multi-thread"], optional = true }
 zeroize = { version = "1", features = ["aarch64", "derive", "serde"] }
 
+cached.workspace = true
 chrono.workspace = true
 clap = { workspace = true, features = ["derive", "env"] }
 colored.workspace = true
@@ -45,7 +46,7 @@ uuid.workspace = true
 
 [dev-dependencies]
 rstest.workspace = true
-blue-build-utils = { version = "=0.8.17", path = "../utils", features = ["test"]  }
+blue-build-utils = { version = "=0.8.20", path = "../utils", features = ["test"]  }
 
 [lints]
 workspace = true

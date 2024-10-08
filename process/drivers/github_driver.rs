@@ -39,8 +39,11 @@ impl CiDriver for GithubDriver {
     fn generate_tags(opts: &GenerateTagsOpts) -> miette::Result<Vec<String>> {
         const PR_EVENT: &str = "pull_request";
         let timestamp = blue_build_utils::get_tag_timestamp();
-        let os_version =
-            Driver::get_os_version(opts.oci_ref).inspect(|v| trace!("os_version={v}"))?;
+        let os_version = Driver::get_os_version()
+            .oci_ref(opts.oci_ref)
+            .platform(opts.platform)
+            .call()
+            .inspect(|v| trace!("os_version={v}"))?;
         let ref_name = get_env_var(GITHUB_REF_NAME).inspect(|v| trace!("{GITHUB_REF_NAME}={v}"))?;
         let short_sha = {
             let mut short_sha = get_env_var(GITHUB_SHA).inspect(|v| trace!("{GITHUB_SHA}={v}"))?;
@@ -150,7 +153,7 @@ mod test {
     use rstest::rstest;
 
     use crate::{
-        drivers::{opts::GenerateTagsOpts, CiDriver},
+        drivers::{opts::GenerateTagsOpts, types::Platform, CiDriver},
         test::{TEST_TAG_1, TEST_TAG_2, TIMESTAMP},
     };
 
@@ -291,6 +294,7 @@ mod test {
             &GenerateTagsOpts::builder()
                 .oci_ref(&oci_ref)
                 .maybe_alt_tags(alt_tags)
+                .platform(Platform::LinuxAmd64)
                 .build(),
         )
         .unwrap();

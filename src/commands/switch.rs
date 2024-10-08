@@ -66,8 +66,16 @@ impl BlueBuildCommand for SwitchCommand {
         let tempdir = TempDir::new("oci-archive").into_diagnostic()?;
         trace!("{tempdir:?}");
 
+        #[cfg(feature = "multi-recipe")]
         BuildCommand::builder()
             .recipe([self.recipe.clone()])
+            .archive(tempdir.path())
+            .force(self.force)
+            .build()
+            .try_run()?;
+        #[cfg(not(feature = "multi-recipe"))]
+        BuildCommand::builder()
+            .recipe(self.recipe.clone())
             .archive(tempdir.path())
             .force(self.force)
             .build()

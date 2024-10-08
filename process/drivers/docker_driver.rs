@@ -1,19 +1,18 @@
 use std::{
+    collections::HashMap,
     env,
     io::Write,
     path::Path,
     process::{Command, ExitStatus, Stdio},
     sync::Mutex,
-    time::Duration,
 };
 
 use blue_build_utils::{
     cmd,
-    constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, SKOPEO_IMAGE},
+    constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST},
     credentials::Credentials,
     string_vec,
 };
-use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, info, trace, warn};
 use miette::{bail, miette, IntoDiagnostic, Result};
 use once_cell::sync::Lazy;
@@ -23,17 +22,48 @@ use tempdir::TempDir;
 
 use crate::{
     drivers::{
-        opts::{RunOptsEnv, RunOptsVolume},
+        opts::{
+            BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, RunOptsEnv,
+            RunOptsVolume, TagOpts,
+        },
+        traits::{BuildDriver, DriverVersion, InspectDriver, RunDriver},
         types::ImageMetadata,
+        types::Platform,
     },
-    logging::{CommandLogging, Logger},
+    logging::CommandLogging,
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
 };
 
-use super::{
-    opts::{BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
-    BuildDriver, DriverVersion, InspectDriver, RunDriver,
-};
+#[derive(Deserialize, Debug, Clone)]
+struct DockerImageMetadata {
+    manifest: DockerImageMetadataManifest,
+    image: DockerImageMetadataImage,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct DockerImageMetadataManifest {
+    digest: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct DockerImageMetadataImage {
+    config: DockerImageConfig,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+struct DockerImageConfig {
+    labels: HashMap<String, serde_json::Value>,
+}
+
+impl From<DockerImageMetadata> for ImageMetadata {
+    fn from(value: DockerImageMetadata) -> Self {
+        Self {
+            labels: value.image.config.labels,
+            digest: value.manifest.digest,
+        }
+    }
+}
 
 #[derive(Debug, Deserialize)]
 struct DockerVerisonJsonClient {
@@ -129,6 +159,10 @@ impl BuildDriver for DockerDriver {
         let status = cmd!(
             "docker",
             "build",
+            if !matches!(opts.platform, Platform::Native) => [
+                "--platform",
+                opts.platform.to_string(),
+            ],
             "-t",
             &*opts.image,
             "-f",
@@ -241,6 +275,10 @@ impl BuildDriver for DockerDriver {
             },
             "build",
             "--pull",
+            if !matches!(opts.platform, Platform::Native) => [
+                "--platform",
+                opts.platform.to_string(),
+            ],
             "-f",
             &*opts.containerfile,
             // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
@@ -276,7 +314,7 @@ impl BuildDriver for DockerDriver {
                         format!(
                             "type=image,name={first_image},push=true,compression={},oci-mediatypes=true",
                             opts.compression
-                        )
+                        ),
                     );
                 } else {
                     cmd!(command, "--load");
@@ -314,31 +352,31 @@ impl BuildDriver for DockerDriver {
 
 impl InspectDriver for DockerDriver {
     fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
-        trace!("DockerDriver::get_labels({opts:#?})");
+        trace!("DockerDriver::get_metadata({opts:#?})");
 
         let url = opts.tag.as_ref().map_or_else(
-            || format!("docker://{}", opts.image),
-            |tag| format!("docker://{}:{tag}", opts.image),
+            || format!("{}", opts.image),
+            |tag| format!("{}:{tag}", opts.image),
         );
 
-        let progress = Logger::multi_progress().add(
-            ProgressBar::new_spinner()
-                .with_style(ProgressStyle::default_spinner())
-                .with_message(format!("Inspecting metadata for {url}")),
+        let mut command = cmd!(
+            "docker",
+            "buildx",
+            |command|? {
+                if !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty()) {
+                    Self::setup()?;
+                    cmd!(command, "--builder=bluebuild");
+                }
+            },
+            "imagetools",
+            "inspect",
+            "--format",
+            "{{json .}}",
+            &url
         );
-        progress.enable_steady_tick(Duration::from_millis(100));
+        trace!("{command:?}");
 
-        let output = Self::run_output(
-            &RunOpts::builder()
-                .image(SKOPEO_IMAGE)
-                .args(bon::vec!["inspect", &url])
-                .remove(true)
-                .build(),
-        )
-        .into_diagnostic()?;
-
-        progress.finish();
-        Logger::multi_progress().remove(&progress);
+        let output = command.output().into_diagnostic()?;
 
         if output.status.success() {
             info!("Successfully inspected image {url}!");
@@ -346,7 +384,11 @@ impl InspectDriver for DockerDriver {
             bail!("Failed to inspect image {url}")
         }
 
-        serde_json::from_slice(&output.stdout).into_diagnostic()
+        serde_json::from_slice::<DockerImageMetadata>(&output.stdout)
+            .into_diagnostic()
+            .inspect(|metadata| trace!("{metadata:#?}"))
+            .map(ImageMetadata::from)
+            .inspect(|metadata| trace!("{metadata:#?}"))
     }
 }
 

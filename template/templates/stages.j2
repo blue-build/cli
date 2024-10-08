@@ -62,7 +62,7 @@ ARG RUST_LOG_STYLE=always
       {%- if stage.from != "scratch" %}
 # Add compatibility for modules
 RUN --mount=type=bind,from=stage-bins,src=/bins/,dst=/tmp/bins/ \
-  --mount=type=bind,from=ghcr.io/blue-build/cli:{{ exports_tag }}-build-scripts,src=/scripts/,dst=/tmp/scripts/ \
+  --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/tmp/scripts/ \
   /tmp/scripts/setup.sh
 
         {%- if files_dir_exists %}

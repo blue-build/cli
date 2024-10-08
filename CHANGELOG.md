@@ -2,6 +2,59 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.20] - 2024-10-06
+
+### Bug Fixes
+
+- Ensure the correct digest is used for docker and podman inspect drivers
+- Use docker buildx imagetools to inspect for the docker inspect driver
+- Use full json inspection for docker inspect driver
+- Switch cosign registry from GCR to GHCR (#237)
+- Remove --load for docker build since we no longer pull the image for inspection
+
+### Miscellaneous Tasks
+
+- Fix akmods tests
+- Remove akmods module for arm64 build
+
+## [0.8.19] - 2024-10-04
+
+### Bug Fixes
+
+- Use built-in image inspection for podman and docker
+
+### Miscellaneous Tasks
+
+- Release
+
+## [0.8.18] - 2024-10-03
+
+### Bug Fixes
+
+- Properly escape module json
+- Add post build script to prepare image for ISO creation
+- Make sigstore driver more resilient to network errors
+- May not be possible to just install bootc, run bootupctl if bootc already exists
+- Run image as fallback for version retrieval
+
+### Features
+
+- Add platform arg to force building a specific architecture
+
+### Miscellaneous Tasks
+
+- Add expand.rs to .gitignore for debugging macros
+- Make build.rs run again on git change
+- Add one more criteria for rerun build.rs to check .git/refs/heads
+- Check for bootupctl in post-build script
+- Remove bootupctl until issue is resolved
+- Run clippy and test for every feature individually
+- Release
+
+### Refactor
+
+- Swtich to using bon for builder pattern
+
 ## [0.8.17] - 2024-09-11
 
 ### Bug Fixes
@@ -11,6 +64,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Upgrade sigstore to use contributed changes
+- Release
 
 ## [0.8.16] - 2024-09-08
 

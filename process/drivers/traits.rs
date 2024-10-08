@@ -123,6 +123,7 @@ pub trait BuildDriver: PrivateDriver {
         let build_opts = BuildOpts::builder()
             .image(&full_image)
             .containerfile(opts.containerfile.as_ref())
+            .platform(opts.platform)
             .squash(opts.squash)
             .build();
 
@@ -250,10 +251,12 @@ pub trait SigningDriver: PrivateDriver {
             .map_or_else(|| PathBuf::from("."), |d| d.to_path_buf());
 
         let image_name: &str = opts.image.as_ref();
-        let inspect_opts = GetMetadataOpts::builder().image(image_name);
+        let inspect_opts = GetMetadataOpts::builder()
+            .image(image_name)
+            .platform(opts.platform);
 
         let inspect_opts = if let Some(ref tag) = opts.tag {
-            inspect_opts.tag(tag.as_ref() as &str).build()
+            inspect_opts.tag(&**tag).build()
         } else {
             inspect_opts.build()
         };

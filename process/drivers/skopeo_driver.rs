@@ -1,11 +1,12 @@
 use std::{process::Stdio, time::Duration};
 
 use blue_build_utils::cmd;
+use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, trace};
 use miette::{bail, IntoDiagnostic, Result};
 
-use crate::logging::Logger;
+use crate::{drivers::types::Platform, logging::Logger};
 
 use super::{opts::GetMetadataOpts, types::ImageMetadata, InspectDriver};
 
@@ -24,17 +25,25 @@ impl InspectDriver for SkopeoDriver {
         let progress = Logger::multi_progress().add(
             ProgressBar::new_spinner()
                 .with_style(ProgressStyle::default_spinner())
-                .with_message(format!("Inspecting metadata for {url}")),
+                .with_message(format!("Inspecting metadata for {}", url.bold())),
         );
         progress.enable_steady_tick(Duration::from_millis(100));
 
-        trace!("skopeo inspect {url}");
-        let output = cmd!("skopeo", "inspect", &url)
-            .stderr(Stdio::inherit())
-            .output()
-            .into_diagnostic()?;
+        let mut command = cmd!(
+            "skopeo",
+            if !matches!(opts.platform, Platform::Native) => [
+                "--override-arch",
+                opts.platform.arch(),
+            ],
+            "inspect",
+            &url,
+            stderr = Stdio::inherit(),
+        );
+        trace!("{command:?}");
 
-        progress.finish();
+        let output = command.output().into_diagnostic()?;
+
+        progress.finish_and_clear();
         Logger::multi_progress().remove(&progress);
 
         if output.status.success() {

@@ -72,7 +72,8 @@ pub const LC_TERMINAL_VERSION: &str = "LC_TERMINAL_VERSION";
 pub const XDG_RUNTIME_DIR: &str = "XDG_RUNTIME_DIR";
 
 // Misc
-pub const COSIGN_IMAGE: &str = "gcr.io/projectsigstore/cosign:latest";
+pub const BUILD_SCRIPTS_IMAGE_REF: &str = "ghcr.io/blue-build/cli/build-scripts";
+pub const COSIGN_IMAGE: &str = "ghcr.io/sigstore/cosign/cosign:latest";
 pub const OCI_ARCHIVE: &str = "oci-archive";
 pub const OSTREE_IMAGE_SIGNED: &str = "ostree-image-signed";
 pub const OSTREE_UNVERIFIED_IMAGE: &str = "ostree-unverified-image";

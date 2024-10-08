@@ -2,6 +2,8 @@ use std::{borrow::Cow, path::Path};
 
 use bon::Builder;
 
+use crate::drivers::types::Platform;
+
 use super::CompressionType;
 
 /// Options for building
@@ -15,14 +17,15 @@ pub struct BuildOpts<'scope> {
 
     #[builder(into)]
     pub containerfile: Cow<'scope, Path>,
+
+    #[builder(default)]
+    pub platform: Platform,
 }
 
 #[derive(Debug, Clone, Builder)]
+#[builder(on(Cow<'_, str>, into))]
 pub struct TagOpts<'scope> {
-    #[builder(into)]
     pub src_image: Cow<'scope, str>,
-
-    #[builder(into)]
     pub dest_image: Cow<'scope, str>,
 }
 
@@ -80,4 +83,8 @@ pub struct BuildTagPushOpts<'scope> {
     /// Run all steps in a single layer.
     #[builder(default)]
     pub squash: bool,
+
+    /// The platform to build the image on.
+    #[builder(default)]
+    pub platform: Platform,
 }
