@@ -13,42 +13,6 @@ env:
   RUST_LOG_STYLE: always
 
 jobs:
-  test:
-    timeout-minutes: 10
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: earthly/actions-setup@v1
-
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{github.event.pull_request.head.ref}}
-          repository: ${{github.event.pull_request.head.repo.full_name}}
-
-      - name: Run test
-        id: build
-        run: |
-          earthly --ci +test
-
-  lint:
-    timeout-minutes: 10
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: earthly/actions-setup@v1
-
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{github.event.pull_request.head.ref}}
-          repository: ${{github.event.pull_request.head.repo.full_name}}
-
-      - name: Run lint
-        id: build
-        run: |
-          earthly --ci +lint
-
   arm64-prebuild:
     timeout-minutes: 10
     runs-on: ubuntu-latest
@@ -182,6 +146,8 @@ jobs:
     permissions:
       packages: write
     timeout-minutes: 60
+    needs:
+      - amd64-prebuild
     runs-on: ubuntu-latest
 
     steps:
@@ -201,6 +167,42 @@ jobs:
         run: |
           earthly bootstrap
           earthly --ci -P ./integration-tests+all
+
+  test:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: earthly/actions-setup@v1
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
+
+      - name: Run test
+        id: build
+        run: |
+          earthly --ci +test
+
+  lint:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: earthly/actions-setup@v1
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
+
+      - name: Run lint
+        id: build
+        run: |
+          earthly --ci +lint
 
   docker-build:
     timeout-minutes: 20
