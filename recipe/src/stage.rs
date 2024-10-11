@@ -6,7 +6,7 @@ use colored::Colorize;
 use miette::{bail, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{Module, ModuleExt, StagesExt};
+use crate::{base_recipe_path, Module, ModuleExt, StagesExt};
 
 /// Contains the required fields for a stage.
 #[derive(Serialize, Deserialize, Debug, Clone, Builder)]
@@ -86,7 +86,7 @@ pub struct Stage<'a> {
     pub from_file: Option<Cow<'a, str>>,
 }
 
-impl<'a> Stage<'a> {
+impl Stage<'_> {
     /// Get's any child stages.
     ///
     /// # Errors
@@ -119,7 +119,7 @@ impl<'a> Stage<'a> {
                         let mut tf = traversed_files.clone();
                         tf.push(file_name.clone());
 
-                        Self::get_stages(&StagesExt::parse(&file_name)?.stages, Some(tf))?
+                        Self::get_stages(&StagesExt::try_from(&file_name)?.stages, Some(tf))?
                     }
                     _ => {
                         let from_example = Stage::builder().from_file("path/to/stage.yml").build();
@@ -137,6 +137,13 @@ impl<'a> Stage<'a> {
             );
         }
         Ok(found_stages)
+    }
+
+    #[must_use]
+    pub fn get_from_file_path(&self) -> Option<PathBuf> {
+        self.from_file
+            .as_ref()
+            .map(|path| base_recipe_path().join(&**path))
     }
 
     #[must_use]

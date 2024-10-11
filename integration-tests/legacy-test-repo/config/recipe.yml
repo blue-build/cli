@@ -35,6 +35,7 @@ modules:
   - type: signing
 
   - type: test-module
+    source: local
 
   - type: containerfile
     containerfiles:

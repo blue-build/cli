@@ -1,12 +1,10 @@
 use std::{borrow::Cow, fs, path::Path};
 
 use bon::Builder;
-use indexmap::IndexMap;
 use log::{debug, trace};
 use miette::{Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
 
 use crate::{Module, ModuleExt, StagesExt};
 
@@ -69,13 +67,6 @@ pub struct Recipe<'a> {
     /// This holds the list of modules to be run on the image.
     #[serde(flatten)]
     pub modules_ext: ModuleExt<'a>,
-
-    /// Extra data that the user might have added. This is
-    /// done in case we serialize the data to a yaml file
-    /// so that we retain any unused information.
-    #[serde(flatten)]
-    #[builder(into)]
-    pub extra: IndexMap<String, Value>,
 }
 
 impl<'a> Recipe<'a> {

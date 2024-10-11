@@ -5,7 +5,7 @@ use log::error;
 use clap::{command, crate_authors, Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 
-use crate::shadow;
+use crate::info::shadow;
 
 pub mod bug_report;
 pub mod build;
@@ -15,6 +15,8 @@ pub mod generate;
 pub mod generate_iso;
 #[cfg(feature = "login")]
 pub mod login;
+#[cfg(feature = "validate")]
+pub mod validate;
 // #[cfg(feature = "init")]
 // pub mod init;
 #[cfg(not(feature = "switch"))]
@@ -114,6 +116,11 @@ pub enum CommandArgs {
     /// Login to all services used for building.
     #[cfg(feature = "login")]
     Login(login::LoginCommand),
+
+    /// Validate your recipe file and display
+    /// errors to help fix problems.
+    #[cfg(feature = "validate")]
+    Validate(Box<validate::ValidateCommand>),
 
     // /// Initialize a new Ublue Starting Point repo
     // #[cfg(feature = "init")]

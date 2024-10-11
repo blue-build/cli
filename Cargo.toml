@@ -18,13 +18,15 @@ colored = "2"
 indexmap = { version = "2", features = ["serde"] }
 indicatif = { version = "0.17", features = ["improved_unicode"] }
 log = "0.4"
-oci-distribution = { version = "0.11.0", default-features = false, features = ["rustls-tls", "rustls-tls-native-roots"] }
+oci-distribution = { version = "0.11", default-features = false }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 miette = "7"
 rstest = "0.18"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
 tempdir = "0.3"
+tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
 users = "0.11"
 uuid = { version = "1", features = ["v4"] }
 
@@ -65,24 +67,28 @@ blue-build-process-management = { version = "=0.8.20", path = "./process" }
 clap-verbosity-flag = "2"
 clap_complete = "4"
 fuzzy-matcher = "0.3"
+jsonschema = { version = "0.26", optional = true }
 open = "5"
 os_info = "3"
 rayon = { version = "1.10.0", optional = true }
 requestty = { version = "0.5", features = ["macros", "termion"] }
-shadow-rs = "0.26"
+shadow-rs = { version = "0.26", default-features = false }
 urlencoding = "2"
 
 cached.workspace = true
 clap = { workspace = true, features = ["derive", "cargo", "unicode", "env"] }
 colored.workspace = true
+indexmap.workspace = true
 indicatif.workspace = true
 log.workspace = true
 miette = { workspace = true, features = ["fancy"] }
 oci-distribution.workspace = true
+reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 tempdir.workspace = true
+tokio = { workspace = true, optional = true }
 bon.workspace = true
 users.workspace = true
 
@@ -90,17 +96,24 @@ users.workspace = true
 default = []
 stages = ["blue-build-recipe/stages"]
 copy = ["blue-build-recipe/copy"]
-multi-recipe = ["rayon", "indicatif/rayon"]
+multi-recipe = ["dep:rayon", "indicatif/rayon"]
 iso = []
 switch = []
 sigstore = ["blue-build-process-management/sigstore"]
 login = []
+validate = [
+  "dep:jsonschema",
+  "dep:rayon",
+  "dep:tokio",
+  "cached/async",
+  "blue-build-process-management/validate"
+]
 
 [dev-dependencies]
 rusty-hook = "0.11"
 
 [build-dependencies]
-shadow-rs = "0.26"
+shadow-rs = { version = "0.26", default-features = false }
 
 [lints]
 workspace = true

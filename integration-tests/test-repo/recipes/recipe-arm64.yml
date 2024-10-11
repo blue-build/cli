@@ -1,10 +1,12 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
 name: cli/test
 description: This is my personal OS image.
 base-image: quay.io/fedora/fedora-silverblue
 image-version: 40
-alt_tags:
+alt-tags:
   - arm64
-stages:
+stages: []
 modules:
   - from-file: flatpaks.yml
 
@@ -29,6 +31,7 @@ modules:
   - type: signing
 
   - type: test-module
+    source: local
 
   - type: containerfile
     containerfiles:
