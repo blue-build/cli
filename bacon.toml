@@ -89,6 +89,9 @@ watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.r
 # should go in your personal global prefs.toml file instead.
 [keybindings]
 # alt-m = "job:my-job"
-c = "job:clippy-all" # comment this to have 'c' run clippy on only the default target
-i = "job:install-all"
-t = "job:test-all"
+c = "job:clippy"
+shift-c = "job:clippy-all" # comment this to have 'c' run clippy on only the default target
+i = "job:install"
+shift-i = "job:install-all"
+t = "job:test"
+shift-t = "job:test-all"

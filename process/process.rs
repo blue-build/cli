@@ -2,17 +2,17 @@
 //! by this tool. It contains drivers for running, building, inspecting, and signing
 //! images that interface with tools like docker or podman.
 
-#[cfg(feature = "sigstore")]
+#[cfg(any(feature = "sigstore", feature = "validate"))]
 use once_cell::sync::Lazy;
-#[cfg(feature = "sigstore")]
+#[cfg(any(feature = "sigstore", feature = "validate"))]
 use tokio::runtime::Runtime;
 
 pub mod drivers;
 pub mod logging;
 pub mod signal_handler;
 
-#[cfg(feature = "sigstore")]
-pub(crate) static RT: Lazy<Runtime> = Lazy::new(|| {
+#[cfg(any(feature = "sigstore", feature = "validate"))]
+pub static ASYNC_RUNTIME: Lazy<Runtime> = Lazy::new(|| {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()

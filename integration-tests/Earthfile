@@ -4,126 +4,137 @@ PROJECT blue-build/cli
 IMPORT github.com/earthly/lib/utils/dind AS dind
 
 all:
-	BUILD +test-image
-	BUILD +test-legacy-image
-	BUILD +build
-	BUILD +rebase
-	BUILD +upgrade
-	BUILD +switch
+    BUILD +test-image
+    BUILD +test-legacy-image
+    BUILD +build
+    BUILD +rebase
+    BUILD +upgrade
+    BUILD +switch
+    BUILD +validate
 
 test-image:
-	FROM +build-template --src=template-containerfile
-	WORKDIR /tmp/test
-	COPY ./test-scripts/*.sh ./
+    FROM +build-template --src=template-containerfile
+    WORKDIR /tmp/test
+    COPY ./test-scripts/*.sh ./
 
-	DO +RUN_TESTS
+    DO +RUN_TESTS
 
 test-legacy-image:
-	FROM +build-template --src=template-legacy-containerfile
-	WORKDIR /tmp/test
-	COPY ./test-scripts/*.sh ./
+    FROM +build-template --src=template-legacy-containerfile
+    WORKDIR /tmp/test
+    COPY ./test-scripts/*.sh ./
 
-	DO +RUN_TESTS
+    DO +RUN_TESTS
 
 build-template:
-	ARG --required src
-	FROM DOCKERFILE \
-		-f +$src/test/Containerfile \
-		+$src/test/*
+    ARG --required src
+    FROM DOCKERFILE \
+    -f +$src/test/Containerfile \
+    +$src/test/*
 
 template-containerfile:
-	FROM +test-base
-	RUN bluebuild -v generate recipes/recipe.yml | tee Containerfile
+    FROM +test-base
+    RUN --no-cache bluebuild -v generate recipes/recipe.yml | tee Containerfile
 
-	SAVE ARTIFACT /test
+    SAVE ARTIFACT /test
 
 template-legacy-containerfile:
-	FROM +legacy-base
-	RUN bluebuild -v template config/recipe.yml | tee Containerfile
+    FROM +legacy-base
+    RUN --no-cache bluebuild -v template config/recipe.yml | tee Containerfile
 
-	SAVE ARTIFACT /test
+    SAVE ARTIFACT /test
 
 build:
-	FROM +test-base
+    FROM +test-base
 
-	RUN bluebuild -v build recipes/recipe.yml
+    RUN bluebuild -v build recipes/recipe.yml
 
 build-full:
-	FROM +test-base --MOCK="false"
+    FROM +test-base --MOCK="false"
 
-	DO dind+INSTALL
+    DO dind+INSTALL
 
-	ENV BB_USERNAME=gmpinder
-	ENV BB_REGISTRY=ghcr.io
-	ENV BB_REGISTRY_NAMESPACE=blue-build
+    ENV BB_USERNAME=gmpinder
+    ENV BB_REGISTRY=ghcr.io
+    ENV BB_REGISTRY_NAMESPACE=blue-build
 
-	WITH DOCKER
-		RUN --secret BB_PASSWORD=github/registry bluebuild build --push -S sigstore -vv recipes/recipe.yml
-	END
-	
+    WITH DOCKER
+        RUN --secret BB_PASSWORD=github/registry bluebuild build --push -S sigstore -vv recipes/recipe.yml
+    END
+    
 
 rebase:
-	FROM +legacy-base
+    FROM +legacy-base
 
-	RUN bluebuild -v rebase config/recipe.yml
+    RUN --no-cache bluebuild -v rebase config/recipe.yml
 
 upgrade:
-	FROM +legacy-base
+    FROM +legacy-base
 
-	RUN mkdir -p /etc/bluebuild && touch $BB_TEST_LOCAL_IMAGE
-	RUN bluebuild -v upgrade config/recipe.yml
+    RUN mkdir -p /etc/bluebuild && touch $BB_TEST_LOCAL_IMAGE
+    RUN --no-cache bluebuild -v upgrade config/recipe.yml
 
 switch:
-	FROM +test-base
+    FROM +test-base
 
-	RUN mkdir -p /etc/bluebuild && touch $BB_TEST_LOCAL_IMAGE
-	RUN bluebuild -v switch recipes/recipe.yml
+    RUN mkdir -p /etc/bluebuild && touch $BB_TEST_LOCAL_IMAGE
+    RUN --no-cache bluebuild -v switch recipes/recipe.yml
+
+validate:
+    FROM +test-base
+
+    RUN --no-cache bluebuild -v validate recipes/recipe.yml
+    RUN --no-cache bluebuild -v validate recipes/recipe-39.yml
+    RUN --no-cache bluebuild -v validate recipes/recipe-arm64.yml
+    RUN --no-cache bluebuild -v validate recipes/recipe-invalid.yml && exit 1 || exit 0
+    RUN --no-cache bluebuild -v validate recipes/recipe-invalid-module.yml && exit 1 || exit 0
+    RUN --no-cache bluebuild -v validate recipes/recipe-invalid-stage.yml && exit 1 || exit 0
 
 legacy-base:
-	FROM ../+blue-build-cli-alpine
-	RUN apk update --no-cache && apk add bash grep jq sudo coreutils
-	ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test-legacy.tar.gz
-	ENV CLICOLOR_FORCE=1
+    FROM ../+blue-build-cli-alpine --RELEASE=false
+    RUN apk update --no-cache && apk add bash grep jq sudo coreutils
+    ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test-legacy.tar.gz
+    ENV CLICOLOR_FORCE=1
 
-	COPY ./mock-scripts/ /usr/bin/
+    COPY ./mock-scripts/ /usr/bin/
 
-	WORKDIR /test
-	COPY ./legacy-test-repo /test
+    WORKDIR /test
+    COPY ./legacy-test-repo /test
 
-	DO ../+INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl" --TAGGED="true"
+    DO ../+INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl" --TAGGED="true"
 
-	DO +GEN_KEYPAIR
+    DO +GEN_KEYPAIR
 
 test-base:
-	FROM ../+blue-build-cli-alpine
-	RUN apk update --no-cache && apk add bash grep jq sudo coreutils
-	ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test.tar.gz
-	ENV CLICOLOR_FORCE=1
+    FROM ../+blue-build-cli-alpine --RELEASE=false
+    RUN apk update --no-cache && apk add bash grep jq sudo coreutils
+    ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test.tar.gz
+    ENV CLICOLOR_FORCE=1
 
-	ARG MOCK="true"
-	IF [ "$MOCK" = "true" ]
-		COPY ./mock-scripts/ /usr/bin/
-	END
+    ARG MOCK="true"
+    IF [ "$MOCK" = "true" ]
+        COPY ./mock-scripts/ /usr/bin/
+    END
 
-	WORKDIR /test
-	COPY ./test-repo /test
+    WORKDIR /test
+    COPY ./test-repo /test
 
-	DO +GEN_KEYPAIR
+    DO +GEN_KEYPAIR
 
 GEN_KEYPAIR:
-	FUNCTION
-	# Setup a cosign key pair
-	ENV COSIGN_PASSWORD=""
-	ENV COSIGN_YES="true"
-	RUN cosign generate-key-pair
-	ENV COSIGN_PRIVATE_KEY=$(cat cosign.key)
-	RUN rm cosign.key
+    FUNCTION
+    # Setup a cosign key pair
+    ENV COSIGN_PASSWORD=""
+    ENV COSIGN_YES="true"
+    RUN cosign generate-key-pair
+    ENV COSIGN_PRIVATE_KEY=$(cat cosign.key)
+    RUN rm cosign.key
 
 RUN_TESTS:
-	FUNCTION
-	FOR script IN $(ls *.sh)
-		RUN --no-cache chmod +x $script \
-			&& echo "Running test $script" \
-			&& ./$script
-	END
+    FUNCTION
+    FOR script IN $(ls *.sh)
+        RUN --no-cache chmod +x $script \
+            && echo "Running test $script" \
+            && ./$script
+    END
 

@@ -3,6 +3,8 @@
 .vscode/
 result*
 .direnv/
+.arg
+.secret
 
 cosign.key
 !test-files/keys/cosign.key

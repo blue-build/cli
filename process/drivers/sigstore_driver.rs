@@ -2,7 +2,7 @@ use std::{fs, path::Path};
 
 use crate::{
     drivers::opts::{PrivateKeyContents, VerifyType},
-    RT,
+    ASYNC_RUNTIME,
 };
 
 use super::{
@@ -135,7 +135,8 @@ impl SigningDriver for SigstoreDriver {
         debug!("Credentials retrieved");
 
         let (cosign_signature_image, source_image_digest) = retry(2, 5, || {
-            RT.block_on(client.triangulate(&image_digest, &auth))
+            ASYNC_RUNTIME
+                .block_on(client.triangulate(&image_digest, &auth))
                 .into_diagnostic()
                 .with_context(|| format!("Failed to triangulate image {image_digest}"))
         })?;
@@ -151,18 +152,19 @@ impl SigningDriver for SigstoreDriver {
 
         debug!("Pushing signature");
         retry(2, 5, || {
-            RT.block_on(client.push_signature(
-                None,
-                &auth,
-                &cosign_signature_image,
-                vec![signature_layer.clone()],
-            ))
-            .into_diagnostic()
-            .with_context(|| {
-                format!(
+            ASYNC_RUNTIME
+                .block_on(client.push_signature(
+                    None,
+                    &auth,
+                    &cosign_signature_image,
+                    vec![signature_layer.clone()],
+                ))
+                .into_diagnostic()
+                .with_context(|| {
+                    format!(
                     "Failed to push signature {cosign_signature_image} for image {image_digest}"
                 )
-            })
+                })
         })?;
         debug!("Successfully pushed signature");
 
@@ -196,19 +198,21 @@ impl SigningDriver for SigstoreDriver {
         debug!("Triangulating image");
         let auth = Auth::Anonymous;
         let (cosign_signature_image, source_image_digest) = retry(2, 5, || {
-            RT.block_on(client.triangulate(&image_digest, &auth))
+            ASYNC_RUNTIME
+                .block_on(client.triangulate(&image_digest, &auth))
                 .into_diagnostic()
                 .with_context(|| format!("Failed to triangulate image {image_digest}"))
         })?;
         trace!("{cosign_signature_image}, {source_image_digest}");
 
         let trusted_layers = retry(2, 5, || {
-            RT.block_on(client.trusted_signature_layers(
-                &auth,
-                &source_image_digest,
-                &cosign_signature_image,
-            ))
-            .into_diagnostic()
+            ASYNC_RUNTIME
+                .block_on(client.trusted_signature_layers(
+                    &auth,
+                    &source_image_digest,
+                    &cosign_signature_image,
+                ))
+                .into_diagnostic()
         })?;
 
         sigstore::cosign::verify_constraints(&trusted_layers, verification_constraints.iter())
