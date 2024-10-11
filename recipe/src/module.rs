@@ -9,7 +9,7 @@ use miette::{bail, Result};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 
-use crate::{AkmodsInfo, ModuleExt};
+use crate::{base_recipe_path, AkmodsInfo, ModuleExt};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Builder, Default)]
 pub struct ModuleRequiredFields<'a> {
@@ -77,6 +77,17 @@ impl<'a> ModuleRequiredFields<'a> {
         #[cfg(not(feature = "copy"))]
         {
             None
+        }
+    }
+
+    #[must_use]
+    pub fn get_non_local_source(&'a self) -> Option<&'a str> {
+        let source = self.source.as_deref()?;
+
+        if source == "local" {
+            None
+        } else {
+            Some(source)
         }
     }
 
@@ -164,7 +175,7 @@ pub struct Module<'a> {
     pub from_file: Option<Cow<'a, str>>,
 }
 
-impl<'a> Module<'a> {
+impl Module<'_> {
     /// Get's any child modules.
     ///
     /// # Errors
@@ -202,7 +213,7 @@ impl<'a> Module<'a> {
                         traversed_files.push(file_name.clone());
 
                         Self::get_modules(
-                            &ModuleExt::parse(&file_name)?.modules,
+                            &ModuleExt::try_from(&file_name)?.modules,
                             Some(traversed_files),
                         )?
                     }
@@ -222,6 +233,13 @@ impl<'a> Module<'a> {
             );
         }
         Ok(found_modules)
+    }
+
+    #[must_use]
+    pub fn get_from_file_path(&self) -> Option<PathBuf> {
+        self.from_file
+            .as_ref()
+            .map(|path| base_recipe_path().join(&**path))
     }
 
     #[must_use]
