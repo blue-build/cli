@@ -23,19 +23,19 @@ clean:
 
 # Install bluebuild using cargo with release optimization
 install:
-  cargo install --path .
+  cargo install --path . --locked
 
 # Install bluebuild with all features with release optimizations
 install-all-features:
-  cargo install --all-features --path .
+  cargo install --all-features --path . --locked
 
 # Install bluebuild using cargo with debug targets
 install-debug:
-  cargo install --debug --path .
+  cargo install --debug --path . --locked
 
 # Install bluebuild with all features and debug target
 install-debug-all-features:
-  cargo install --debug --all-features --path .
+  cargo install --debug --all-features --path . --locked
 
 # Run unit tests
 test:
@@ -59,11 +59,11 @@ watch:
 
 # Install bluebuild whenever there is a change in the project files
 watch-install:
-  cargo watch -c -x 'install --debug --path .'
+  cargo watch -c -x 'install --debug --locked --path .'
 
 # Install bluebuild whenever there is a change in the project files
 watch-install-all-features:
-  cargo watch -c -x 'install --debug --all-features --path .'
+  cargo watch -c -x 'install --debug --locked --all-features --path .'
 
 # Run tests anytime a file is changed
 watch-test:
@@ -91,7 +91,7 @@ tools:
   rustup toolchain install stable
   rustup override set stable
   rustup component add --toolchain stable rust-analyzer clippy rustfmt
-  cargo install cargo-watch cargo-expand
+  cargo install --locked cargo-watch cargo-expand bacon
 
 # Run cargo release and push the tag separately
 release *args:

@@ -1,6 +1,7 @@
 use std::{
     fs,
     path::PathBuf,
+    process::ExitCode,
     sync::{atomic::AtomicBool, Arc, Mutex},
     thread,
 };
@@ -91,10 +92,10 @@ where
         let app = thread::spawn(app_exec);
 
         if matches!(app.join(), Ok(())) {
-            expect_exit::exit_unwind(0);
+            exit_unwind(ExitCode::SUCCESS);
         } else {
             error!("App thread panic!");
-            expect_exit::exit_unwind(1);
+            exit_unwind(ExitCode::FAILURE);
         }
     });
 
@@ -131,7 +132,7 @@ where
                 });
                 drop(cid_list);
 
-                expect_exit::exit_unwind(1);
+                exit_unwind(ExitCode::FAILURE);
             }
             SIGTSTP => {
                 if has_terminal {
@@ -151,6 +152,10 @@ where
             }
         }
     }
+}
+
+fn exit_unwind(code: ExitCode) {
+    std::panic::resume_unwind(Box::new(code));
 }
 
 fn send_signal_processes(sig: i32) {
