@@ -18,6 +18,8 @@ use clap::{crate_version, Args};
 use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Result};
 
+#[cfg(feature = "validate")]
+use crate::commands::validate::ValidateCommand;
 use crate::shadow;
 
 use super::BlueBuildCommand;
@@ -99,6 +101,13 @@ impl GenerateCommand {
                 legacy_path.join(RECIPE_FILE)
             }
         });
+
+        #[cfg(feature = "validate")]
+        ValidateCommand::builder()
+            .recipe(recipe_path.clone())
+            .build()
+            .try_run()?;
+
         let registry = if let (Some(registry), Some(registry_namespace)) =
             (&self.registry, &self.registry_namespace)
         {
