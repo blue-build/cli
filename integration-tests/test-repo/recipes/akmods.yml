@@ -3,4 +3,3 @@ modules:
   - type: akmods
     install:
       - openrazer
-      - openrgb
