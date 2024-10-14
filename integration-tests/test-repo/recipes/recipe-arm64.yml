@@ -4,7 +4,7 @@ base-image: quay.io/fedora/fedora-silverblue
 image-version: 40
 alt_tags:
   - arm64
-stages:
+stages: []
 modules:
   - from-file: flatpaks.yml
 
