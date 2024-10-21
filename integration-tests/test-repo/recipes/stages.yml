@@ -1,3 +1,5 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/module-stage-list-v1.json
 stages:
   - name: ubuntu-test
     from: ubuntu
@@ -25,6 +27,7 @@ modules:
     snippets:
       - echo "test" > /test.txt
   - type: test-module
+    source: local
   - type: containerfile
     containerfiles:
       - labels

@@ -1,5 +1,7 @@
 //! This module is responsible for managing various strategies
-//! to perform actions throughout the program. This hides all
+//! to perform actions throughout the program.
+//!
+//! This hides all
 //! the implementation details from the command logic and allows
 //! for caching certain long execution tasks like inspecting the
 //! labels for an image.
