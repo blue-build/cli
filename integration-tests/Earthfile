@@ -89,6 +89,7 @@ validate:
     RUN --no-cache bluebuild -v validate recipes/recipe-invalid.yml && exit 1 || exit 0
     RUN --no-cache bluebuild -v validate recipes/recipe-invalid-module.yml && exit 1 || exit 0
     RUN --no-cache bluebuild -v validate recipes/recipe-invalid-stage.yml && exit 1 || exit 0
+    RUN --no-cache bluebuild -v validate recipes/recipe-invalid-from-file.yml && exit 1 || exit 0
 
 legacy-base:
     FROM ../+blue-build-cli-alpine --RELEASE=false

@@ -25,6 +25,7 @@ rstest = "0.18"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = { version = "0.0.12", package = "serde_yml" }
+syntect = { version = "5", default-features = false, features = ["default-fancy"] }
 tempdir = "0.3"
 tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
 users = "0.11"
@@ -71,9 +72,11 @@ jsonschema = { version = "0.26", optional = true }
 open = "5"
 os_info = "3"
 rayon = { version = "1.10.0", optional = true }
+regex = { version = "1", optional = true }
 requestty = { version = "0.5", features = ["macros", "termion"] }
 shadow-rs = { version = "0.26", default-features = false }
 urlencoding = "2"
+yaml-rust2 = { version = "0.9.0", optional = true }
 
 cached.workspace = true
 clap = { workspace = true, features = ["derive", "cargo", "unicode", "env"] }
@@ -81,12 +84,13 @@ colored.workspace = true
 indexmap.workspace = true
 indicatif.workspace = true
 log.workspace = true
-miette = { workspace = true, features = ["fancy"] }
+miette = { workspace = true, features = ["fancy", "syntect-highlighter"] }
 oci-distribution.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
+syntect = { workspace = true, optional = true }
 tempdir.workspace = true
 tokio = { workspace = true, optional = true }
 bon.workspace = true
@@ -105,12 +109,17 @@ validate = [
   "dep:jsonschema",
   "dep:rayon",
   "dep:tokio",
+  "dep:yaml-rust2",
+  "dep:syntect",
+  "dep:regex",
   "cached/async",
   "blue-build-process-management/validate"
 ]
 
 [dev-dependencies]
 rusty-hook = "0.11"
+
+rstest.workspace = true
 
 [build-dependencies]
 shadow-rs = { version = "0.26", default-features = false }

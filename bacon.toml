@@ -45,7 +45,7 @@ command = [
 ]
 need_stdout = true
 default_watch = false
-watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs", "test-files"]
+watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs", "test-files", "integration-tests"]
 
 [jobs.test-all]
 command = [
@@ -54,7 +54,7 @@ command = [
 ]
 need_stdout = true
 default_watch = false
-watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs", "test-files"]
+watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs", "test-files", "integration-tests"]
 
 [jobs.doc]
 command = ["cargo", "doc", "--color", "always", "--no-deps"]
