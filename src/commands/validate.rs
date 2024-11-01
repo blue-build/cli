@@ -75,18 +75,20 @@ impl BlueBuildCommand for ValidateCommand {
                 full.push_str(&format!("{err:?}"));
                 full
             });
+            let main_err = format!("Recipe {recipe_path_display} failed to validate");
 
             if self.all_errors {
-                bail!("Recipe {recipe_path_display} failed to validate:\n{errors}");
-            } else {
-                bail!(
-                    help = format!(
-                        "Use `{}` to view more information",
-                        format!("bluebuild validate --all-errors {}", self.recipe.display()).bold(),
-                    ),
-                    "Recipe {recipe_path_display} failed to validate:\n{errors}",
-                );
+                return Err(miette!("{errors}").context(main_err));
             }
+
+            return Err(miette!(
+                help = format!(
+                    "Use `{}` to view more information",
+                    format!("bluebuild validate --all-errors {}", self.recipe.display()).bold(),
+                ),
+                "{errors}",
+            )
+            .context(main_err));
         }
         info!("Recipe {recipe_path_display} is valid");
 
@@ -323,7 +325,7 @@ fn process_basic_output(out: BasicOutput<'_>, instance: &Value, path: &Path) -> 
     match out {
         BasicOutput::Valid(_) => vec![],
         BasicOutput::Invalid(errors) => {
-            let mut collection: IndexMap<String, Vec<String>> = IndexMap::new();
+            let mut collection: IndexMap<String, Vec<Report>> = IndexMap::new();
             let errors = {
                 let mut e = errors.into_iter().collect::<Vec<_>>();
                 e.sort_by(|e1, e2| {
@@ -338,21 +340,17 @@ fn process_basic_output(out: BasicOutput<'_>, instance: &Value, path: &Path) -> 
                 let schema_path = err.keyword_location();
                 let instance_path = err.instance_location().to_string();
                 let build_err = || {
-                    format!(
-                        "{:?}",
-                        miette!(
-                            "schema_path:'{}'",
-                            schema_path.to_string().italic().dimmed(),
-                        )
-                        .context(err.error_description().to_string().bold().bright_red())
+                    miette!(
+                        "schema_path: '{}'",
+                        schema_path.to_string().italic().dimmed(),
                     )
+                    .context(err.error_description().to_string().bold().bright_red())
                 };
 
                 collection
                     .entry(instance_path)
                     .and_modify(|errs| {
                         errs.push(build_err());
-                        // errs.sort_by(|(path1, _), (path2, _)| path1.cmp(path2));
                     })
                     .or_insert_with(|| vec![build_err()]);
             }
@@ -363,15 +361,21 @@ fn process_basic_output(out: BasicOutput<'_>, instance: &Value, path: &Path) -> 
                     let instance = instance.pointer(&key).unwrap();
 
                     miette!(
-                        "In file {} at '{}':\n\n{}\n{}",
-                        path.display().to_string().bold().italic(),
-                        key.bold().bright_yellow(),
+                        "{}\n{}",
                         serde_yaml::to_string(instance)
                             .into_diagnostic()
                             .and_then(|file| syntax_highlighting::highlight(&file, "yml", None))
                             .unwrap_or_else(|_| instance.to_string()),
-                        value.into_iter().collect::<String>()
+                        value.into_iter().fold(String::new(), |mut acc, err| {
+                            acc.push_str(&format!("{err:?}"));
+                            acc
+                        })
                     )
+                    .context(format!(
+                        "In file {} at '{}'",
+                        path.display().to_string().bold().italic(),
+                        key.bold().bright_yellow(),
+                    ))
                 })
                 .collect()
         }
@@ -386,7 +390,14 @@ fn process_err<'a, 'b>(path: &'b Path) -> impl Fn(ValidationError<'a>) -> Report
               schema_path: _,
           }| {
         miette!(
-            "- Invalid value {} file '{}':\n{}",
+            "{}",
+            &serde_yaml::to_string(&*instance)
+                .into_diagnostic()
+                .and_then(|file| syntax_highlighting::highlight(&file, "yml", None))
+                .unwrap_or_else(|_| instance.to_string())
+        )
+        .context(format!(
+            "Invalid value {} file '{}'",
             if instance_path.as_str().is_empty() {
                 string!("in root of")
             } else {
@@ -396,10 +407,6 @@ fn process_err<'a, 'b>(path: &'b Path) -> impl Fn(ValidationError<'a>) -> Report
                 )
             },
             path.display().to_string().italic().bold(),
-            &serde_yaml::to_string(&*instance)
-                .into_diagnostic()
-                .and_then(|file| syntax_highlighting::highlight(&file, "yml", None))
-                .unwrap_or_else(|_| instance.to_string())
-        )
+        ))
     }
 }

@@ -357,7 +357,7 @@ dependencies = [
  "rusty-hook",
  "serde",
  "serde_json",
- "serde_yaml 0.9.34+deprecated",
+ "serde_yml",
  "shadow-rs",
  "tempdir",
  "tokio",
@@ -416,7 +416,7 @@ dependencies = [
  "oci-distribution",
  "serde",
  "serde_json",
- "serde_yaml 0.9.34+deprecated",
+ "serde_yml",
 ]
 
 [[package]]
@@ -451,7 +451,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
- "serde_yaml 0.9.34+deprecated",
+ "serde_yml",
  "syntect",
  "which",
 ]
@@ -2291,6 +2291,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "libyml"
+version = "0.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3302702afa434ffa30847a83305f0a69d6abd74293b6554c18ec85c7ef30c980"
+dependencies = [
+ "anyhow",
+ "version_check",
+]
+
+[[package]]
 name = "linked-hash-map"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4117,6 +4127,21 @@ dependencies = [
  "ryu",
  "serde",
  "unsafe-libyaml",
+]
+
+[[package]]
+name = "serde_yml"
+version = "0.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59e2dd588bf1597a252c3b920e0143eb99b0f76e4e082f4c92ce34fbc9e71ddd"
+dependencies = [
+ "indexmap 2.6.0",
+ "itoa",
+ "libyml",
+ "memchr",
+ "ryu",
+ "serde",
+ "version_check",
 ]
 
 [[package]]
