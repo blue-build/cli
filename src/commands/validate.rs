@@ -2,32 +2,29 @@ use std::{
     fs::OpenOptions,
     io::{BufReader, Read},
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use blue_build_process_management::ASYNC_RUNTIME;
 use blue_build_recipe::{FromFileList, ModuleExt, Recipe, StagesExt};
-use blue_build_utils::{
-    string,
-    syntax_highlighting::{self},
-};
 use bon::Builder;
 use clap::Args;
 use colored::Colorize;
-use indexmap::IndexMap;
-use jsonschema::{BasicOutput, ValidationError};
 use log::{debug, info, trace};
 use miette::{bail, miette, Context, IntoDiagnostic, Report};
 use rayon::prelude::*;
 use schema_validator::{
-    build_validator, SchemaValidator, MODULE_LIST_V1_SCHEMA_URL, MODULE_V1_SCHEMA_URL,
-    RECIPE_V1_SCHEMA_URL, STAGE_LIST_V1_SCHEMA_URL, STAGE_V1_SCHEMA_URL,
+    SchemaValidator, MODULE_STAGE_LIST_V1_SCHEMA_URL, MODULE_V1_SCHEMA_URL, RECIPE_V1_SCHEMA_URL,
+    STAGE_V1_SCHEMA_URL,
 };
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use super::BlueBuildCommand;
 
+mod location;
 mod schema_validator;
+mod yaml_span;
 
 #[derive(Debug, Args, Builder)]
 pub struct ValidateCommand {
@@ -51,13 +48,10 @@ pub struct ValidateCommand {
     stage_validator: Option<SchemaValidator>,
 
     #[clap(skip)]
-    stage_list_validator: Option<SchemaValidator>,
-
-    #[clap(skip)]
     module_validator: Option<SchemaValidator>,
 
     #[clap(skip)]
-    module_list_validator: Option<SchemaValidator>,
+    module_stage_list_validator: Option<SchemaValidator>,
 }
 
 impl BlueBuildCommand for ValidateCommand {
@@ -98,18 +92,18 @@ impl BlueBuildCommand for ValidateCommand {
 
 impl ValidateCommand {
     async fn setup_validators(&mut self) -> Result<(), Report> {
-        let (rv, sv, slv, mv, mlv) = tokio::try_join!(
-            build_validator(RECIPE_V1_SCHEMA_URL),
-            build_validator(STAGE_V1_SCHEMA_URL),
-            build_validator(STAGE_LIST_V1_SCHEMA_URL),
-            build_validator(MODULE_V1_SCHEMA_URL),
-            build_validator(MODULE_LIST_V1_SCHEMA_URL),
+        let (rv, sv, mv, mslv) = tokio::try_join!(
+            SchemaValidator::builder().url(RECIPE_V1_SCHEMA_URL).build(),
+            SchemaValidator::builder().url(STAGE_V1_SCHEMA_URL).build(),
+            SchemaValidator::builder().url(MODULE_V1_SCHEMA_URL).build(),
+            SchemaValidator::builder()
+                .url(MODULE_STAGE_LIST_V1_SCHEMA_URL)
+                .build(),
         )?;
         self.recipe_validator = Some(rv);
         self.stage_validator = Some(sv);
-        self.stage_list_validator = Some(slv);
         self.module_validator = Some(mv);
-        self.module_list_validator = Some(mlv);
+        self.module_stage_list_validator = Some(mslv);
         Ok(())
     }
 
@@ -118,7 +112,6 @@ impl ValidateCommand {
         path: &Path,
         traversed_files: &[&Path],
         single_validator: &SchemaValidator,
-        list_validator: &SchemaValidator,
     ) -> Vec<Report>
     where
         DF: DeserializeOwned + FromFileList,
@@ -140,7 +133,7 @@ impl ValidateCommand {
 
         let file_str = match read_file(path) {
             Err(e) => return vec![e],
-            Ok(f) => f,
+            Ok(f) => Arc::new(f),
         };
 
         match serde_yaml::from_str::<Value>(&file_str)
@@ -151,56 +144,60 @@ impl ValidateCommand {
                 trace!("{path_display}:\n{instance}");
 
                 if instance.get(DF::LIST_KEY).is_some() {
-                    debug!("{path_display} is a multi file file");
-                    let errors = if self.all_errors {
-                        process_basic_output(
-                            list_validator.validator().apply(&instance).basic(),
-                            &instance,
-                            path,
-                        )
-                    } else {
-                        list_validator
-                            .validator()
-                            .iter_errors(&instance)
-                            .map(process_err(&self.recipe))
-                            .collect()
+                    debug!("{path_display} is a list file");
+                    let err = match self
+                        .module_stage_list_validator
+                        .as_ref()
+                        .unwrap()
+                        .process_validation(path, file_str.clone(), self.all_errors)
+                    {
+                        Err(e) => return vec![e],
+                        Ok(e) => e,
                     };
 
-                    if errors.is_empty() {
-                        match serde_yaml::from_str::<DF>(&file_str).into_diagnostic() {
-                            Err(e) => vec![e],
-                            Ok(file) => file
-                                .get_from_file_paths()
-                                .par_iter()
-                                .map(|file_path| {
-                                    self.validate_file::<DF>(
-                                        file_path,
-                                        &traversed_files,
-                                        single_validator,
-                                        list_validator,
-                                    )
-                                })
-                                .flatten()
-                                .collect(),
-                        }
-                    } else {
-                        errors
-                    }
+                    err.map_or_else(
+                        || {
+                            serde_yaml::from_str::<DF>(&file_str)
+                                .into_diagnostic()
+                                .map_or_else(
+                                    |e| vec![e],
+                                    |file| {
+                                        let mut errs = file
+                                            .get_from_file_paths()
+                                            .par_iter()
+                                            .map(|file_path| {
+                                                self.validate_file::<DF>(
+                                                    file_path,
+                                                    &traversed_files,
+                                                    single_validator,
+                                                )
+                                            })
+                                            .flatten()
+                                            .collect::<Vec<_>>();
+                                        errs.extend(
+                                            file.get_module_from_file_paths()
+                                                .par_iter()
+                                                .map(|file_path| {
+                                                    self.validate_file::<ModuleExt>(
+                                                        file_path,
+                                                        &[],
+                                                        self.module_validator.as_ref().unwrap(),
+                                                    )
+                                                })
+                                                .flatten()
+                                                .collect::<Vec<_>>(),
+                                        );
+                                        errs
+                                    },
+                                )
+                        },
+                        |err| vec![err],
+                    )
                 } else {
                     debug!("{path_display} is a single file file");
-                    if self.all_errors {
-                        process_basic_output(
-                            single_validator.validator().apply(&instance).basic(),
-                            &instance,
-                            path,
-                        )
-                    } else {
-                        single_validator
-                            .validator()
-                            .iter_errors(&instance)
-                            .map(|err| miette!("{err}"))
-                            .collect()
-                    }
+                    single_validator
+                        .process_validation(path, file_str, self.all_errors)
+                        .map_or_else(|e| vec![e], |e| e.map_or_else(Vec::new, |e| vec![e]))
                 }
             }
             Err(e) => vec![e],
@@ -211,7 +208,7 @@ impl ValidateCommand {
         let recipe_path_display = self.recipe.display().to_string().bold().italic();
         debug!("Validating recipe {recipe_path_display}");
 
-        let recipe_str = read_file(&self.recipe).map_err(err_vec)?;
+        let recipe_str = Arc::new(read_file(&self.recipe).map_err(err_vec)?);
         let recipe: Value = serde_yaml::from_str(&recipe_str)
             .into_diagnostic()
             .with_context(|| format!("Failed to deserialize recipe {recipe_path_display}"))
@@ -219,21 +216,13 @@ impl ValidateCommand {
         trace!("{recipe_path_display}:\n{recipe}");
 
         let schema_validator = self.recipe_validator.as_ref().unwrap();
-        let errors = if self.all_errors {
-            process_basic_output(
-                schema_validator.validator().apply(&recipe).basic(),
-                &recipe,
-                &self.recipe,
-            )
-        } else {
-            schema_validator
-                .validator()
-                .iter_errors(&recipe)
-                .map(process_err(&self.recipe))
-                .collect()
-        };
+        let err = schema_validator
+            .process_validation(&self.recipe, recipe_str.clone(), self.all_errors)
+            .map_err(err_vec)?;
 
-        if errors.is_empty() {
+        if let Some(err) = err {
+            Err(vec![err])
+        } else {
             let recipe: Recipe = serde_yaml::from_str(&recipe_str)
                 .into_diagnostic()
                 .with_context(|| {
@@ -258,7 +247,6 @@ impl ValidateCommand {
                                 stage_path,
                                 &[],
                                 self.stage_validator.as_ref().unwrap(),
-                                self.stage_list_validator.as_ref().unwrap(),
                             )
                         })
                         .flatten()
@@ -281,7 +269,6 @@ impl ValidateCommand {
                             module_path,
                             &[],
                             self.module_validator.as_ref().unwrap(),
-                            self.module_list_validator.as_ref().unwrap(),
                         )
                     })
                     .flatten()
@@ -292,8 +279,6 @@ impl ValidateCommand {
             } else {
                 Err(errors)
             }
-        } else {
-            Err(errors)
         }
     }
 }
@@ -319,94 +304,4 @@ fn read_file(path: &Path) -> Result<String, Report> {
     .read_to_string(&mut recipe)
     .into_diagnostic()?;
     Ok(recipe)
-}
-
-fn process_basic_output(out: BasicOutput<'_>, instance: &Value, path: &Path) -> Vec<Report> {
-    match out {
-        BasicOutput::Valid(_) => vec![],
-        BasicOutput::Invalid(errors) => {
-            let mut collection: IndexMap<String, Vec<Report>> = IndexMap::new();
-            let errors = {
-                let mut e = errors.into_iter().collect::<Vec<_>>();
-                e.sort_by(|e1, e2| {
-                    e1.instance_location()
-                        .as_str()
-                        .cmp(e2.instance_location().as_str())
-                });
-                e
-            };
-
-            for err in errors {
-                let schema_path = err.keyword_location();
-                let instance_path = err.instance_location().to_string();
-                let build_err = || {
-                    miette!(
-                        "schema_path: '{}'",
-                        schema_path.to_string().italic().dimmed(),
-                    )
-                    .context(err.error_description().to_string().bold().bright_red())
-                };
-
-                collection
-                    .entry(instance_path)
-                    .and_modify(|errs| {
-                        errs.push(build_err());
-                    })
-                    .or_insert_with(|| vec![build_err()]);
-            }
-
-            collection
-                .into_iter()
-                .map(|(key, value)| {
-                    let instance = instance.pointer(&key).unwrap();
-
-                    miette!(
-                        "{}\n{}",
-                        serde_yaml::to_string(instance)
-                            .into_diagnostic()
-                            .and_then(|file| syntax_highlighting::highlight(&file, "yml", None))
-                            .unwrap_or_else(|_| instance.to_string()),
-                        value.into_iter().fold(String::new(), |mut acc, err| {
-                            acc.push_str(&format!("{err:?}"));
-                            acc
-                        })
-                    )
-                    .context(format!(
-                        "In file {} at '{}'",
-                        path.display().to_string().bold().italic(),
-                        key.bold().bright_yellow(),
-                    ))
-                })
-                .collect()
-        }
-    }
-}
-
-fn process_err<'a, 'b>(path: &'b Path) -> impl Fn(ValidationError<'a>) -> Report + use<'a, 'b> {
-    move |ValidationError {
-              instance,
-              instance_path,
-              kind: _,
-              schema_path: _,
-          }| {
-        miette!(
-            "{}",
-            &serde_yaml::to_string(&*instance)
-                .into_diagnostic()
-                .and_then(|file| syntax_highlighting::highlight(&file, "yml", None))
-                .unwrap_or_else(|_| instance.to_string())
-        )
-        .context(format!(
-            "Invalid value {} file '{}'",
-            if instance_path.as_str().is_empty() {
-                string!("in root of")
-            } else {
-                format!(
-                    "at path '{}' in",
-                    instance_path.as_str().bold().bright_yellow()
-                )
-            },
-            path.display().to_string().italic().bold(),
-        ))
-    }
 }

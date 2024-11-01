@@ -21,6 +21,10 @@ pub trait FromFileList {
     const LIST_KEY: &str;
 
     fn get_from_file_paths(&self) -> Vec<PathBuf>;
+
+    fn get_module_from_file_paths(&self) -> Vec<PathBuf> {
+        Vec::new()
+    }
 }
 
 pub(crate) fn base_recipe_path() -> &'static Path {

@@ -25,6 +25,18 @@ impl FromFileList for StagesExt<'_> {
             .filter_map(Stage::get_from_file_path)
             .collect()
     }
+
+    fn get_module_from_file_paths(&self) -> Vec<PathBuf> {
+        self.stages
+            .iter()
+            .flat_map(|stage| {
+                stage
+                    .required_fields
+                    .as_ref()
+                    .map_or_else(Vec::new, |rf| rf.modules_ext.get_from_file_paths())
+            })
+            .collect()
+    }
 }
 
 impl TryFrom<&PathBuf> for StagesExt<'_> {
