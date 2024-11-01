@@ -1,4 +1,4 @@
-ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
+ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox:40"
 FROM $BASE_IMAGE
 
 RUN dnf -y install dnf-plugins-core \

@@ -110,7 +110,7 @@ build-scripts:
     DO --pass-args +SAVE_IMAGE --IMAGE="$IMAGE/build-scripts"
 
 blue-build-cli-prebuild:
-    ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
+    ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox:40"
     FROM DOCKERFILE -f Dockerfile.fedora .
 
     COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
