@@ -5,7 +5,7 @@ use log::error;
 use clap::{command, crate_authors, Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 
-use crate::info::shadow;
+use crate::shadow;
 
 pub mod bug_report;
 pub mod build;

@@ -16,7 +16,7 @@ use std::time::Duration;
 
 use super::BlueBuildCommand;
 
-use crate::info::shadow;
+use crate::shadow;
 
 #[derive(Default, Debug, Clone, Builder, Args)]
 pub struct BugReportRecipe {

@@ -20,7 +20,7 @@ use miette::{IntoDiagnostic, Result};
 
 #[cfg(feature = "validate")]
 use crate::commands::validate::ValidateCommand;
-use crate::info::shadow;
+use crate::shadow;
 
 use super::BlueBuildCommand;
 
