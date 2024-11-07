@@ -82,15 +82,6 @@ pub struct BuildCommand {
     #[builder(default)]
     retry_count: u8,
 
-    /// Allow `bluebuild` to overwrite an existing
-    /// Containerfile without confirmation.
-    ///
-    /// This is not needed if the Containerfile is in
-    /// .gitignore or has already been built by `bluebuild`.
-    #[arg(short, long)]
-    #[builder(default)]
-    force: bool,
-
     /// Archives the built image into a tarfile
     /// in the specified directory.
     #[arg(short, long)]

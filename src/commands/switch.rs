@@ -70,14 +70,12 @@ impl BlueBuildCommand for SwitchCommand {
         BuildCommand::builder()
             .recipe([self.recipe.clone()])
             .archive(tempdir.path())
-            .force(self.force)
             .build()
             .try_run()?;
         #[cfg(not(feature = "multi-recipe"))]
         BuildCommand::builder()
             .recipe(self.recipe.clone())
             .archive(tempdir.path())
-            .force(self.force)
             .build()
             .try_run()?;
 

@@ -70,7 +70,6 @@ impl BlueBuildCommand for UpgradeCommand {
         let mut build = build
             .archive(LOCAL_BUILD)
             .drivers(self.common.drivers)
-            .force(self.common.force)
             .build();
 
         let image_name = recipe.name.to_lowercase().replace('/', "_");
@@ -128,7 +127,6 @@ impl BlueBuildCommand for RebaseCommand {
         let mut build = build
             .archive(LOCAL_BUILD)
             .drivers(self.common.drivers)
-            .force(self.common.force)
             .build();
 
         let image_name = recipe.name.to_lowercase().replace('/', "_");
