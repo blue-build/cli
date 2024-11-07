@@ -9,7 +9,7 @@ use bon::Builder;
 use clap::{Args, Subcommand, ValueEnum};
 use miette::{bail, Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
-use tempdir::TempDir;
+use tempfile::TempDir;
 
 use blue_build_process_management::{
     drivers::{opts::RunOpts, Driver, DriverArgs, RunDriver},
@@ -122,7 +122,7 @@ impl BlueBuildCommand for GenerateIsoCommand {
     fn try_run(&mut self) -> Result<()> {
         Driver::init(self.drivers);
 
-        let image_out_dir = TempDir::new("build_image").into_diagnostic()?;
+        let image_out_dir = TempDir::new().into_diagnostic()?;
 
         let output_dir = if let Some(output_dir) = self.output_dir.clone() {
             if output_dir.exists() && !output_dir.is_dir() {

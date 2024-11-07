@@ -1,7 +1,4 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use blue_build_process_management::{
     drivers::{
@@ -17,8 +14,8 @@ use blue_build_process_management::{
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{
-        ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, BUILD_ID_LABEL, CONFIG_PATH, CONTAINER_FILE,
-        GITIGNORE_PATH, LABELED_ERROR_MESSAGE, NO_LABEL_ERROR_MESSAGE, RECIPE_FILE, RECIPE_PATH,
+        ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, CONFIG_PATH, CONTAINER_FILE, RECIPE_FILE,
+        RECIPE_PATH,
     },
     cowstr,
     credentials::{Credentials, CredentialsArgs},
@@ -27,16 +24,16 @@ use blue_build_utils::{
 };
 use bon::Builder;
 use clap::Args;
-use colored::Colorize;
 use log::{info, trace, warn};
-use miette::{bail, Context, IntoDiagnostic, Result};
+use miette::{bail, IntoDiagnostic, Result};
+use tempfile::TempDir;
 
 use crate::commands::generate::GenerateCommand;
 
 use super::BlueBuildCommand;
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone, Args, Builder)]
+#[derive(Debug, Args, Builder)]
 pub struct BuildCommand {
     /// The recipe file to build an image
     #[arg()]
@@ -129,6 +126,9 @@ pub struct BuildCommand {
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,
+
+    #[clap(skip)]
+    temp_dir: Option<TempDir>,
 }
 
 impl BlueBuildCommand for BuildCommand {
@@ -140,8 +140,6 @@ impl BlueBuildCommand for BuildCommand {
 
         Credentials::init(self.credentials.clone());
 
-        self.update_gitignore()?;
-
         if self.push && self.archive.is_some() {
             bail!("You cannot use '--archive' and '--push' at the same time");
         }
@@ -152,6 +150,9 @@ impl BlueBuildCommand for BuildCommand {
             Driver::login()?;
             Driver::signing_login()?;
         }
+
+        self.temp_dir = Some(TempDir::new().into_diagnostic()?);
+        let temp_dir = self.temp_dir.as_ref().unwrap();
 
         #[cfg(feature = "multi-recipe")]
         {
@@ -174,11 +175,11 @@ impl BlueBuildCommand for BuildCommand {
 
             recipe_paths.par_iter().try_for_each(|recipe| {
                 GenerateCommand::builder()
-                    .output(if recipe_paths.len() > 1 {
+                    .output(temp_dir.path().join(if recipe_paths.len() > 1 {
                         blue_build_utils::generate_containerfile_path(recipe)?
                     } else {
                         PathBuf::from(CONTAINER_FILE)
-                    })
+                    }))
                     .platform(self.platform)
                     .recipe(recipe)
                     .drivers(self.drivers)
@@ -203,7 +204,7 @@ impl BlueBuildCommand for BuildCommand {
             });
 
             GenerateCommand::builder()
-                .output(CONTAINER_FILE)
+                .output(temp_dir.path().join(CONTAINER_FILE))
                 .recipe(&recipe_path)
                 .drivers(self.drivers)
                 .build()
@@ -220,15 +221,16 @@ impl BuildCommand {
         use rayon::prelude::*;
 
         trace!("BuildCommand::build_image()");
+        let temp_dir = self.temp_dir.as_ref().unwrap();
 
         let images = recipe_paths
             .par_iter()
             .try_fold(Vec::new, |mut images, recipe_path| -> Result<Vec<String>> {
-                let containerfile = if recipe_paths.len() > 1 {
+                let containerfile = temp_dir.path().join(if recipe_paths.len() > 1 {
                     blue_build_utils::generate_containerfile_path(recipe_path)?
                 } else {
                     PathBuf::from(CONTAINER_FILE)
-                };
+                });
                 images.extend(self.build(recipe_path, &containerfile)?);
                 Ok(images)
             })
@@ -252,8 +254,9 @@ impl BuildCommand {
     #[cfg(not(feature = "multi-recipe"))]
     fn start(&self, recipe_path: &Path) -> Result<()> {
         trace!("BuildCommand::start()");
+        let temp_dir = self.temp_dir.as_ref().unwrap();
 
-        let images = self.build(recipe_path, Path::new(CONTAINER_FILE))?;
+        let images = self.build(recipe_path, &temp_dir.path().join(CONTAINER_FILE))?;
         let color = gen_random_ansi_color();
 
         info!(
@@ -338,79 +341,5 @@ impl BuildCommand {
         };
 
         Ok(image_name)
-    }
-
-    fn update_gitignore(&self) -> Result<()> {
-        // Check if the Containerfile exists
-        //   - If doesn't => *Build*
-        //   - If it does:
-        //     - check entry in .gitignore
-        //       -> If it is => *Build*
-        //       -> If isn't:
-        //         - check if it has the BlueBuild tag (LABEL)
-        //           -> If it does => *Ask* to add to .gitignore and remove from git
-        //           -> If it doesn't => *Ask* to continue and override the file
-
-        let container_file_path = Path::new(CONTAINER_FILE);
-        let label = format!("LABEL {BUILD_ID_LABEL}");
-
-        if !self.force && container_file_path.exists() {
-            let to_ignore_lines = [format!("/{CONTAINER_FILE}"), format!("/{CONTAINER_FILE}.*")];
-            let gitignore = fs::read_to_string(GITIGNORE_PATH)
-                .into_diagnostic()
-                .with_context(|| format!("Failed to read {GITIGNORE_PATH}"))?;
-
-            let mut edited_gitignore = gitignore.clone();
-
-            to_ignore_lines
-                .iter()
-                .filter(|to_ignore| {
-                    !gitignore
-                        .lines()
-                        .any(|line| line.trim() == to_ignore.trim())
-                })
-                .try_for_each(|to_ignore| -> Result<()> {
-                    let containerfile = fs::read_to_string(container_file_path)
-                        .into_diagnostic()
-                        .with_context(|| {
-                        format!("Failed to read {}", container_file_path.display())
-                    })?;
-
-                    let has_label = containerfile
-                        .lines()
-                        .any(|line| line.to_string().trim().starts_with(&label));
-
-                    let question = requestty::Question::confirm("build")
-                        .message(
-                            if has_label {
-                                LABELED_ERROR_MESSAGE
-                            } else {
-                                NO_LABEL_ERROR_MESSAGE
-                            }
-                            .bright_yellow()
-                            .to_string(),
-                        )
-                        .default(true)
-                        .build();
-
-                    if let Ok(answer) = requestty::prompt_one(question) {
-                        if answer.as_bool().unwrap_or(false) {
-                            if !edited_gitignore.ends_with('\n') {
-                                edited_gitignore.push('\n');
-                            }
-
-                            edited_gitignore.push_str(to_ignore);
-                            edited_gitignore.push('\n');
-                        }
-                    }
-                    Ok(())
-                })?;
-
-            if edited_gitignore != gitignore {
-                fs::write(GITIGNORE_PATH, edited_gitignore.as_str()).into_diagnostic()?;
-            }
-        }
-
-        Ok(())
     }
 }

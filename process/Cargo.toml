@@ -38,7 +38,7 @@ oci-distribution.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-tempdir.workspace = true
+tempfile.workspace = true
 tokio = { workspace = true, optional = true }
 bon.workspace = true
 users.workspace = true

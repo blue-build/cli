@@ -18,7 +18,7 @@ use miette::{bail, IntoDiagnostic, Result};
 use once_cell::sync::Lazy;
 use semver::Version;
 use serde::Deserialize;
-use tempdir::TempDir;
+use tempfile::TempDir;
 
 use crate::{
     drivers::{
@@ -388,7 +388,7 @@ impl InspectDriver for DockerDriver {
 
 impl RunDriver for DockerDriver {
     fn run(opts: &RunOpts) -> std::io::Result<ExitStatus> {
-        let cid_path = TempDir::new("docker")?;
+        let cid_path = TempDir::new()?;
         let cid_file = cid_path.path().join("cid");
         let cid = ContainerId::new(&cid_file, ContainerRuntime::Docker, false);
 
@@ -403,7 +403,7 @@ impl RunDriver for DockerDriver {
     }
 
     fn run_output(opts: &RunOpts) -> std::io::Result<std::process::Output> {
-        let cid_path = TempDir::new("docker")?;
+        let cid_path = TempDir::new()?;
         let cid_file = cid_path.path().join("cid");
         let cid = ContainerId::new(&cid_file, ContainerRuntime::Docker, false);
 

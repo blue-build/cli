@@ -26,7 +26,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = { version = "0.0.12", package = "serde_yml" }
 syntect = { version = "5", default-features = false, features = ["default-fancy"] }
-tempdir = "0.3"
+# tempdir = "0.3"
+tempfile = "3"
 tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
 users = "0.11"
 uuid = { version = "1", features = ["v4"] }
@@ -91,7 +92,7 @@ serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 syntect = { workspace = true, optional = true }
-tempdir.workspace = true
+tempfile.workspace = true
 tokio = { workspace = true, optional = true }
 bon.workspace = true
 users.workspace = true
