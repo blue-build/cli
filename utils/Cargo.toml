@@ -16,7 +16,7 @@ directories = "5"
 docker_credential = "1"
 format_serde_error = "0.3"
 process_control = { version = "4", features = ["crossbeam-channel"] }
-which = "6"
+which = "7"
 
 chrono.workspace = true
 clap = { workspace = true, features = ["derive", "env"] }
