@@ -65,14 +65,6 @@ pub struct GitlabCiTemplate<'a> {
     version: Cow<'a, str>,
 }
 
-#[derive(Debug, Clone, Template, Builder)]
-#[template(
-    path = "init/github-build.yml.j2",
-    escape = "none",
-    syntax = "github-actions"
-)]
-pub struct GithubCiTemplate {}
-
 fn has_cosign_file() -> bool {
     trace!("has_cosign_file()");
     std::env::current_dir()

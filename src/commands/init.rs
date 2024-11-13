@@ -1,15 +1,20 @@
 use std::{
     env,
-    fmt::Display,
+    fmt::{Display, Write as FmtWrite},
     fs::{self, OpenOptions},
-    io::Write,
+    io::{BufWriter, Write as IoWrite},
     path::PathBuf,
     str::FromStr,
 };
 
-use blue_build_process_management::drivers::{CiDriver, GithubDriver, GitlabDriver};
-use blue_build_template::{GithubCiTemplate, GitlabCiTemplate, InitReadmeTemplate, Template};
-use blue_build_utils::{cmd, constants::TEMPLATE_REPO_URL};
+use blue_build_process_management::drivers::{
+    opts::GenerateKeyPairOpts, CiDriver, Driver, DriverArgs, GitlabDriver, SigningDriver,
+};
+use blue_build_template::{GitlabCiTemplate, InitReadmeTemplate, Template};
+use blue_build_utils::{
+    cmd,
+    constants::{COSIGN_PUB_PATH, RECIPE_FILE, RECIPE_PATH, TEMPLATE_REPO_URL},
+};
 use bon::Builder;
 use clap::{crate_version, Args, ValueEnum};
 use log::{debug, info, trace};
@@ -30,18 +35,13 @@ pub enum CiProvider {
 impl CiProvider {
     fn default_ci_file_path(self) -> std::path::PathBuf {
         match self {
-            Self::Github => GithubDriver::default_ci_file_path(),
             Self::Gitlab => GitlabDriver::default_ci_file_path(),
-            Self::None => unimplemented!(),
+            Self::None | Self::Github => unimplemented!(),
         }
     }
 
     fn render_file(self) -> Result<String> {
         match self {
-            Self::Github => GithubCiTemplate::builder()
-                .build()
-                .render()
-                .into_diagnostic(),
             Self::Gitlab => GitlabCiTemplate::builder()
                 .version({
                     let version = crate_version!();
@@ -52,7 +52,7 @@ impl CiProvider {
                 .build()
                 .render()
                 .into_diagnostic(),
-            Self::None => unimplemented!(),
+            Self::None | Self::Github => unimplemented!(),
         }
     }
 }
@@ -61,12 +61,20 @@ impl TryFrom<&str> for CiProvider {
     type Error = Report;
 
     fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
-        Ok(match value.to_lowercase().as_str() {
-            "gitlab" => Self::Gitlab,
-            "github" => Self::Github,
-            "none" => Self::None,
+        Ok(match value {
+            "Gitlab" => Self::Gitlab,
+            "Github" => Self::Github,
+            "None" => Self::None,
             _ => bail!("Unable to parse for CiProvider"),
         })
+    }
+}
+
+impl TryFrom<&String> for CiProvider {
+    type Error = Report;
+
+    fn try_from(value: &String) -> std::result::Result<Self, Self::Error> {
+        Self::try_from(value.as_str())
     }
 }
 
@@ -84,9 +92,9 @@ impl Display for CiProvider {
             f,
             "{}",
             match *self {
-                Self::Github => "github",
-                Self::Gitlab => "gitlab",
-                Self::None => "none",
+                Self::Github => "Github",
+                Self::Gitlab => "Gitlab",
+                Self::None => "None",
             }
         )
     }
@@ -122,6 +130,10 @@ pub struct NewInitCommon {
     /// Disable setting up git.
     #[arg(long)]
     no_git: bool,
+
+    #[clap(flatten)]
+    #[builder(default)]
+    drivers: DriverArgs,
 }
 
 #[derive(Debug, Clone, Args, Builder)]
@@ -155,6 +167,8 @@ pub struct InitCommand {
 
 impl BlueBuildCommand for InitCommand {
     fn try_run(&mut self) -> Result<()> {
+        Driver::init(self.common.drivers);
+
         let base_dir = self
             .dir
             .get_or_insert(env::current_dir().into_diagnostic()?);
@@ -222,9 +236,10 @@ impl InitCommand {
     fn start(&self, answers: &Answers) -> Result<()> {
         self.clone_repository()?;
         self.remove_git_directory()?;
-        self.remove_github_directory()?;
         self.template_readme(answers)?;
         self.template_ci_file(answers)?;
+        self.update_recipe_file(answers)?;
+        self.generate_signing_files()?;
 
         if !self.common.no_git {
             self.initialize_git()?;
@@ -271,22 +286,6 @@ impl InitCommand {
                 .context("Failed to remove .git directory")?;
             debug!(".git directory removed.");
         }
-        Ok(())
-    }
-
-    fn remove_github_directory(&self) -> Result<()> {
-        trace!("remove_github_directory()");
-
-        let dir = self.dir.as_ref().unwrap();
-        let github_path = dir.join(".github");
-
-        if github_path.exists() {
-            fs::remove_dir_all(github_path)
-                .into_diagnostic()
-                .context("Failed to remove .github directory")?;
-            debug!(".github directory removed.");
-        }
-
         Ok(())
     }
 
@@ -396,12 +395,12 @@ impl InitCommand {
         let readme = readme.render().into_diagnostic()?;
 
         debug!("Writing README to {}", readme_path.display());
-        fs::write(readme_path, readme).into_diagnostic()?;
-
-        Ok(())
+        fs::write(readme_path, readme).into_diagnostic()
     }
 
     fn template_ci_file(&self, answers: &Answers) -> Result<()> {
+        trace!("template_ci_file()");
+
         let ci_provider = self
             .common
             .ci_provider
@@ -409,17 +408,30 @@ impl InitCommand {
             .or_else(|e| {
                 answers
                     .get(Self::CI_PROVIDER)
-                    .and_then(Answer::as_string)
+                    .and_then(Answer::as_list_item)
+                    .map(|li| &li.text)
                     .ok_or_else(|| miette!("Failed to get CI Provider answer:\n{e}"))
                     .and_then(CiProvider::try_from)
             })?;
+
+        if matches!(ci_provider, CiProvider::Github) {
+            fs::remove_file(self.dir.as_ref().unwrap().join(".github/CODEOWNERS"))
+                .into_diagnostic()?;
+            return Ok(());
+        }
+
+        fs::remove_dir_all(self.dir.as_ref().unwrap().join(".github")).into_diagnostic()?;
 
         // Never run for None
         if matches!(ci_provider, CiProvider::None) {
             return Ok(());
         }
 
-        let ci_file_path = ci_provider.default_ci_file_path();
+        let ci_file_path = self
+            .dir
+            .as_ref()
+            .unwrap()
+            .join(ci_provider.default_ci_file_path());
         let parent_path = ci_file_path
             .parent()
             .ok_or_else(|| miette!("Couldn't get parent directory from {ci_file_path:?}"))?;
@@ -427,19 +439,98 @@ impl InitCommand {
             .into_diagnostic()
             .with_context(|| format!("Couldn't create directory path {parent_path:?}"))?;
 
-        let file = &mut OpenOptions::new()
-            .truncate(true)
-            .create(true)
-            .open(&ci_file_path)
-            .into_diagnostic()
-            .with_context(|| format!("Failed to open file at {ci_file_path:?}"))?;
+        let file = &mut BufWriter::new(
+            OpenOptions::new()
+                .truncate(true)
+                .create(true)
+                .write(true)
+                .open(&ci_file_path)
+                .into_diagnostic()
+                .with_context(|| format!("Failed to open file at {ci_file_path:?}"))?,
+        );
 
         let template = ci_provider.render_file()?;
 
         writeln!(file, "{template}")
             .into_diagnostic()
-            .with_context(|| format!("Failed to write CI file {ci_file_path:?}"))?;
+            .with_context(|| format!("Failed to write CI file {ci_file_path:?}"))
+    }
 
-        Ok(())
+    fn update_recipe_file(&self, answers: &Answers) -> Result<()> {
+        trace!("update_recipe_file()");
+
+        let recipe_path = self
+            .dir
+            .as_ref()
+            .unwrap()
+            .join(RECIPE_PATH)
+            .join(RECIPE_FILE);
+
+        debug!("Reading {recipe_path:?}");
+        let file = fs::read_to_string(&recipe_path)
+            .into_diagnostic()
+            .with_context(|| format!("Failed to read {recipe_path:?}"))?;
+
+        let description = self
+            .common
+            .description
+            .as_deref()
+            .ok_or("Description arg not set")
+            .or_else(|e| {
+                answers
+                    .get(Self::DESCRIPTION)
+                    .and_then(Answer::as_string)
+                    .ok_or_else(|| miette!("Failed to get description:\n{e}"))
+            })?;
+        let name = self
+            .common
+            .image_name
+            .as_deref()
+            .ok_or("Description arg not set")
+            .or_else(|e| {
+                answers
+                    .get(Self::IMAGE_NAME)
+                    .and_then(Answer::as_string)
+                    .ok_or_else(|| miette!("Failed to get description:\n{e}"))
+            })?;
+
+        let mut new_file_str = String::with_capacity(file.capacity());
+
+        for line in file.lines() {
+            if line.starts_with("description:") {
+                writeln!(&mut new_file_str, "description: {description}").into_diagnostic()?;
+            } else if line.starts_with("name: ") {
+                writeln!(&mut new_file_str, "name: {name}").into_diagnostic()?;
+            } else {
+                writeln!(&mut new_file_str, "{line}").into_diagnostic()?;
+            }
+        }
+
+        let file = &mut BufWriter::new(
+            OpenOptions::new()
+                .truncate(true)
+                .write(true)
+                .open(&recipe_path)
+                .into_diagnostic()
+                .with_context(|| format!("Failed to open {recipe_path:?}"))?,
+        );
+        write!(file, "{new_file_str}")
+            .into_diagnostic()
+            .with_context(|| format!("Failed to write to file {recipe_path:?}"))
+    }
+
+    fn generate_signing_files(&self) -> Result<()> {
+        trace!("generate_signing_files()");
+
+        debug!("Removing old cosign files {COSIGN_PUB_PATH}");
+        fs::remove_file(self.dir.as_ref().unwrap().join(COSIGN_PUB_PATH))
+            .into_diagnostic()
+            .with_context(|| format!("Failed to delete old public file {COSIGN_PUB_PATH}"))?;
+
+        Driver::generate_key_pair(
+            &GenerateKeyPairOpts::builder()
+                .maybe_dir(self.dir.as_ref())
+                .build(),
+        )
     }
 }

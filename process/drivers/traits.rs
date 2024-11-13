@@ -34,21 +34,25 @@ use super::{
 trait PrivateDriver {}
 
 macro_rules! impl_private_driver {
-    ($driver:ty) => {
-        impl PrivateDriver for $driver {}
+    ($($driver:ty),* $(,)?) => {
+        $(
+            impl PrivateDriver for $driver {}
+        )*
     };
 }
 
-impl_private_driver!(Driver);
-impl_private_driver!(DockerDriver);
-impl_private_driver!(PodmanDriver);
-impl_private_driver!(BuildahDriver);
-impl_private_driver!(GithubDriver);
-impl_private_driver!(GitlabDriver);
-impl_private_driver!(LocalDriver);
-impl_private_driver!(CosignDriver);
-impl_private_driver!(SkopeoDriver);
-impl_private_driver!(CiDriverType);
+impl_private_driver!(
+    Driver,
+    DockerDriver,
+    PodmanDriver,
+    BuildahDriver,
+    GithubDriver,
+    GitlabDriver,
+    LocalDriver,
+    CosignDriver,
+    SkopeoDriver,
+    CiDriverType,
+);
 
 #[cfg(feature = "sigstore")]
 impl_private_driver!(SigstoreDriver);
