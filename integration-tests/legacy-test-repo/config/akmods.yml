@@ -8,4 +8,3 @@ modules:
     install:
       - nvidia
       - openrazer
-      - openrgb

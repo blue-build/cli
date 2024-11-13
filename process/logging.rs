@@ -47,8 +47,8 @@ pub struct Logger {
 
 impl Logger {
     const TRIGGER_FILE_SIZE: u64 = 10 * 1024;
-    const ARCHIVE_FILENAME_PATTERN: &'static str = "bluebuild-log.{}.log";
-    const LOG_FILENAME: &'static str = "bluebuild-log.log";
+    const ARCHIVE_FILENAME_PATTERN: &'static str = "bluebuild.{}.log";
+    const LOG_FILENAME: &'static str = "bluebuild.log";
     const LOG_FILE_COUNT: u32 = 4;
 
     #[must_use]
@@ -88,7 +88,7 @@ impl Logger {
     pub fn init(&self) {
         let home = env::var("HOME").expect("$HOME should be defined");
         let log_dir = self.log_dir.as_ref().map_or_else(
-            || Path::new(home.as_str()).join(".local/share/bluebuild"),
+            || Path::new(home.as_str()).join(".cache/bluebuild"),
             Clone::clone,
         );
 

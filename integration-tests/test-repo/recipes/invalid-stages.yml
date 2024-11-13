@@ -2,9 +2,9 @@
 # yaml-language-server: $schema=https://schema.blue-build.org/module-stage-list-v1.json
 stages:
   - name: ubuntu-test
-    from: ubuntu
-    modules:
-      - from-file: stages.yml
+    from:
+      - ubuntu
+    modules: {}
   - name: debian-test
     from: debian
     modules:
@@ -33,3 +33,5 @@ modules:
       - labels
     snippets:
       - RUN echo "This is a snippet"
+  - type: rpm-ostree
+    install: micro

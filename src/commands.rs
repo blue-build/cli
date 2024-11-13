@@ -21,6 +21,8 @@ pub mod local;
 pub mod login;
 #[cfg(feature = "switch")]
 pub mod switch;
+#[cfg(feature = "validate")]
+pub mod validate;
 
 pub trait BlueBuildCommand {
     /// Runs the command and returns a result
@@ -122,6 +124,11 @@ pub enum CommandArgs {
     /// Create a new bluebuild project.
     #[cfg(feature = "init")]
     Init(init::InitCommand),
+
+    /// Validate your recipe file and display
+    /// errors to help fix problems.
+    #[cfg(feature = "validate")]
+    Validate(Box<validate::ValidateCommand>),
 
     // /// Initialize a new Ublue Starting Point repo
     // #[cfg(feature = "init")]

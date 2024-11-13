@@ -174,7 +174,7 @@ mod test {
     use std::{fs, path::Path};
 
     use blue_build_utils::constants::{COSIGN_PRIV_PATH, COSIGN_PUB_PATH};
-    use tempdir::TempDir;
+    use tempfile::TempDir;
 
     use crate::drivers::{
         opts::{CheckKeyPairOpts, GenerateKeyPairOpts},
@@ -185,7 +185,7 @@ mod test {
 
     #[test]
     fn generate_key_pair() {
-        let tempdir = TempDir::new("keypair").unwrap();
+        let tempdir = TempDir::new().unwrap();
 
         let gen_opts = GenerateKeyPairOpts::builder().dir(tempdir.path()).build();
 
@@ -219,7 +219,7 @@ mod test {
     fn compatibility() {
         use crate::drivers::sigstore_driver::SigstoreDriver;
 
-        let tempdir = TempDir::new("keypair").unwrap();
+        let tempdir = TempDir::new().unwrap();
 
         let gen_opts = GenerateKeyPairOpts::builder().dir(tempdir.path()).build();
 

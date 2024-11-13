@@ -14,7 +14,7 @@ use miette::{bail, miette, IntoDiagnostic, Report, Result};
 use oci_distribution::Reference;
 use semver::Version;
 use serde::Deserialize;
-use tempdir::TempDir;
+use tempfile::TempDir;
 
 use crate::{
     drivers::{
@@ -305,7 +305,7 @@ impl RunDriver for PodmanDriver {
     fn run(opts: &RunOpts) -> std::io::Result<ExitStatus> {
         trace!("PodmanDriver::run({opts:#?})");
 
-        let cid_path = TempDir::new("podman")?;
+        let cid_path = TempDir::new()?;
         let cid_file = cid_path.path().join("cid");
 
         let cid = ContainerId::new(&cid_file, ContainerRuntime::Podman, opts.privileged);
@@ -327,7 +327,7 @@ impl RunDriver for PodmanDriver {
     fn run_output(opts: &RunOpts) -> std::io::Result<std::process::Output> {
         trace!("PodmanDriver::run_output({opts:#?})");
 
-        let cid_path = TempDir::new("podman")?;
+        let cid_path = TempDir::new()?;
         let cid_file = cid_path.path().join("cid");
 
         let cid = ContainerId::new(&cid_file, ContainerRuntime::Podman, opts.privileged);

@@ -3,12 +3,11 @@
 name: cli/test
 description: This is my personal OS image.
 base-image: ghcr.io/ublue-os/silverblue-main
-alt-tags:
-  - gts
-  - stable
-image-version: 39
+image-version: 40
+stages:
+  - from-file: invalid-stages.yml
 modules:
-  - from-file: akmods.yml
+  - from-file: invalid-module.yml
   - from-file: flatpaks.yml
 
   - type: files
@@ -40,3 +39,20 @@ modules:
       - labels
     snippets:
       - RUN echo "This is a snippet" && ostree container commit
+
+  - type: copy
+    from: alpine-test
+    src: /test.txt
+    dest: /
+  - type: copy
+    from: ubuntu-test
+    src: /test.txt
+    dest: /
+  - type: copy
+    from: debian-test
+    src: /test.txt
+    dest: /
+  - type: copy
+    from: fedora-test
+    src: /test.txt
+    dest: /

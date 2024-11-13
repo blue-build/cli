@@ -229,6 +229,7 @@ jobs:
     if: github.repository == 'blue-build/cli'
     needs:
       - build-scripts
+      - amd64-prebuild
 
     steps:
       - name: Maximize build space

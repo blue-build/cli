@@ -17,7 +17,7 @@ RUN \
         {%- else if self::config_dir_exists() %}
   --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
         {%- endif %}
-        {%- if let Some(source) = module.source %}
+        {%- if let Some(source) = module.get_non_local_source() %}
   --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
         {%- else %}
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
@@ -33,6 +33,7 @@ RUN \
     {%- endif %}
   {%- endfor %}
 {% endmacro %}
+
 {% macro stage_modules_run(modules_ext, os_version) %}
 # Module RUNs
   {%- for module in modules_ext.modules %}
@@ -53,7 +54,7 @@ RUN \
         {%- else if self::config_dir_exists() %}
   --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
         {%- endif %}
-        {%- if let Some(source) = module.source %}
+        {%- if let Some(source) = module.get_non_local_source() %}
   --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
         {%- else %}
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \

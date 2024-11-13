@@ -1,12 +1,13 @@
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
-use blue_build_utils::constants::{CONFIG_PATH, RECIPE_PATH};
 use bon::Builder;
-use log::warn;
-use miette::{Context, IntoDiagnostic, Result};
+use miette::{Context, IntoDiagnostic, Report, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{Module, Stage};
+use crate::{base_recipe_path, FromFileList, Module, Stage};
 
 #[derive(Default, Serialize, Clone, Deserialize, Debug, Builder)]
 pub struct StagesExt<'a> {
@@ -14,22 +15,43 @@ pub struct StagesExt<'a> {
     pub stages: Vec<Stage<'a>>,
 }
 
-impl<'a> StagesExt<'a> {
-    /// Parse a module file returning a [`StagesExt`]
-    ///
-    /// # Errors
-    /// Can return an `anyhow` Error if the file cannot be read or deserialized
-    /// into a [`StagesExt`]
-    pub fn parse(file_name: &Path) -> Result<Self> {
-        let legacy_path = Path::new(CONFIG_PATH);
-        let recipe_path = Path::new(RECIPE_PATH);
+impl FromFileList for StagesExt<'_> {
+    const LIST_KEY: &'static str = "stages";
 
-        let file_path = if recipe_path.exists() && recipe_path.is_dir() {
-            recipe_path.join(file_name)
-        } else {
-            warn!("Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}");
-            legacy_path.join(file_name)
-        };
+    #[must_use]
+    fn get_from_file_paths(&self) -> Vec<PathBuf> {
+        self.stages
+            .iter()
+            .filter_map(Stage::get_from_file_path)
+            .collect()
+    }
+
+    fn get_module_from_file_paths(&self) -> Vec<PathBuf> {
+        self.stages
+            .iter()
+            .flat_map(|stage| {
+                stage
+                    .required_fields
+                    .as_ref()
+                    .map_or_else(Vec::new, |rf| rf.modules_ext.get_from_file_paths())
+            })
+            .collect()
+    }
+}
+
+impl TryFrom<&PathBuf> for StagesExt<'_> {
+    type Error = Report;
+
+    fn try_from(value: &PathBuf) -> Result<Self> {
+        Self::try_from(value.as_path())
+    }
+}
+
+impl TryFrom<&Path> for StagesExt<'_> {
+    type Error = Report;
+
+    fn try_from(file_name: &Path) -> Result<Self> {
+        let file_path = base_recipe_path().join(file_name);
 
         let file = fs::read_to_string(&file_path)
             .into_diagnostic()

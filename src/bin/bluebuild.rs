@@ -12,6 +12,7 @@ fn main() {
             ("hyper::proto", LevelFilter::Off),
             ("hyper_util", LevelFilter::Off),
             ("oci_distribution", LevelFilter::Off),
+            ("reqwest", LevelFilter::Off),
         ])
         .log_out_dir(args.log_out.clone())
         .init();
@@ -47,6 +48,9 @@ fn main() {
 
         #[cfg(feature = "iso")]
         CommandArgs::GenerateIso(mut command) => command.run(),
+
+        #[cfg(feature = "validate")]
+        CommandArgs::Validate(mut command) => command.run(),
 
         CommandArgs::BugReport(mut command) => command.run(),
 

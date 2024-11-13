@@ -18,7 +18,7 @@ use colored::Colorize;
 use indicatif::ProgressBar;
 use log::{debug, trace, warn};
 use miette::{bail, IntoDiagnostic, Result};
-use tempdir::TempDir;
+use tempfile::TempDir;
 
 use crate::{commands::build::BuildCommand, rpm_ostree_status::RpmOstreeStatus};
 
@@ -63,21 +63,19 @@ impl BlueBuildCommand for SwitchCommand {
             bail!("There is a transaction in progress. Please cancel it using `rpm-ostree cancel`");
         }
 
-        let tempdir = TempDir::new("oci-archive").into_diagnostic()?;
+        let tempdir = TempDir::new().into_diagnostic()?;
         trace!("{tempdir:?}");
 
         #[cfg(feature = "multi-recipe")]
         BuildCommand::builder()
             .recipe([self.recipe.clone()])
             .archive(tempdir.path())
-            .force(self.force)
             .build()
             .try_run()?;
         #[cfg(not(feature = "multi-recipe"))]
         BuildCommand::builder()
             .recipe(self.recipe.clone())
             .archive(tempdir.path())
-            .force(self.force)
             .build()
             .try_run()?;
 
