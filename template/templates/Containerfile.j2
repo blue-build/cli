@@ -2,7 +2,7 @@
 {%- include "stages.j2" %}
 
 # Main image
-FROM {{ recipe.base_image }}:{{ recipe.image_version }} AS {{ recipe.name|replace('/', "-") }}
+FROM {{ recipe.base_image }}@{{ base_digest }} AS {{ recipe.name|replace('/', "-") }}
 
 ARG RECIPE={{ recipe_path.display() }}
 ARG IMAGE_REGISTRY={{ registry }}
@@ -46,4 +46,7 @@ LABEL {{ blue_build_utils::constants::BUILD_ID_LABEL }}="{{ build_id }}"
 LABEL org.opencontainers.image.title="{{ recipe.name }}"
 LABEL org.opencontainers.image.description="{{ recipe.description }}"
 LABEL org.opencontainers.image.source="{{ repo }}"
+LABEL org.opencontainers.image.base.digest="{{ base_digest }}"
+LABEL org.opencontainers.image.base.name="{{ recipe.base_image }}:{{ recipe.image_version }}"
+LABEL org.opencontainers.image.created="{{ self::current_timestamp() }}"
 LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md
