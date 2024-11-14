@@ -5,6 +5,7 @@ use blue_build_utils::constants::{
     CONFIG_PATH, CONTAINERFILES_PATH, CONTAINER_FILE, COSIGN_PUB_PATH, FILES_PATH,
 };
 use bon::Builder;
+use chrono::Utc;
 use colored::control::ShouldColorize;
 use log::{debug, error, trace, warn};
 use uuid::Uuid;
@@ -27,6 +28,7 @@ pub struct ContainerFileTemplate<'a> {
     registry: Cow<'a, str>,
     build_scripts_image: Cow<'a, str>,
     repo: Cow<'a, str>,
+    base_digest: Cow<'a, str>,
 }
 
 #[derive(Debug, Clone, Template, Builder)]
@@ -109,6 +111,10 @@ fn config_dir_exists() -> bool {
     }
 
     exists
+}
+
+fn current_timestamp() -> String {
+    Utc::now().to_rfc3339()
 }
 
 fn should_color() -> bool {

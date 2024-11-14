@@ -13,6 +13,7 @@ rinja = { version = "0.3", features = ["serde_json"] }
 blue-build-recipe = { version = "=0.8.20", path = "../recipe" }
 blue-build-utils = { version = "=0.8.20", path = "../utils" }
 
+chrono.workspace = true
 log.workspace = true
 colored.workspace = true
 bon.workspace = true

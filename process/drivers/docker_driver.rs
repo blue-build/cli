@@ -13,6 +13,7 @@ use blue_build_utils::{
     credentials::Credentials,
     string_vec,
 };
+use cached::proc_macro::cached;
 use log::{debug, info, trace, warn};
 use miette::{bail, IntoDiagnostic, Result};
 use once_cell::sync::Lazy;
@@ -346,44 +347,54 @@ impl BuildDriver for DockerDriver {
 
 impl InspectDriver for DockerDriver {
     fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
-        trace!("DockerDriver::get_metadata({opts:#?})");
-
-        let url = opts.tag.as_ref().map_or_else(
-            || format!("{}", opts.image),
-            |tag| format!("{}:{tag}", opts.image),
-        );
-
-        let mut command = cmd!(
-            "docker",
-            "buildx",
-            |command|? {
-                if !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty()) {
-                    Self::setup()?;
-                    cmd!(command, "--builder=bluebuild");
-                }
-            },
-            "imagetools",
-            "inspect",
-            "--format",
-            "{{json .}}",
-            &url
-        );
-        trace!("{command:?}");
-
-        let output = command.output().into_diagnostic()?;
-
-        if output.status.success() {
-            info!("Successfully inspected image {url}!");
-        } else {
-            bail!("Failed to inspect image {url}")
-        }
-
-        serde_json::from_slice::<DockerImageMetadata>(&output.stdout)
-            .into_diagnostic()
-            .inspect(|metadata| trace!("{metadata:#?}"))
-            .map(ImageMetadata::from)
-            .inspect(|metadata| trace!("{metadata:#?}"))
+        get_metadata_cache(opts)
     }
+}
+
+#[cached(
+    result = true,
+    key = "String",
+    convert = r#"{ format!("{}-{:?}-{}", &*opts.image, opts.tag.as_ref(), opts.platform)}"#,
+    sync_writes = true
+)]
+fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+    trace!("DockerDriver::get_metadata({opts:#?})");
+
+    let url = opts.tag.as_ref().map_or_else(
+        || format!("{}", opts.image),
+        |tag| format!("{}:{tag}", opts.image),
+    );
+
+    let mut command = cmd!(
+        "docker",
+        "buildx",
+        |command|? {
+            if !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty()) {
+                DockerDriver::setup()?;
+                cmd!(command, "--builder=bluebuild");
+            }
+        },
+        "imagetools",
+        "inspect",
+        "--format",
+        "{{json .}}",
+        &url
+    );
+    trace!("{command:?}");
+
+    let output = command.output().into_diagnostic()?;
+
+    if output.status.success() {
+        info!("Successfully inspected image {url}!");
+    } else {
+        bail!("Failed to inspect image {url}")
+    }
+
+    serde_json::from_slice::<DockerImageMetadata>(&output.stdout)
+        .into_diagnostic()
+        .inspect(|metadata| trace!("{metadata:#?}"))
+        .map(ImageMetadata::from)
+        .inspect(|metadata| trace!("{metadata:#?}"))
 }
 
 impl RunDriver for DockerDriver {

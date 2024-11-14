@@ -20,7 +20,7 @@ use clap::Args;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
-use miette::{miette, IntoDiagnostic, Report, Result};
+use miette::{miette, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use once_cell::sync::Lazy;
 use opts::{GenerateImageNameOpts, GenerateTagsOpts};
@@ -202,6 +202,8 @@ impl Driver {
         #[builder(default)]
         platform: Platform,
     ) -> Result<u64> {
+        trace!("Driver::get_os_version({oci_ref:#?})");
+
         #[cfg(test)]
         {
             let _ = oci_ref; // silence lint
@@ -211,8 +213,33 @@ impl Driver {
             }
         }
 
-        trace!("Driver::get_os_version({oci_ref:#?})");
-        get_version(oci_ref, platform)
+        info!("Retrieving OS version from {oci_ref}");
+
+        let inspect_opts = GetMetadataOpts::builder()
+            .image(format!(
+                "{}/{}",
+                oci_ref.resolve_registry(),
+                oci_ref.repository()
+            ))
+            .tag(oci_ref.tag().unwrap_or("latest"))
+            .platform(platform)
+            .build();
+
+        let os_version = Self::get_metadata(&inspect_opts)
+            .and_then(|inspection| {
+                inspection.get_version().ok_or_else(|| {
+                    miette!(
+                        "Failed to parse version from metadata for {}",
+                        oci_ref.to_string().bold()
+                    )
+                })
+            })
+            .or_else(|err| {
+                warn!("Unable to get version via image inspection due to error:\n{err:?}");
+                get_version_run_image(oci_ref)
+            })?;
+        trace!("os_version: {os_version}");
+        Ok(os_version)
     }
 
     fn get_build_driver() -> BuildDriverType {
@@ -239,74 +266,46 @@ impl Driver {
 #[cached(
     result = true,
     key = "String",
-    convert = r#"{ format!("{oci_ref}-{platform}") }"#,
+    convert = r#"{ oci_ref.to_string() }"#,
     sync_writes = true
 )]
-fn get_version(oci_ref: &Reference, platform: Platform) -> Result<u64> {
-    info!("Retrieving OS version from {oci_ref}. This might take a bit");
-    let inspect_opts = GetMetadataOpts::builder()
-        .image(format!(
-            "{}/{}",
-            oci_ref.resolve_registry(),
-            oci_ref.repository()
-        ))
-        .tag(oci_ref.tag().unwrap_or("latest"))
-        .platform(platform)
-        .build();
-    let os_version = Driver::get_metadata(&inspect_opts)
-        .and_then(|inspection| {
-            inspection.get_version().ok_or_else(|| {
-                miette!(
-                    "Failed to parse version from metadata for {}",
-                    oci_ref.to_string().bold()
-                )
-            })
-        })
-        .or_else(get_version_run_image(oci_ref))?;
-    trace!("os_version: {os_version}");
-    Ok(os_version)
-}
+fn get_version_run_image(oci_ref: &Reference) -> Result<u64> {
+    warn!(concat!(
+        "Pulling and running the image to retrieve the version. ",
+        "This will take a while..."
+    ));
 
-fn get_version_run_image(oci_ref: &Reference) -> impl FnOnce(Report) -> Result<u64> + '_ {
-    |err: Report| -> Result<u64> {
-        warn!("Unable to get version via image inspection due to error:\n{err:?}");
-        warn!(concat!(
-            "Pulling and running the image to retrieve the version. ",
-            "This will take a while..."
-        ));
+    let progress = Logger::multi_progress().add(
+        ProgressBar::new_spinner()
+            .with_style(ProgressStyle::default_spinner())
+            .with_message(format!(
+                "Pulling image {} to get version",
+                oci_ref.to_string().bold()
+            )),
+    );
+    progress.enable_steady_tick(Duration::from_millis(100));
 
-        let progress = Logger::multi_progress().add(
-            ProgressBar::new_spinner()
-                .with_style(ProgressStyle::default_spinner())
-                .with_message(format!(
-                    "Pulling image {} to get version",
-                    oci_ref.to_string().bold()
-                )),
-        );
-        progress.enable_steady_tick(Duration::from_millis(100));
+    let output = Driver::run_output(
+        &RunOpts::builder()
+            .image(oci_ref.to_string())
+            .args(bon::vec![
+                "/bin/bash",
+                "-c",
+                "grep -Po '(?<=VERSION_ID=)\\d+' /usr/lib/os-release",
+            ])
+            .pull(true)
+            .remove(true)
+            .build(),
+    )
+    .into_diagnostic()?;
 
-        let output = Driver::run_output(
-            &RunOpts::builder()
-                .image(oci_ref.to_string())
-                .args(bon::vec![
-                    "/bin/bash",
-                    "-c",
-                    "grep -Po '(?<=VERSION_ID=)\\d+' /usr/lib/os-release",
-                ])
-                .pull(true)
-                .remove(true)
-                .build(),
-        )
-        .into_diagnostic()?;
+    progress.finish_and_clear();
+    Logger::multi_progress().remove(&progress);
 
-        progress.finish_and_clear();
-        Logger::multi_progress().remove(&progress);
-
-        String::from_utf8_lossy(&output.stdout)
-            .trim()
-            .parse()
-            .into_diagnostic()
-    }
+    String::from_utf8_lossy(&output.stdout)
+        .trim()
+        .parse()
+        .into_diagnostic()
 }
 
 macro_rules! impl_build_driver {

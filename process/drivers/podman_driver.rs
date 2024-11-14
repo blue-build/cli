@@ -7,6 +7,7 @@ use std::{
 };
 
 use blue_build_utils::{cmd, credentials::Credentials};
+use cached::proc_macro::cached;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace, warn};
@@ -251,59 +252,69 @@ impl BuildDriver for PodmanDriver {
 
 impl InspectDriver for PodmanDriver {
     fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
-        trace!("PodmanDriver::get_metadata({opts:#?})");
-
-        let url = opts.tag.as_deref().map_or_else(
-            || format!("{}", opts.image),
-            |tag| format!("{}:{tag}", opts.image),
-        );
-
-        let progress = Logger::multi_progress().add(
-            ProgressBar::new_spinner()
-                .with_style(ProgressStyle::default_spinner())
-                .with_message(format!(
-                    "Inspecting metadata for {}, pulling image...",
-                    url.bold()
-                )),
-        );
-        progress.enable_steady_tick(Duration::from_millis(100));
-
-        let mut command = cmd!(
-            "podman",
-            "pull",
-            if !matches!(opts.platform, Platform::Native) => [
-                "--platform",
-                opts.platform.to_string(),
-            ],
-            &url,
-        );
-        trace!("{command:?}");
-
-        let output = command.output().into_diagnostic()?;
-
-        if !output.status.success() {
-            bail!("Failed to pull {} for inspection!", url.bold());
-        }
-
-        let mut command = cmd!("podman", "image", "inspect", "--format=json", &url);
-        trace!("{command:?}");
-
-        let output = command.output().into_diagnostic()?;
-
-        progress.finish_and_clear();
-        Logger::multi_progress().remove(&progress);
-
-        if output.status.success() {
-            debug!("Successfully inspected image {url}!");
-        } else {
-            bail!("Failed to inspect image {url}");
-        }
-        serde_json::from_slice::<Vec<PodmanImageMetadata>>(&output.stdout)
-            .into_diagnostic()
-            .inspect(|metadata| trace!("{metadata:#?}"))
-            .and_then(TryFrom::try_from)
-            .inspect(|metadata| trace!("{metadata:#?}"))
+        get_metadata_cache(opts)
     }
+}
+
+#[cached(
+    result = true,
+    key = "String",
+    convert = r#"{ format!("{}-{:?}-{}", &*opts.image, opts.tag.as_ref(), opts.platform)}"#,
+    sync_writes = true
+)]
+fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+    trace!("PodmanDriver::get_metadata({opts:#?})");
+
+    let url = opts.tag.as_deref().map_or_else(
+        || format!("{}", opts.image),
+        |tag| format!("{}:{tag}", opts.image),
+    );
+
+    let progress = Logger::multi_progress().add(
+        ProgressBar::new_spinner()
+            .with_style(ProgressStyle::default_spinner())
+            .with_message(format!(
+                "Inspecting metadata for {}, pulling image...",
+                url.bold()
+            )),
+    );
+    progress.enable_steady_tick(Duration::from_millis(100));
+
+    let mut command = cmd!(
+        "podman",
+        "pull",
+        if !matches!(opts.platform, Platform::Native) => [
+            "--platform",
+            opts.platform.to_string(),
+        ],
+        &url,
+    );
+    trace!("{command:?}");
+
+    let output = command.output().into_diagnostic()?;
+
+    if !output.status.success() {
+        bail!("Failed to pull {} for inspection!", url.bold());
+    }
+
+    let mut command = cmd!("podman", "image", "inspect", "--format=json", &url);
+    trace!("{command:?}");
+
+    let output = command.output().into_diagnostic()?;
+
+    progress.finish_and_clear();
+    Logger::multi_progress().remove(&progress);
+
+    if output.status.success() {
+        debug!("Successfully inspected image {url}!");
+    } else {
+        bail!("Failed to inspect image {url}");
+    }
+    serde_json::from_slice::<Vec<PodmanImageMetadata>>(&output.stdout)
+        .into_diagnostic()
+        .inspect(|metadata| trace!("{metadata:#?}"))
+        .and_then(TryFrom::try_from)
+        .inspect(|metadata| trace!("{metadata:#?}"))
 }
 
 impl RunDriver for PodmanDriver {

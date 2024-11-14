@@ -4,7 +4,7 @@ use bon::Builder;
 
 use crate::drivers::types::Platform;
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Builder, Hash)]
 #[builder(derive(Clone))]
 pub struct GetMetadataOpts<'scope> {
     #[builder(into)]
