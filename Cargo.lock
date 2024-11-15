@@ -452,6 +452,7 @@ dependencies = [
  "blue-build-recipe",
  "blue-build-utils",
  "bon",
+ "chrono",
  "colored",
  "log",
  "rinja",

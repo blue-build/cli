@@ -145,6 +145,16 @@ impl GenerateCommand {
             .registry(registry)
             .repo(Driver::get_repo_url()?)
             .build_scripts_image(determine_scripts_tag(self.platform)?)
+            .base_digest(
+                Driver::get_metadata(
+                    &GetMetadataOpts::builder()
+                        .image(&*recipe.base_image)
+                        .tag(&*recipe.image_version)
+                        .platform(self.platform)
+                        .build(),
+                )?
+                .digest,
+            )
             .build();
 
         let output_str = template.render().into_diagnostic()?;
