@@ -91,6 +91,39 @@ validate:
     RUN --no-cache bluebuild -v validate recipes/recipe-invalid-stage.yml && exit 1 || exit 0
     RUN --no-cache bluebuild -v validate recipes/recipe-invalid-from-file.yml && exit 1 || exit 0
 
+init:
+    FROM +test-base
+
+    WORKDIR /tmp
+    RUN --no-cache bluebuild new test-github \
+        --image-name test-github \
+        --org-name test \
+        --description 'This is a description' \
+        --registry 'ghcr.io' \
+        --ci-provider github
+    RUN --no-cache bluebuild new test-gitlab \
+        --image-name test-gitlab \
+        --org-name test \
+        --description 'This is a description' \
+        --registry 'registry.gitlab.com' \
+        --ci-provider gitlab
+    RUN --no-cache bluebuild new test-none \
+        --image-name test-none \
+        --org-name test \
+        --description 'This is a description' \
+        --registry 'docker.io' \
+        --ci-provider none \
+        --no-git
+
+    WORKDIR /tmp/test-init
+    RUN --no-cache bluebuild init \
+        --image-name test-init \
+        --org-name test \
+        --description 'This is a description' \
+        --registry 'docker.io' \
+        --ci-provider none \
+        --no-git
+
 legacy-base:
     FROM ../+blue-build-cli-alpine --RELEASE=false
     RUN apk update --no-cache && apk add bash grep jq sudo coreutils
@@ -108,7 +141,10 @@ legacy-base:
 
 test-base:
     FROM ../+blue-build-cli-alpine --RELEASE=false
-    RUN apk update --no-cache && apk add bash grep jq sudo coreutils
+    RUN apk update --no-cache && apk add bash grep jq sudo coreutils git && \
+        git config --global user.email "you@example.com" && \
+        git config --global user.name "Your Name"
+
     ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test.tar.gz
     ENV CLICOLOR_FORCE=1
 

@@ -23,34 +23,25 @@ use log::{info, trace, warn};
 use miette::{miette, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use once_cell::sync::Lazy;
-use opts::{GenerateImageNameOpts, GenerateTagsOpts};
-#[cfg(feature = "sigstore")]
-use sigstore_driver::SigstoreDriver;
-use types::Platform;
+use opts::{
+    BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
+    GenerateTagsOpts, GetMetadataOpts, PushOpts, RunOpts, SignOpts, TagOpts, VerifyOpts,
+};
+use types::{
+    BuildDriverType, CiDriverType, DetermineDriver, ImageMetadata, InspectDriverType, Platform,
+    RunDriverType, SigningDriverType,
+};
 use uuid::Uuid;
 
 use crate::logging::Logger;
 
-use self::{
-    buildah_driver::BuildahDriver,
-    cosign_driver::CosignDriver,
-    docker_driver::DockerDriver,
-    github_driver::GithubDriver,
-    gitlab_driver::GitlabDriver,
-    local_driver::LocalDriver,
-    opts::{
-        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateKeyPairOpts, GetMetadataOpts,
-        PushOpts, RunOpts, SignOpts, TagOpts, VerifyOpts,
-    },
-    podman_driver::PodmanDriver,
-    skopeo_driver::SkopeoDriver,
-    types::{
-        BuildDriverType, CiDriverType, DetermineDriver, ImageMetadata, InspectDriverType,
-        RunDriverType, SigningDriverType,
-    },
+pub use self::{
+    buildah_driver::BuildahDriver, cosign_driver::CosignDriver, docker_driver::DockerDriver,
+    github_driver::GithubDriver, gitlab_driver::GitlabDriver, local_driver::LocalDriver,
+    podman_driver::PodmanDriver, skopeo_driver::SkopeoDriver, traits::*,
 };
-
-pub use traits::*;
+#[cfg(feature = "sigstore")]
+pub use sigstore_driver::SigstoreDriver;
 
 mod buildah_driver;
 mod cosign_driver;
@@ -448,5 +439,9 @@ impl CiDriver for Driver {
         O: Borrow<GenerateImageNameOpts<'a>>,
     {
         impl_ci_driver!(generate_image_name(opts))
+    }
+
+    fn default_ci_file_path() -> std::path::PathBuf {
+        impl_ci_driver!(default_ci_file_path())
     }
 }

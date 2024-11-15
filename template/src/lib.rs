@@ -60,6 +60,13 @@ pub struct InitReadmeTemplate<'a> {
     image_name: Cow<'a, str>,
 }
 
+#[derive(Debug, Clone, Template, Builder)]
+#[template(path = "init/gitlab-ci.yml.j2", escape = "none")]
+#[builder(on(Cow<'_, str>, into))]
+pub struct GitlabCiTemplate<'a> {
+    version: Cow<'a, str>,
+}
+
 fn has_cosign_file() -> bool {
     trace!("has_cosign_file()");
     std::env::current_dir()

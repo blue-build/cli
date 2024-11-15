@@ -19,17 +19,12 @@ use tempfile::TempDir;
 
 use crate::{
     drivers::{
-        opts::{RunOptsEnv, RunOptsVolume},
-        types::ImageMetadata,
-        types::Platform,
+        opts::{BuildOpts, GetMetadataOpts, PushOpts, RunOpts, RunOptsEnv, RunOptsVolume, TagOpts},
+        types::{ImageMetadata, Platform},
+        BuildDriver, DriverVersion, InspectDriver, RunDriver,
     },
     logging::{CommandLogging, Logger},
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
-};
-
-use super::{
-    opts::{BuildOpts, GetMetadataOpts, PushOpts, RunOpts, TagOpts},
-    BuildDriver, DriverVersion, InspectDriver, RunDriver,
 };
 
 #[derive(Deserialize, Debug, Clone)]

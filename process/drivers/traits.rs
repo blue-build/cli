@@ -12,17 +12,54 @@ use semver::{Version, VersionReq};
 
 use crate::drivers::{functions::get_private_key, types::CiDriverType, Driver};
 
+#[cfg(feature = "sigstore")]
+use super::sigstore_driver::SigstoreDriver;
 use super::{
+    buildah_driver::BuildahDriver,
+    cosign_driver::CosignDriver,
+    docker_driver::DockerDriver,
+    github_driver::GithubDriver,
+    gitlab_driver::GitlabDriver,
+    local_driver::LocalDriver,
     opts::{
         BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
         GenerateTagsOpts, GetMetadataOpts, PushOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts,
         VerifyOpts, VerifyType,
     },
+    podman_driver::PodmanDriver,
+    skopeo_driver::SkopeoDriver,
     types::ImageMetadata,
 };
 
+trait PrivateDriver {}
+
+macro_rules! impl_private_driver {
+    ($($driver:ty),* $(,)?) => {
+        $(
+            impl PrivateDriver for $driver {}
+        )*
+    };
+}
+
+impl_private_driver!(
+    Driver,
+    DockerDriver,
+    PodmanDriver,
+    BuildahDriver,
+    GithubDriver,
+    GitlabDriver,
+    LocalDriver,
+    CosignDriver,
+    SkopeoDriver,
+    CiDriverType,
+);
+
+#[cfg(feature = "sigstore")]
+impl_private_driver!(SigstoreDriver);
+
 /// Trait for retrieving version of a driver.
-pub trait DriverVersion {
+#[allow(private_bounds)]
+pub trait DriverVersion: PrivateDriver {
     /// The version req string slice that follows
     /// the semver standard <https://semver.org/>.
     const VERSION_REQ: &'static str;
@@ -43,7 +80,8 @@ pub trait DriverVersion {
 
 /// Allows agnostic building, tagging
 /// pushing, and login.
-pub trait BuildDriver {
+#[allow(private_bounds)]
+pub trait BuildDriver: PrivateDriver {
     /// Runs the build logic for the driver.
     ///
     /// # Errors
@@ -148,7 +186,8 @@ pub trait BuildDriver {
 }
 
 /// Allows agnostic inspection of images.
-pub trait InspectDriver {
+#[allow(private_bounds)]
+pub trait InspectDriver: PrivateDriver {
     /// Gets the metadata on an image tag.
     ///
     /// # Errors
@@ -156,7 +195,9 @@ pub trait InspectDriver {
     fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata>;
 }
 
-pub trait RunDriver: Sync + Send {
+/// Allows agnostic running of containers.
+#[allow(private_bounds)]
+pub trait RunDriver: PrivateDriver {
     /// Run a container to perform an action.
     ///
     /// # Errors
@@ -170,7 +211,9 @@ pub trait RunDriver: Sync + Send {
     fn run_output(opts: &RunOpts) -> std::io::Result<Output>;
 }
 
-pub trait SigningDriver {
+/// Allows agnostic management of signature keys.
+#[allow(private_bounds)]
+pub trait SigningDriver: PrivateDriver {
     /// Generate a new private/public key pair.
     ///
     /// # Errors
@@ -275,7 +318,8 @@ pub trait SigningDriver {
 }
 
 /// Allows agnostic retrieval of CI-based information.
-pub trait CiDriver {
+#[allow(private_bounds)]
+pub trait CiDriver: PrivateDriver {
     /// Determines if we're on the main branch of
     /// a repository.
     fn on_default_branch() -> bool;
@@ -374,4 +418,6 @@ pub trait CiDriver {
     /// # Errors
     /// Will error if the environment variables aren't set.
     fn get_registry() -> Result<String>;
+
+    fn default_ci_file_path() -> PathBuf;
 }

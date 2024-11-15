@@ -13,7 +13,8 @@ RUN dnf -y install dnf-plugins-core \
 		podman \
 		skopeo \
 		gpg \
-		dumb-init
+		dumb-init \
+		git
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 

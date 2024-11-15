@@ -13,16 +13,16 @@ pub mod completions;
 pub mod generate;
 #[cfg(feature = "iso")]
 pub mod generate_iso;
-#[cfg(feature = "login")]
-pub mod login;
-#[cfg(feature = "validate")]
-pub mod validate;
-// #[cfg(feature = "init")]
-// pub mod init;
+#[cfg(feature = "init")]
+pub mod init;
 #[cfg(not(feature = "switch"))]
 pub mod local;
+#[cfg(feature = "login")]
+pub mod login;
 #[cfg(feature = "switch")]
 pub mod switch;
+#[cfg(feature = "validate")]
+pub mod validate;
 
 pub trait BlueBuildCommand {
     /// Runs the command and returns a result
@@ -116,6 +116,14 @@ pub enum CommandArgs {
     /// Login to all services used for building.
     #[cfg(feature = "login")]
     Login(login::LoginCommand),
+
+    /// Create a new bluebuild project.
+    #[cfg(feature = "init")]
+    New(init::NewCommand),
+
+    /// Create a new bluebuild project.
+    #[cfg(feature = "init")]
+    Init(init::InitCommand),
 
     /// Validate your recipe file and display
     /// errors to help fix problems.
