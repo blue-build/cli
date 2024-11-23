@@ -111,7 +111,14 @@ blue-build-cli-prebuild:
     ARG BASE_IMAGE="alpine/docker-with-buildx"
     FROM $BASE_IMAGE
 
-    RUN apk update && apk add buildah podman skopeo gpg dumb-init git openrc
+    RUN apk update && apk add --no-cache --force-overwrite \
+        alpine-base git openrc dumb-init buildah \
+        podman skopeo bash bash bc bzip2 coreutils curl diffutils \
+        findmnt findutils gnupg gpg iproute2 iputils keyutils less libcap \
+        ncurses ncurses-terminfo net-tools pigz rsync shadow sudo tcpdump \
+        tree tzdata unzip util-linux util-linux-misc vulkan-loader wget \
+        xauth xz zip procps
+
     COPY +cosign/cosign /usr/bin/cosign
 
     COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
