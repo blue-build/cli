@@ -122,7 +122,7 @@ blue-build-cli-prebuild:
 
     ARG EARTHLY_GIT_HASH
     ARG TARGETARCH
-    SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-alpine-prebuild-$TARGETARCH"
+    SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
 
 blue-build-cli:
     ARG RELEASE="true"
@@ -131,7 +131,7 @@ blue-build-cli:
     IF [ "$RELEASE" = "true" ]
         ARG EARTHLY_GIT_HASH
         ARG TARGETARCH
-        FROM "$IMAGE:$EARTHLY_GIT_HASH-alpine-prebuild-$TARGETARCH"
+        FROM "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
     ELSE
         FROM +blue-build-cli-prebuild
     END
@@ -146,7 +146,7 @@ blue-build-cli:
     WORKDIR /bluebuild
     CMD ["bluebuild"]
 
-    DO --pass-args +SAVE_IMAGE --SUFFIX="-alpine"
+    DO --pass-args +SAVE_IMAGE
 
 installer:
     ARG BASE_IMAGE="alpine"
