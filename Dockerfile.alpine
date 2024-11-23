@@ -1,8 +1,0 @@
-ARG BASE_IMAGE="alpine"
-FROM $BASE_IMAGE
-
-RUN apk update && apk add buildah podman crun skopeo gpg dumb-init git
-
-ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-
-STOPSIGNAL SIGTERM

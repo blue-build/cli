@@ -125,9 +125,16 @@ blue-build-cli-prebuild:
     SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-alpine-prebuild-$TARGETARCH"
 
 blue-build-cli:
-    ARG EARTHLY_GIT_HASH
-    ARG TARGETARCH
-    FROM "$IMAGE:$EARTHLY_GIT_HASH-alpine-prebuild-$TARGETARCH"
+    ARG RELEASE="true"
+    FROM alpine
+
+    IF [ "$RELEASE" = "true" ]
+        ARG EARTHLY_GIT_HASH
+        ARG TARGETARCH
+        FROM "$IMAGE:$EARTHLY_GIT_HASH-alpine-prebuild-$TARGETARCH"
+    ELSE
+        FROM +blue-build-cli-prebuild
+    END
 
     IF [ "$TARGETARCH" = "arm64" ]
         DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-musl"
