@@ -36,6 +36,9 @@ RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
   && cp /tmp/bins/* /usr/bin/ \
   && ostree container commit
 
+RUN --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/scripts/ \
+  /scripts/pre_build.sh
+
 {% call modules::main_modules_run(recipe.modules_ext, os_version) %}
 
 RUN --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/scripts/ \

@@ -63,7 +63,6 @@
             rustc
             bacon
             earthly
-            yq
             jq
             nixpkgs-fmt
           ];
