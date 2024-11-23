@@ -11,6 +11,7 @@ RUN dnf -y install dnf-plugins-core \
 		docker-compose-plugin \
 		buildah \
 		podman \
+		crun \
 		skopeo \
 		gpg \
 		dumb-init \
