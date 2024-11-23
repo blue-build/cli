@@ -18,10 +18,12 @@ run-checks:
 
 build-images:
     BUILD +blue-build-cli
+    BUILD +blue-build-cli-distrobox
     BUILD +installer
 
 prebuild:
     BUILD +blue-build-cli-prebuild
+    BUILD +blue-build-cli-distrobox-prebuild
 
 lint:
     FROM +common
@@ -108,66 +110,28 @@ build-scripts:
     DO --pass-args +SAVE_IMAGE --IMAGE="$IMAGE/build-scripts"
 
 blue-build-cli-prebuild:
-    ARG BASE_IMAGE="alpine/docker-with-buildx"
-    # ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
-    FROM $BASE_IMAGE
-
-    RUN apk update && apk add --no-cache \
-        git dumb-init buildah \
-        podman skopeo bash-completion docs \
-        gcompat libc-utils lsof man-pages \
-        mandoc musl-utils openssh-client-default \
-        pinentry tar vte3 which mesa-dri-gallium \
-        mesa-dri-ati mesa-dri-intel mesa-dri-classic \
-        mesa-dri-nouveau mesa-vulkan-layers \
-        mesa-vulkan-ati mesa-vulkan-intel bash \
-        bc bzip2 coreutils curl diffutils findmnt \
-        findutils gnupg gpg iproute2 iputils keyutils \
-        less libcap ncurses ncurses-terminfo net-tools \
-        pigz rsync shadow sudo tcpdump tree tzdata unzip \
-        util-linux util-linux-misc vulkan-loader wget \
-        xauth xz zip procps
-
-    # RUN dnf -y install dnf-plugins-core \
-    #     && dnf config-manager addrepo --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo \
-    #     && dnf install --refresh -y docker-ce docker-ce-cli containerd.io \
-    #         docker-buildx-plugin docker-compose-plugin buildah podman \
-    #         skopeo gpg dumb-init git bash-completion bc bzip2 curl \
-    #         diffutils findutils gnupg2 hostname iproute iputils keyutils \
-    #         krb5-libs less lsof man-db man-pages ncurses nss-mdns \
-    #         openssh-clients pam passwd pigz pinentry ping procps-ng \
-    #         rsync shadow-utils sudo tcpdump time traceroute tree \
-    #         tzdata unzip util-linux vte-profile wget which whois \
-    #         words xorg-x11-xauth xz zip systemd
-
-    COPY +cosign/cosign /usr/bin/cosign
+    ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
+    FROM DOCKERFILE -f Dockerfile.fedora .
 
     COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
     LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
     LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
-    ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+    COPY +cosign/cosign /usr/bin/cosign
 
     ARG EARTHLY_GIT_HASH
     ARG TARGETARCH
     SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
 
 blue-build-cli:
-    ARG RELEASE="true"
-    FROM alpine
-
-    IF [ "$RELEASE" = "true" ]
-        ARG EARTHLY_GIT_HASH
-        ARG TARGETARCH
-        FROM "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
-    ELSE
-        FROM +blue-build-cli-prebuild
-    END
+    ARG EARTHLY_GIT_HASH
+    ARG TARGETARCH
+    FROM "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
 
     IF [ "$TARGETARCH" = "arm64" ]
-        DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-musl"
+        DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-gnu"
     ELSE
-        DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl"
+        DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-gnu"
     END
 
     RUN mkdir -p /bluebuild
@@ -175,6 +139,33 @@ blue-build-cli:
     CMD ["bluebuild"]
 
     DO --pass-args +SAVE_IMAGE
+
+blue-build-cli-distrobox-prebuild:
+    ARG BASE_IMAGE="alpine"
+    FROM DOCKERFILE -f Dockerfile.alpine .
+
+    COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
+    LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
+    LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
+
+    COPY +cosign/cosign /usr/bin/cosign
+
+    ARG EARTHLY_GIT_HASH
+    ARG TARGETARCH
+    SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-distrobox-prebuild-$TARGETARCH"
+
+blue-build-cli-distrobox:
+    ARG EARTHLY_GIT_HASH
+    ARG TARGETARCH
+    FROM "$IMAGE:$EARTHLY_GIT_HASH-distrobox-prebuild-$TARGETARCH"
+
+    IF [ "$TARGETARCH" = "arm64" ]
+        DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-musl"
+    ELSE
+        DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl"
+    END
+
+    DO --pass-args +SAVE_IMAGE --SUFFIX="-distrobox"
 
 installer:
     ARG BASE_IMAGE="alpine"
