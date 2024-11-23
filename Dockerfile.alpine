@@ -6,8 +6,7 @@ RUN apk update && apk add --no-cache \
     podman skopeo bash-completion docs \
     gcompat libc-utils lsof man-pages \
     mandoc musl-utils openssh-client-default \
-    pinentry tar vte3 which mesa-dri-gallium \
-    mesa-vulkan-layers mesa-vulkan-ati mesa-vulkan-intel \
+    pinentry tar vte3 which \
     bash bc bzip2 coreutils curl diffutils findmnt \
     findutils gnupg gpg iproute2 iputils keyutils \
     less libcap ncurses ncurses-terminfo net-tools \
