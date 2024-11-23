@@ -18,12 +18,10 @@ run-checks:
 
 build-images:
     BUILD +blue-build-cli
-    BUILD +blue-build-cli-alpine
     BUILD +installer
 
 prebuild:
     BUILD +blue-build-cli-prebuild
-    BUILD +blue-build-cli-alpine-prebuild
 
 lint:
     FROM +common
@@ -110,72 +108,26 @@ build-scripts:
     DO --pass-args +SAVE_IMAGE --IMAGE="$IMAGE/build-scripts"
 
 blue-build-cli-prebuild:
-    ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox:40"
-    FROM DOCKERFILE -f Dockerfile.fedora .
+    ARG BASE_IMAGE="alpine/docker-with-buildx"
+    FROM $BASE_IMAGE
+
+    RUN apk update && apk add buildah podman skopeo gpg dumb-init git openrc
+    COPY +cosign/cosign /usr/bin/cosign
 
     COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
     LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
     LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
-    COPY +cosign/cosign /usr/bin/cosign
-    ARG EARTHLY_GIT_HASH
-    ARG TARGETARCH
-    SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
-
-blue-build-cli:
-    ARG EARTHLY_GIT_HASH
-    ARG TARGETARCH
-    FROM "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
-
-    RUN dnf -y install dnf-plugins-core \
-        && dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo \
-        && dnf install --refresh -y \
-            jq \
-            docker-ce \
-            docker-ce-cli \
-            containerd.io \
-            docker-buildx-plugin \
-            docker-compose-plugin \
-            buildah \
-            podman \
-            skopeo \
-            systemd
-
-    COPY rootless_containers.conf /etc/containers/containers.conf
-
-    IF [ "$TARGETARCH" = "arm64" ]
-        DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-gnu"
-    ELSE
-        DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-gnu"
-    END
-
-    RUN mkdir -p /bluebuild
-    WORKDIR /bluebuild
-    CMD ["bluebuild"]
-
-    DO --pass-args +SAVE_IMAGE
-
-blue-build-cli-alpine-prebuild:
-    ARG BASE_IMAGE="alpine"
-    FROM DOCKERFILE -f Dockerfile.alpine .
-
-    COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
-    LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
-    LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
-
-    COPY +cosign/cosign /usr/bin/cosign
+    ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
     ARG EARTHLY_GIT_HASH
     ARG TARGETARCH
     SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-alpine-prebuild-$TARGETARCH"
 
-blue-build-cli-alpine:
+blue-build-cli:
     ARG EARTHLY_GIT_HASH
     ARG TARGETARCH
     FROM "$IMAGE:$EARTHLY_GIT_HASH-alpine-prebuild-$TARGETARCH"
-
-    RUN apk update && apk add buildah podman skopeo fuse-overlayfs jq shadow
-    COPY rootless_containers.conf /etc/containers/containers.conf
 
     IF [ "$TARGETARCH" = "arm64" ]
         DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-musl"
