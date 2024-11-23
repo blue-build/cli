@@ -1,22 +1,25 @@
 use std::{
     fs,
     path::{Path, PathBuf},
-    process::Command,
 };
 
-use anyhow::{bail, Result};
+use blue_build_process_management::drivers::DriverArgs;
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::{ARCHIVE_SUFFIX, LOCAL_BUILD};
+use blue_build_utils::{
+    cmd,
+    constants::{ARCHIVE_SUFFIX, LOCAL_BUILD},
+};
+use bon::Builder;
 use clap::Args;
 use log::{debug, info, trace};
-use typed_builder::TypedBuilder;
+use miette::{bail, IntoDiagnostic, Result};
 use users::{Users, UsersCache};
 
 use crate::commands::build::BuildCommand;
 
-use super::{BlueBuildCommand, DriverArgs};
+use super::BlueBuildCommand;
 
-#[derive(Default, Clone, Debug, TypedBuilder, Args)]
+#[derive(Default, Clone, Debug, Builder, Args)]
 pub struct LocalCommonArgs {
     /// The recipe file to build an image.
     #[arg()]
@@ -42,7 +45,7 @@ pub struct LocalCommonArgs {
     drivers: DriverArgs,
 }
 
-#[derive(Default, Clone, Debug, TypedBuilder, Args)]
+#[derive(Default, Clone, Debug, Builder, Args)]
 pub struct UpgradeCommand {
     #[clap(flatten)]
     common: LocalCommonArgs,
@@ -56,11 +59,17 @@ impl BlueBuildCommand for UpgradeCommand {
 
         let recipe = Recipe::parse(&self.common.recipe)?;
 
-        let mut build = BuildCommand::builder()
-            .recipe(self.common.recipe.clone())
+        let build = BuildCommand::builder();
+
+        #[cfg(feature = "multi-recipe")]
+        let build = build.recipe(vec![self.common.recipe.clone()]);
+
+        #[cfg(not(feature = "multi-recipe"))]
+        let build = build.recipe(self.common.recipe.clone());
+
+        let mut build = build
             .archive(LOCAL_BUILD)
             .drivers(self.common.drivers)
-            .force(self.common.force)
             .build();
 
         let image_name = recipe.name.to_lowercase().replace('/', "_");
@@ -74,15 +83,14 @@ impl BlueBuildCommand for UpgradeCommand {
             info!("Upgrading image {image_name} and rebooting");
 
             trace!("rpm-ostree upgrade --reboot");
-            Command::new("rpm-ostree")
-                .arg("upgrade")
-                .arg("--reboot")
-                .status()?
+            cmd!("rpm-ostree", "upgrade", "--reboot")
+                .status()
+                .into_diagnostic()?
         } else {
             info!("Upgrading image {image_name}");
 
             trace!("rpm-ostree upgrade");
-            Command::new("rpm-ostree").arg("upgrade").status()?
+            cmd!("rpm-ostree", "upgrade").status().into_diagnostic()?
         };
 
         if status.success() {
@@ -94,7 +102,7 @@ impl BlueBuildCommand for UpgradeCommand {
     }
 }
 
-#[derive(Default, Clone, Debug, TypedBuilder, Args)]
+#[derive(Default, Clone, Debug, Builder, Args)]
 pub struct RebaseCommand {
     #[clap(flatten)]
     common: LocalCommonArgs,
@@ -108,11 +116,17 @@ impl BlueBuildCommand for RebaseCommand {
 
         let recipe = Recipe::parse(&self.common.recipe)?;
 
-        let mut build = BuildCommand::builder()
-            .recipe(self.common.recipe.clone())
+        let build = BuildCommand::builder();
+
+        #[cfg(feature = "multi-recipe")]
+        let build = build.recipe(vec![self.common.recipe.clone()]);
+
+        #[cfg(not(feature = "multi-recipe"))]
+        let build = build.recipe(self.common.recipe.clone());
+
+        let mut build = build
             .archive(LOCAL_BUILD)
             .drivers(self.common.drivers)
-            .force(self.common.force)
             .build();
 
         let image_name = recipe.name.to_lowercase().replace('/', "_");
@@ -128,19 +142,16 @@ impl BlueBuildCommand for RebaseCommand {
             info!("Rebasing image {image_name} and rebooting");
 
             trace!("rpm-ostree rebase --reboot {rebase_url}");
-            Command::new("rpm-ostree")
-                .arg("rebase")
-                .arg("--reboot")
-                .arg(rebase_url)
-                .status()?
+            cmd!("rpm-ostree", "rebase", "--reboot", rebase_url)
+                .status()
+                .into_diagnostic()?
         } else {
             info!("Rebasing image {image_name}");
 
             trace!("rpm-ostree rebase {rebase_url}");
-            Command::new("rpm-ostree")
-                .arg("rebase")
-                .arg(rebase_url)
-                .status()?
+            cmd!("rpm-ostree", "rebase", rebase_url)
+                .status()
+                .into_diagnostic()?
         };
 
         if status.success() {
@@ -184,10 +195,10 @@ fn clean_local_build_dir(image_name: &str, rebase: bool) -> Result<()> {
     if local_build_path.exists() {
         debug!("Cleaning out build dir {LOCAL_BUILD}");
 
-        let entries = fs::read_dir(LOCAL_BUILD)?;
+        let entries = fs::read_dir(LOCAL_BUILD).into_diagnostic()?;
 
         for entry in entries {
-            let entry = entry?;
+            let entry = entry.into_diagnostic()?;
             let path = entry.path();
             trace!("Found {}", path.display());
 
@@ -197,7 +208,7 @@ fn clean_local_build_dir(image_name: &str, rebase: bool) -> Result<()> {
                     continue;
                 }
                 trace!("Removing {}", path.display());
-                fs::remove_file(path)?;
+                fs::remove_file(path).into_diagnostic()?;
             }
         }
     } else {
@@ -205,7 +216,7 @@ fn clean_local_build_dir(image_name: &str, rebase: bool) -> Result<()> {
             "Creating build output dir at {}",
             local_build_path.display()
         );
-        fs::create_dir_all(local_build_path)?;
+        fs::create_dir_all(local_build_path).into_diagnostic()?;
     }
 
     Ok(())

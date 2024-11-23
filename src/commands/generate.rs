@@ -3,34 +3,37 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::Result;
+use blue_build_process_management::drivers::{
+    opts::GetMetadataOpts, types::Platform, CiDriver, Driver, DriverArgs, InspectDriver,
+};
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
-    constants::{
-        CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CONFIG_PATH, GITHUB_REPOSITORY_OWNER,
-        RECIPE_FILE, RECIPE_PATH,
-    },
+    constants::{BUILD_SCRIPTS_IMAGE_REF, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH},
     syntax_highlighting::{self, DefaultThemes},
 };
+use bon::Builder;
+use cached::proc_macro::cached;
 use clap::{crate_version, Args};
 use log::{debug, info, trace, warn};
-use typed_builder::TypedBuilder;
+use miette::{IntoDiagnostic, Result};
 
-use crate::{drivers::Driver, shadow};
+#[cfg(feature = "validate")]
+use crate::commands::validate::ValidateCommand;
+use crate::shadow;
 
-use super::{BlueBuildCommand, DriverArgs};
+use super::BlueBuildCommand;
 
-#[derive(Debug, Clone, Args, TypedBuilder)]
+#[derive(Debug, Clone, Args, Builder)]
 pub struct GenerateCommand {
     /// The recipe file to create a template from
     #[arg()]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     recipe: Option<PathBuf>,
 
     /// File to output to instead of STDOUT
     #[arg(short, long)]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     output: Option<PathBuf>,
 
     /// The registry domain the image will be published to.
@@ -38,7 +41,7 @@ pub struct GenerateCommand {
     /// This is used for modules that need to know where
     /// the image is being published (i.e. the signing module).
     #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     registry: Option<String>,
 
     /// The registry namespace the image will be published to.
@@ -46,7 +49,7 @@ pub struct GenerateCommand {
     /// This is used for modules that need to know where
     /// the image is being published (i.e. the signing module).
     #[arg(long)]
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     registry_namespace: Option<String>,
 
     /// Instead of creating a Containerfile, display
@@ -63,8 +66,13 @@ pub struct GenerateCommand {
     ///
     /// The default is `mocha-dark`.
     #[arg(short = 't', long)]
-    #[builder(default, setter(strip_option))]
     syntax_theme: Option<DefaultThemes>,
+
+    /// Inspect the image for a specific platform
+    /// when retrieving the version.
+    #[arg(long, default_value = "native")]
+    #[builder(default)]
+    platform: Platform,
 
     #[clap(flatten)]
     #[builder(default)]
@@ -73,11 +81,7 @@ pub struct GenerateCommand {
 
 impl BlueBuildCommand for GenerateCommand {
     fn try_run(&mut self) -> Result<()> {
-        Driver::builder()
-            .build_driver(self.drivers.build_driver)
-            .inspect_driver(self.drivers.inspect_driver)
-            .build()
-            .init()?;
+        Driver::init(self.drivers);
 
         self.template_file()
     }
@@ -98,15 +102,30 @@ impl GenerateCommand {
             }
         });
 
+        #[cfg(feature = "validate")]
+        ValidateCommand::builder()
+            .recipe(recipe_path.clone())
+            .build()
+            .try_run()?;
+
+        let registry = if let (Some(registry), Some(registry_namespace)) =
+            (&self.registry, &self.registry_namespace)
+        {
+            format!("{registry}/{registry_namespace}")
+        } else {
+            Driver::get_registry()?
+        };
+
         debug!("Deserializing recipe");
-        let recipe_de = Recipe::parse(&recipe_path)?;
-        trace!("recipe_de: {recipe_de:#?}");
+        let recipe = Recipe::parse(&recipe_path)?;
+        trace!("recipe_de: {recipe:#?}");
 
         if self.display_full_recipe {
             if let Some(output) = self.output.as_ref() {
-                std::fs::write(output, serde_yaml::to_string(&recipe_de)?)?;
+                std::fs::write(output, serde_yaml::to_string(&recipe).into_diagnostic()?)
+                    .into_diagnostic()?;
             } else {
-                syntax_highlighting::print_ser(&recipe_de, "yml", self.syntax_theme)?;
+                syntax_highlighting::print_ser(&recipe, "yml", self.syntax_theme)?;
             }
             return Ok(());
         }
@@ -114,27 +133,36 @@ impl GenerateCommand {
         info!("Templating for recipe at {}", recipe_path.display());
 
         let template = ContainerFileTemplate::builder()
-            .os_version(Driver::get_os_version(&recipe_de)?)
+            .os_version(
+                Driver::get_os_version()
+                    .oci_ref(&recipe.base_image_ref()?)
+                    .platform(self.platform)
+                    .call()?,
+            )
             .build_id(Driver::get_build_id())
-            .recipe(&recipe_de)
+            .recipe(&recipe)
             .recipe_path(recipe_path.as_path())
-            .registry(self.get_registry())
-            .exports_tag(if shadow::COMMIT_HASH.is_empty() {
-                // This is done for users who install via
-                // cargo. Cargo installs do not carry git
-                // information via shadow
-                format!("v{}", crate_version!())
-            } else {
-                shadow::COMMIT_HASH.to_string()
-            })
+            .registry(registry)
+            .repo(Driver::get_repo_url()?)
+            .build_scripts_image(determine_scripts_tag(self.platform)?)
+            .base_digest(
+                Driver::get_metadata(
+                    &GetMetadataOpts::builder()
+                        .image(&*recipe.base_image)
+                        .tag(&*recipe.image_version)
+                        .platform(self.platform)
+                        .build(),
+                )?
+                .digest,
+            )
             .build();
 
-        let output_str = template.render()?;
+        let output_str = template.render().into_diagnostic()?;
         if let Some(output) = self.output.as_ref() {
             debug!("Templating to file {}", output.display());
             trace!("Containerfile:\n{output_str}");
 
-            std::fs::write(output, output_str)?;
+            std::fs::write(output, output_str).into_diagnostic()?;
         } else {
             debug!("Templating to stdout");
             syntax_highlighting::print(&output_str, "Dockerfile", self.syntax_theme)?;
@@ -142,39 +170,32 @@ impl GenerateCommand {
 
         Ok(())
     }
-
-    fn get_registry(&self) -> String {
-        match (
-            self.registry.as_ref(),
-            self.registry_namespace.as_ref(),
-            Self::get_github_repo_owner(),
-            Self::get_gitlab_registry_path(),
-        ) {
-            (Some(r), Some(rn), _, _) => format!("{r}/{rn}"),
-            (Some(r), None, _, _) => r.to_string(),
-            (None, None, Some(gh_repo_owner), None) => format!("ghcr.io/{gh_repo_owner}"),
-            (None, None, None, Some(gl_reg_path)) => gl_reg_path,
-            _ => "localhost".to_string(),
-        }
-    }
-
-    fn get_github_repo_owner() -> Option<String> {
-        Some(env::var(GITHUB_REPOSITORY_OWNER).ok()?.to_lowercase())
-    }
-
-    fn get_gitlab_registry_path() -> Option<String> {
-        Some(
-            format!(
-                "{}/{}/{}",
-                env::var(CI_REGISTRY).ok()?,
-                env::var(CI_PROJECT_NAMESPACE).ok()?,
-                env::var(CI_PROJECT_NAME).ok()?,
-            )
-            .to_lowercase(),
-        )
-    }
 }
 
-// ======================================================== //
-// ========================= Helpers ====================== //
-// ======================================================== //
+#[cached(
+    result = true,
+    key = "Platform",
+    convert = r#"{ platform }"#,
+    sync_writes = true
+)]
+fn determine_scripts_tag(platform: Platform) -> Result<String> {
+    let version = format!("v{}", crate_version!());
+    let opts = GetMetadataOpts::builder()
+        .image(BUILD_SCRIPTS_IMAGE_REF)
+        .platform(platform);
+
+    Driver::get_metadata(&opts.clone().tag(shadow::COMMIT_HASH).build())
+        .inspect_err(|e| trace!("{e:?}"))
+        .map(|_| format!("{BUILD_SCRIPTS_IMAGE_REF}:{}", shadow::COMMIT_HASH))
+        .or_else(|_| {
+            Driver::get_metadata(&opts.clone().tag(shadow::BRANCH).build())
+                .inspect_err(|e| trace!("{e:?}"))
+                .map(|_| format!("{BUILD_SCRIPTS_IMAGE_REF}:{}", shadow::BRANCH))
+        })
+        .or_else(|_| {
+            Driver::get_metadata(&opts.tag(&version).build())
+                .inspect_err(|e| trace!("{e:?}"))
+                .map(|_| format!("{BUILD_SCRIPTS_IMAGE_REF}:{version}"))
+        })
+        .inspect(|image| debug!("Using build scripts image: {image}"))
+}

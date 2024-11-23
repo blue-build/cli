@@ -3,9 +3,13 @@
 .vscode/
 result*
 .direnv/
+.arg
+.secret
 
 cosign.key
+!test-files/keys/cosign.key
 
 # Local testing for bluebuild recipe files
 /config/*
 /Containerfile
+/expand.rs

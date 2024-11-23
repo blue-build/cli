@@ -1,33 +1,33 @@
 use std::{borrow::Cow, path::PathBuf};
 
-use anyhow::{bail, Result};
 use blue_build_utils::syntax_highlighting::highlight_ser;
+use bon::Builder;
 use colored::Colorize;
+use miette::{bail, Result};
 use serde::{Deserialize, Serialize};
-use typed_builder::TypedBuilder;
 
-use crate::{Module, ModuleExt, StagesExt};
+use crate::{base_recipe_path, Module, ModuleExt, StagesExt};
 
 /// Contains the required fields for a stage.
-#[derive(Serialize, Deserialize, Debug, Clone, TypedBuilder)]
+#[derive(Serialize, Deserialize, Debug, Clone, Builder)]
 pub struct StageRequiredFields<'a> {
     /// The name of the stage.
     ///
     /// This can then be referenced in the `copy`
     /// module using the `from:` property.
-    #[builder(setter(into))]
+    #[builder(into)]
     pub name: Cow<'a, str>,
 
     /// The base image of the stage.
     ///
     /// This is set directly in a `FROM` instruction.
-    #[builder(setter(into))]
+    #[builder(into)]
     pub from: Cow<'a, str>,
 
     /// The shell to use in the stage.
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub shell: Option<Vec<Cow<'a, str>>>,
+    pub shell: Option<Vec<String>>,
 
     /// The modules extension for the stage
     #[serde(flatten)]
@@ -38,10 +38,9 @@ pub struct StageRequiredFields<'a> {
 ///
 /// A stage has its own list of modules to run which
 /// allows the user to reuse the modules thats provided to the main build.
-#[derive(Serialize, Deserialize, Debug, Clone, TypedBuilder)]
+#[derive(Serialize, Deserialize, Debug, Clone, Builder)]
 pub struct Stage<'a> {
     /// The requied fields for a stage.
-    #[builder(default, setter(strip_option))]
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub required_fields: Option<StageRequiredFields<'a>>,
 
@@ -82,12 +81,12 @@ pub struct Stage<'a> {
     ///     snippets:
     ///     - echo "Hello World!"
     /// ```
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     #[serde(rename = "from-file", skip_serializing_if = "Option::is_none")]
     pub from_file: Option<Cow<'a, str>>,
 }
 
-impl<'a> Stage<'a> {
+impl Stage<'_> {
     /// Get's any child stages.
     ///
     /// # Errors
@@ -120,7 +119,7 @@ impl<'a> Stage<'a> {
                         let mut tf = traversed_files.clone();
                         tf.push(file_name.clone());
 
-                        Self::get_stages(&StagesExt::parse(&file_name)?.stages, Some(tf))?
+                        Self::get_stages(&StagesExt::try_from(&file_name)?.stages, Some(tf))?
                     }
                     _ => {
                         let from_example = Stage::builder().from_file("path/to/stage.yml").build();
@@ -138,6 +137,13 @@ impl<'a> Stage<'a> {
             );
         }
         Ok(found_stages)
+    }
+
+    #[must_use]
+    pub fn get_from_file_path(&self) -> Option<PathBuf> {
+        self.from_file
+            .as_ref()
+            .map(|path| base_recipe_path().join(&**path))
     }
 
     #[must_use]

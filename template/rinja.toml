@@ -1,0 +1,4 @@
+[[syntax]]
+name = "github-actions"
+expr_start = "{{{"
+expr_end = "}}}"

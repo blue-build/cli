@@ -1,10 +1,10 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
 name: cli/test-legacy
 description: This is my personal OS image.
 base-image: ghcr.io/ublue-os/silverblue-surface
 image-version: 39
 modules:
-  - from-file: akmods.yml
-
   - type: files
     files:
       - usr: /usr
@@ -29,13 +29,13 @@ modules:
       install:
         - org.mozilla.firefox
         - org.gnome.Loupe
-        - one.ablaze.floorp//lightning
       remove:
         - org.gnome.eog
 
   - type: signing
 
   - type: test-module
+    source: local
 
   - type: containerfile
     containerfiles:

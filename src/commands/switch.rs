@@ -1,24 +1,30 @@
 use std::{
     path::{Path, PathBuf},
-    process::Command,
+    time::Duration,
 };
 
-use anyhow::{bail, Result};
-use blue_build_recipe::Recipe;
-use blue_build_utils::constants::{
-    ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_UNVERIFIED_IMAGE,
+use blue_build_process_management::{
+    drivers::{Driver, DriverArgs},
+    logging::CommandLogging,
 };
+use blue_build_recipe::Recipe;
+use blue_build_utils::{
+    cmd,
+    constants::{ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_UNVERIFIED_IMAGE},
+};
+use bon::Builder;
 use clap::Args;
 use colored::Colorize;
+use indicatif::ProgressBar;
 use log::{debug, trace, warn};
-use tempdir::TempDir;
-use typed_builder::TypedBuilder;
+use miette::{bail, IntoDiagnostic, Result};
+use tempfile::TempDir;
 
-use crate::{commands::build::BuildCommand, drivers::Driver, rpm_ostree_status::RpmOstreeStatus};
+use crate::{commands::build::BuildCommand, rpm_ostree_status::RpmOstreeStatus};
 
-use super::{BlueBuildCommand, DriverArgs};
+use super::BlueBuildCommand;
 
-#[derive(Default, Clone, Debug, TypedBuilder, Args)]
+#[derive(Default, Clone, Debug, Builder, Args)]
 pub struct SwitchCommand {
     /// The recipe file to build an image.
     #[arg()]
@@ -48,11 +54,7 @@ impl BlueBuildCommand for SwitchCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("SwitchCommand::try_run()");
 
-        Driver::builder()
-            .build_driver(self.drivers.build_driver)
-            .inspect_driver(self.drivers.inspect_driver)
-            .build()
-            .init()?;
+        Driver::init(self.drivers);
 
         let status = RpmOstreeStatus::try_new()?;
         trace!("{status:?}");
@@ -61,13 +63,19 @@ impl BlueBuildCommand for SwitchCommand {
             bail!("There is a transaction in progress. Please cancel it using `rpm-ostree cancel`");
         }
 
-        let tempdir = TempDir::new("oci-archive")?;
+        let tempdir = TempDir::new().into_diagnostic()?;
         trace!("{tempdir:?}");
 
+        #[cfg(feature = "multi-recipe")]
+        BuildCommand::builder()
+            .recipe([self.recipe.clone()])
+            .archive(tempdir.path())
+            .build()
+            .try_run()?;
+        #[cfg(not(feature = "multi-recipe"))]
         BuildCommand::builder()
             .recipe(self.recipe.clone())
             .archive(tempdir.path())
-            .force(self.force)
             .build()
             .try_run()?;
 
@@ -107,37 +115,34 @@ impl SwitchCommand {
         let status = if status.is_booted_on_archive(archive_path)
             || status.is_staged_on_archive(archive_path)
         {
-            let mut command = Command::new("rpm-ostree");
-            command.arg("upgrade");
+            let mut command = cmd!("rpm-ostree", "upgrade");
 
             if self.reboot {
-                command.arg("--reboot");
+                cmd!(command, "--reboot");
             }
 
-            trace!(
-                "rpm-ostree upgrade {}",
-                self.reboot.then_some("--reboot").unwrap_or_default()
-            );
+            trace!("{command:?}");
             command
         } else {
             let image_ref = format!(
                 "{OSTREE_UNVERIFIED_IMAGE}:{OCI_ARCHIVE}:{path}",
                 path = archive_path.display()
             );
-            let mut command = Command::new("rpm-ostree");
-            command.arg("rebase").arg(&image_ref);
+
+            let mut command = cmd!("rpm-ostree", "rebase", &image_ref);
 
             if self.reboot {
-                command.arg("--reboot");
+                cmd!(command, "--reboot");
             }
 
-            trace!(
-                "rpm-ostree rebase{} {image_ref}",
-                self.reboot.then_some(" --reboot").unwrap_or_default()
-            );
+            trace!("{command:?}");
             command
         }
-        .status()?;
+        .status_image_ref_progress(
+            format!("{}", archive_path.display()),
+            "Switching to new image",
+        )
+        .into_diagnostic()?;
 
         if !status.success() {
             bail!("Failed to switch to new image!");
@@ -152,8 +157,14 @@ impl SwitchCommand {
             to.display()
         );
 
+        let progress = ProgressBar::new_spinner();
+        progress.enable_steady_tick(Duration::from_millis(100));
+        progress.set_message(format!("Moving image archive to {}...", to.display()));
+
         trace!("sudo mv {} {}", from.display(), to.display());
-        let status = Command::new("sudo").arg("mv").args([from, to]).status()?;
+        let status = cmd!("sudo", "mv", from, to).status().into_diagnostic()?;
+
+        progress.finish_and_clear();
 
         if !status.success() {
             bail!(
@@ -176,11 +187,12 @@ impl SwitchCommand {
 
             trace!("sudo ls {LOCAL_BUILD}");
             let output = String::from_utf8(
-                Command::new("sudo")
-                    .args(["ls", LOCAL_BUILD])
-                    .output()?
+                cmd!("sudo", "ls", LOCAL_BUILD)
+                    .output()
+                    .into_diagnostic()?
                     .stdout,
-            )?;
+            )
+            .into_diagnostic()?;
 
             trace!("{output}");
 
@@ -193,11 +205,14 @@ impl SwitchCommand {
             if !files.is_empty() {
                 let files = files.join(" ");
 
+                let progress = ProgressBar::new_spinner();
+                progress.enable_steady_tick(Duration::from_millis(100));
+                progress.set_message("Removing old image archive files...");
+
                 trace!("sudo rm -f {files}");
-                let status = Command::new("sudo")
-                    .args(["rm", "-f"])
-                    .arg(files)
-                    .status()?;
+                let status = cmd!("sudo", "rm", "-f", files).status().into_diagnostic()?;
+
+                progress.finish_and_clear();
 
                 if !status.success() {
                     bail!("Failed to clean out archives in {LOCAL_BUILD}");
@@ -209,9 +224,9 @@ impl SwitchCommand {
                 local_build_path.display()
             );
 
-            let status = Command::new("sudo")
-                .args(["mkdir", "-p", LOCAL_BUILD])
-                .status()?;
+            let status = cmd!("sudo", "mkdir", "-p", LOCAL_BUILD)
+                .status()
+                .into_diagnostic()?;
 
             if !status.success() {
                 bail!("Failed to create directory {LOCAL_BUILD}");

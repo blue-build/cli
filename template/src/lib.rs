@@ -1,81 +1,70 @@
-use std::{borrow::Cow, env, fs, path::Path, process};
+use std::{borrow::Cow, fs, path::Path, process};
 
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::{
-    CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_SERVER_HOST, CI_SERVER_PROTOCOL, CONFIG_PATH,
-    CONTAINERFILES_PATH, CONTAINER_FILE, COSIGN_PUB_PATH, FILES_PATH, GITHUB_RESPOSITORY,
-    GITHUB_SERVER_URL,
+    CONFIG_PATH, CONTAINERFILES_PATH, CONTAINER_FILE, COSIGN_PUB_PATH, FILES_PATH,
 };
+use bon::Builder;
+use chrono::Utc;
+use colored::control::ShouldColorize;
 use log::{debug, error, trace, warn};
-use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
-pub use askama::Template;
+pub use rinja::Template;
 
-#[derive(Debug, Clone, Template, TypedBuilder)]
+#[derive(Debug, Clone, Template, Builder)]
 #[template(path = "Containerfile.j2", escape = "none", whitespace = "minimize")]
+#[builder(on(Cow<'_, str>, into))]
 pub struct ContainerFileTemplate<'a> {
+    #[builder(into)]
     recipe: &'a Recipe<'a>,
 
-    #[builder(setter(into))]
-    recipe_path: &'a Path,
+    #[builder(into)]
+    recipe_path: Cow<'a, Path>,
 
-    #[builder(setter(into))]
+    #[builder(into)]
     build_id: Uuid,
-
     os_version: u64,
-
-    #[builder(setter(into))]
     registry: Cow<'a, str>,
-
-    #[builder(setter(into))]
-    exports_tag: Cow<'a, str>,
+    build_scripts_image: Cow<'a, str>,
+    repo: Cow<'a, str>,
+    base_digest: Cow<'a, str>,
 }
 
-#[derive(Debug, Clone, Template, TypedBuilder)]
+#[derive(Debug, Clone, Template, Builder)]
 #[template(path = "github_issue.j2", escape = "md")]
+#[builder(on(Cow<'_, str>, into))]
 pub struct GithubIssueTemplate<'a> {
-    #[builder(setter(into))]
     bb_version: Cow<'a, str>,
-
-    #[builder(setter(into))]
     build_rust_channel: Cow<'a, str>,
-
-    #[builder(setter(into))]
     build_time: Cow<'a, str>,
-
-    #[builder(setter(into))]
     git_commit_hash: Cow<'a, str>,
-
-    #[builder(setter(into))]
     os_name: Cow<'a, str>,
-
-    #[builder(setter(into))]
     os_version: Cow<'a, str>,
-
-    #[builder(setter(into))]
     pkg_branch_tag: Cow<'a, str>,
-
-    #[builder(setter(into))]
     recipe: Cow<'a, str>,
-
-    #[builder(setter(into))]
     rust_channel: Cow<'a, str>,
-
-    #[builder(setter(into))]
     rust_version: Cow<'a, str>,
-
-    #[builder(setter(into))]
     shell_name: Cow<'a, str>,
-
-    #[builder(setter(into))]
     shell_version: Cow<'a, str>,
-
-    #[builder(setter(into))]
     terminal_name: Cow<'a, str>,
-
-    #[builder(setter(into))]
     terminal_version: Cow<'a, str>,
+}
+
+#[derive(Debug, Clone, Template, Builder)]
+#[template(path = "init/README.j2", escape = "md")]
+#[builder(on(Cow<'_, str>, into))]
+pub struct InitReadmeTemplate<'a> {
+    repo_name: Cow<'a, str>,
+    registry: Cow<'a, str>,
+    image_name: Cow<'a, str>,
+}
+
+#[derive(Debug, Clone, Template, Builder)]
+#[template(path = "init/gitlab-ci.yml.j2", escape = "none")]
+#[builder(on(Cow<'_, str>, into))]
+pub struct GitlabCiTemplate<'a> {
+    version: Cow<'a, str>,
 }
 
 fn has_cosign_file() -> bool {
@@ -110,38 +99,6 @@ fn print_containerfile(containerfile: &str) -> String {
     file
 }
 
-fn get_repo_url() -> Option<String> {
-    Some(
-        match (
-            // GitHub vars
-            env::var(GITHUB_SERVER_URL),
-            env::var(GITHUB_RESPOSITORY),
-            // GitLab vars
-            env::var(CI_SERVER_PROTOCOL),
-            env::var(CI_SERVER_HOST),
-            env::var(CI_PROJECT_NAMESPACE),
-            env::var(CI_PROJECT_NAME),
-        ) {
-            (Ok(github_server), Ok(github_repo), _, _, _, _) => {
-                format!("{github_server}/{github_repo}")
-            }
-            (
-                _,
-                _,
-                Ok(ci_server_protocol),
-                Ok(ci_server_host),
-                Ok(ci_project_namespace),
-                Ok(ci_project_name),
-            ) => {
-                format!(
-                    "{ci_server_protocol}://{ci_server_host}/{ci_project_namespace}/{ci_project_name}"
-                )
-            }
-            _ => return None,
-        },
-    )
-}
-
 fn modules_exists() -> bool {
     let mod_path = Path::new("modules");
     mod_path.exists() && mod_path.is_dir()
@@ -163,9 +120,20 @@ fn config_dir_exists() -> bool {
     exists
 }
 
+fn current_timestamp() -> String {
+    Utc::now().to_rfc3339()
+}
+
+fn should_color() -> bool {
+    ShouldColorize::from_env().should_colorize()
+}
+
 mod filters {
     #[allow(clippy::unnecessary_wraps)]
-    pub fn replace<T: std::fmt::Display>(input: T, from: char, to: &str) -> askama::Result<String> {
+    pub fn replace<T>(input: T, from: char, to: &str) -> rinja::Result<String>
+    where
+        T: std::fmt::Display,
+    {
         Ok(format!("{input}").replace(from, to))
     }
 }

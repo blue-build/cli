@@ -2,6 +2,186 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.20] - 2024-10-06
+
+### Bug Fixes
+
+- Ensure the correct digest is used for docker and podman inspect drivers
+- Use docker buildx imagetools to inspect for the docker inspect driver
+- Use full json inspection for docker inspect driver
+- Switch cosign registry from GCR to GHCR (#237)
+- Remove --load for docker build since we no longer pull the image for inspection
+
+### Miscellaneous Tasks
+
+- Fix akmods tests
+- Remove akmods module for arm64 build
+
+## [0.8.19] - 2024-10-04
+
+### Bug Fixes
+
+- Use built-in image inspection for podman and docker
+
+### Miscellaneous Tasks
+
+- Release
+
+## [0.8.18] - 2024-10-03
+
+### Bug Fixes
+
+- Properly escape module json
+- Add post build script to prepare image for ISO creation
+- Make sigstore driver more resilient to network errors
+- May not be possible to just install bootc, run bootupctl if bootc already exists
+- Run image as fallback for version retrieval
+
+### Features
+
+- Add platform arg to force building a specific architecture
+
+### Miscellaneous Tasks
+
+- Add expand.rs to .gitignore for debugging macros
+- Make build.rs run again on git change
+- Add one more criteria for rerun build.rs to check .git/refs/heads
+- Check for bootupctl in post-build script
+- Remove bootupctl until issue is resolved
+- Run clippy and test for every feature individually
+- Release
+
+### Refactor
+
+- Swtich to using bon for builder pattern
+
+## [0.8.17] - 2024-09-11
+
+### Bug Fixes
+
+- Fix docker login for oauth logins
+
+### Miscellaneous Tasks
+
+- Upgrade sigstore to use contributed changes
+- Release
+
+## [0.8.16] - 2024-09-08
+
+### Bug Fixes
+
+- Ensure image names are lowercase
+
+### Miscellaneous Tasks
+
+- Update tests for lowercasing image names
+- Release
+
+## [0.8.15] - 2024-09-07
+
+### Bug Fixes
+
+- Ensure that debug logs header for builds properly display the time
+- Make build fail if module fails
+- Generate correct image names based on user supplied arguments
+
+### Features
+
+- Color output in terminal if running in TTY
+- Create generate-iso command (#192)
+- Display list of image refs at the end of a build
+
+### Miscellaneous Tasks
+
+- Make sigstore an optional dep
+- Update CODEOWNERS
+- Update patch rev for sigstore
+- Fix legacy integration tests
+- Release
+
+## [0.8.14] - 2024-08-25
+
+### Bug Fixes
+
+- Make sure getting version fails if not all dirs were copied
+- Make sure GitHub job pushes latest image on scheduled job
+- Properly handle alt-tags so they don't collide with default tags
+
+### Miscellaneous Tasks
+
+- Release
+
+## [0.8.13] - 2024-08-20
+
+### Bug Fixes
+
+- Include $crate for macro calls
+- Don't let process continue running if the main app thread panics
+
+### Miscellaneous Tasks
+
+- Release
+
+### Refactor
+
+- Create SigningDriver and CiDriver (#197)
+
+## [0.8.12] - 2024-08-11
+
+### Bug Fixes
+
+- Add Ctrl-C handler for spawned children (#193)
+- Support other signals properly (#194)
+- Builds failing due to new Rust version
+- Add typespec schemas for cli modules, remove modules.json (not needed anymore) (#209)
+- Allow copying keys to both /etc and /usr/etc
+- Out of bounds panic when not retrying push
+
+### Features
+
+- Add arm support (#191)
+- Build multiple recipes in parallel (#182)
+- Create RunDriver (#196)
+
+### Miscellaneous Tasks
+
+- Add gh cli to just release
+- Build with priveleged
+- Checkout proper branch and build using cargo for buildah-build
+- Use proper out directory for installer image
+- Capitalize AS
+- Stop using secureblue for integration testing
+- Move files for test-repo to work with new files module update
+- Add Justfile commands for easier development (#205)
+- Fix integration tests failing
+- Switch from askama to rinja
+- Move files from `/usr/etc/` to `/etc/` in build-time (#214)
+- Release
+- Fix tag CI to build prebuild separately from main build
+
+### Refactor
+
+- Switch to using miette for errors instead of anyhow (#198)
+
+## [0.8.11] - 2024-06-03
+
+### Bug Fixes
+
+- Fail if cosign private/public key can't be verified (#190)
+- Make sure username, password, and registry are not empty
+- Move creds empty check to credentials module
+
+### Documentation
+
+- Update README to put preferred method of installation higher up
+
+### Miscellaneous Tasks
+
+- Add action to test external login
+- Add registry for external login test
+- Add external login job and buildah jobs
+- Release
+
 ## [0.8.10] - 2024-05-29
 
 ### Bug Fixes
@@ -17,6 +197,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Don't use satellites for integration tests
+- Release
 
 ### Refactor
 

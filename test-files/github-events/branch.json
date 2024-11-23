@@ -1,0 +1,10 @@
+{
+  "ref": "refs/heads/test-branch",
+  "repository": {
+    "default_branch": "main",
+    "owner": {
+      "login": "Test-Owner"
+    },
+    "html_url": "https://example.com/"
+  }
+}

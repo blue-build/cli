@@ -1,7 +1,6 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
 name: cli/test
-alt-tags:
-  - gts
-  - stable
 description: This is my personal OS image.
 base-image: ghcr.io/ublue-os/silverblue-main
 image-version: 40
@@ -13,7 +12,8 @@ modules:
 
   - type: files
     files:
-      - usr: /usr
+      - source: usr
+        destination: /usr
 
   - type: script
     scripts:
@@ -32,6 +32,7 @@ modules:
   - type: signing
 
   - type: test-module
+    source: local
 
   - type: containerfile
     containerfiles:

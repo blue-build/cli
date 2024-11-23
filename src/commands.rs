@@ -1,24 +1,28 @@
+use std::path::PathBuf;
+
 use log::error;
 
-use clap::{command, crate_authors, Args, Parser, Subcommand};
+use clap::{command, crate_authors, Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
-use typed_builder::TypedBuilder;
 
-use crate::{
-    drivers::types::{BuildDriverType, InspectDriverType},
-    shadow,
-};
+use crate::shadow;
 
 pub mod bug_report;
 pub mod build;
 pub mod completions;
 pub mod generate;
+#[cfg(feature = "iso")]
+pub mod generate_iso;
 #[cfg(feature = "init")]
 pub mod init;
 #[cfg(not(feature = "switch"))]
 pub mod local;
+#[cfg(feature = "login")]
+pub mod login;
 #[cfg(feature = "switch")]
 pub mod switch;
+#[cfg(feature = "validate")]
+pub mod validate;
 
 pub trait BlueBuildCommand {
     /// Runs the command and returns a result
@@ -26,14 +30,15 @@ pub trait BlueBuildCommand {
     ///
     /// # Errors
     /// Can return an `anyhow` Error
-    fn try_run(&mut self) -> anyhow::Result<()>;
+    fn try_run(&mut self) -> miette::Result<()>;
 
     /// Runs the command and exits if there is an error.
     fn run(&mut self) {
         if let Err(e) = self.try_run() {
-            error!("{e}");
+            error!("Failed:\n{e:?}");
             std::process::exit(1);
         }
+        std::process::exit(0);
     }
 }
 
@@ -50,6 +55,10 @@ pub struct BlueBuildArgs {
     #[command(subcommand)]
     pub command: CommandArgs,
 
+    /// The directory to output build logs.
+    #[arg(long)]
+    pub log_out: Option<PathBuf>,
+
     #[clap(flatten)]
     pub verbosity: Verbosity<InfoLevel>,
 }
@@ -62,6 +71,10 @@ pub enum CommandArgs {
     /// Generate a Containerfile from a recipe
     #[clap(visible_alias = "template")]
     Generate(generate::GenerateCommand),
+
+    /// Generate an ISO for an image or recipe.
+    #[cfg(feature = "iso")]
+    GenerateIso(generate_iso::GenerateIsoCommand),
 
     /// Upgrade your current OS with the
     /// local image saved at `/etc/bluebuild/`.
@@ -100,13 +113,29 @@ pub enum CommandArgs {
     #[cfg(feature = "switch")]
     Switch(switch::SwitchCommand),
 
-    /// Initialize a new Ublue Starting Point repo
-    #[cfg(feature = "init")]
-    Init(init::InitCommand),
+    /// Login to all services used for building.
+    #[cfg(feature = "login")]
+    Login(login::LoginCommand),
 
+    /// Create a new bluebuild project.
     #[cfg(feature = "init")]
     New(init::NewCommand),
 
+    /// Create a new bluebuild project.
+    #[cfg(feature = "init")]
+    Init(init::InitCommand),
+
+    /// Validate your recipe file and display
+    /// errors to help fix problems.
+    #[cfg(feature = "validate")]
+    Validate(Box<validate::ValidateCommand>),
+
+    // /// Initialize a new Ublue Starting Point repo
+    // #[cfg(feature = "init")]
+    // Init(init::InitCommand),
+
+    // #[cfg(feature = "init")]
+    // New(init::NewCommand),
     /// Create a pre-populated GitHub issue with information about your configuration
     BugReport(bug_report::BugReportCommand),
 
@@ -114,28 +143,14 @@ pub enum CommandArgs {
     Completions(completions::CompletionsCommand),
 }
 
-#[derive(Default, Clone, Copy, Debug, TypedBuilder, Args)]
-pub struct DriverArgs {
-    /// Runs all instructions inside one layer of the final image.
-    ///
-    /// WARN: This doesn't work with the
-    /// docker driver as it has been deprecated.
-    ///
-    /// NOTE: Squash has a performance benefit for
-    /// podman and buildah when running inside a container.
-    #[arg(short, long)]
-    #[builder(default)]
-    squash: bool,
+#[cfg(test)]
+mod test {
+    use clap::CommandFactory;
 
-    /// Select which driver to use to build
-    /// your image.
-    #[builder(default)]
-    #[arg(short = 'B', long)]
-    build_driver: Option<BuildDriverType>,
+    use super::BlueBuildArgs;
 
-    /// Select which driver to use to inspect
-    /// images.
-    #[builder(default)]
-    #[arg(short = 'I', long)]
-    inspect_driver: Option<InspectDriverType>,
+    #[test]
+    fn test_cli() {
+        BlueBuildArgs::command().debug_assert();
+    }
 }

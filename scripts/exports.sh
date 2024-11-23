@@ -18,8 +18,35 @@ get_yaml_array() {
   readarray -t arr < <(echo "$module_config" | yq -I=0 "$jq_query")
 }
 
+color_string() {
+  local string="$1"
+  local color_code="$2"
+  local reset_code="\033[0m"
+
+  # ANSI color codes: https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
+  # Example color codes: 31=red, 32=green, 33=yellow, 34=blue, 35=magenta, 36=cyan, 37=white
+
+  # Check if color code is provided, otherwise default to white (37)
+  if [[ -z "$color_code" ]]; then
+    color_code="37"
+  fi
+
+  # Determine if we should force color
+  if [ -n "${FORCE_COLOR:-}" ] || [ -n "${CLICOLOR_FORCE:-}" ]; then
+    # Force color: Apply color codes regardless of whether output is a TTY
+    echo -e "\033[${color_code}m${string}${reset_code}"
+  elif [ -t 1 ]; then
+    # Output is a TTY and color is not forced: Apply color codes
+    echo -e "\033[${color_code}m${string}${reset_code}"
+  else
+    # Output is not a TTY: Do not apply color codes
+    echo "$string"
+  fi
+}
+
 # Parse OS version and export it
 export OS_VERSION=$(grep -Po "(?<=VERSION_ID=)\d+" /usr/lib/os-release)
+export OS_ARCH=$(uname -m)
 
 # Export functions for use in sub-shells or sourced scripts
 export -f get_yaml_array

@@ -1,23 +1,23 @@
-use std::{borrow::Cow, path::PathBuf, process};
+use std::{borrow::Cow, path::PathBuf};
 
-use anyhow::{bail, Result};
 use blue_build_utils::syntax_highlighting::highlight_ser;
+use bon::Builder;
 use colored::Colorize;
 use indexmap::IndexMap;
-use log::{error, trace, warn};
+use log::trace;
+use miette::{bail, Result};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
-use typed_builder::TypedBuilder;
 
-use crate::{AkmodsInfo, ModuleExt};
+use crate::{base_recipe_path, AkmodsInfo, ModuleExt};
 
-#[derive(Serialize, Deserialize, Debug, Clone, TypedBuilder, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Builder, Default)]
 pub struct ModuleRequiredFields<'a> {
-    #[builder(default, setter(into))]
+    #[builder(into)]
     #[serde(rename = "type")]
     pub module_type: Cow<'a, str>,
 
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<Cow<'a, str>>,
 
@@ -26,7 +26,7 @@ pub struct ModuleRequiredFields<'a> {
     pub no_cache: bool,
 
     #[serde(flatten)]
-    #[builder(default, setter(into))]
+    #[builder(default, into)]
     pub config: IndexMap<String, Value>,
 }
 
@@ -63,14 +63,6 @@ impl<'a> ModuleRequiredFields<'a> {
     }
 
     #[must_use]
-    pub fn print_module_context(&'a self) -> String {
-        serde_json::to_string(self).unwrap_or_else(|e| {
-            error!("Failed to parse module!!!!!: {e}");
-            process::exit(1);
-        })
-    }
-
-    #[must_use]
     #[allow(clippy::missing_const_for_fn)]
     pub fn get_copy_args(&'a self) -> Option<(Option<&'a str>, &'a str, &'a str)> {
         #[cfg(feature = "copy")]
@@ -89,11 +81,42 @@ impl<'a> ModuleRequiredFields<'a> {
     }
 
     #[must_use]
+    pub fn get_non_local_source(&'a self) -> Option<&'a str> {
+        let source = self.source.as_deref()?;
+
+        if source == "local" {
+            None
+        } else {
+            Some(source)
+        }
+    }
+
+    #[must_use]
     pub fn generate_akmods_info(&'a self, os_version: &u64) -> AkmodsInfo {
-        #[derive(Debug, Copy, Clone)]
+        #[derive(Debug, Default, Copy, Clone)]
         enum NvidiaAkmods {
-            Nvidia(bool),
-            Version(u64),
+            #[default]
+            Disabled,
+            Enabled,
+            Open,
+            Proprietary,
+        }
+
+        impl From<&Value> for NvidiaAkmods {
+            fn from(value: &Value) -> Self {
+                match value.get("nvidia") {
+                    Some(enabled) if enabled.is_bool() => match enabled.as_bool() {
+                        Some(true) => Self::Enabled,
+                        _ => Self::Disabled,
+                    },
+                    Some(driver_type) if driver_type.is_string() => match driver_type.as_str() {
+                        Some("open") => Self::Open,
+                        Some("proprietary") => Self::Proprietary,
+                        _ => Self::Disabled,
+                    },
+                    _ => Self::Disabled,
+                }
+            }
         }
 
         trace!("generate_akmods_base({self:#?}, {os_version})");
@@ -102,78 +125,67 @@ impl<'a> ModuleRequiredFields<'a> {
             .config
             .get("base")
             .map(|b| b.as_str().unwrap_or_default());
-        let nvidia = self.config.get("nvidia-version").map_or_else(
-            || {
-                self.config
-                    .get("nvidia")
-                    .map_or_else(|| NvidiaAkmods::Nvidia(false), |v| NvidiaAkmods::Nvidia(v.as_bool().unwrap_or_default()))
-            },
-            |v| {
-                warn!(
-                    "The `nvidia-version` property is deprecated as upstream images may no longer exist, replace it with `nvidia: true`"
-                );
-                NvidiaAkmods::Version(v.as_u64().unwrap_or_default())
-            },
-        );
+        let nvidia = self
+            .config
+            .get("nvidia")
+            .map_or_else(Default::default, NvidiaAkmods::from);
 
         AkmodsInfo::builder()
             .images(match (base, nvidia) {
-                (Some(b), NvidiaAkmods::Nvidia(nv)) if !b.is_empty() && nv => (
+                (Some(b), NvidiaAkmods::Enabled | NvidiaAkmods::Proprietary) if !b.is_empty() => (
                     format!("akmods:{b}-{os_version}"),
                     format!("akmods-extra:{b}-{os_version}"),
                     Some(format!("akmods-nvidia:{b}-{os_version}")),
                 ),
-                (Some(b), NvidiaAkmods::Version(nv)) if !b.is_empty() && nv > 0 => (
-                    format!("akmods:{b}-{os_version}"),
-                    format!("akmods-extra:{b}-{os_version}"),
-                    Some(format!("akmods-nvidia:{b}-{os_version}-{nv}")),
-                ),
-                (Some(b), _) if !b.is_empty() => (
+                (Some(b), NvidiaAkmods::Disabled) if !b.is_empty() => (
                     format!("akmods:{b}-{os_version}"),
                     format!("akmods-extra:{b}-{os_version}"),
                     None,
                 ),
-                (_, NvidiaAkmods::Nvidia(nv)) if nv => (
+                (Some(b), NvidiaAkmods::Open) if !b.is_empty() => (
+                    format!("akmods:{b}-{os_version}"),
+                    format!("akmods-extra:{b}-{os_version}"),
+                    Some(format!("akmods-nvidia-open:{b}-{os_version}")),
+                ),
+                (_, NvidiaAkmods::Enabled | NvidiaAkmods::Proprietary) => (
                     format!("akmods:main-{os_version}"),
                     format!("akmods-extra:main-{os_version}"),
                     Some(format!("akmods-nvidia:main-{os_version}")),
                 ),
-                (_, NvidiaAkmods::Version(nv)) if nv > 0 => (
-                    format!("akmods:main-{os_version}"),
-                    format!("akmods-extra:main-{os_version}"),
-                    Some(format!("akmods-nvidia:main-{os_version}-{nv}")),
-                ),
-                _ => (
+                (_, NvidiaAkmods::Disabled) => (
                     format!("akmods:main-{os_version}"),
                     format!("akmods-extra:main-{os_version}"),
                     None,
+                ),
+                (_, NvidiaAkmods::Open) => (
+                    format!("akmods:main-{os_version}"),
+                    format!("akmods-extra:main-{os_version}"),
+                    Some(format!("akmods-nvidia-open:main-{os_version}")),
                 ),
             })
             .stage_name(format!(
                 "{}{}",
                 base.unwrap_or("main"),
                 match nvidia {
-                    NvidiaAkmods::Nvidia(nv) if nv => "-nvidia".to_string(),
-                    NvidiaAkmods::Version(nv) if nv > 0 => format!("-nvidia-{nv}"),
-                    _ => String::default(),
+                    NvidiaAkmods::Disabled => String::default(),
+                    _ => "-nvidia".to_string(),
                 }
             ))
             .build()
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, TypedBuilder, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Builder, Default)]
 pub struct Module<'a> {
-    #[builder(default, setter(strip_option))]
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     pub required_fields: Option<ModuleRequiredFields<'a>>,
 
-    #[builder(default, setter(into, strip_option))]
+    #[builder(into)]
     #[serde(rename = "from-file", skip_serializing_if = "Option::is_none")]
     pub from_file: Option<Cow<'a, str>>,
 }
 
-impl<'a> Module<'a> {
+impl Module<'_> {
     /// Get's any child modules.
     ///
     /// # Errors
@@ -211,7 +223,7 @@ impl<'a> Module<'a> {
                         traversed_files.push(file_name.clone());
 
                         Self::get_modules(
-                            &ModuleExt::parse(&file_name)?.modules,
+                            &ModuleExt::try_from(&file_name)?.modules,
                             Some(traversed_files),
                         )?
                     }
@@ -231,6 +243,13 @@ impl<'a> Module<'a> {
             );
         }
         Ok(found_modules)
+    }
+
+    #[must_use]
+    pub fn get_from_file_path(&self) -> Option<PathBuf> {
+        self.from_file
+            .as_ref()
+            .map(|path| base_recipe_path().join(&**path))
     }
 
     #[must_use]

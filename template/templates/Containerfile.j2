@@ -2,7 +2,7 @@
 {%- include "stages.j2" %}
 
 # Main image
-FROM {{ recipe.base_image }}:{{ recipe.image_version }} as {{ recipe.name|replace('/', "-") }}
+FROM {{ recipe.base_image }}@{{ base_digest }} AS {{ recipe.name|replace('/', "-") }}
 
 ARG RECIPE={{ recipe_path.display() }}
 ARG IMAGE_REGISTRY={{ registry }}
@@ -16,9 +16,17 @@ ARG MODULE_DIRECTORY="/tmp/modules"
 ARG IMAGE_NAME="{{ recipe.name }}"
 ARG BASE_IMAGE="{{ recipe.base_image }}"
 
+{%- if self::should_color() %}
+ARG FORCE_COLOR=1
+ARG CLICOLOR_FORCE=1
+ARG RUST_LOG_STYLE=always
+{%- endif %}
+
 # Key RUN
 RUN --mount=type=bind,from=stage-keys,src=/keys,dst=/tmp/keys \
+  mkdir -p /etc/pki/containers/ \
   mkdir -p /usr/etc/pki/containers/ \
+  && cp /tmp/keys/* /etc/pki/containers/ \
   && cp /tmp/keys/* /usr/etc/pki/containers/ \
   && ostree container commit
 
@@ -30,13 +38,15 @@ RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
 
 {% call modules::main_modules_run(recipe.modules_ext, os_version) %}
 
-RUN rm -fr /tmp/* /var/* && ostree container commit
+RUN --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/scripts/ \
+  /scripts/post_build.sh
 
 # Labels are added last since they cause cache misses with buildah
 LABEL {{ blue_build_utils::constants::BUILD_ID_LABEL }}="{{ build_id }}"
 LABEL org.opencontainers.image.title="{{ recipe.name }}"
 LABEL org.opencontainers.image.description="{{ recipe.description }}"
-{%- if let Some(repo) = self::get_repo_url() %}
 LABEL org.opencontainers.image.source="{{ repo }}"
-{%- endif %}
+LABEL org.opencontainers.image.base.digest="{{ base_digest }}"
+LABEL org.opencontainers.image.base.name="{{ recipe.base_image }}:{{ recipe.image_version }}"
+LABEL org.opencontainers.image.created="{{ self::current_timestamp() }}"
 LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md

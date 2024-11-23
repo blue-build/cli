@@ -1,46 +1,69 @@
-use std::{borrow::Cow, fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
-use anyhow::{Context, Result};
-use blue_build_utils::constants::{CONFIG_PATH, RECIPE_PATH};
-use log::warn;
+use bon::Builder;
+use miette::{Context, IntoDiagnostic, Report, Result};
 use serde::{Deserialize, Serialize};
-use typed_builder::TypedBuilder;
 
-use crate::{Module, Stage};
+use crate::{base_recipe_path, FromFileList, Module, Stage};
 
-#[derive(Default, Serialize, Clone, Deserialize, Debug, TypedBuilder)]
+#[derive(Default, Serialize, Clone, Deserialize, Debug, Builder)]
 pub struct StagesExt<'a> {
-    #[builder(default, setter(into))]
-    pub stages: Cow<'a, [Stage<'a>]>,
+    #[builder(default)]
+    pub stages: Vec<Stage<'a>>,
 }
 
-impl<'a> StagesExt<'a> {
-    /// Parse a module file returning a [`StagesExt`]
-    ///
-    /// # Errors
-    /// Can return an `anyhow` Error if the file cannot be read or deserialized
-    /// into a [`StagesExt`]
-    pub fn parse(file_name: &Path) -> Result<Self> {
-        let legacy_path = Path::new(CONFIG_PATH);
-        let recipe_path = Path::new(RECIPE_PATH);
+impl FromFileList for StagesExt<'_> {
+    const LIST_KEY: &'static str = "stages";
 
-        let file_path = if recipe_path.exists() && recipe_path.is_dir() {
-            recipe_path.join(file_name)
-        } else {
-            warn!("Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}");
-            legacy_path.join(file_name)
-        };
+    #[must_use]
+    fn get_from_file_paths(&self) -> Vec<PathBuf> {
+        self.stages
+            .iter()
+            .filter_map(Stage::get_from_file_path)
+            .collect()
+    }
+
+    fn get_module_from_file_paths(&self) -> Vec<PathBuf> {
+        self.stages
+            .iter()
+            .flat_map(|stage| {
+                stage
+                    .required_fields
+                    .as_ref()
+                    .map_or_else(Vec::new, |rf| rf.modules_ext.get_from_file_paths())
+            })
+            .collect()
+    }
+}
+
+impl TryFrom<&PathBuf> for StagesExt<'_> {
+    type Error = Report;
+
+    fn try_from(value: &PathBuf) -> Result<Self> {
+        Self::try_from(value.as_path())
+    }
+}
+
+impl TryFrom<&Path> for StagesExt<'_> {
+    type Error = Report;
+
+    fn try_from(file_name: &Path) -> Result<Self> {
+        let file_path = base_recipe_path().join(file_name);
 
         let file = fs::read_to_string(&file_path)
-            .context(format!("Failed to open {}", file_path.display()))?;
+            .into_diagnostic()
+            .with_context(|| format!("Failed to open {}", file_path.display()))?;
 
         serde_yaml::from_str::<Self>(&file).map_or_else(
             |_| -> Result<Self> {
                 let mut stage = serde_yaml::from_str::<Stage>(&file)
-                    .map_err(blue_build_utils::serde_yaml_err(&file))?;
+                    .map_err(blue_build_utils::serde_yaml_err(&file))
+                    .into_diagnostic()?;
                 if let Some(ref mut rf) = stage.required_fields {
-                    rf.modules_ext.modules =
-                        Module::get_modules(&rf.modules_ext.modules, None)?.into();
+                    rf.modules_ext.modules = Module::get_modules(&rf.modules_ext.modules, None)?;
                 }
                 Ok(Self::builder().stages(vec![stage]).build())
             },
@@ -50,10 +73,10 @@ impl<'a> StagesExt<'a> {
                 for stage in &mut stages {
                     if let Some(ref mut rf) = stage.required_fields {
                         rf.modules_ext.modules =
-                            Module::get_modules(&rf.modules_ext.modules, None)?.into();
+                            Module::get_modules(&rf.modules_ext.modules, None)?;
                     }
                 }
-                stages_ext.stages = stages.into();
+                stages_ext.stages = stages;
                 Ok(stages_ext)
             },
         )
