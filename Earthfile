@@ -108,36 +108,37 @@ build-scripts:
     DO --pass-args +SAVE_IMAGE --IMAGE="$IMAGE/build-scripts"
 
 blue-build-cli-prebuild:
-    # ARG BASE_IMAGE="alpine/docker-with-buildx"
-    ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
+    ARG BASE_IMAGE="alpine/docker-with-buildx"
+    # ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
     FROM $BASE_IMAGE
 
-    # RUN apk update && apk add --no-cache \
-    #     git openrc dumb-init buildah \
-    #     podman skopeo bash-completion docs \
-    #     gcompat libc-utils lsof man-pages \
-    #     mandoc musl-utils openssh-client-default \
-    #     pinentry tar vte3 which mesa-dri-gallium \
-    #     mesa-dri-ati mesa-dri-intel mesa-dri-classic \
-    #     mesa-dri-nouveau mesa-vulkan-layers \
-    #     mesa-vulkan-ati mesa-vulkan-intel bash \
-    #     bc bzip2 coreutils curl diffutils findmnt \
-    #     findutils gnupg gpg iproute2 iputils keyutils \
-    #     less libcap ncurses ncurses-terminfo net-tools \
-    #     pigz rsync shadow sudo tcpdump tree tzdata unzip \
-    #     util-linux util-linux-misc vulkan-loader wget \
-    #     xauth xz zip procps
-    RUN dnf -y install dnf-plugins-core \
-        && dnf config-manager addrepo --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo \
-        && dnf install --refresh -y docker-ce docker-ce-cli containerd.io \
-            docker-buildx-plugin docker-compose-plugin buildah podman \
-            skopeo gpg dumb-init git bash-completion bc bzip2 curl \
-            diffutils findutils gnupg2 hostname iproute iputils keyutils \
-            krb5-libs less lsof man-db man-pages ncurses nss-mdns \
-            openssh-clients pam passwd pigz pinentry ping procps-ng \
-            rsync shadow-utils sudo tcpdump time traceroute tree \
-            tzdata unzip util-linux vte-profile wget which whois \
-            words xorg-x11-xauth xz zip systemd
+    RUN apk update && apk add --no-cache \
+        git dumb-init buildah \
+        podman skopeo bash-completion docs \
+        gcompat libc-utils lsof man-pages \
+        mandoc musl-utils openssh-client-default \
+        pinentry tar vte3 which mesa-dri-gallium \
+        mesa-dri-ati mesa-dri-intel mesa-dri-classic \
+        mesa-dri-nouveau mesa-vulkan-layers \
+        mesa-vulkan-ati mesa-vulkan-intel bash \
+        bc bzip2 coreutils curl diffutils findmnt \
+        findutils gnupg gpg iproute2 iputils keyutils \
+        less libcap ncurses ncurses-terminfo net-tools \
+        pigz rsync shadow sudo tcpdump tree tzdata unzip \
+        util-linux util-linux-misc vulkan-loader wget \
+        xauth xz zip procps
+
+    # RUN dnf -y install dnf-plugins-core \
+    #     && dnf config-manager addrepo --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo \
+    #     && dnf install --refresh -y docker-ce docker-ce-cli containerd.io \
+    #         docker-buildx-plugin docker-compose-plugin buildah podman \
+    #         skopeo gpg dumb-init git bash-completion bc bzip2 curl \
+    #         diffutils findutils gnupg2 hostname iproute iputils keyutils \
+    #         krb5-libs less lsof man-db man-pages ncurses nss-mdns \
+    #         openssh-clients pam passwd pigz pinentry ping procps-ng \
+    #         rsync shadow-utils sudo tcpdump time traceroute tree \
+    #         tzdata unzip util-linux vte-profile wget which whois \
+    #         words xorg-x11-xauth xz zip systemd
 
     COPY +cosign/cosign /usr/bin/cosign
 
