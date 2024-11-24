@@ -27,6 +27,7 @@ RUN \
         {%- endif %}
   --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/tmp/scripts/ \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
+  --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
   /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module|json|safe }}' \
   && ostree container commit
       {%- endif %}
