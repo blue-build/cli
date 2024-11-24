@@ -77,8 +77,12 @@ impl BlueBuildCommand for ValidateCommand {
 
             return Err(miette!(
                 help = format!(
-                    "Use `{}` to view more information",
+                    "Use `{}` to view more information.\n{}",
                     format!("bluebuild validate --all-errors {}", self.recipe.display()).bold(),
+                    format_args!(
+                        "If you're using a local module, be sure to add `{}` to the module entry",
+                        "source: local".bold()
+                    ),
                 ),
                 "{errors}",
             )
