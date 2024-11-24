@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.21] - 2024-11-24
+
+### Bug Fixes
+
+- Update main branch workflow to use +build-images target
+- Make sure to exit after unwind
+- Update copy Typespec to expect proper type
+- Clean up error display for validate command
+- Pin prebuilds to Fedora 40
+- Have integration tests job require the amd64-prebuild job
+- Better support distrobox (#160)
+
+### Features
+
+- Add validation command
+- Use yaml-rust2 to get line numbers for better errors
+- Include base image information in labels
+- Add the new/init subcommands (#85)
+
+### Miscellaneous Tasks
+
+- Cleanup workflows to be run from just (#238)
+- Require integration tests to depend on prebuild
+- Remove expect-exit as a dependency and add bacon config
+- Remove akmod that no longer exists in integration tests
+- Create dependabot.yml
+- Send log files to ~/.cache/bluebuild
+- Set shadow back to its original location
+- Remove need to update .gitignore by making use of temporary directories
+- [**breaking**] Remove force arg for build since it is no longer in use
+- Update akmods image ref gen to handle open drivers
+- Add extra help text for fixing local modules
+- Install jq and prefer over yq for modules
+
 ## [0.8.20] - 2024-10-06
 
 ### Bug Fixes
@@ -16,6 +50,7 @@ All notable changes to this project will be documented in this file.
 
 - Fix akmods tests
 - Remove akmods module for arm64 build
+- Release
 
 ## [0.8.19] - 2024-10-04
 
