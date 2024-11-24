@@ -111,7 +111,16 @@ build-scripts:
 
 blue-build-cli-prebuild:
     ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
-    FROM DOCKERFILE -f Dockerfile.fedora .
+    FROM "$BASE_IMAGE"
+
+    RUN dnf -y install dnf-plugins-core \
+        && dnf config-manager addrepo \
+            --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo \
+        && dnf install --refresh -y docker-ce docker-ce-cli containerd.io \
+            docker-buildx-plugin docker-compose-plugin \
+            buildah podman skopeo dumb-init git
+
+    ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
     COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
     LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
@@ -124,9 +133,16 @@ blue-build-cli-prebuild:
     SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
 
 blue-build-cli:
-    ARG EARTHLY_GIT_HASH
+    FROM alpine
+    ARG RELEASE="true"
     ARG TARGETARCH
-    FROM "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
+
+    IF [ "$RELEASE" = "true" ]
+        ARG EARTHLY_GIT_HASH
+        FROM "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
+    ELSE
+        FROM +blue-build-cli-prebuild
+    END
 
     IF [ "$TARGETARCH" = "arm64" ]
         DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-gnu"
@@ -142,7 +158,22 @@ blue-build-cli:
 
 blue-build-cli-distrobox-prebuild:
     ARG BASE_IMAGE="alpine"
-    FROM DOCKERFILE -f Dockerfile.alpine .
+    FROM $BASE_IMAGE
+
+    RUN apk update && apk add --no-cache \
+        alpine-base git dumb-init buildah \
+        podman skopeo bash-completion docs \
+        gcompat libc-utils lsof man-pages \
+        mandoc musl-utils openssh-client-default \
+        pinentry tar vte3 which \
+        bash bc bzip2 coreutils curl diffutils findmnt \
+        findutils gnupg gpg iproute2 iputils keyutils \
+        less libcap ncurses ncurses-terminfo net-tools \
+        pigz rsync shadow sudo tcpdump tree tzdata unzip \
+        util-linux util-linux-misc vulkan-loader wget \
+        xauth xz zip procps
+
+    ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
     COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
     LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
