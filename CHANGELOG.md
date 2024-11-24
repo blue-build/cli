@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.8.21] - 2024-11-24
+## [0.8.22] - 2024-11-24
 
 ### Bug Fixes
 
@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - Pin prebuilds to Fedora 40
 - Have integration tests job require the amd64-prebuild job
 - Better support distrobox (#160)
+- Setup blue-build-recipe crate to use reqwest version and features
 
 ### Features
 
@@ -35,6 +36,7 @@ All notable changes to this project will be documented in this file.
 - Update akmods image ref gen to handle open drivers
 - Add extra help text for fixing local modules
 - Install jq and prefer over yq for modules
+- Release
 
 ## [0.8.20] - 2024-10-06
 
