@@ -18,6 +18,8 @@ The `bluebuild` tool takes advantage of newer build features. Specifically bind,
 
 ## Installation
 
+Every image created with `bluebuild` comes with the CLI installed. If you have not built and booted a `bluebuild` created image, you can follow these instructions to install it.
+
 ### Cargo
 
 This is the best way to install as it gives you the opportunity to build for your specific environment.
@@ -28,7 +30,7 @@ cargo install --locked blue-build
 
 ### Podman/Docker
 
-This will install the binary on your system in `/usr/local/bin`. This is only a `linux-gnu` version.
+This will install the binary on your system in `/usr/local/bin`.
 
 ```bash
 podman run --pull always --rm ghcr.io/blue-build/cli:latest-installer | bash
@@ -46,38 +48,21 @@ bash <(curl -s https://raw.githubusercontent.com/blue-build/cli/main/install.sh)
 
 ### Distrobox
 
-[distrobox-export-documentation]: https://distrobox.it/usage/distrobox-export/
-
-We package a `fedora-toolbox` and `alpine` image with all the tools needed to run `bluebuild`. You can use `distrobox` to run the application without needing to install it on your machine.
+We package an `alpine` image with all the tools needed to run `bluebuild`. You can use `distrobox` to run the application without needing to install it on your machine. You can checkout this repo and run:
 
 ```bash
-# fedora-toolbox
-distrobox create blue-build --image ghcr.io/blue-build/cli
-# alpine
-distrobox create blue-build --image ghcr.io/blue-build/cli:latest-alpine
+distrobox assemble create
 ```
 
-By default, the bluebuild commands will not be visible outside of the distrobox itself. You will need to **enter** the distrobox, and either run the commands from inside the distrobox, or **export** the distrobox commands for use outside the distrobox.
+This will export `bluebuild` to your local machine and allow you to build images and test out your recipes. For security reasons, we keep this as a rootless image which means you will not be able to use this method to locally rebase to an image. If you want that capability, you should install the CLI tool directly.
 
-Refer to the [distrobox documentation][distrobox-export-documentation] for more information.
+Refer to the [distrobox documentation](https://distrobox.it/usage/distrobox-export/) for more information.
 
 #### Running commands from within distrobox
 
 ```bash
-[user@host]$ bluebuild help
-ERROR
 [user@host]$ distrobox enter blue-build
-[user@blue-build]$ bluebuild help
-A CLI tool built for creating Containerfile templates based on the Ublue Community Project
-...
-```
-
-#### Exporting commands to run outside distrobox
-
-```bash
-[user@blue-build]$ distrobox-export --bin $(which bluebuild)
-[user@blue-build]$ exit
-[user@host]$ bluebuild help
+[user@blue-build]$ bluebuild --help
 A CLI tool built for creating Containerfile templates based on the Ublue Community Project
 ...
 ```
@@ -167,7 +152,7 @@ $ bluebuild # press <Tab>
 -h           --quiet      build        rebase       help
 ```
 
-Currently, bluebuild completions are available for `bash`, `zsh`, `fish`, `powershell`, and `elvish` shell environments.
+Currently, bluebuild completions are available for `bash`, `zsh`, `fish`, `powershell`, and `elvish` shell environments. Please follow your shell's documentation for completion scripts.
 
 #### Local Builds
 
@@ -290,11 +275,3 @@ build-image:
     - sleep 5 # Wait a bit for the docker-in-docker service to start
     - bluebuild build --push ./recipes/$RECIPE
 ```
-
-## Future Features
-
-- Stages for parallel building (useful for compiling programs for your image)
-- Automatic download and management of image keys for seamless signed image rebasing
-- Module command for easy 3rd party plugin management
-- Create an init command to create a repo for you to start out
-- Setup the project to allow installing with `cargo-binstall`
