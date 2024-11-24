@@ -1,0 +1,21 @@
+#!/bin/bash
+
+print_version_json() {
+  local version="24.0.0"
+  printf '{"Client":{"Version": "%s"}}\n' "$version"
+}
+
+main() {
+  if [[ "$1" == "version" && "$2" == "-f" && "$3" == "json" ]]; then
+    print_version_json
+  elif [[ "$1" == "build" && "$7" == *"cli_test.tar.gz" ]]; then
+    tarpath=$(echo "$7" | awk -F ':' '{print $2}')
+    echo "Exporting image to a tarball (JK JUST A MOCK!)"
+    echo "${tarpath}"
+    touch $tarpath
+  else
+    echo 'Running docker'
+  fi
+}
+
+main "$@"
