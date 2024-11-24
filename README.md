@@ -48,7 +48,7 @@ bash <(curl -s https://raw.githubusercontent.com/blue-build/cli/main/install.sh)
 
 ### Distrobox
 
-We package an `alpine` image with all the tools needed to run `bluebuild`. You can use `distrobox` to run the application without needing to install it on your machine. You can checkout this repo and run:
+We package an `alpine` image with all the tools needed to run `bluebuild`. You can use `distrobox` to run the application without needing to install it on your machine. You can clone this repo locally and run:
 
 ```bash
 distrobox assemble create
@@ -57,15 +57,6 @@ distrobox assemble create
 This will export `bluebuild` to your local machine and allow you to build images and test out your recipes. For security reasons, we keep this as a rootless image which means you will not be able to use this method to locally rebase to an image. If you want that capability, you should install the CLI tool directly.
 
 Refer to the [distrobox documentation](https://distrobox.it/usage/distrobox-export/) for more information.
-
-#### Running commands from within distrobox
-
-```bash
-[user@host]$ distrobox enter blue-build
-[user@blue-build]$ bluebuild --help
-A CLI tool built for creating Containerfile templates based on the Ublue Community Project
-...
-```
 
 ### Nix Flake
 
