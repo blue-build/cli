@@ -33,7 +33,7 @@ get_json_array() {
     return 1
   fi
 
-  readarray -t arr < <(echo "$module_config" | jq "$jq_query")
+  readarray -t arr < <(echo "$module_config" | jq -r "$jq_query")
 }
 
 color_string() {
