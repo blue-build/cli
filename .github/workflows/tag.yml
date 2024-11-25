@@ -77,7 +77,34 @@ jobs:
         run: |
           earthly --ci --push -P +prebuild
 
-  tag:
+  build-scripts:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: earthly/actions-setup@v1
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Run build
+        id: build
+        run: |
+          LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+          CARGO_PACKAGE_VERSION="v$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "blue-build") .version')"
+          LATEST=$(test "$CARGO_PACKAGE_VERSION" = "$LATEST_TAG" && echo true || echo false)
+          earthly --ci --push +build-scripts --TAGGED="true" --LATEST="$LATEST"
+
+  build-images:
     permissions:
       packages: write
     timeout-minutes: 60
