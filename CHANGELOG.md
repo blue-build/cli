@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.23] - 2024-11-26
+
+### Bug Fixes
+
+- Make sure tag job uses +build-images target
+- Ensure we build the +build-scripts target on tags
+- Make sure jq prints raw values
+
+### Features
+
+- Add cache for dnf5
+
+### Miscellaneous Tasks
+
+- Remove unneded comment about `bootupctl` command
+- Add get_json_array bash function for migration to jq
+
 ## [0.8.22] - 2024-11-24
 
 ### Bug Fixes
@@ -36,6 +53,7 @@ All notable changes to this project will be documented in this file.
 - Update akmods image ref gen to handle open drivers
 - Add extra help text for fixing local modules
 - Install jq and prefer over yq for modules
+- Release
 - Release
 
 ## [0.8.20] - 2024-10-06
