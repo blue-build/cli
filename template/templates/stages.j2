@@ -25,7 +25,6 @@ COPY ./modules /modules
 # can be added to the ostree commits.
 FROM scratch AS stage-bins
 COPY --from=gcr.io/projectsigstore/cosign /ko-app/cosign /bins/cosign
-COPY --from=docker.io/mikefarah/yq /usr/bin/yq /bins/yq
 COPY --from=ghcr.io/blue-build/cli:
 {%- if let Some(tag) = recipe.blue_build_tag -%}
 {{ tag }}

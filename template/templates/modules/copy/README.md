@@ -4,10 +4,6 @@
 Only compiler-based builds can use this module as it is built-in to the BlueBuild CLI tool.
 :::
 
-:::note
-**NOTE:** This module is currently only available with the `use_unstable_cli` option on the GHA or using the `main` image.
-:::
-
 The `copy` module is a short-hand method of adding a [`COPY`](https://docs.docker.com/reference/dockerfile/#copy) instruction into the image. This can be used to copy files from images, other stages, or even from the build context. 
 
 ## Usage

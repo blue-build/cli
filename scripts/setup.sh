@@ -18,4 +18,3 @@ if [ -f /etc/os-release ]; then
     echo "OS not detected, proceeding without setup"
   fi
 fi
-cp /tmp/bins/yq /usr/bin/

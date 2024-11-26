@@ -31,12 +31,6 @@ fn main() {
         #[cfg(feature = "switch")]
         CommandArgs::Switch(mut command) => command.run(),
 
-        #[cfg(not(feature = "switch"))]
-        CommandArgs::Rebase(mut command) => command.run(),
-
-        #[cfg(not(feature = "switch"))]
-        CommandArgs::Upgrade(mut command) => command.run(),
-
         #[cfg(feature = "login")]
         CommandArgs::Login(mut command) => command.run(),
 
