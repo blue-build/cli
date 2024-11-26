@@ -8,3 +8,7 @@ set -oue pipefail
 # Your code goes here.
 echo 'This is an example shell script'
 echo 'Scripts here will run during build if specified in recipe.yml'
+
+get_json_arr FILES '.test' '{"test":[1,2,3]}'
+
+echo $FILES

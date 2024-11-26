@@ -68,5 +68,6 @@ export OS_ARCH=$(uname -m)
 
 # Export functions for use in sub-shells or sourced scripts
 export -f get_yaml_array
+export -f get_json_array
 
 mkdir -p /var/roothome /var/opt /var/lib/alternatives /var/opt /var/usrlocal
