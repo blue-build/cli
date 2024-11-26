@@ -102,7 +102,24 @@ users.workspace = true
 
 [features]
 # Top level features
-default = []
+default = [
+  "v0_9_0"
+]
+
+# v0.9.0 features
+v0_9_0 = [
+  "init",
+  "stages",
+  "copy",
+  "iso",
+  "switch",
+  "login",
+  "validate",
+  "sigstore",
+  "multi-recipe",
+  "prune",
+  "rechunk",
+]
 init = []
 stages = ["blue-build-recipe/stages"]
 copy = ["blue-build-recipe/copy"]

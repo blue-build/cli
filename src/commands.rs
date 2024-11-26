@@ -15,8 +15,6 @@ pub mod generate;
 pub mod generate_iso;
 #[cfg(feature = "init")]
 pub mod init;
-#[cfg(not(feature = "switch"))]
-pub mod local;
 #[cfg(feature = "login")]
 pub mod login;
 #[cfg(feature = "prune")]
@@ -78,31 +76,6 @@ pub enum CommandArgs {
     #[cfg(feature = "iso")]
     GenerateIso(generate_iso::GenerateIsoCommand),
 
-    /// Upgrade your current OS with the
-    /// local image saved at `/etc/bluebuild/`.
-    ///
-    /// This requires having rebased already onto
-    /// a local archive already by using the `rebase`
-    /// subcommand.
-    ///
-    /// NOTE: This can only be used if you have `rpm-ostree`
-    /// installed. This image will not be signed.
-    #[command(visible_alias("update"))]
-    #[cfg(not(feature = "switch"))]
-    Upgrade(local::UpgradeCommand),
-
-    /// Rebase your current OS onto the image
-    /// being built.
-    ///
-    /// This will create a tarball of your image at
-    /// `/etc/bluebuild/` and invoke `rpm-ostree` to
-    /// rebase onto the image using `oci-archive`.
-    ///
-    /// NOTE: This can only be used if you have `rpm-ostree`
-    /// installed. This image will not be signed.
-    #[cfg(not(feature = "switch"))]
-    Rebase(local::RebaseCommand),
-
     /// Switch your current OS onto the image
     /// being built.
     ///
@@ -113,6 +86,11 @@ pub enum CommandArgs {
     /// NOTE: This can only be used if you have `rpm-ostree`
     /// installed. This image will not be signed.
     #[cfg(feature = "switch")]
+    #[command(
+        visible_alias("update"),
+        visible_alias("upgrade"),
+        visible_alias("rebase")
+    )]
     Switch(switch::SwitchCommand),
 
     /// Login to all services used for building.

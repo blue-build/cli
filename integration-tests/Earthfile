@@ -7,8 +7,6 @@ all:
     BUILD +test-image
     BUILD +test-legacy-image
     BUILD +build
-    BUILD +rebase
-    BUILD +upgrade
     BUILD +switch
     BUILD +validate
 
@@ -62,18 +60,6 @@ build-full:
         RUN --secret BB_PASSWORD=github/registry bluebuild build --push -S sigstore -vv recipes/recipe.yml
     END
     
-
-rebase:
-    FROM +legacy-base
-
-    RUN --no-cache bluebuild -v rebase config/recipe.yml
-
-upgrade:
-    FROM +legacy-base
-
-    RUN mkdir -p /etc/bluebuild && touch $BB_TEST_LOCAL_IMAGE
-    RUN --no-cache bluebuild -v upgrade config/recipe.yml
-
 switch:
     FROM +test-base
 
