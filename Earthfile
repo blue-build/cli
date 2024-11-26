@@ -16,6 +16,12 @@ run-checks:
     BUILD +lint
     BUILD +test
 
+build-images-all:
+    BUILD --platform=linux/amd64 --platform=linux/arm64 +build-images
+
+build-scripts-all:
+    BUILD --platform=linux/amd64 --platform=linux/arm64 +build-scripts
+
 build-images:
     BUILD +blue-build-cli
     BUILD +blue-build-cli-distrobox
@@ -31,12 +37,7 @@ lint:
     DO rust+CARGO --args="clippy"
     DO rust+CARGO --args="clippy --all-features"
     DO rust+CARGO --args="clippy --no-default-features"
-    FOR feat IN $( \
-        cargo metadata --format-version 1 \
-        | jq -cr '.packages[] | select(.name == "blue-build") | .features | keys | .[] | select(. != "default")' \
-    )
-        DO rust+CARGO --args="clippy --no-default-features --features $feat"
-    END
+    DO +EACH_PACKAGE --args="clippy --no-default-features"
 
 test:
     FROM +common
@@ -46,11 +47,30 @@ test:
     DO rust+CARGO --args="test --workspace"
     DO rust+CARGO --args="test --workspace --all-features"
     DO rust+CARGO --args="test --workspace --no-default-features"
+    DO +EACH_PACKAGE --args="test --no-default-features"
+
+EACH_PACKAGE:
+    FUNCTION
+    ARG --required args
+
+    FOR package IN $( \
+        cargo metadata --format-version 1 \
+        | jq -cr '.workspace_members | .[]' \
+        | sed 's|.*#||' | sed 's|@.*||' \
+    )
+        DO --pass-args +EACH_FEAT --package="$package"
+    END
+
+EACH_FEAT:
+    FUNCTION
+    ARG --required args
+    ARG --required package
+
     FOR feat IN $( \
         cargo metadata --format-version 1 \
-        | jq -cr '.packages[] | select(.name == "blue-build") | .features | keys | .[] | select(. != "default")' \
+        | jq -cr ".packages[] | select(.name == \"$package\") | .features | keys | .[] | select(. != \"default\")" \
     )
-        DO rust+CARGO --args="test --workspace --features $feat"
+        DO rust+CARGO --args="$args --package $package --features $feat"
     END
 
 install:

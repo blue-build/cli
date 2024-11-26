@@ -97,6 +97,9 @@ tools:
 release *args:
   #!/usr/bin/env bash
   set -euxo pipefail
+
+  earthly --ci +run-checks
+
   # --workspace: updating all crates in the workspace
   # --no-tag: do not push tag for each new version
   # --no-confirm: don't look for user input, just run the command

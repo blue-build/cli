@@ -115,7 +115,7 @@ jobs:
       - name: Run build
         id: build
         run: |
-          earthly --ci --push -P +build-images
+          earthly --ci --push -P +build-images-all
 
   build-scripts:
     timeout-minutes: 5
@@ -140,7 +140,7 @@ jobs:
       - name: Run build
         id: build
         run: |
-          earthly --ci --push -P +build-scripts
+          earthly --ci --push -P +build-scripts-all
 
   integration-tests:
     permissions:
