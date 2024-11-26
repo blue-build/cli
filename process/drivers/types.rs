@@ -185,9 +185,13 @@ pub enum Platform {
 impl Platform {
     /// The architecture of the platform.
     #[must_use]
-    pub const fn arch(&self) -> &str {
+    pub fn arch(&self) -> &str {
         match *self {
-            Self::Native => "native",
+            Self::Native => match std::env::consts::ARCH {
+                "x86_64" => "amd64",
+                "aarch64" => "arm64",
+                arch => unimplemented!("Arch {arch} is unsupported"),
+            },
             Self::LinuxAmd64 => "amd64",
             Self::LinuxArm64 => "arm64",
         }
@@ -200,7 +204,11 @@ impl std::fmt::Display for Platform {
             f,
             "{}",
             match *self {
-                Self::Native => "native",
+                Self::Native => match std::env::consts::ARCH {
+                    "x86_64" => "linux/amd64",
+                    "aarch64" => "linux/arm64",
+                    arch => unimplemented!("Arch {arch} is unsupported"),
+                },
                 Self::LinuxAmd64 => "linux/amd64",
                 Self::LinuxArm64 => "linux/arm64",
             }
