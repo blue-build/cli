@@ -124,6 +124,15 @@ jobs:
     steps:
       - uses: earthly/actions-setup@v1
 
+      - name: Earthly login
+        env:
+          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
+        if: env.EARTHLY_SAT_TOKEN != null
+        run: |
+          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
+          earthly org s blue-build
+          earthly sat s pr
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0

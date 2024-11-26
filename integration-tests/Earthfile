@@ -84,7 +84,7 @@ validate:
     FROM +test-base
 
     RUN --no-cache bluebuild -v validate recipes/recipe.yml
-    RUN --no-cache bluebuild -v validate recipes/recipe-39.yml
+    RUN --no-cache bluebuild -v validate recipes/recipe-gts.yml
     RUN --no-cache bluebuild -v validate recipes/recipe-arm64.yml
     RUN --no-cache bluebuild -v validate recipes/recipe-invalid.yml && exit 1 || exit 0
     RUN --no-cache bluebuild -v validate recipes/recipe-invalid-module.yml && exit 1 || exit 0

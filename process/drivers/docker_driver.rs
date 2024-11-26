@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     env,
     io::Write,
     path::Path,
@@ -21,6 +20,8 @@ use semver::Version;
 use serde::Deserialize;
 use tempfile::TempDir;
 
+mod metadata;
+
 use crate::{
     drivers::{
         opts::{
@@ -34,37 +35,6 @@ use crate::{
     logging::CommandLogging,
     signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
 };
-
-#[derive(Deserialize, Debug, Clone)]
-struct DockerImageMetadata {
-    manifest: DockerImageMetadataManifest,
-    image: DockerImageMetadataImage,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct DockerImageMetadataManifest {
-    digest: String,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct DockerImageMetadataImage {
-    config: DockerImageConfig,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
-struct DockerImageConfig {
-    labels: HashMap<String, serde_json::Value>,
-}
-
-impl From<DockerImageMetadata> for ImageMetadata {
-    fn from(value: DockerImageMetadata) -> Self {
-        Self {
-            labels: value.image.config.labels,
-            digest: value.manifest.digest,
-        }
-    }
-}
 
 #[derive(Debug, Deserialize)]
 struct DockerVerisonJsonClient {
@@ -396,10 +366,10 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
         bail!("Failed to inspect image {url}")
     }
 
-    serde_json::from_slice::<DockerImageMetadata>(&output.stdout)
+    serde_json::from_slice::<metadata::Metadata>(&output.stdout)
         .into_diagnostic()
         .inspect(|metadata| trace!("{metadata:#?}"))
-        .map(ImageMetadata::from)
+        .and_then(|metadata| ImageMetadata::try_from((metadata, opts.platform)))
         .inspect(|metadata| trace!("{metadata:#?}"))
 }
 
