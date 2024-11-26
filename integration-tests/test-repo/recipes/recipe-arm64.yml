@@ -3,7 +3,7 @@
 name: cli/test
 description: This is my personal OS image.
 base-image: quay.io/fedora/fedora-silverblue
-image-version: 40
+image-version: latest
 alt-tags:
   - arm64
 stages: []

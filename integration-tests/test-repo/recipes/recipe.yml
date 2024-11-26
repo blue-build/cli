@@ -3,7 +3,7 @@
 name: cli/test
 description: This is my personal OS image.
 base-image: ghcr.io/ublue-os/silverblue-main
-image-version: 40
+image-version: latest
 stages:
   - from-file: stages.yml
 modules:

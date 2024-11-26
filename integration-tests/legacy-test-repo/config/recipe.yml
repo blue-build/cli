@@ -3,7 +3,7 @@
 name: cli/test-legacy
 description: This is my personal OS image.
 base-image: ghcr.io/ublue-os/silverblue-surface
-image-version: 39
+image-version: gts
 modules:
   - type: files
     files:

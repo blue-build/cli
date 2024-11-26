@@ -6,7 +6,7 @@ base-image: ghcr.io/ublue-os/silverblue-main
 alt-tags:
   - gts
   - stable
-image-version: 39
+image-version: gts
 modules:
   - from-file: akmods.yml
   - from-file: flatpaks.yml

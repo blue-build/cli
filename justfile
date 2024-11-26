@@ -139,7 +139,7 @@ test-docker-build: install-debug-all-features
     -S sigstore \
     {{ should_push }} \
     -vv \
-    recipes/recipe.yml recipes/recipe-39.yml
+    recipes/recipe.yml recipes/recipe-gts.yml
 
 # Run arm integration test
 test-arm64-build: install-debug-all-features
@@ -159,7 +159,7 @@ test-docker-build-external-login: install-debug-all-features
     -S sigstore \
     {{ should_push }} \
     -vv \
-    recipes/recipe.yml recipes/recipe-39.yml
+    recipes/recipe.yml recipes/recipe-gts.yml
 
 # Run docker driver oauth login integration test
 test-docker-build-oauth-login: install-debug-all-features
@@ -170,7 +170,7 @@ test-docker-build-oauth-login: install-debug-all-features
     --retry-push \
     {{ should_push }} \
     -vv \
-    recipes/recipe.yml recipes/recipe-39.yml
+    recipes/recipe.yml recipes/recipe-gts.yml
 
 # Run podman driver integration test
 test-podman-build: install-debug-all-features
@@ -182,7 +182,7 @@ test-podman-build: install-debug-all-features
     -S sigstore \
     {{ should_push }} \
     -vv \
-    recipes/recipe.yml recipes/recipe-39.yml
+    recipes/recipe.yml recipes/recipe-gts.yml
 
 # Run buildah driver integration test
 test-buildah-build: install-debug-all-features
@@ -194,7 +194,7 @@ test-buildah-build: install-debug-all-features
     -S sigstore \
     {{ should_push }} \
     -vv \
-    recipes/recipe.yml recipes/recipe-39.yml
+    recipes/recipe.yml recipes/recipe-gts.yml
 
 # Run ISO generator for images
 test-generate-iso-image: install-debug-all-features
