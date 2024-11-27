@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.24] - 2024-11-27
+
+### Bug Fixes
+
+- Build all features for each package and build all archs
+- Export get_json_array bash function
+- Fix integration tests
+- Add logic for inspecting multi-manifest images
+
 ## [0.8.23] - 2024-11-26
 
 ### Bug Fixes
@@ -18,6 +27,7 @@ All notable changes to this project will be documented in this file.
 
 - Remove unneded comment about `bootupctl` command
 - Add get_json_array bash function for migration to jq
+- Release
 
 ## [0.8.22] - 2024-11-24
 
