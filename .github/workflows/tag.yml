@@ -88,6 +88,11 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
       - uses: earthly/actions-setup@v1
+      - name: Earthly login
+        run: |
+          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
+          earthly org s blue-build
+          earthly sat s tag
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
