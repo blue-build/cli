@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     env,
     fs::OpenOptions,
     io::{BufRead, BufReader, Result, Write as IoWrite},
@@ -31,9 +32,16 @@ use log4rs::{
 };
 use nu_ansi_term::Color;
 use once_cell::sync::Lazy;
+use private::Private;
 use rand::Rng;
 
 use crate::signal_handler::{add_pid, remove_pid};
+
+mod private {
+    pub trait Private {}
+}
+
+impl Private for Command {}
 
 static MULTI_PROGRESS: Lazy<MultiProgress> = Lazy::new(MultiProgress::new);
 static LOG_DIR: Lazy<Mutex<PathBuf>> = Lazy::new(|| Mutex::new(PathBuf::new()));
@@ -174,87 +182,159 @@ impl ColoredLevel for Level {
     }
 }
 
-pub trait CommandLogging {
+pub trait CommandLogging: Private {
     /// Prints each line of stdout/stderr with an image ref string
-    /// and a progress spinner. This helps to keep track of every
-    /// build running in parallel.
+    /// and a progress spinner while also logging the build output.
+    /// This helps to keep track of every build running in parallel.
     ///
     /// # Errors
     /// Will error if there was an issue executing the process.
-    fn status_image_ref_progress<T, U>(self, image_ref: T, message: U) -> Result<ExitStatus>
+    fn build_status<T, U>(self, image_ref: T, message: U) -> Result<ExitStatus>
     where
         T: AsRef<str>,
         U: AsRef<str>;
+
+    /// Prints each line of stdout/stderr with a log header
+    /// and a progress spinner. This helps to keep track of every
+    /// command running in parallel.
+    ///
+    /// # Errors
+    /// Will error if there was an issue executing the process.
+    fn message_status<S, D>(self, header: S, message: D) -> Result<ExitStatus>
+    where
+        S: AsRef<str>,
+        D: Into<Cow<'static, str>>;
 }
 
 impl CommandLogging for Command {
-    fn status_image_ref_progress<T, U>(mut self, image_ref: T, message: U) -> Result<ExitStatus>
+    fn build_status<T, U>(self, image_ref: T, message: U) -> Result<ExitStatus>
     where
         T: AsRef<str>,
         U: AsRef<str>,
     {
-        let ansi_color = gen_random_ansi_color();
-        let name = color_str(&image_ref, ansi_color);
-        let short_name = color_str(shorten_name(&image_ref), ansi_color);
-        let (reader, writer) = os_pipe::pipe()?;
+        fn inner(mut command: Command, image_ref: &str, message: &str) -> Result<ExitStatus> {
+            let ansi_color = gen_random_ansi_color();
+            let name = color_str(image_ref, ansi_color);
+            let short_name = color_str(shorten_name(image_ref), ansi_color);
+            let (reader, writer) = os_pipe::pipe()?;
 
-        self.stdout(writer.try_clone()?)
-            .stderr(writer)
-            .stdin(Stdio::piped());
+            command
+                .stdout(writer.try_clone()?)
+                .stderr(writer)
+                .stdin(Stdio::piped());
 
-        let progress = Logger::multi_progress()
-            .add(ProgressBar::new_spinner().with_message(format!("{} {name}", message.as_ref())));
-        progress.enable_steady_tick(Duration::from_millis(100));
+            let progress = Logger::multi_progress()
+                .add(ProgressBar::new_spinner().with_message(format!("{message} {name}")));
+            progress.enable_steady_tick(Duration::from_millis(100));
 
-        let mut child = self.spawn()?;
+            let mut child = command.spawn()?;
 
-        let child_pid = child.id();
-        add_pid(child_pid);
+            let child_pid = child.id();
+            add_pid(child_pid);
 
-        // We drop the `Command` to prevent blocking on writer
-        // https://docs.rs/os_pipe/latest/os_pipe/#examples
-        drop(self);
+            // We drop the `Command` to prevent blocking on writer
+            // https://docs.rs/os_pipe/latest/os_pipe/#examples
+            drop(command);
 
-        let reader = BufReader::new(reader);
-        let log_file_path = {
-            let lock = LOG_DIR.lock().expect("Should lock LOG_DIR");
-            lock.join(format!(
-                "{}.log",
-                image_ref.as_ref().replace(['/', ':', '.'], "_")
-            ))
-        };
-        let log_file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(log_file_path.as_path())?;
+            let reader = BufReader::new(reader);
+            let log_file_path = {
+                let lock = LOG_DIR.lock().expect("Should lock LOG_DIR");
+                lock.join(format!("{}.log", image_ref.replace(['/', ':', '.'], "_")))
+            };
+            let log_file = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(log_file_path.as_path())?;
 
-        thread::spawn(move || {
-            let mp = Logger::multi_progress();
-            reader.lines().for_each(|line| {
-                if let Ok(l) = line {
-                    let text = format!("{log_prefix} {l}", log_prefix = log_header(&short_name));
-                    if mp.is_hidden() {
-                        eprintln!("{text}");
-                    } else {
-                        mp.println(text).unwrap();
+            thread::spawn(move || {
+                let mp = Logger::multi_progress();
+                reader.lines().for_each(|line| {
+                    if let Ok(l) = line {
+                        let text =
+                            format!("{log_prefix} {l}", log_prefix = log_header(&short_name));
+                        if mp.is_hidden() {
+                            eprintln!("{text}");
+                        } else {
+                            mp.println(text).unwrap();
+                        }
+                        if let Err(e) = writeln!(&log_file, "{l}") {
+                            warn!(
+                                "Failed to write to log for build {}: {e:?}",
+                                log_file_path.display()
+                            );
+                        }
                     }
-                    if let Err(e) = writeln!(&log_file, "{l}") {
-                        warn!(
-                            "Failed to write to log for build {}: {e:?}",
-                            log_file_path.display()
-                        );
-                    }
-                }
+                });
             });
-        });
 
-        let status = child.wait()?;
-        remove_pid(child_pid);
+            let status = child.wait()?;
+            remove_pid(child_pid);
 
-        progress.finish();
-        Logger::multi_progress().remove(&progress);
+            progress.finish();
+            Logger::multi_progress().remove(&progress);
 
-        Ok(status)
+            Ok(status)
+        }
+        inner(self, image_ref.as_ref(), message.as_ref())
+    }
+
+    fn message_status<S, D>(self, header: S, message: D) -> Result<ExitStatus>
+    where
+        S: AsRef<str>,
+        D: Into<Cow<'static, str>>,
+    {
+        fn inner(
+            mut command: Command,
+            header: &str,
+            message: Cow<'static, str>,
+        ) -> Result<ExitStatus> {
+            let ansi_color = gen_random_ansi_color();
+            let header = color_str(header, ansi_color);
+            let (reader, writer) = os_pipe::pipe()?;
+
+            command
+                .stdout(writer.try_clone()?)
+                .stderr(writer)
+                .stdin(Stdio::piped());
+
+            let progress =
+                Logger::multi_progress().add(ProgressBar::new_spinner().with_message(message));
+            progress.enable_steady_tick(Duration::from_millis(100));
+
+            let mut child = command.spawn()?;
+
+            let child_pid = child.id();
+            add_pid(child_pid);
+
+            // We drop the `Command` to prevent blocking on writer
+            // https://docs.rs/os_pipe/latest/os_pipe/#examples
+            drop(command);
+
+            let reader = BufReader::new(reader);
+
+            thread::spawn(move || {
+                let mp = Logger::multi_progress();
+                reader.lines().for_each(|line| {
+                    if let Ok(l) = line {
+                        let text = format!("{log_prefix} {l}", log_prefix = log_header(&header));
+                        if mp.is_hidden() {
+                            eprintln!("{text}");
+                        } else {
+                            mp.println(text).unwrap();
+                        }
+                    }
+                });
+            });
+
+            let status = child.wait()?;
+            remove_pid(child_pid);
+
+            progress.finish();
+            Logger::multi_progress().remove(&progress);
+
+            Ok(status)
+        }
+        inner(self, header.as_ref(), message.into())
     }
 }
 

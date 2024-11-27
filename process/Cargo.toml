@@ -54,3 +54,4 @@ workspace = true
 [features]
 sigstore = ["dep:tokio", "dep:sigstore"]
 validate = ["dep:tokio"]
+prune = []

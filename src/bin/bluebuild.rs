@@ -52,6 +52,9 @@ fn main() {
         #[cfg(feature = "validate")]
         CommandArgs::Validate(mut command) => command.run(),
 
+        #[cfg(feature = "prune")]
+        CommandArgs::Prune(mut command) => command.run(),
+
         CommandArgs::BugReport(mut command) => command.run(),
 
         CommandArgs::Completions(mut command) => command.run(),

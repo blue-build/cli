@@ -24,7 +24,12 @@ pub struct BuildahDriver;
 impl DriverVersion for BuildahDriver {
     // RUN mounts for bind, cache, and tmpfs first supported in 1.24.0
     // https://buildah.io/releases/#changes-for-v1240
+    #[cfg(not(feature = "prune"))]
     const VERSION_REQ: &'static str = ">=1.24";
+
+    // The prune command wasn't present until 1.29
+    #[cfg(feature = "prune")]
+    const VERSION_REQ: &'static str = ">=1.29";
 
     fn version() -> Result<Version> {
         trace!("BuildahDriver::version()");
@@ -64,7 +69,7 @@ impl BuildDriver for BuildahDriver {
 
         trace!("{command:?}");
         let status = command
-            .status_image_ref_progress(&opts.image, "Building Image")
+            .build_status(&opts.image, "Building Image")
             .into_diagnostic()?;
 
         if status.success() {
@@ -104,7 +109,7 @@ impl BuildDriver for BuildahDriver {
 
         trace!("{command:?}");
         let status = command
-            .status_image_ref_progress(&opts.image, "Pushing Image")
+            .build_status(&opts.image, "Pushing Image")
             .into_diagnostic()?;
 
         if status.success() {
@@ -157,6 +162,26 @@ impl BuildDriver for BuildahDriver {
             }
             debug!("Logged into {registry}");
         }
+        Ok(())
+    }
+
+    #[cfg(feature = "prune")]
+    fn prune(opts: &super::opts::PruneOpts) -> Result<()> {
+        trace!("PodmanDriver::prune({opts:?})");
+
+        let status = cmd!(
+            "buildah",
+            "prune",
+            "--force",
+            if opts.all => "-all",
+        )
+        .message_status("buildah prune", "Pruning Buildah System")
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to prune buildah");
+        }
+
         Ok(())
     }
 }

@@ -19,6 +19,8 @@ pub mod init;
 pub mod local;
 #[cfg(feature = "login")]
 pub mod login;
+#[cfg(feature = "prune")]
+pub mod prune;
 #[cfg(feature = "switch")]
 pub mod switch;
 #[cfg(feature = "validate")]
@@ -130,12 +132,10 @@ pub enum CommandArgs {
     #[cfg(feature = "validate")]
     Validate(Box<validate::ValidateCommand>),
 
-    // /// Initialize a new Ublue Starting Point repo
-    // #[cfg(feature = "init")]
-    // Init(init::InitCommand),
+    /// Clean up cache and images for build drivers.
+    #[cfg(feature = "prune")]
+    Prune(prune::PruneCommand),
 
-    // #[cfg(feature = "init")]
-    // New(init::NewCommand),
     /// Create a pre-populated GitHub issue with information about your configuration
     BugReport(bug_report::BugReportCommand),
 

@@ -138,7 +138,7 @@ impl SwitchCommand {
             trace!("{command:?}");
             command
         }
-        .status_image_ref_progress(
+        .build_status(
             format!("{}", archive_path.display()),
             "Switching to new image",
         )

@@ -119,6 +119,9 @@ validate = [
   "cached/async",
   "blue-build-process-management/validate"
 ]
+prune = [
+  "blue-build-process-management/prune"
+]
 
 [dev-dependencies]
 rusty-hook = "0.11"

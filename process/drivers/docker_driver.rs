@@ -228,6 +228,59 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
+    #[cfg(feature = "prune")]
+    fn prune(opts: &super::opts::PruneOpts) -> Result<()> {
+        trace!("DockerDriver::prune({opts:?})");
+
+        let (system, buildx) = std::thread::scope(
+            |scope| -> std::thread::Result<(Result<ExitStatus>, Result<ExitStatus>)> {
+                let system = scope.spawn(|| {
+                    cmd!(
+                        "docker",
+                        "system",
+                        "prune",
+                        "--force",
+                        if opts.all => "--all",
+                        if opts.volumes => "--volumes",
+                    )
+                    .message_status("docker system prune", "Pruning Docker System")
+                    .into_diagnostic()
+                });
+
+                let buildx = scope.spawn(|| {
+                    cmd!(
+                        "docker",
+                        "buildx",
+                        "prune",
+                        "--force",
+                        |command|? {
+                            if !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty()) {
+                                Self::setup()?;
+                                cmd!(command, "--builder=bluebuild");
+                            }
+                        },
+                        if opts.all => "--all",
+                    )
+                    .message_status("docker buildx prune", "Pruning Docker Buildx")
+                    .into_diagnostic()
+                });
+
+                Ok((system.join()?, buildx.join()?))
+            },
+        )
+        .map_err(|e| miette!("{e:?}"))?;
+
+        if !system?.success() {
+            bail!("Failed to prune docker system");
+        }
+
+        if !buildx?.success() {
+            bail!("Failed to prune docker buildx");
+        }
+
+        Ok(())
+    }
+
     fn build_tag_push(opts: &BuildTagPushOpts) -> Result<Vec<String>> {
         trace!("DockerDriver::build_tag_push({opts:#?})");
 
@@ -305,7 +358,7 @@ impl BuildDriver for DockerDriver {
 
         trace!("{command:?}");
         if command
-            .status_image_ref_progress(display_image, "Building Image")
+            .build_status(display_image, "Building Image")
             .into_diagnostic()?
             .success()
         {
@@ -383,8 +436,7 @@ impl RunDriver for DockerDriver {
 
         add_cid(&cid);
 
-        let status = docker_run(opts, &cid_file)
-            .status_image_ref_progress(&*opts.image, "Running container")?;
+        let status = docker_run(opts, &cid_file).build_status(&*opts.image, "Running container")?;
 
         remove_cid(&cid);
 

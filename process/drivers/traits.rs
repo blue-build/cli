@@ -106,6 +106,13 @@ pub trait BuildDriver: PrivateDriver {
     /// Will error if login fails.
     fn login() -> Result<()>;
 
+    /// Runs prune commands for the driver.
+    ///
+    /// # Errors
+    /// Will error if the driver fails to prune.
+    #[cfg(feature = "prune")]
+    fn prune(opts: &super::opts::PruneOpts) -> Result<()>;
+
     /// Runs the logic for building, tagging, and pushing an image.
     ///
     /// # Errors
