@@ -146,7 +146,7 @@ impl BuildDriver for PodmanDriver {
 
         trace!("{command:?}");
         let status = command
-            .status_image_ref_progress(&opts.image, "Building Image")
+            .build_status(&opts.image, "Building Image")
             .into_diagnostic()?;
 
         if status.success() {
@@ -188,7 +188,7 @@ impl BuildDriver for PodmanDriver {
 
         trace!("{command:?}");
         let status = command
-            .status_image_ref_progress(&opts.image, "Pushing Image")
+            .build_status(&opts.image, "Pushing Image")
             .into_diagnostic()?;
 
         if status.success() {
@@ -241,6 +241,28 @@ impl BuildDriver for PodmanDriver {
             }
             debug!("Logged into {registry}");
         }
+        Ok(())
+    }
+
+    #[cfg(feature = "prune")]
+    fn prune(opts: &super::opts::PruneOpts) -> Result<()> {
+        trace!("PodmanDriver::prune({opts:?})");
+
+        let status = cmd!(
+            "podman",
+            "system",
+            "prune",
+            "--force",
+            if opts.all => "-all",
+            if opts.volumes => "--volumes",
+        )
+        .message_status("podman system prune", "Pruning Podman System")
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to prune podman");
+        }
+
         Ok(())
     }
 }
@@ -326,8 +348,7 @@ impl RunDriver for PodmanDriver {
         let status = if opts.privileged {
             podman_run(opts, &cid_file).status()?
         } else {
-            podman_run(opts, &cid_file)
-                .status_image_ref_progress(&*opts.image, "Running container")?
+            podman_run(opts, &cid_file).build_status(&*opts.image, "Running container")?
         };
 
         remove_cid(&cid);

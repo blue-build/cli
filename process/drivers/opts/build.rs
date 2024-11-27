@@ -36,6 +36,13 @@ pub struct PushOpts<'scope> {
     pub compression_type: Option<CompressionType>,
 }
 
+#[derive(Debug, Clone, Builder)]
+#[cfg(feature = "prune")]
+pub struct PruneOpts {
+    pub all: bool,
+    pub volumes: bool,
+}
+
 /// Options for building, tagging, and pusing images.
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Builder)]
