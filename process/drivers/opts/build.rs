@@ -20,6 +20,9 @@ pub struct BuildOpts<'scope> {
 
     #[builder(default)]
     pub platform: Platform,
+
+    #[builder(default)]
+    pub host_network: bool,
 }
 
 #[derive(Debug, Clone, Builder)]

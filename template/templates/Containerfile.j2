@@ -1,8 +1,9 @@
 {%- import "modules/modules.j2" as modules -%}
 {%- include "stages.j2" %}
+{%- set main_stage = recipe.name|replace('/', "-") %}
 
 # Main image
-FROM {{ recipe.base_image }}@{{ base_digest }} AS {{ recipe.name|replace('/', "-") }}
+FROM {{ recipe.base_image }}@{{ base_digest }} AS {{ main_stage }}
 
 ARG RECIPE={{ recipe_path.display() }}
 ARG IMAGE_REGISTRY={{ registry }}

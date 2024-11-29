@@ -10,7 +10,7 @@ use blue_build_utils::{cmd, credentials::Credentials};
 use cached::proc_macro::cached;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info, trace};
 use miette::{bail, miette, IntoDiagnostic, Report, Result};
 use oci_distribution::Reference;
 use semver::Version;
@@ -24,7 +24,13 @@ use crate::{
         BuildDriver, DriverVersion, InspectDriver, RunDriver,
     },
     logging::{CommandLogging, Logger},
-    signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
+    signal_handler::{add_cid, remove_cid, ContainerRuntime, ContainerSignalId},
+};
+
+#[cfg(feature = "rechunk")]
+use super::{
+    types::{ContainerId, MountId},
+    ContainerMountDriver, RechunkDriver,
 };
 
 #[derive(Deserialize, Debug, Clone)]
@@ -136,6 +142,7 @@ impl BuildDriver for PodmanDriver {
                 opts.platform.to_string(),
             ],
             "--pull=true",
+            if opts.host_network => "--net=host",
             format!("--layers={}", !opts.squash),
             "-f",
             &*opts.containerfile,
@@ -334,39 +341,151 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
         .inspect(|metadata| trace!("{metadata:#?}"))
 }
 
+#[cfg(feature = "rechunk")]
+impl ContainerMountDriver for PodmanDriver {
+    fn create_container(image: &Reference) -> Result<ContainerId> {
+        let output = {
+            let c = cmd!("podman", "create", image.to_string(), "bash");
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to create a container from image {image}");
+        }
+
+        Ok(ContainerId(
+            String::from_utf8(output.stdout.trim_ascii().to_vec()).into_diagnostic()?,
+        ))
+    }
+
+    fn remove_container(container_id: &super::types::ContainerId) -> Result<()> {
+        let output = {
+            let c = cmd!("podman", "rm", container_id);
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to remove container {container_id}");
+        }
+
+        Ok(())
+    }
+
+    fn remove_image(image: &Reference) -> Result<()> {
+        let output = {
+            let c = cmd!("podman", "rmi", image.to_string());
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to remove the image {image}");
+        }
+
+        Ok(())
+    }
+
+    fn mount_container(container_id: &super::types::ContainerId) -> Result<MountId> {
+        let output = {
+            let c = cmd!("podman", "mount", container_id);
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to mount container {container_id}");
+        }
+
+        Ok(MountId(
+            String::from_utf8(output.stdout.trim_ascii().to_vec()).into_diagnostic()?,
+        ))
+    }
+
+    fn unmount_container(container_id: &super::types::ContainerId) -> Result<()> {
+        let output = {
+            let c = cmd!("podman", "unmount", container_id);
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to unmount container {container_id}");
+        }
+
+        Ok(())
+    }
+
+    fn remove_volume(volume_id: &str) -> Result<()> {
+        let output = {
+            let c = cmd!("podman", "volume", "rm", volume_id);
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to remove volume {volume_id}");
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(feature = "rechunk")]
+impl RechunkDriver for PodmanDriver {}
+
 impl RunDriver for PodmanDriver {
-    fn run(opts: &RunOpts) -> std::io::Result<ExitStatus> {
+    fn run(opts: &RunOpts) -> Result<ExitStatus> {
         trace!("PodmanDriver::run({opts:#?})");
 
-        let cid_path = TempDir::new()?;
+        if !nix::unistd::Uid::effective().is_root() {
+            bail!("You must be root to run privileged podman!");
+        }
+
+        let cid_path = TempDir::new().into_diagnostic()?;
         let cid_file = cid_path.path().join("cid");
 
-        let cid = ContainerId::new(&cid_file, ContainerRuntime::Podman, opts.privileged);
+        let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Podman, opts.privileged);
 
         add_cid(&cid);
 
-        let status = if opts.privileged {
-            podman_run(opts, &cid_file).status()?
-        } else {
-            podman_run(opts, &cid_file).build_status(&*opts.image, "Running container")?
-        };
+        let status = podman_run(opts, &cid_file)
+            .build_status(&*opts.image, "Running container")
+            .into_diagnostic()?;
 
         remove_cid(&cid);
 
         Ok(status)
     }
 
-    fn run_output(opts: &RunOpts) -> std::io::Result<std::process::Output> {
+    fn run_output(opts: &RunOpts) -> Result<std::process::Output> {
         trace!("PodmanDriver::run_output({opts:#?})");
 
-        let cid_path = TempDir::new()?;
+        if !nix::unistd::Uid::effective().is_root() {
+            bail!("You must be root to run privileged podman!");
+        }
+
+        let cid_path = TempDir::new().into_diagnostic()?;
         let cid_file = cid_path.path().join("cid");
 
-        let cid = ContainerId::new(&cid_file, ContainerRuntime::Podman, opts.privileged);
+        let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Podman, opts.privileged);
 
         add_cid(&cid);
 
-        let output = podman_run(opts, &cid_file).output()?;
+        let output = podman_run(opts, &cid_file).output().into_diagnostic()?;
 
         remove_cid(&cid);
 
@@ -376,16 +495,7 @@ impl RunDriver for PodmanDriver {
 
 fn podman_run(opts: &RunOpts, cid_file: &Path) -> Command {
     let command = cmd!(
-        if opts.privileged {
-            warn!(
-                "Running 'podman' in privileged mode requires '{}'",
-                "sudo".bold().red()
-            );
-            "sudo"
-        } else {
-            "podman"
-        },
-        if opts.privileged => "podman",
+        "podman",
         "run",
         format!("--cidfile={}", cid_file.display()),
         if opts.privileged => [
@@ -394,6 +504,7 @@ fn podman_run(opts: &RunOpts, cid_file: &Path) -> Command {
         ],
         if opts.remove => "--rm",
         if opts.pull => "--pull=always",
+        if let Some(user) = opts.user.as_ref() => format!("--user={user}"),
         for RunOptsVolume { path_or_vol_name, container_path } in opts.volumes.iter() => [
             "--volume",
             format!("{path_or_vol_name}:{container_path}"),

@@ -369,6 +369,7 @@ dependencies = [
  "jsonschema",
  "log",
  "miette",
+ "nix",
  "oci-distribution",
  "open",
  "os_info",

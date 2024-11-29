@@ -30,6 +30,11 @@ use super::{
     skopeo_driver::SkopeoDriver,
     types::ImageMetadata,
 };
+#[cfg(feature = "rechunk")]
+use super::{
+    opts::RechunkOpts,
+    types::{ContainerId, MountId},
+};
 
 trait PrivateDriver {}
 
@@ -209,13 +214,258 @@ pub trait RunDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if there is an issue running the container.
-    fn run(opts: &RunOpts) -> std::io::Result<ExitStatus>;
+    fn run(opts: &RunOpts) -> Result<ExitStatus>;
 
     /// Run a container to perform an action and capturing output.
     ///
     /// # Errors
     /// Will error if there is an issue running the container.
-    fn run_output(opts: &RunOpts) -> std::io::Result<Output>;
+    fn run_output(opts: &RunOpts) -> Result<Output>;
+}
+
+#[allow(private_bounds)]
+#[cfg(feature = "rechunk")]
+pub(super) trait ContainerMountDriver: PrivateDriver {
+    /// Creates container
+    ///
+    /// # Errors
+    /// Will error if the container create command fails.
+    fn create_container(image: &Reference) -> Result<ContainerId>;
+
+    /// Removes a container
+    ///
+    /// # Errors
+    /// Will error if the container remove command fails.
+    fn remove_container(container_id: &ContainerId) -> Result<()>;
+
+    /// Removes an image
+    ///
+    /// # Errors
+    /// Will error if the image remove command fails.
+    fn remove_image(image: &Reference) -> Result<()>;
+
+    /// Mounts the container
+    ///
+    /// # Errors
+    /// Will error if the container mount command fails.
+    fn mount_container(container_id: &ContainerId) -> Result<MountId>;
+
+    /// Unmount the container
+    ///
+    /// # Errors
+    /// Will error if the container unmount command fails.
+    fn unmount_container(container_id: &ContainerId) -> Result<()>;
+
+    /// Remove a volume
+    ///
+    /// # Errors
+    /// Will error if the volume remove command fails.
+    fn remove_volume(volume_id: &str) -> Result<()>;
+}
+
+#[cfg(feature = "rechunk")]
+pub(super) trait OciCopy {
+    fn copy_oci_dir(
+        oci_dir: &super::types::OciDir,
+        registry: &oci_distribution::Reference,
+    ) -> Result<()>;
+}
+
+#[allow(private_bounds)]
+#[cfg(feature = "rechunk")]
+pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
+    const RECHUNK_IMAGE: &str = "ghcr.io/hhd-dev/rechunk:v1.0.1";
+
+    /// Perform a rechunk build of a recipe.
+    ///
+    /// # Errors
+    /// Will error if the rechunk process fails.
+    fn rechunk(opts: &RechunkOpts) -> Result<Vec<String>> {
+        let ostree_cache_id = &uuid::Uuid::new_v4().to_string();
+        let raw_image =
+            &Reference::try_from(format!("localhost/{ostree_cache_id}/raw-rechunk")).unwrap();
+        let current_dir = &std::env::current_dir().into_diagnostic()?;
+        let current_dir = &*current_dir.to_string_lossy();
+        let full_image = Reference::try_from(opts.tags.first().map_or_else(
+            || opts.image.to_string(),
+            |tag| format!("{}:{tag}", opts.image),
+        ))
+        .into_diagnostic()?;
+
+        Self::build(
+            &BuildOpts::builder()
+                .image(raw_image.to_string())
+                .containerfile(&*opts.containerfile)
+                .platform(opts.platform)
+                .squash(true)
+                .host_network(true)
+                .build(),
+        )?;
+
+        let container = &Self::create_container(raw_image)?;
+        let mount = &Self::mount_container(container)?;
+
+        Self::prune_image(mount, container, raw_image, opts)?;
+        Self::create_ostree_commit(mount, ostree_cache_id, container, raw_image, opts)?;
+
+        let temp_dir = tempfile::TempDir::new().into_diagnostic()?;
+        let temp_dir_str = &*temp_dir.path().to_string_lossy();
+
+        Self::rechunk_image(ostree_cache_id, temp_dir_str, current_dir, opts)?;
+
+        let mut image_list = Vec::with_capacity(opts.tags.len());
+
+        if opts.push {
+            let oci_dir = &super::types::OciDir::try_from(temp_dir.path().join(ostree_cache_id))?;
+
+            for tag in &opts.tags {
+                let tagged_image = Reference::with_tag(
+                    full_image.registry().to_string(),
+                    full_image.repository().to_string(),
+                    tag.to_string(),
+                );
+
+                blue_build_utils::retry(opts.retry_count, 5, || {
+                    debug!("Pushing image {tagged_image}");
+
+                    Driver::copy_oci_dir(oci_dir, &tagged_image)
+                })?;
+                image_list.push(tagged_image.into());
+            }
+        }
+
+        Ok(image_list)
+    }
+
+    /// Step 1 of the rechunk process that prunes excess files.
+    ///
+    /// # Errors
+    /// Will error if the prune process fails.
+    fn prune_image(
+        mount: &MountId,
+        container: &ContainerId,
+        raw_image: &Reference,
+        opts: &RechunkOpts<'_>,
+    ) -> Result<(), miette::Error> {
+        let status = Self::run(
+            &RunOpts::builder()
+                .image(Self::RECHUNK_IMAGE)
+                .remove(true)
+                .user("0:0")
+                .privileged(true)
+                .volumes(crate::run_volumes! {
+                    mount => "/var/tree",
+                })
+                .env_vars(crate::run_envs! {
+                    "TREE" => "/var/tree",
+                })
+                .args(bon::vec!["/sources/rechunk/1_prune.sh"])
+                .build(),
+        )?;
+
+        if !status.success() {
+            Self::unmount_container(container)?;
+            Self::remove_container(container)?;
+            Self::remove_image(raw_image)?;
+            bail!("Failed to run prune step for {}", &opts.image);
+        }
+
+        Ok(())
+    }
+
+    /// Step 2 of the rechunk process that creates the ostree commit.
+    ///
+    /// # Errors
+    /// Will error if the ostree commit process fails.
+    fn create_ostree_commit(
+        mount: &MountId,
+        ostree_cache_id: &str,
+        container: &ContainerId,
+        raw_image: &Reference,
+        opts: &RechunkOpts<'_>,
+    ) -> Result<()> {
+        let status = Self::run(
+            &RunOpts::builder()
+                .image(Self::RECHUNK_IMAGE)
+                .remove(true)
+                .user("0:0")
+                .privileged(true)
+                .volumes(crate::run_volumes! {
+                    mount => "/var/tree",
+                    ostree_cache_id => "/var/ostree",
+                })
+                .env_vars(crate::run_envs! {
+                    "TREE" => "/var/tree",
+                    "REPO" => "/var/ostree/repo",
+                    "RESET_TIMESTAMP" => "1",
+                })
+                .args(bon::vec!["/sources/rechunk/2_create.sh"])
+                .build(),
+        )?;
+        Self::unmount_container(container)?;
+        Self::remove_container(container)?;
+        Self::remove_image(raw_image)?;
+
+        if !status.success() {
+            bail!("Failed to run Ostree create step for {}", &opts.image);
+        }
+
+        Ok(())
+    }
+
+    /// Step 3 of the rechunk process that generates the final chunked image.
+    ///
+    /// # Errors
+    /// Will error if the chunk process fails.
+    fn rechunk_image(
+        ostree_cache_id: &str,
+        temp_dir_str: &str,
+        current_dir: &str,
+        opts: &RechunkOpts<'_>,
+    ) -> Result<()> {
+        let status = Self::run(
+        &RunOpts::builder()
+            .image(Self::RECHUNK_IMAGE)
+            .remove(true)
+            .user("0:0")
+            .privileged(true)
+            .volumes(crate::run_volumes! {
+                ostree_cache_id => "/var/ostree",
+                temp_dir_str => "/workspace",
+                current_dir => "/var/git"
+            })
+            .env_vars(crate::run_envs! {
+                "REPO" => "/var/ostree/repo",
+                "PREV_REF" => &*opts.image,
+                "OUT_NAME" => ostree_cache_id,
+                // "PREV_REF_FAIL" => "true",
+                "VERSION" => format!("{}", opts.version),
+                "OUT_REF" => format!("oci:{ostree_cache_id}"),
+                "GIT_DIR" => "/var/git",
+                "LABELS" => format!(
+                    "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+                    format_args!("{}={}", blue_build_utils::constants::BUILD_ID_LABEL, Driver::get_build_id()),
+                    format_args!("org.opencontainers.image.title={}", &opts.name),
+                    format_args!("org.opencontainers.image.description={}", &opts.description),
+                    format_args!("org.opencontainers.image.source={}", &opts.repo),
+                    format_args!("org.opencontainers.image.base.digest={}", &opts.base_digest),
+                    format_args!("org.opencontainers.image.base.name={}", &opts.base_image),
+                    "org.opencontainers.image.created=<timestamp>",
+                    "io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md",
+                )
+            })
+            .args(bon::vec!["/sources/rechunk/3_chunk.sh"])
+            .build(),
+        )?;
+
+        Self::remove_volume(ostree_cache_id)?;
+
+        if !status.success() {
+            bail!("Failed to run rechunking for {}", &opts.image);
+        }
+
+        Ok(())
+    }
 }
 
 /// Allows agnostic management of signature keys.

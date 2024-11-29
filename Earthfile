@@ -165,9 +165,9 @@ blue-build-cli:
     END
 
     IF [ "$TARGETARCH" = "arm64" ]
-        DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-gnu"
+        DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-gnu" --RELEASE=$RELEASE
     ELSE
-        DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-gnu"
+        DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-gnu" --RELEASE=$RELEASE
     END
 
     RUN mkdir -p /bluebuild
@@ -211,9 +211,9 @@ blue-build-cli-distrobox:
     FROM "$IMAGE:$EARTHLY_GIT_HASH-distrobox-prebuild-$TARGETARCH"
 
     IF [ "$TARGETARCH" = "arm64" ]
-        DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-musl"
+        DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-musl"
     ELSE
-        DO --pass-args +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl"
+        DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl"
     END
 
     DO --pass-args +SAVE_IMAGE --SUFFIX="-distrobox"
@@ -228,9 +228,9 @@ installer:
 
     ARG TARGETARCH
     IF [ "$TARGETARCH" = "arm64" ]
-        DO --pass-args +INSTALL --OUT_DIR="/out/" --BUILD_TARGET="aarch64-unknown-linux-musl"
+        DO +INSTALL --OUT_DIR="/out/" --BUILD_TARGET="aarch64-unknown-linux-musl"
     ELSE
-        DO --pass-args +INSTALL --OUT_DIR="/out/" --BUILD_TARGET="x86_64-unknown-linux-musl"
+        DO +INSTALL --OUT_DIR="/out/" --BUILD_TARGET="x86_64-unknown-linux-musl"
     END
 
     COPY install.sh /install.sh
@@ -274,9 +274,9 @@ INSTALL:
     ARG RELEASE="true"
 
     IF [ "$TAGGED" = "true" ]
-        COPY --platform=native --pass-args +install/bluebuild $OUT_DIR
+        COPY --platform=native (+install/bluebuild --BUILD_TARGET=$BUILD_TARGET --RELEASE=$RELEASE) $OUT_DIR
     ELSE
-        COPY --platform=native --pass-args +install-all-features/bluebuild $OUT_DIR
+        COPY --platform=native (+install-all-features/bluebuild --BUILD_TARGET=$BUILD_TARGET --RELEASE=$RELEASE) $OUT_DIR
     END
 
 SAVE_IMAGE:

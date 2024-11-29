@@ -52,7 +52,7 @@ pub struct BuildCommand {
     /// Requires `--registry`,
     /// `--username`, and `--password` if not
     /// building in CI.
-    #[arg(short, long)]
+    #[arg(short, long, group = "archive_push")]
     #[builder(default)]
     push: bool,
 
@@ -84,7 +84,7 @@ pub struct BuildCommand {
 
     /// Archives the built image into a tarfile
     /// in the specified directory.
-    #[arg(short, long)]
+    #[arg(short, long, group = "archive_rechunk", group = "archive_push")]
     #[builder(into)]
     archive: Option<PathBuf>,
 
@@ -110,6 +110,16 @@ pub struct BuildCommand {
     #[builder(default)]
     squash: bool,
 
+    /// Performs rechunking on the image to allow for smaller images
+    /// and smaller updates. This will increase the build-time
+    /// and take up more space during build-time.
+    ///
+    /// NOTE: This must be run as root!
+    #[arg(long, group = "archive_rechunk")]
+    #[builder(default)]
+    #[cfg(feature = "rechunk")]
+    rechunk: bool,
+
     #[clap(flatten)]
     #[builder(default)]
     credentials: CredentialsArgs,
@@ -126,6 +136,11 @@ impl BlueBuildCommand for BuildCommand {
     /// Runs the command and returns a result.
     fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
+
+        #[cfg(feature = "rechunk")]
+        if !nix::unistd::Uid::effective().is_root() && self.rechunk {
+            bail!("You must be root to use the rechunk feature!");
+        }
 
         Driver::init(self.drivers);
 
@@ -272,32 +287,82 @@ impl BuildCommand {
         )?;
         let image_name = self.image_name(&recipe)?;
 
-        let opts = if let Some(archive_dir) = self.archive.as_ref() {
-            BuildTagPushOpts::builder()
-                .containerfile(containerfile)
-                .platform(self.platform)
-                .archive_path(format!(
-                    "{}/{}.{ARCHIVE_SUFFIX}",
-                    archive_dir.to_string_lossy().trim_end_matches('/'),
-                    recipe.name.to_lowercase().replace('/', "_"),
-                ))
-                .squash(self.squash)
-                .build()
-        } else {
-            BuildTagPushOpts::builder()
-                .image(&image_name)
-                .containerfile(containerfile)
-                .platform(self.platform)
-                .tags(tags.collect_cow_vec())
-                .push(self.push)
-                .retry_push(self.retry_push)
-                .retry_count(self.retry_count)
-                .compression(self.compression_format)
-                .squash(self.squash)
-                .build()
+        let build_fn = || -> Result<Vec<String>> {
+            Driver::build_tag_push(&self.archive.as_ref().map_or_else(
+                || {
+                    BuildTagPushOpts::builder()
+                        .image(&image_name)
+                        .containerfile(containerfile)
+                        .platform(self.platform)
+                        .tags(tags.collect_cow_vec())
+                        .push(self.push)
+                        .retry_push(self.retry_push)
+                        .retry_count(self.retry_count)
+                        .compression(self.compression_format)
+                        .squash(self.squash)
+                        .build()
+                },
+                |archive_dir| {
+                    BuildTagPushOpts::builder()
+                        .containerfile(containerfile)
+                        .platform(self.platform)
+                        .archive_path(format!(
+                            "{}/{}.{ARCHIVE_SUFFIX}",
+                            archive_dir.to_string_lossy().trim_end_matches('/'),
+                            recipe.name.to_lowercase().replace('/', "_"),
+                        ))
+                        .squash(self.squash)
+                        .build()
+                },
+            ))
         };
 
-        let images = Driver::build_tag_push(&opts)?;
+        #[cfg(feature = "rechunk")]
+        let images = if self.rechunk {
+            use blue_build_process_management::drivers::{
+                opts::{GetMetadataOpts, RechunkOpts},
+                InspectDriver, RechunkDriver,
+            };
+
+            Driver::rechunk(
+                &RechunkOpts::builder()
+                    .image(&image_name)
+                    .containerfile(containerfile)
+                    .platform(self.platform)
+                    .tags(tags.collect_cow_vec())
+                    .push(self.push)
+                    .version(format!(
+                        "{version}.<date>",
+                        version = Driver::get_os_version()
+                            .oci_ref(&recipe.base_image_ref()?)
+                            .platform(self.platform)
+                            .call()?,
+                    ))
+                    .retry_push(self.retry_push)
+                    .retry_count(self.retry_count)
+                    .compression(self.compression_format)
+                    .base_digest(
+                        Driver::get_metadata(
+                            &GetMetadataOpts::builder()
+                                .image(&*recipe.base_image)
+                                .tag(&*recipe.image_version)
+                                .platform(self.platform)
+                                .build(),
+                        )?
+                        .digest,
+                    )
+                    .repo(Driver::get_repo_url()?)
+                    .name(&*recipe.name)
+                    .description(&*recipe.description)
+                    .base_image(format!("{}:{}", &recipe.base_image, &recipe.image_version))
+                    .build(),
+            )?
+        } else {
+            build_fn()?
+        };
+
+        #[cfg(not(feature = "rechunk"))]
+        let images = build_fn()?;
 
         if self.push && !self.no_sign {
             Driver::sign_and_verify(
