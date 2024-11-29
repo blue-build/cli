@@ -33,7 +33,7 @@ use crate::{
         types::Platform,
     },
     logging::CommandLogging,
-    signal_handler::{add_cid, remove_cid, ContainerId, ContainerRuntime},
+    signal_handler::{add_cid, remove_cid, ContainerRuntime, ContainerSignalId},
 };
 
 #[derive(Debug, Deserialize)]
@@ -427,32 +427,34 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
 }
 
 impl RunDriver for DockerDriver {
-    fn run(opts: &RunOpts) -> std::io::Result<ExitStatus> {
+    fn run(opts: &RunOpts) -> Result<ExitStatus> {
         trace!("DockerDriver::run({opts:#?})");
 
-        let cid_path = TempDir::new()?;
+        let cid_path = TempDir::new().into_diagnostic()?;
         let cid_file = cid_path.path().join("cid");
-        let cid = ContainerId::new(&cid_file, ContainerRuntime::Docker, false);
+        let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Docker, false);
 
         add_cid(&cid);
 
-        let status = docker_run(opts, &cid_file).build_status(&*opts.image, "Running container")?;
+        let status = docker_run(opts, &cid_file)
+            .build_status(&*opts.image, "Running container")
+            .into_diagnostic()?;
 
         remove_cid(&cid);
 
         Ok(status)
     }
 
-    fn run_output(opts: &RunOpts) -> std::io::Result<std::process::Output> {
+    fn run_output(opts: &RunOpts) -> Result<std::process::Output> {
         trace!("DockerDriver::run({opts:#?})");
 
-        let cid_path = TempDir::new()?;
+        let cid_path = TempDir::new().into_diagnostic()?;
         let cid_file = cid_path.path().join("cid");
-        let cid = ContainerId::new(&cid_file, ContainerRuntime::Docker, false);
+        let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Docker, false);
 
         add_cid(&cid);
 
-        let output = docker_run(opts, &cid_file).output()?;
+        let output = docker_run(opts, &cid_file).output().into_diagnostic()?;
 
         remove_cid(&cid);
 
@@ -469,6 +471,7 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
         if opts.privileged => "--privileged",
         if opts.remove => "--rm",
         if opts.pull => "--pull=always",
+        if let Some(user) = opts.user.as_ref() => format!("--user={user}"),
         for RunOptsVolume { path_or_vol_name, container_path } in opts.volumes.iter() => [
             "--volume",
             format!("{path_or_vol_name}:{container_path}"),
@@ -477,13 +480,6 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
             "--env",
             format!("{key}={value}"),
         ],
-        |command| {
-            match (opts.uid, opts.gid) {
-                (Some(uid), None) => cmd!(command, "-u", format!("{uid}")),
-                (Some(uid), Some(gid)) => cmd!(command, "-u", format!("{}:{}", uid, gid)),
-                _ => {}
-            }
-        },
         &*opts.image,
         for arg in opts.args.iter() => &**arg,
     );

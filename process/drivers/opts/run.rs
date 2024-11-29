@@ -15,8 +15,9 @@ pub struct RunOpts<'scope> {
 
     #[builder(default, into)]
     pub volumes: Vec<RunOptsVolume<'scope>>,
-    pub uid: Option<u32>,
-    pub gid: Option<u32>,
+
+    #[builder(into)]
+    pub user: Option<Cow<'scope, str>>,
 
     #[builder(default)]
     pub privileged: bool,

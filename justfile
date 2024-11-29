@@ -126,6 +126,12 @@ should_push := if env('GITHUB_ACTIONS', '') != '' {
   '' 
 }
 
+cargo_bin := if env('CARGO_HOME', '') != '' {
+  x"${CARGO_HOME:-}/bin"
+} else {
+  x"$HOME/.cargo/bin"
+}
+
 # Run all integration tests
 integration-tests: test-docker-build test-arm64-build test-podman-build test-buildah-build test-generate-iso-image test-generate-iso-recipe
 
@@ -140,6 +146,14 @@ test-docker-build: install-debug-all-features
     {{ should_push }} \
     -vv \
     recipes/recipe.yml recipes/recipe-gts.yml
+
+test-rechunk-build: install-debug-all-features
+  cd integration-tests/test-repo \
+  && sudo {{ cargo_bin }}/bluebuild build \
+    {{ should_push }} \
+    -vv \
+    --rechunk \
+    recipes/recipe-rechunk.yml
 
 # Run arm integration test
 test-arm64-build: install-debug-all-features

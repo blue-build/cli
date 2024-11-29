@@ -233,23 +233,23 @@ impl Driver {
         Ok(os_version)
     }
 
-    fn get_build_driver() -> BuildDriverType {
+    pub fn get_build_driver() -> BuildDriverType {
         impl_driver_type!(SELECTED_BUILD_DRIVER)
     }
 
-    fn get_inspect_driver() -> InspectDriverType {
+    pub fn get_inspect_driver() -> InspectDriverType {
         impl_driver_type!(SELECTED_INSPECT_DRIVER)
     }
 
-    fn get_signing_driver() -> SigningDriverType {
+    pub fn get_signing_driver() -> SigningDriverType {
         impl_driver_type!(SELECTED_SIGNING_DRIVER)
     }
 
-    fn get_run_driver() -> RunDriverType {
+    pub fn get_run_driver() -> RunDriverType {
         impl_driver_type!(SELECTED_RUN_DRIVER)
     }
 
-    fn get_ci_driver() -> CiDriverType {
+    pub fn get_ci_driver() -> CiDriverType {
         impl_driver_type!(SELECTED_CI_DRIVER)
     }
 }
@@ -287,8 +287,7 @@ fn get_version_run_image(oci_ref: &Reference) -> Result<u64> {
             .pull(true)
             .remove(true)
             .build(),
-    )
-    .into_diagnostic()?;
+    )?;
 
     progress.finish_and_clear();
     Logger::multi_progress().remove(&progress);
@@ -395,11 +394,11 @@ macro_rules! impl_run_driver {
 }
 
 impl RunDriver for Driver {
-    fn run(opts: &RunOpts) -> std::io::Result<ExitStatus> {
+    fn run(opts: &RunOpts) -> Result<ExitStatus> {
         impl_run_driver!(run(opts))
     }
 
-    fn run_output(opts: &RunOpts) -> std::io::Result<Output> {
+    fn run_output(opts: &RunOpts) -> Result<Output> {
         impl_run_driver!(run_output(opts))
     }
 }
@@ -448,5 +447,77 @@ impl CiDriver for Driver {
 
     fn default_ci_file_path() -> std::path::PathBuf {
         impl_ci_driver!(default_ci_file_path())
+    }
+}
+
+#[cfg(feature = "rechunk")]
+impl ContainerMountDriver for Driver {
+    fn create_container(image: &Reference) -> Result<types::ContainerId> {
+        PodmanDriver::create_container(image)
+    }
+
+    fn remove_container(container_id: &types::ContainerId) -> Result<()> {
+        PodmanDriver::remove_container(container_id)
+    }
+
+    fn remove_image(image: &Reference) -> Result<()> {
+        PodmanDriver::remove_image(image)
+    }
+
+    fn mount_container(container_id: &types::ContainerId) -> Result<types::MountId> {
+        PodmanDriver::mount_container(container_id)
+    }
+
+    fn unmount_container(container_id: &types::ContainerId) -> Result<()> {
+        PodmanDriver::unmount_container(container_id)
+    }
+
+    fn remove_volume(volume_id: &str) -> Result<()> {
+        PodmanDriver::remove_volume(volume_id)
+    }
+}
+
+#[cfg(feature = "rechunk")]
+impl OciCopy for Driver {
+    fn copy_oci_dir(
+        oci_dir: &self::types::OciDir,
+        registry: &oci_distribution::Reference,
+    ) -> Result<()> {
+        SkopeoDriver::copy_oci_dir(oci_dir, registry)
+    }
+}
+
+#[cfg(feature = "rechunk")]
+impl RechunkDriver for Driver {
+    fn rechunk(opts: &opts::RechunkOpts) -> Result<Vec<String>> {
+        PodmanDriver::rechunk(opts)
+    }
+
+    fn prune_image(
+        _mount: &types::MountId,
+        _container: &types::ContainerId,
+        _raw_image: &Reference,
+        _opts: &opts::RechunkOpts<'_>,
+    ) -> Result<(), miette::Error> {
+        unimplemented!("Use the `rechunk` function instead");
+    }
+
+    fn create_ostree_commit(
+        _mount: &types::MountId,
+        _ostree_cache_id: &str,
+        _container: &types::ContainerId,
+        _raw_image: &Reference,
+        _opts: &opts::RechunkOpts<'_>,
+    ) -> Result<()> {
+        unimplemented!("Use the `rechunk` function instead");
+    }
+
+    fn rechunk_image(
+        _ostree_cache_id: &str,
+        _temp_dir_str: &str,
+        _current_dir: &str,
+        _opts: &opts::RechunkOpts<'_>,
+    ) -> Result<()> {
+        unimplemented!("Use the `rechunk` function instead");
     }
 }

@@ -65,3 +65,27 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
     }
     serde_json::from_slice(&output.stdout).into_diagnostic()
 }
+
+#[cfg(feature = "rechunk")]
+impl super::OciCopy for SkopeoDriver {
+    fn copy_oci_dir(
+        oci_dir: &super::types::OciDir,
+        registry: &oci_distribution::Reference,
+    ) -> Result<()> {
+        use crate::logging::CommandLogging;
+
+        let status = {
+            let c = cmd!("skopeo", "copy", oci_dir, format!("docker://{registry}"),);
+            trace!("{c:?}");
+            c
+        }
+        .build_status(registry.to_string(), format!("Copying {oci_dir} to"))
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to copy {oci_dir} to {registry}");
+        }
+
+        Ok(())
+    }
+}

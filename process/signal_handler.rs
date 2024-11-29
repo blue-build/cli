@@ -24,7 +24,7 @@ use signal_hook::{
 use crate::logging::Logger;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ContainerId {
+pub struct ContainerSignalId {
     cid_path: PathBuf,
     requires_sudo: bool,
     container_runtime: ContainerRuntime,
@@ -45,7 +45,7 @@ impl std::fmt::Display for ContainerRuntime {
     }
 }
 
-impl ContainerId {
+impl ContainerSignalId {
     pub fn new<P>(cid_path: P, container_runtime: ContainerRuntime, requires_sudo: bool) -> Self
     where
         P: Into<PathBuf>,
@@ -60,7 +60,8 @@ impl ContainerId {
 }
 
 static PID_LIST: Lazy<Arc<Mutex<Vec<i32>>>> = Lazy::new(|| Arc::new(Mutex::new(vec![])));
-static CID_LIST: Lazy<Arc<Mutex<Vec<ContainerId>>>> = Lazy::new(|| Arc::new(Mutex::new(vec![])));
+static CID_LIST: Lazy<Arc<Mutex<Vec<ContainerSignalId>>>> =
+    Lazy::new(|| Arc::new(Mutex::new(vec![])));
 
 /// Initialize Ctrl-C handler. This should be done at the start
 /// of a binary.
@@ -225,7 +226,7 @@ where
 ///
 /// # Panics
 /// Will panic if the mutex cannot be locked.
-pub fn add_cid(cid: &ContainerId) {
+pub fn add_cid(cid: &ContainerSignalId) {
     let mut cid_list = CID_LIST.lock().expect("Should lock cid_list");
 
     if !cid_list.contains(cid) {
@@ -237,7 +238,7 @@ pub fn add_cid(cid: &ContainerId) {
 ///
 /// # Panics
 /// Will panic if the mutex cannot be locked.
-pub fn remove_cid(cid: &ContainerId) {
+pub fn remove_cid(cid: &ContainerSignalId) {
     let mut cid_list = CID_LIST.lock().expect("Should lock cid_list");
 
     if let Some(index) = cid_list.iter().position(|val| *val == *cid) {
