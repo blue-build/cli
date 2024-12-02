@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.25] - 2024-12-02
+
+### Bug Fixes
+
+- Login to earthly for tag build-scripts-all target
+
+### Features
+
+- [**breaking**] Create prune command
+
+### Miscellaneous Tasks
+
+- Assure that `get_json_array` outputs compact `json` output
+
 ## [0.8.24] - 2024-11-27
 
 ### Bug Fixes
@@ -10,6 +24,10 @@ All notable changes to this project will be documented in this file.
 - Export get_json_array bash function
 - Fix integration tests
 - Add logic for inspecting multi-manifest images
+
+### Miscellaneous Tasks
+
+- Release
 
 ## [0.8.23] - 2024-11-26
 
@@ -637,9 +655,21 @@ All notable changes to this project will be documented in this file.
 
 ### Miscellaneous Tasks
 
+- Create GitHub Workflow (#9)
+- Don't build integration tests in +all
+- Allow write for contents and id-token
+- Allow workflow_dispatch on build
+- Use docker/login-action@v3
+- Set packages permissions to write
+- Update README.md (#10)
+- Use GHCR for install.sh (#11)
+- Remove input for release
+- Add CARGO_REGISTRY_TOKEN
+- Fetch all to get history for changelog updates
+- Allow write for id-token
 - Bump version
 
-## [0.5.2] - 2024-01-24
+## [0.5.2] - 2024-01-22
 
 ### Bug Fixes
 
@@ -659,18 +689,6 @@ All notable changes to this project will be documented in this file.
 
 - Update Cargo.toml with new repo URL
 - Manual bump of version
-- Create GitHub Workflow (#9)
-- Don't build integration tests in +all
-- Allow write for contents and id-token
-- Allow workflow_dispatch on build
-- Use docker/login-action@v3
-- Set packages permissions to write
-- Update README.md (#10)
-- Use GHCR for install.sh (#11)
-- Remove input for release
-- Add CARGO_REGISTRY_TOKEN
-- Fetch all to get history for changelog updates
-- Allow write for id-token
 
 ## [0.5.1] - 2024-01-22
 
