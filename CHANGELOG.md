@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2024-12-03
+
+### Features
+
+- Add the ability to rechunk an image
+
+### Miscellaneous Tasks
+
+- Prepare for the v0.9.0 release
+
 ## [0.8.25] - 2024-12-02
 
 ### Bug Fixes
@@ -15,6 +25,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Assure that `get_json_array` outputs compact `json` output
+- Release
 
 ## [0.8.24] - 2024-11-27
 
