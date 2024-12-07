@@ -26,9 +26,7 @@ ARG RUST_LOG_STYLE=always
 # Key RUN
 RUN --mount=type=bind,from=stage-keys,src=/keys,dst=/tmp/keys \
   mkdir -p /etc/pki/containers/ \
-  mkdir -p /usr/etc/pki/containers/ \
   && cp /tmp/keys/* /etc/pki/containers/ \
-  && cp /tmp/keys/* /usr/etc/pki/containers/ \
   && ostree container commit
 
 # Bin RUN
