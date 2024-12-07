@@ -30,7 +30,8 @@ modules:
       - firefox-langpacks
 
   - type: signing
-
+    source: ghcr.io/blue-build/modules:signing-switch-fully-to-etc
+    
   - type: test-module
     source: local
 
