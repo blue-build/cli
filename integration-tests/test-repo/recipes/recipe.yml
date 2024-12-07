@@ -30,7 +30,7 @@ modules:
       - firefox-langpacks
 
   - type: signing
-    
+
   - type: test-module
     source: local
 
