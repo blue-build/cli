@@ -8,7 +8,7 @@ use std::{
 
 use blue_build_utils::{
     cmd,
-    constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST},
+    constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, GITHUB_ACTIONS},
     credentials::Credentials,
     string_vec,
 };
@@ -340,7 +340,9 @@ impl BuildDriver for DockerDriver {
                             opts.compression
                         ),
                     );
-                } else {
+
+                // We don't want to load the image into docker as it will double disk usage
+                } else if env::var(GITHUB_ACTIONS).is_err() {
                     cmd!(command, "--load");
                 }
                 images
