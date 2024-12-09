@@ -308,7 +308,11 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         Self::prune_image(mount, container, raw_image, opts)?;
         Self::create_ostree_commit(mount, ostree_cache_id, container, raw_image, opts)?;
 
-        let temp_dir = tempfile::TempDir::new().into_diagnostic()?;
+        let temp_dir = if let Some(dir) = opts.tempdir {
+            tempfile::TempDir::new_in(dir).into_diagnostic()?
+        } else {
+            tempfile::TempDir::new().into_diagnostic()?
+        };
         let temp_dir_str = &*temp_dir.path().to_string_lossy();
 
         Self::rechunk_image(ostree_cache_id, temp_dir_str, current_dir, opts)?;
