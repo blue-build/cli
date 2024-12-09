@@ -36,15 +36,6 @@ pub struct SwitchCommand {
     #[builder(default)]
     reboot: bool,
 
-    /// Allow `bluebuild` to overwrite an existing
-    /// Containerfile without confirmation.
-    ///
-    /// This is not needed if the Containerfile is in
-    /// .gitignore or has already been built by `bluebuild`.
-    #[arg(short, long)]
-    #[builder(default)]
-    force: bool,
-
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,
