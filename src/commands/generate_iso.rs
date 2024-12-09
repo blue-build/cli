@@ -71,6 +71,11 @@ pub struct GenerateIsoCommand {
     #[builder(into)]
     iso_name: Option<String>,
 
+    /// The location to temporarily store files
+    /// while building. If unset, it will use `/tmp`.
+    #[arg(long)]
+    tempdir: Option<PathBuf>,
+
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,
@@ -128,7 +133,11 @@ impl BlueBuildCommand for GenerateIsoCommand {
             bail!("You must be root to build an ISO!");
         }
 
-        let image_out_dir = TempDir::new().into_diagnostic()?;
+        let image_out_dir = if let Some(ref dir) = self.tempdir {
+            TempDir::new_in(dir).into_diagnostic()?
+        } else {
+            TempDir::new().into_diagnostic()?
+        };
 
         let output_dir = if let Some(output_dir) = self.output_dir.clone() {
             if output_dir.exists() && !output_dir.is_dir() {
@@ -150,6 +159,7 @@ impl BlueBuildCommand for GenerateIsoCommand {
                 BuildCommand::builder()
                     .recipe(vec![recipe.clone()])
                     .archive(image_out_dir.path())
+                    .maybe_tempdir(self.tempdir.clone())
                     .build()
             };
             #[cfg(not(feature = "multi-recipe"))]
@@ -157,6 +167,7 @@ impl BlueBuildCommand for GenerateIsoCommand {
                 BuildCommand::builder()
                     .recipe(recipe.clone())
                     .archive(image_out_dir.path())
+                    .maybe_tempdir(self.tempdir.clone())
                     .build()
             };
 

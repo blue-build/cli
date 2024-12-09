@@ -36,6 +36,11 @@ pub struct SwitchCommand {
     #[builder(default)]
     reboot: bool,
 
+    /// The location to temporarily store files
+    /// while building. If unset, it will use `/tmp`.
+    #[arg(long)]
+    tempdir: Option<PathBuf>,
+
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,
@@ -54,19 +59,25 @@ impl BlueBuildCommand for SwitchCommand {
             bail!("There is a transaction in progress. Please cancel it using `rpm-ostree cancel`");
         }
 
-        let tempdir = TempDir::new().into_diagnostic()?;
+        let tempdir = if let Some(ref dir) = self.tempdir {
+            TempDir::new_in(dir).into_diagnostic()?
+        } else {
+            TempDir::new().into_diagnostic()?
+        };
         trace!("{tempdir:?}");
 
         #[cfg(feature = "multi-recipe")]
         BuildCommand::builder()
             .recipe([self.recipe.clone()])
             .archive(tempdir.path())
+            .maybe_tempdir(self.tempdir.clone())
             .build()
             .try_run()?;
         #[cfg(not(feature = "multi-recipe"))]
         BuildCommand::builder()
             .recipe(self.recipe.clone())
             .archive(tempdir.path())
+            .maybe_tempdir(self.tempdir.clone())
             .build()
             .try_run()?;
 

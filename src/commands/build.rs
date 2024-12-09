@@ -120,6 +120,11 @@ pub struct BuildCommand {
     #[cfg(feature = "rechunk")]
     rechunk: bool,
 
+    /// The location to temporarily store files
+    /// while building. If unset, it will use `/tmp`.
+    #[arg(long)]
+    tempdir: Option<PathBuf>,
+
     #[clap(flatten)]
     #[builder(default)]
     credentials: CredentialsArgs,
@@ -127,9 +132,6 @@ pub struct BuildCommand {
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,
-
-    #[clap(skip)]
-    temp_dir: Option<TempDir>,
 }
 
 impl BlueBuildCommand for BuildCommand {
@@ -157,8 +159,11 @@ impl BlueBuildCommand for BuildCommand {
             Driver::signing_login()?;
         }
 
-        self.temp_dir = Some(TempDir::new().into_diagnostic()?);
-        let temp_dir = self.temp_dir.as_ref().unwrap();
+        let tempdir = if let Some(ref dir) = self.tempdir {
+            TempDir::new_in(dir).into_diagnostic()?
+        } else {
+            TempDir::new().into_diagnostic()?
+        };
 
         #[cfg(feature = "multi-recipe")]
         {
@@ -181,7 +186,7 @@ impl BlueBuildCommand for BuildCommand {
 
             recipe_paths.par_iter().try_for_each(|recipe| {
                 GenerateCommand::builder()
-                    .output(temp_dir.path().join(if recipe_paths.len() > 1 {
+                    .output(tempdir.path().join(if recipe_paths.len() > 1 {
                         blue_build_utils::generate_containerfile_path(recipe)?
                     } else {
                         PathBuf::from(CONTAINER_FILE)
@@ -193,7 +198,7 @@ impl BlueBuildCommand for BuildCommand {
                     .try_run()
             })?;
 
-            self.start(&recipe_paths)
+            self.start(&recipe_paths, tempdir.path())
         }
 
         #[cfg(not(feature = "multi-recipe"))]
@@ -210,29 +215,28 @@ impl BlueBuildCommand for BuildCommand {
             });
 
             GenerateCommand::builder()
-                .output(temp_dir.path().join(CONTAINER_FILE))
+                .output(tempdir.path().join(CONTAINER_FILE))
                 .recipe(&recipe_path)
                 .drivers(self.drivers)
                 .build()
                 .try_run()?;
 
-            self.start(&recipe_path)
+            self.start(&recipe_path, tempdir.path())
         }
     }
 }
 
 impl BuildCommand {
     #[cfg(feature = "multi-recipe")]
-    fn start(&self, recipe_paths: &[PathBuf]) -> Result<()> {
+    fn start(&self, recipe_paths: &[PathBuf], temp_dir: &Path) -> Result<()> {
         use rayon::prelude::*;
 
         trace!("BuildCommand::build_image()");
-        let temp_dir = self.temp_dir.as_ref().unwrap();
 
         let images = recipe_paths
             .par_iter()
             .try_fold(Vec::new, |mut images, recipe_path| -> Result<Vec<String>> {
-                let containerfile = temp_dir.path().join(if recipe_paths.len() > 1 {
+                let containerfile = temp_dir.join(if recipe_paths.len() > 1 {
                     blue_build_utils::generate_containerfile_path(recipe_path)?
                 } else {
                     PathBuf::from(CONTAINER_FILE)
@@ -258,11 +262,10 @@ impl BuildCommand {
     }
 
     #[cfg(not(feature = "multi-recipe"))]
-    fn start(&self, recipe_path: &Path) -> Result<()> {
+    fn start(&self, recipe_path: &Path, temp_dir: &Path) -> Result<()> {
         trace!("BuildCommand::start()");
-        let temp_dir = self.temp_dir.as_ref().unwrap();
 
-        let images = self.build(recipe_path, &temp_dir.path().join(CONTAINER_FILE))?;
+        let images = self.build(recipe_path, &temp_dir.join(CONTAINER_FILE))?;
         let color = gen_random_ansi_color();
 
         info!(
@@ -355,6 +358,7 @@ impl BuildCommand {
                     .name(&*recipe.name)
                     .description(&*recipe.description)
                     .base_image(format!("{}:{}", &recipe.base_image, &recipe.image_version))
+                    .maybe_tempdir(self.tempdir.as_deref())
                     .build(),
             )?
         } else {

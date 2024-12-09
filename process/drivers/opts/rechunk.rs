@@ -44,4 +44,5 @@ pub struct RechunkOpts<'scope> {
     /// The compression type to use when pushing.
     #[builder(default)]
     pub compression: CompressionType,
+    pub tempdir: Option<&'scope Path>,
 }
