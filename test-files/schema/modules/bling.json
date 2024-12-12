@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/modules/bling.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "bling",
+      "description": "The bling module can be used to pull in small \"bling\" into your image. \nhttps://blue-build.org/reference/modules/bling/"
+    },
+    "no-cache": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
+    },
+    "install": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "string",
+            "const": "rpmfusion"
+          },
+          {
+            "type": "string",
+            "const": "negativo17"
+          },
+          {
+            "type": "string",
+            "const": "ublue-update"
+          },
+          {
+            "type": "string",
+            "const": "1password"
+          },
+          {
+            "type": "string",
+            "const": "dconf-update-service"
+          },
+          {
+            "type": "string",
+            "const": "gnome-vrr"
+          }
+        ]
+      },
+      "description": "List of bling submodules to run / things to install onto your system."
+    }
+  },
+  "required": [
+    "type",
+    "install"
+  ],
+  "additionalProperties": false
+}

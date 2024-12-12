@@ -87,34 +87,37 @@ impl TryFrom<String> for Location {
     }
 }
 
-pub struct LocationSegmentIterator<'a> {
-    iter: std::vec::IntoIter<LocationSegment<'a>>,
-}
-
-impl<'a> Iterator for LocationSegmentIterator<'a> {
+impl<'a> IntoIterator for &'a Location {
     type Item = LocationSegment<'a>;
+    type IntoIter = std::vec::IntoIter<LocationSegment<'a>>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
+    fn into_iter(self) -> Self::IntoIter {
+        self.as_str()
+            .split('/')
+            .filter(|p| !p.is_empty())
+            .map(|p| {
+                p.parse::<usize>()
+                    .map_or_else(|_| LocationSegment::Property(p), LocationSegment::Index)
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 }
 
-impl<'a> IntoIterator for &'a Location {
-    type Item = LocationSegment<'a>;
-    type IntoIter = LocationSegmentIterator<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Self::IntoIter {
-            iter: self
-                .as_str()
-                .split('/')
-                .filter(|p| !p.is_empty())
-                .map(|p| {
-                    p.parse::<usize>()
-                        .map_or_else(|_| LocationSegment::Property(p), LocationSegment::Index)
-                })
-                .collect::<Vec<_>>()
-                .into_iter(),
+impl<'a> FromIterator<LocationSegment<'a>> for Location {
+    fn from_iter<T: IntoIterator<Item = LocationSegment<'a>>>(iter: T) -> Self {
+        fn inner<'a, 'b, 'c, I>(path_iter: &mut I, location: &'b LazyLocation<'b, 'a>) -> Location
+        where
+            I: Iterator<Item = LocationSegment<'c>>,
+        {
+            let Some(path) = path_iter.next() else {
+                return JsonLocation::from(location).into();
+            };
+            let location = location.push(path);
+            inner(path_iter, &location)
         }
+
+        let loc = LazyLocation::default();
+        inner(&mut iter.into_iter(), &loc)
     }
 }

@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/modules/default-flatpaks.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "default-flatpaks",
+      "description": "The default-flatpaks module can be used to install or uninstall flatpaks from a configurable remote on every boot.\nhttps://blue-build.org/reference/modules/default-flatpaks/"
+    },
+    "no-cache": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
+    },
+    "notify": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to send a notification after the install/uninstall is finished."
+    },
+    "system": {
+      "type": "object",
+      "properties": {
+        "repo-url": {
+          "type": "string",
+          "default": "https://dl.flathub.org/repo/flathub.flatpakrepo",
+          "description": "URL of the repo to add. Defaults to Flathub's URL."
+        },
+        "repo-name": {
+          "type": "string",
+          "default": "flathub",
+          "description": "Name for the repo to add."
+        },
+        "repo-title": {
+          "type": "string",
+          "description": "Pretty title for the repo to add. Not set by default."
+        },
+        "install": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of Flatpak IDs to install from the repo."
+        },
+        "remove": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of Flatpak IDs to remove."
+        }
+      },
+      "description": "Configuration for system flatpaks."
+    },
+    "user": {
+      "type": "object",
+      "properties": {
+        "repo-url": {
+          "type": "string",
+          "default": "https://dl.flathub.org/repo/flathub.flatpakrepo",
+          "description": "URL of the repo to add. Defaults to Flathub's URL."
+        },
+        "repo-name": {
+          "type": "string",
+          "default": "flathub",
+          "description": "Name for the repo to add."
+        },
+        "repo-title": {
+          "type": "string",
+          "description": "Pretty title for the repo to add. Not set by default."
+        },
+        "install": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of Flatpak IDs to install from the repo."
+        },
+        "remove": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of Flatpak IDs to remove."
+        }
+      },
+      "description": "Configuration for user flatpaks."
+    }
+  },
+  "required": [
+    "type"
+  ],
+  "additionalProperties": false
+}

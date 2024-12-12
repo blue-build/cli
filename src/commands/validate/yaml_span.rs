@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bon::bon;
 use jsonschema::paths::LocationSegment;
-use miette::{bail, Context, IntoDiagnostic, Result, SourceSpan};
+use miette::SourceSpan;
 use yaml_rust2::{
     parser::{MarkedEventReceiver, Parser},
     scanner::Marker,
@@ -10,11 +10,17 @@ use yaml_rust2::{
 };
 
 #[cfg(not(test))]
-use log::trace;
+use log::{debug, trace};
 #[cfg(test)]
 use std::eprintln as trace;
+#[cfg(test)]
+use std::eprintln as debug;
 
 use super::location::Location;
+
+mod error;
+
+pub use error::*;
 
 #[derive(Debug)]
 pub struct YamlSpan {
@@ -25,7 +31,7 @@ pub struct YamlSpan {
 #[bon]
 impl YamlSpan {
     #[builder]
-    pub fn new(file: Arc<String>) -> Result<Self> {
+    pub fn new(file: Arc<String>) -> Result<Self, YamlSpanError> {
         let mut ys = Self {
             file,
             event_markers: Vec::default(),
@@ -34,14 +40,12 @@ impl YamlSpan {
         let file = ys.file.clone();
         let mut parser = Parser::new_from_str(&file);
 
-        parser
-            .load(&mut ys, false)
-            .into_diagnostic()
-            .context("Failed to parse file")?;
+        parser.load(&mut ys, false)?;
         Ok(ys)
     }
 
-    pub fn get_span(&self, path: &Location) -> Result<SourceSpan> {
+    pub fn get_span(&self, path: &Location) -> Result<SourceSpan, YamlSpanError> {
+        debug!("Searching {path}");
         let mut event_iter = self.event_markers.iter();
         let mut path_iter = path.into_iter();
 
@@ -79,7 +83,7 @@ where
         Self { events, path }
     }
 
-    pub fn get_span(&mut self) -> Result<SourceSpan> {
+    pub fn get_span(&mut self) -> Result<SourceSpan, YamlSpanError> {
         let mut stream_start = false;
         let mut document_start = false;
 
@@ -108,12 +112,12 @@ where
                 Event::MappingStart(_, _) if stream_start && document_start => {
                     break self.key(key)?.into();
                 }
-                event => bail!("Failed to read event: {event:?}"),
+                event => return Err(YamlSpanError::UnexpectedEvent(event.to_owned())),
             }
         })
     }
 
-    fn key(&mut self, expected_key: LocationSegment<'_>) -> Result<(usize, usize)> {
+    fn key(&mut self, expected_key: LocationSegment<'_>) -> Result<(usize, usize), YamlSpanError> {
         trace!("Looking for location {expected_key:?}");
 
         loop {
@@ -131,10 +135,20 @@ where
                     if key != expected_key =>
                 {
                     trace!("Non-matching key '{key}'");
-                    continue;
+                    let (event, marker) = self.events.next().unwrap();
+
+                    match event {
+                        Event::Scalar(_, _, _, _) => continue,
+                        Event::MappingStart(_, _) => self.skip_mapping(marker.index()),
+                        Event::SequenceStart(_, _) => self.skip_sequence(marker.index()),
+                        _ => unreachable!("{event:?}"),
+                    };
                 }
                 (Event::Scalar(key, _, _, _), LocationSegment::Index(index)) => {
-                    bail!("Encountered key {key} when looking for index {index}")
+                    return Err(YamlSpanError::ExpectIndexFoundKey {
+                        key: key.to_owned(),
+                        index,
+                    })
                 }
                 (Event::SequenceStart(_, _), LocationSegment::Index(index)) => {
                     break self.sequence(index, 0);
@@ -146,7 +160,7 @@ where
                     self.skip_mapping(marker.index());
                 }
                 (Event::MappingEnd, _) => {
-                    bail!("Reached end of map an haven't found key {expected_key}")
+                    return Err(YamlSpanError::EndOfMapNoKey(expected_key.to_string()))
                 }
                 event => unreachable!("{event:?}"),
             }
@@ -193,13 +207,17 @@ where
         }
     }
 
-    fn sequence(&mut self, index: usize, curr_index: usize) -> Result<(usize, usize)> {
+    fn sequence(
+        &mut self,
+        index: usize,
+        curr_index: usize,
+    ) -> Result<(usize, usize), YamlSpanError> {
         let (event, marker) = self.events.next().expect("Need events");
         trace!("{event:?} {marker:?}");
         trace!("index: {index}, curr_index: {curr_index}");
 
         Ok(match event {
-            Event::SequenceEnd => bail!("Reached end of sequence before reaching index {index}"),
+            Event::SequenceEnd => return Err(YamlSpanError::EndOfSequenceNoIndex(index)),
             Event::Scalar(_, _, _, _) if index > curr_index => {
                 self.sequence(index, curr_index + 1)?
             }
@@ -236,15 +254,19 @@ where
         })
     }
 
-    fn value(&mut self) -> Result<(usize, usize)> {
+    fn value(&mut self) -> Result<(usize, usize), YamlSpanError> {
         let (event, marker) = self.events.next().unwrap();
         trace!("{event:?} {marker:?}");
         let key = self.path.next();
+        trace!("{key:?}");
 
         Ok(match (event, key) {
             (Event::Scalar(value, _, _, _), None) => (marker.index(), value.len()),
             (Event::Scalar(value, _, _, _), Some(segment)) => {
-                bail!("Encountered scalar value {value} when looking for {segment}")
+                return Err(YamlSpanError::UnexpectedScalar {
+                    value: value.to_owned(),
+                    segment: segment.to_string(),
+                })
             }
             (Event::MappingStart(_, _), Some(LocationSegment::Property(key))) => {
                 self.key(LocationSegment::Property(key))?
