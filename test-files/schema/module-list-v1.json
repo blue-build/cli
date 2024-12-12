@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "module-list-v1.json",
+  "type": "object",
+  "properties": {
+    "modules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModuleEntry"
+      },
+      "description": "A list of [modules](https://blue-build.org/reference/module/) that is executed in order. Multiple of the same module can be included.\n\nEach item in this list should have at least a `type:` or be specified to be included from an external file in the `recipes/` directory with `from-file:`."
+    }
+  },
+  "required": [
+    "modules"
+  ],
+  "$defs": {
+    "ModuleEntry": {
+      "anyOf": [
+        {
+          "$ref": "module-v1.json"
+        },
+        {
+          "$ref": "import-v1.json"
+        }
+      ]
+    }
+  }
+}

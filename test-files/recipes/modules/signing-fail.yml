@@ -1,0 +1,4 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/modules/signing.json
+type: signing
+dir: /dir

@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "module-v1.json",
+  "anyOf": [
+    {
+      "$ref": "#/$defs/RepoModule"
+    },
+    {
+      "$ref": "#/$defs/CustomModule"
+    }
+  ],
+  "$defs": {
+    "RepoModule": {
+      "anyOf": [
+        {
+          "$ref": "/modules/akmods-latest.json"
+        },
+        {
+          "$ref": "/modules/akmods-v1.json"
+        },
+        {
+          "$ref": "/modules/bling-latest.json"
+        },
+        {
+          "$ref": "/modules/bling-v1.json"
+        },
+        {
+          "$ref": "/modules/brew-latest.json"
+        },
+        {
+          "$ref": "/modules/brew-v1.json"
+        },
+        {
+          "$ref": "/modules/chezmoi-latest.json"
+        },
+        {
+          "$ref": "/modules/chezmoi-v1.json"
+        },
+        {
+          "$ref": "/modules/default-flatpaks-latest.json"
+        },
+        {
+          "$ref": "/modules/default-flatpaks-v1.json"
+        },
+        {
+          "$ref": "/modules/files-latest.json"
+        },
+        {
+          "$ref": "/modules/files-v1.json"
+        },
+        {
+          "$ref": "/modules/fonts-latest.json"
+        },
+        {
+          "$ref": "/modules/fonts-v1.json"
+        },
+        {
+          "$ref": "/modules/gnome-extensions-latest.json"
+        },
+        {
+          "$ref": "/modules/gnome-extensions-v1.json"
+        },
+        {
+          "$ref": "/modules/gschema-overrides-latest.json"
+        },
+        {
+          "$ref": "/modules/gschema-overrides-v1.json"
+        },
+        {
+          "$ref": "/modules/justfiles-latest.json"
+        },
+        {
+          "$ref": "/modules/justfiles-v1.json"
+        },
+        {
+          "$ref": "/modules/rpm-ostree-latest.json"
+        },
+        {
+          "$ref": "/modules/rpm-ostree-v1.json"
+        },
+        {
+          "$ref": "/modules/script-latest.json"
+        },
+        {
+          "$ref": "/modules/script-v1.json"
+        },
+        {
+          "$ref": "/modules/signing-latest.json"
+        },
+        {
+          "$ref": "/modules/signing-v1.json"
+        },
+        {
+          "$ref": "/modules/systemd-latest.json"
+        },
+        {
+          "$ref": "/modules/systemd-v1.json"
+        },
+        {
+          "$ref": "/modules/yafti-latest.json"
+        },
+        {
+          "$ref": "/modules/yafti-v1.json"
+        },
+        {
+          "$ref": "/modules/containerfile-latest.json"
+        },
+        {
+          "$ref": "/modules/containerfile-v1.json"
+        },
+        {
+          "$ref": "/modules/copy-latest.json"
+        },
+        {
+          "$ref": "/modules/copy-v1.json"
+        }
+      ]
+    },
+    "CustomModule": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "This is not a built-in module."
+        },
+        "source": {
+          "type": "string",
+          "description": "The image ref of the module repository (an OCI image) to pull the module from.\nIf this is a local module, set the value to 'local'.\nhttps://blue-build.org/reference/module/#source-optional"
+        },
+        "no-cache": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
+        }
+      },
+      "required": [
+        "type",
+        "source"
+      ],
+      "additionalProperties": {}
+    }
+  }
+}

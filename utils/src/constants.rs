@@ -1,3 +1,5 @@
+use constcat::concat;
+
 // Paths
 pub const ARCHIVE_SUFFIX: &str = "tar.gz";
 pub const CONFIG_PATH: &str = "./config";
@@ -87,6 +89,14 @@ pub const UNKNOWN_SHELL: &str = "<unknown shell>";
 pub const UNKNOWN_VERSION: &str = "<unknown version>";
 pub const UNKNOWN_TERMINAL: &str = "<unknown terminal>";
 pub const GITHUB_CHAR_LIMIT: usize = 8100; // Magic number accepted by Github
+
+// Schema
+pub const SCHEMA_BASE_URL: &str = "https://schema.blue-build.org";
+pub const RECIPE_V1_SCHEMA_URL: &str = concat!(SCHEMA_BASE_URL, "/recipe-v1.json");
+pub const STAGE_V1_SCHEMA_URL: &str = concat!(SCHEMA_BASE_URL, "/stage-v1.json");
+pub const MODULE_V1_SCHEMA_URL: &str = concat!(SCHEMA_BASE_URL, "/module-v1.json");
+pub const MODULE_STAGE_LIST_V1_SCHEMA_URL: &str =
+    concat!(SCHEMA_BASE_URL, "/module-stage-list-v1.json");
 
 // Messages
 pub const BUG_REPORT_WARNING_MESSAGE: &str =

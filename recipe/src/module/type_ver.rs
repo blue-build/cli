@@ -5,7 +5,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 #[derive(Debug, Clone)]
 pub struct ModuleTypeVersion<'scope> {
     typ: Cow<'scope, str>,
-    version: Cow<'scope, str>,
+    version: Option<Cow<'scope, str>>,
 }
 
 impl ModuleTypeVersion<'_> {
@@ -15,14 +15,21 @@ impl ModuleTypeVersion<'_> {
     }
 
     #[must_use]
-    pub fn version(&self) -> &str {
-        &self.version
+    pub fn version(&self) -> Option<&str> {
+        self.version.as_deref()
     }
 }
 
 impl std::fmt::Display for ModuleTypeVersion<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}@{}", &self.typ, &self.version)
+        match self.version.as_deref() {
+            Some(version) => {
+                write!(f, "{}@{version}", &self.typ)
+            }
+            None => {
+                write!(f, "{}", &self.typ)
+            }
+        }
     }
 }
 
@@ -31,12 +38,12 @@ impl<'scope> From<&'scope str> for ModuleTypeVersion<'scope> {
         if let Some((typ, version)) = s.split_once('@') {
             Self {
                 typ: Cow::Borrowed(typ),
-                version: Cow::Borrowed(version),
+                version: Some(Cow::Borrowed(version)),
             }
         } else {
             Self {
                 typ: Cow::Borrowed(s),
-                version: Cow::Owned("latest".into()),
+                version: None,
             }
         }
     }
@@ -47,12 +54,12 @@ impl From<String> for ModuleTypeVersion<'_> {
         if let Some((typ, version)) = s.split_once('@') {
             Self {
                 typ: Cow::Owned(typ.to_owned()),
-                version: Cow::Owned(version.to_owned()),
+                version: Some(Cow::Owned(version.to_owned())),
             }
         } else {
             Self {
                 typ: Cow::Owned(s),
-                version: Cow::Owned("latest".into()),
+                version: None,
             }
         }
     }

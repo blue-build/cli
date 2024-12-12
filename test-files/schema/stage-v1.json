@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "stage-v1.json",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "The name of the stage. This is used when referencing\nthe stage when using the from: property in the [`copy` module](https://blue-build.org/reference/modules/copy/)."
+    },
+    "from": {
+      "type": "string",
+      "description": "The full image ref (image name + tag). This will be set in the FROM statement of the stage."
+    },
+    "shell": {
+      "type": "string",
+      "description": "Allows a user to pass in an array of strings that are passed directly into the [`SHELL` instruction](https://docs.docker.com/reference/dockerfile/#shell)."
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ModuleEntry"
+      },
+      "description": "The list of modules to execute. The exact same syntax used by the main recipe `modules:` property."
+    }
+  },
+  "required": [
+    "name",
+    "from",
+    "modules"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "ModuleEntry": {
+      "anyOf": [
+        {
+          "$ref": "module-v1.json"
+        },
+        {
+          "$ref": "#/$defs/ImportedModule"
+        }
+      ]
+    },
+    "ImportedModule": {
+      "type": "object",
+      "properties": {
+        "from-file": {
+          "type": "string",
+          "description": "The path to another file containing module configuration to import here.\nhttps://blue-build.org/how-to/multiple-files/"
+        }
+      },
+      "required": [
+        "from-file"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

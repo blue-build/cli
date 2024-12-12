@@ -1,6 +1,8 @@
 use std::{borrow::Cow, path::PathBuf};
 
-use blue_build_utils::syntax_highlighting::highlight_ser;
+use blue_build_utils::{
+    constants::BLUE_BUILD_MODULE_IMAGE_REF, syntax_highlighting::highlight_ser,
+};
 use bon::Builder;
 use colored::Colorize;
 use indexmap::IndexMap;
@@ -93,6 +95,15 @@ impl<'a> ModuleRequiredFields<'a> {
         } else {
             Some(source)
         }
+    }
+
+    #[must_use]
+    pub fn get_module_image(&self) -> String {
+        format!(
+            "{BLUE_BUILD_MODULE_IMAGE_REF}/{}:{}",
+            self.module_type.typ(),
+            self.module_type.version().unwrap_or("latest")
+        )
     }
 
     #[must_use]

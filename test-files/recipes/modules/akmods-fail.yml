@@ -1,0 +1,5 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/modules/akmods.json
+type: akmods
+base: main
+install: openrgb

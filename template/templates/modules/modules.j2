@@ -22,7 +22,7 @@ RUN \
         {%- else if module.is_local_source() %}
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
         {%- else %}
-  --mount=type=bind,from={{ blue_build_utils::constants::BLUE_BUILD_MODULE_IMAGE_REF }}/{{ module.module_type.typ() }}:{{ module.module_type.version() }},src=/modules,dst=/tmp/modules,rw \
+  --mount=type=bind,from={{ module.get_module_image() }},src=/modules,dst=/tmp/modules,rw \
         {%- endif %}
         {%- if module.module_type.typ() == "akmods" %}
   --mount=type=bind,from=stage-akmods-{{ module.generate_akmods_info(os_version).stage_name }},src=/rpms,dst=/tmp/rpms,rw \
@@ -61,7 +61,7 @@ RUN \
         {%- else if module.is_local_source() %}
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
         {%- else %}
-  --mount=type=bind,from={{ blue_build_utils::constants::BLUE_BUILD_MODULE_IMAGE_REF }}/{{ module.module_type.typ() }}:{{ module.module_type.version() }},src=/modules,dst=/tmp/modules,rw \
+  --mount=type=bind,from={{ module.get_module_image() }},src=/modules,dst=/tmp/modules,rw \
         {%- endif %}
   --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/tmp/scripts/ \
   /tmp/scripts/run_module.sh '{{ module.module_type.typ() }}' '{{ module|json|safe }}'
