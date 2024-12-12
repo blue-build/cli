@@ -41,7 +41,7 @@ pub struct GenerateIsoCommand {
     ///
     /// The Server variant is the basic installer
     /// and will ask to setup a user at install time.
-    #[arg(short = 'V', long, default_value = "server")]
+    #[arg(short = 'V', long, default_value = "kinoite")]
     variant: GenIsoVariant,
 
     /// The url to the secure boot public key.
