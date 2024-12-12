@@ -1,0 +1,5 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/modules/justfiles.json
+type: justfiles
+validate: 'true'
+include: ./justfile

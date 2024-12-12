@@ -1,0 +1,17 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/modules/rpm-ostree.json
+type: rpm-ostree
+repos:
+  - test.repo
+keys:
+  - test.key
+optfix:
+  - test
+install:
+  - test
+remove:
+  - rmtest
+replace:
+  - from-repo: updates
+    packages:
+      - replacetest

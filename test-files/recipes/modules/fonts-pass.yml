@@ -1,0 +1,8 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/modules/fonts.json
+type: fonts
+fonts:
+  nerd-fonts:
+    - "JetbrainsMono"
+  google-fonts:
+    - "Test"

@@ -1,0 +1,5 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/modules/bling.json
+type: bling
+install:
+  - rpmfusion
