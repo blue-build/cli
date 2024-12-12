@@ -282,7 +282,7 @@ fn get_version_run_image(oci_ref: &Reference) -> Result<u64> {
             .args(bon::vec![
                 "/bin/bash",
                 "-c",
-                "grep -Po '(?<=VERSION_ID=)\\d+' /usr/lib/os-release",
+                r#"awk -F= '/^VERSION_ID=/ {gsub(/"/, "", $2); print $2}' /usr/lib/os-release"#,
             ])
             .pull(true)
             .remove(true)
