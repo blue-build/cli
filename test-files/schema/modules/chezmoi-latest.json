@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/modules/chezmoi.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "chezmoi",
+      "description": "The chezmoi module installs the latest chezmoi release at build time, along with services to clone a dotfile repository and keep it up-to-date.\nhttps://blue-build.org/reference/modules/chezmoi/"
+    },
+    "no-cache": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
+    },
+    "repository": {
+      "type": "string",
+      "description": "Git repository to initialize."
+    },
+    "branch": {
+      "type": "string",
+      "default": "",
+      "description": "Git branch of the chezmoi repository."
+    },
+    "all-users": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether to enable the modules services globally for all users, if false users need to enable services manually."
+    },
+    "run-every": {
+      "type": "string",
+      "default": "1d",
+      "description": "Dotfiles will be updated with this interval."
+    },
+    "wait-after-boot": {
+      "type": "string",
+      "default": "5m",
+      "description": "Dotfile updates will wait this long after a boot before running."
+    },
+    "disable-init": {
+      "type": "boolean",
+      "default": false,
+      "description": "Disable the service that initializes `repository` on users that are logged in or have linger enabled UI."
+    },
+    "disable-update": {
+      "type": "boolean",
+      "default": false,
+      "description": "Disable the timer that updates chezmoi with the set interval."
+    },
+    "file-conflict-policy": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "skip"
+        },
+        {
+          "type": "string",
+          "const": "replace"
+        }
+      ],
+      "default": "skip",
+      "description": "What to do when file different that exists on your repo is has been changed or exists locally. Accepts \"skip\" or \"replace\"."
+    }
+  },
+  "required": [
+    "type",
+    "repository"
+  ],
+  "additionalProperties": false
+}

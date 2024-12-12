@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/modules/script.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "script",
+      "description": "The script module can be used to run arbitrary bash snippets and scripts at image build time.\nhttps://blue-build.org/reference/modules/script/"
+    },
+    "no-cache": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
+    },
+    "snippets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of bash one-liners to run."
+    },
+    "scripts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of script files to run."
+    }
+  },
+  "required": [
+    "type"
+  ],
+  "additionalProperties": false
+}

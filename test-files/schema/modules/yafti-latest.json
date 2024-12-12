@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/modules/yafti.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "yafti",
+      "description": "The yafti module can be used to install yafti and set it up to run on first boot.\nhttps://blue-build.org/reference/modules/yafti/"
+    },
+    "no-cache": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
+    },
+    "custom-flatpaks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RecordString"
+      },
+      "description": "List of custom Flatpaks to inject to the default yafti.yml. Format is: `PrettyName: org.example.flatpak_id`"
+    }
+  },
+  "required": [
+    "type"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "RecordString": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  }
+}

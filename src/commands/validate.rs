@@ -7,16 +7,17 @@ use std::{
 
 use blue_build_process_management::ASYNC_RUNTIME;
 use blue_build_recipe::{FromFileList, ModuleExt, Recipe, StagesExt};
+use blue_build_utils::constants::{
+    MODULE_STAGE_LIST_V1_SCHEMA_URL, MODULE_V1_SCHEMA_URL, RECIPE_V1_SCHEMA_URL,
+    STAGE_V1_SCHEMA_URL,
+};
 use bon::Builder;
 use clap::Args;
 use colored::Colorize;
 use log::{debug, info, trace};
 use miette::{bail, miette, Context, IntoDiagnostic, Report};
 use rayon::prelude::*;
-use schema_validator::{
-    SchemaValidator, MODULE_STAGE_LIST_V1_SCHEMA_URL, MODULE_V1_SCHEMA_URL, RECIPE_V1_SCHEMA_URL,
-    STAGE_V1_SCHEMA_URL,
-};
+use schema_validator::SchemaValidator;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
@@ -97,11 +98,21 @@ impl BlueBuildCommand for ValidateCommand {
 impl ValidateCommand {
     async fn setup_validators(&mut self) -> Result<(), Report> {
         let (rv, sv, mv, mslv) = tokio::try_join!(
-            SchemaValidator::builder().url(RECIPE_V1_SCHEMA_URL).build(),
-            SchemaValidator::builder().url(STAGE_V1_SCHEMA_URL).build(),
-            SchemaValidator::builder().url(MODULE_V1_SCHEMA_URL).build(),
+            SchemaValidator::builder()
+                .url(RECIPE_V1_SCHEMA_URL)
+                .all_errors(self.all_errors)
+                .build(),
+            SchemaValidator::builder()
+                .url(STAGE_V1_SCHEMA_URL)
+                .all_errors(self.all_errors)
+                .build(),
+            SchemaValidator::builder()
+                .url(MODULE_V1_SCHEMA_URL)
+                .all_errors(self.all_errors)
+                .build(),
             SchemaValidator::builder()
                 .url(MODULE_STAGE_LIST_V1_SCHEMA_URL)
+                .all_errors(self.all_errors)
                 .build(),
         )?;
         self.recipe_validator = Some(rv);
@@ -149,15 +160,12 @@ impl ValidateCommand {
 
                 if instance.get(DF::LIST_KEY).is_some() {
                     debug!("{path_display} is a list file");
-                    let err = match self
+                    let err = self
                         .module_stage_list_validator
                         .as_ref()
                         .unwrap()
-                        .process_validation(path, file_str.clone(), self.all_errors)
-                    {
-                        Err(e) => return vec![e],
-                        Ok(e) => e,
-                    };
+                        .process_validation(path, file_str.clone())
+                        .err();
 
                     err.map_or_else(
                         || {
@@ -195,13 +203,13 @@ impl ValidateCommand {
                                     },
                                 )
                         },
-                        |err| vec![err],
+                        |err| vec![err.into()],
                     )
                 } else {
                     debug!("{path_display} is a single file file");
                     single_validator
-                        .process_validation(path, file_str, self.all_errors)
-                        .map_or_else(|e| vec![e], |e| e.map_or_else(Vec::new, |e| vec![e]))
+                        .process_validation(path, file_str)
+                        .map_or_else(|e| vec![e.into()], |()| Vec::new())
                 }
             }
             Err(e) => vec![e],
@@ -221,11 +229,11 @@ impl ValidateCommand {
 
         let schema_validator = self.recipe_validator.as_ref().unwrap();
         let err = schema_validator
-            .process_validation(&self.recipe, recipe_str.clone(), self.all_errors)
-            .map_err(err_vec)?;
+            .process_validation(&self.recipe, recipe_str.clone())
+            .err();
 
         if let Some(err) = err {
-            Err(vec![err])
+            Err(vec![err.into()])
         } else {
             let recipe: Recipe = serde_yaml::from_str(&recipe_str)
                 .into_diagnostic()

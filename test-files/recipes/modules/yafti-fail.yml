@@ -1,0 +1,5 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/modules/yafti.json
+type: yafti
+custom-flatpaks:
+  - test.org

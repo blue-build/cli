@@ -1,0 +1,11 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/stage-list-v1.json
+stages: 
+  - from: test
+    name:
+      - test
+    modules:
+      type: script
+      snippets:
+        - echo test
+

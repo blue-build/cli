@@ -1,0 +1,4 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/modules/gschema-overrides.json
+type: gschema-overrides
+include: test

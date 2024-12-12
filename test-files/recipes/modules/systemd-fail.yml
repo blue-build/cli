@@ -1,0 +1,18 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/modules/systemd.json
+type: systemd
+system:
+  enabled:
+    - test.service
+  disabled: disable-test.service
+  masked:
+    - masked-test.service
+  unmasked: unmasked-test.service
+user:
+  enabled: test.service
+  disabled:
+    - disable-test.service
+  masked:
+    - test: masked-test.service
+  unmasked:
+    - unmasked-test.service

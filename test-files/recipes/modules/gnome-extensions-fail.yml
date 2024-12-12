@@ -1,0 +1,5 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/modules/gnome-extensions.json
+type: gnome-extensions
+install: test
+uninstall: rmtest
