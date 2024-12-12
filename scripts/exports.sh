@@ -45,7 +45,7 @@ color_string() {
 }
 
 # Parse OS version and export it
-export OS_VERSION="$(grep -Po "(?<=VERSION_ID=)\d+" /usr/lib/os-release)"
+export OS_VERSION="$(awk -F= '/^VERSION_ID=/ {gsub(/"/, "", $2); print $2}' /usr/lib/os-release)"
 export OS_ARCH="$(uname -m)"
 
 # Export functions for use in sub-shells or sourced scripts

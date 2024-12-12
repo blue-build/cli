@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ -f /etc/os-release ]; then
-  export ID="$(cat /etc/os-release | grep -E '^ID=' | awk -F '=' '{print $2}')"
+  export ID="$(awk -F= '/^ID=/ {gsub(/"/, "", $2); print $2}' /etc/os-release)"
 
   if [ "$ID" = "alpine" ]; then
     echo "Setting up Alpine based image to run BlueBuild modules"
