@@ -173,7 +173,7 @@ impl BuildDriver for BuildahDriver {
             "buildah",
             "prune",
             "--force",
-            if opts.all => "-all",
+            if opts.all => "--all",
         )
         .message_status("buildah prune", "Pruning Buildah System")
         .into_diagnostic()?;

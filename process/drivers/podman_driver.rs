@@ -260,7 +260,7 @@ impl BuildDriver for PodmanDriver {
             "system",
             "prune",
             "--force",
-            if opts.all => "-all",
+            if opts.all => "--all",
             if opts.volumes => "--volumes",
         )
         .message_status("podman system prune", "Pruning Podman System")
