@@ -333,10 +333,9 @@ jobs:
           GH_PR_EVENT_NUMBER: ${{ github.event.number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
         run: |
-          just install-debug-all-features
-          cd integration-tests/test-repo
           export CARGO_HOME=$HOME/.cargo
-          sudo -E $CARGO_HOME/bin/bluebuild build --push -vv --rechunk recipes/recipe-rechunk.yml
+          just test-fresh-rechunk-build
+          just test-rechunk-build
 
   arm64-build:
     timeout-minutes: 40

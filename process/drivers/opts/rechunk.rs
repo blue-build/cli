@@ -45,4 +45,7 @@ pub struct RechunkOpts<'scope> {
     #[builder(default)]
     pub compression: CompressionType,
     pub tempdir: Option<&'scope Path>,
+
+    #[builder(default)]
+    pub clear_plan: bool,
 }
