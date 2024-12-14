@@ -25,6 +25,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           fetch-depth: 0
           ref: ${{github.event.pull_request.head.ref}}
           repository: ${{github.event.pull_request.head.repo.full_name}}
@@ -43,6 +44,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           fetch-depth: 0
           ref: ${{github.event.pull_request.head.ref}}
           repository: ${{github.event.pull_request.head.repo.full_name}}
@@ -78,6 +80,7 @@ jobs:
       # Setup repo and add caching
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: main
 
       - name: Login to GitHub Container Registry
@@ -119,6 +122,7 @@ jobs:
       # Setup repo and add caching
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: main
 
       - name: Login to GitHub Container Registry
@@ -158,6 +162,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           fetch-depth: 0
           ref: ${{github.event.pull_request.head.ref}}
           repository: ${{github.event.pull_request.head.repo.full_name}}
@@ -204,6 +209,7 @@ jobs:
       # Setup repo and add caching
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: main
 
       - name: Login to GitHub Container Registry
@@ -240,6 +246,7 @@ jobs:
       # Setup repo and add caching
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: main
 
       - name: Run integration tests
@@ -275,6 +282,7 @@ jobs:
       # Setup repo and add caching
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: main
 
       - name: Expose GitHub Runtime
@@ -311,6 +319,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: main
 
       - name: Expose GitHub Runtime
@@ -355,6 +364,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           fetch-depth: 0
           ref: ${{github.event.pull_request.head.ref}}
           repository: ${{github.event.pull_request.head.repo.full_name}}
@@ -406,6 +416,7 @@ jobs:
       # Setup repo and add caching
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: main
 
 
@@ -514,6 +525,7 @@ jobs:
       # Setup repo and add caching
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: main
 
 
@@ -560,6 +572,7 @@ jobs:
       # Setup repo and add caching
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           ref: main
 
 
@@ -598,6 +611,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           fetch-depth: 0
           ref: ${{github.event.pull_request.head.ref}}
           repository: ${{github.event.pull_request.head.repo.full_name}}
@@ -641,6 +655,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           fetch-depth: 0
           ref: ${{github.event.pull_request.head.ref}}
           repository: ${{github.event.pull_request.head.repo.full_name}}
