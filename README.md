@@ -118,7 +118,7 @@ You can then use this with `podman` or `buildah` to build and publish your image
 If you don't care about the details of the template, you can run the `build` command.
 
 ```bash
-bluebuild build ./recipes/recipe.yaml
+bluebuild build ./recipes/recipe.yml
 ```
 
 This will template out the file and build with `buildah` or `podman`.
@@ -183,7 +183,7 @@ You can initiate an immediate restart by adding the `--reboot/-r` option.
 
 ##### GitHub
 
-You can use our [GitHub Action](https://github.com/blue-build/github-action) by using the following `.github/workflows/build.yaml`:
+You can use our [GitHub Action](https://github.com/blue-build/github-action) by using the following `.github/workflows/build.yml`:
 
 ```yaml
 name: bluebuild
