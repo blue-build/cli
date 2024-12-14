@@ -14,8 +14,8 @@ use blue_build_process_management::{
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{
-        ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, CONFIG_PATH, CONTAINER_FILE, RECIPE_FILE,
-        RECIPE_PATH,
+        ARCHIVE_SUFFIX, BB_BUILD_RECHUNK, BB_BUILD_RECHUNK_CLEAR_PLAN, BB_REGISTRY_NAMESPACE,
+        CONFIG_PATH, CONTAINER_FILE, RECIPE_FILE, RECIPE_PATH,
     },
     cowstr,
     credentials::{Credentials, CredentialsArgs},
@@ -111,14 +111,24 @@ pub struct BuildCommand {
     squash: bool,
 
     /// Performs rechunking on the image to allow for smaller images
-    /// and smaller updates. This will increase the build-time
+    /// and smaller updates.
+    ///
+    /// WARN: This will increase the build-time
     /// and take up more space during build-time.
     ///
     /// NOTE: This must be run as root!
-    #[arg(long, group = "archive_rechunk")]
+    #[arg(long, group = "archive_rechunk", env = BB_BUILD_RECHUNK)]
     #[builder(default)]
     #[cfg(feature = "rechunk")]
     rechunk: bool,
+
+    /// Use a fresh rechunk plan, regardless of previous ref.
+    ///
+    /// NOTE: Only works with `--rechunk`.
+    #[arg(long, env = BB_BUILD_RECHUNK_CLEAR_PLAN)]
+    #[builder(default)]
+    #[cfg(feature = "rechunk")]
+    rechunk_clear_plan: bool,
 
     /// The location to temporarily store files
     /// while building. If unset, it will use `/tmp`.
@@ -359,6 +369,7 @@ impl BuildCommand {
                     .description(&*recipe.description)
                     .base_image(format!("{}:{}", &recipe.base_image, &recipe.image_version))
                     .maybe_tempdir(self.tempdir.as_deref())
+                    .clear_plan(self.rechunk_clear_plan)
                     .build(),
             )?
         } else {

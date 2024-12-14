@@ -296,6 +296,7 @@ jobs:
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
         run: |
           export CARGO_HOME=$HOME/.cargo
+          just test-fresh-rechunk-build
           just test-rechunk-build
 
   arm64-build:

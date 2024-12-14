@@ -22,6 +22,8 @@ pub const BB_PRIVATE_KEY: &str = "BB_PRIVATE_KEY";
 pub const BB_REGISTRY: &str = "BB_REGISTRY";
 pub const BB_REGISTRY_NAMESPACE: &str = "BB_REGISTRY_NAMESPACE";
 pub const BB_USERNAME: &str = "BB_USERNAME";
+pub const BB_BUILD_RECHUNK: &str = "BB_BUILD_RECHUNK";
+pub const BB_BUILD_RECHUNK_CLEAR_PLAN: &str = "BB_BUILD_RECHUNK_CLEAR_PLAN";
 
 // Docker vars
 pub const DOCKER_HOST: &str = "DOCKER_HOST";

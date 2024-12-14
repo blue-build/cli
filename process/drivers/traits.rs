@@ -442,7 +442,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                 "REPO" => "/var/ostree/repo",
                 "PREV_REF" => &*opts.image,
                 "OUT_NAME" => ostree_cache_id,
-                // "PREV_REF_FAIL" => "true",
+                "CLEAR_PLAN" => if opts.clear_plan { "true" } else { "" },
                 "VERSION" => format!("{}", opts.version),
                 "OUT_REF" => format!("oci:{ostree_cache_id}"),
                 "GIT_DIR" => "/var/git",

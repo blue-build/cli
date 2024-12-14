@@ -155,6 +155,15 @@ test-rechunk-build: install-debug-all-features
     --rechunk \
     recipes/recipe-rechunk.yml
 
+test-fresh-rechunk-build: install-debug-all-features
+  cd integration-tests/test-repo \
+  && sudo -E {{ cargo_bin }}/bluebuild build \
+    {{ should_push }} \
+    -vv \
+    --rechunk \
+    --rechunk-clear-plan \
+    recipes/recipe-rechunk.yml
+
 # Run arm integration test
 test-arm64-build: install-debug-all-features
   cd integration-tests/test-repo \
