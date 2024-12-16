@@ -76,7 +76,7 @@ os_info = "3"
 rayon = { version = "1", optional = true }
 regex = { version = "1", optional = true }
 requestty = { version = "0.5", features = ["macros", "termion"] }
-shadow-rs = { version = "0.36", default-features = false }
+shadow-rs = { version = "0.37", default-features = false }
 urlencoding = "2"
 yaml-rust2 = { version = "0.9", optional = true }
 
@@ -151,7 +151,7 @@ rusty-hook = "0.11"
 rstest.workspace = true
 
 [build-dependencies]
-shadow-rs = { version = "0.36", default-features = false }
+shadow-rs = { version = "0.37", default-features = false }
 
 [lints]
 workspace = true
