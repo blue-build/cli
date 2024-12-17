@@ -1,7 +1,7 @@
-use shadow_rs::SdResult;
+use shadow_rs::ShadowBuilder;
 
-fn main() -> SdResult<()> {
+fn main() {
     println!("cargo:rerun-if-changed=.git/HEAD");
     println!("cargo:rerun-if-changed=.git/refs/heads");
-    shadow_rs::new()
+    ShadowBuilder::builder().build().unwrap();
 }
