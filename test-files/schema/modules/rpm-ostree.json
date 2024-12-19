@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/modules/rpm-ostree.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "rpm-ostree",
+      "description": "The rpm-ostree module offers pseudo-declarative package and repository management using rpm-ostree.\nhttps://blue-build.org/reference/modules/rpm-ostree/"
+    },
+    "no-cache": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
+    },
+    "repos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of links to .repo files to download into /etc/yum.repos.d/."
+    },
+    "keys": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of links to key files to import for installing from custom repositories."
+    },
+    "optfix": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of folder names under /opt/ to enable for installing into."
+    },
+    "install": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of RPM packages to install."
+    },
+    "remove": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of RPM packages to remove."
+    },
+    "replace": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from-repo": {
+            "type": "string",
+            "description": "URL to the source COPR repo for the new packages."
+          },
+          "packages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of packages to replace using packages from the defined repo."
+          }
+        },
+        "required": [
+          "from-repo",
+          "packages"
+        ]
+      },
+      "description": "List of configurations for `rpm-ostree override replace`ing packages."
+    }
+  },
+  "required": [
+    "type"
+  ],
+  "additionalProperties": false
+}

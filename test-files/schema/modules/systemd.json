@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/modules/systemd.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "systemd",
+      "description": "The systemd module streamlines the management of systemd units during image building.\nhttps://blue-build.org/reference/modules/systemd/"
+    },
+    "no-cache": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
+    },
+    "system": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of systemd units to enable. (runs on system boot)"
+        },
+        "disabled": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of systemd units to disable. (does not run on system boot, unless another unit strictly requires it)"
+        },
+        "masked": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of systemd units to mask. (does not run on system boot, under any circumstances)"
+        },
+        "unmasked": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of systemd units to unmask. (runs on system boot, even if previously masked)"
+        }
+      },
+      "description": "System unit configuration."
+    },
+    "user": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of systemd units to enable. (runs for the users)"
+        },
+        "disabled": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of systemd units to disable. (does not run for the users, unless another unit strictly requires it)"
+        },
+        "masked": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of systemd units to mask. (does not run for the users, under any circumstances)"
+        },
+        "unmasked": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of systemd units to unmask. (runs for the users, even if previously masked)"
+        }
+      },
+      "description": "User unit configuration (with --global to make changes for all users)."
+    }
+  },
+  "required": [
+    "type"
+  ],
+  "additionalProperties": false
+}

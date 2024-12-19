@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "stage-list-v1.json",
+  "type": "object",
+  "properties": {
+    "stages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StageEntry"
+      },
+      "description": "A list of [stages](https://blue-build.org/reference/stages/) that are executed before the build of the final image.\nThis is useful for compiling programs from source without polluting the final bootable image."
+    }
+  },
+  "required": [
+    "stages"
+  ],
+  "$defs": {
+    "StageEntry": {
+      "anyOf": [
+        {
+          "$ref": "stage-v1.json"
+        },
+        {
+          "$ref": "#/$defs/ImportedModule"
+        }
+      ]
+    },
+    "ImportedModule": {
+      "type": "object",
+      "properties": {
+        "from-file": {
+          "type": "string",
+          "description": "The path to another file containing module configuration to import here.\nhttps://blue-build.org/how-to/multiple-files/"
+        }
+      },
+      "required": [
+        "from-file"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

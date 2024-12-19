@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/modules/gnome-extensions.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "gnome-extensions",
+      "description": "The gnome-extensions module can be used to install GNOME extensions inside system directory.\nhttps://blue-build.org/reference/modules/gnome-extensions/"
+    },
+    "no-cache": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
+    },
+    "install": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          }
+        ]
+      },
+      "description": "List of GNOME extensions to install. \n(case sensitive extension names or extension IDs from https://extensions.gnome.org/)"
+    },
+    "uninstall": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of system GNOME extensions to uninstall. \nOnly use this to remove extensions not installed by your package manager. Those extensions should be uninstalled using the package manager instead."
+    }
+  },
+  "required": [
+    "type"
+  ],
+  "additionalProperties": false
+}

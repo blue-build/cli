@@ -1,0 +1,11 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/modules/chezmoi.json
+type: chezmoi
+repository: 'test-repo.git'
+branch: 'main'
+all-users: "true"
+run-every: "1d"
+wait-after-boot: "5m"
+disable-init: false
+disable-update: "false"
+file-conflict-policy: none
