@@ -24,7 +24,7 @@ COPY ./modules /modules
 # stage process so that adding the bins into the image
 # can be added to the ostree commits.
 FROM scratch AS stage-bins
-COPY --from=ghcr.io/sigstore/cosign/cosign /ko-app/cosign /bins/cosign
+COPY --from={{ blue_build_utils::constants::COSIGN_IMAGE }} /ko-app/cosign /bins/cosign
 COPY --from=ghcr.io/blue-build/cli:
 {%- if let Some(tag) = recipe.blue_build_tag -%}
 {{ tag }}
