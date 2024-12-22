@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.1] - 2024-12-22
+
+### Bug Fixes
+
+- Prevent certain builds from running when the PR is from a fork
+- Set kinoite as the default variant for generating an ISO
+- Typo in --all arg for buildah and podman prune
+- Use ghcr for cosign (#304)
+
+### Features
+
+- Add the ability to choose a tempdir for builds
+- Allow fresh rechunking of image
+
+### Miscellaneous Tasks
+
+- Copy signing keys to `/etc/` only (#288)
+- Remove unused force arg
+- Use consistent syntax for getting information from os-release
+- Add Github Action auditing
+- Upgrade shadow-rs
+
+### Readme
+
+- Change file paths to match template
+
 ## [0.9.0] - 2024-12-03
 
 ### Features
@@ -11,6 +37,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Prepare for the v0.9.0 release
+- Release
 
 ## [0.8.25] - 2024-12-02
 
@@ -666,21 +693,9 @@ All notable changes to this project will be documented in this file.
 
 ### Miscellaneous Tasks
 
-- Create GitHub Workflow (#9)
-- Don't build integration tests in +all
-- Allow write for contents and id-token
-- Allow workflow_dispatch on build
-- Use docker/login-action@v3
-- Set packages permissions to write
-- Update README.md (#10)
-- Use GHCR for install.sh (#11)
-- Remove input for release
-- Add CARGO_REGISTRY_TOKEN
-- Fetch all to get history for changelog updates
-- Allow write for id-token
 - Bump version
 
-## [0.5.2] - 2024-01-22
+## [0.5.2] - 2024-01-24
 
 ### Bug Fixes
 
@@ -700,6 +715,18 @@ All notable changes to this project will be documented in this file.
 
 - Update Cargo.toml with new repo URL
 - Manual bump of version
+- Create GitHub Workflow (#9)
+- Don't build integration tests in +all
+- Allow write for contents and id-token
+- Allow workflow_dispatch on build
+- Use docker/login-action@v3
+- Set packages permissions to write
+- Update README.md (#10)
+- Use GHCR for install.sh (#11)
+- Remove input for release
+- Add CARGO_REGISTRY_TOKEN
+- Fetch all to get history for changelog updates
+- Allow write for id-token
 
 ## [0.5.1] - 2024-01-22
 
