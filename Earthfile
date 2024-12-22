@@ -241,7 +241,7 @@ installer:
     SAVE ARTIFACT /out/bluebuild
 
 cosign:
-    FROM gcr.io/projectsigstore/cosign
+    FROM ghcr.io/sigstore/cosign/cosign:v2.4.1
     SAVE ARTIFACT /ko-app/cosign
 
 digest:
