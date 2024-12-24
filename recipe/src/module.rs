@@ -11,11 +11,15 @@ use serde_yaml::Value;
 
 use crate::{base_recipe_path, AkmodsInfo, ModuleExt};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Builder, Default)]
+mod type_ver;
+
+pub use type_ver::*;
+
+#[derive(Serialize, Deserialize, Debug, Clone, Builder)]
 pub struct ModuleRequiredFields<'a> {
     #[builder(into)]
     #[serde(rename = "type")]
-    pub module_type: Cow<'a, str>,
+    pub module_type: ModuleTypeVersion<'a>,
 
     #[builder(into)]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -42,7 +46,7 @@ const fn is_false(b: &bool) -> bool {
 impl<'a> ModuleRequiredFields<'a> {
     #[must_use]
     pub fn get_module_type_list(&'a self, typ: &str, list_key: &str) -> Option<Vec<String>> {
-        if self.module_type == typ {
+        if self.module_type.typ() == typ {
             Some(
                 self.config
                     .get(list_key)?
@@ -221,7 +225,7 @@ impl Module<'_> {
                         required_fields: None,
                         from_file: Some(file_name),
                     } => {
-                        let file_name = PathBuf::from(file_name.as_ref());
+                        let file_name = PathBuf::from(&**file_name);
                         if traversed_files.contains(&file_name) {
                             bail!(
                                 "{} File {} has already been parsed:\n{traversed_files:?}",
@@ -264,14 +268,21 @@ impl Module<'_> {
     }
 
     #[must_use]
+    #[allow(clippy::missing_panics_doc)]
     pub fn example() -> Self {
         Self::builder()
             .required_fields(
                 ModuleRequiredFields::builder()
-                    .module_type("module-name")
+                    .module_type("script")
                     .config(IndexMap::from_iter([
-                        ("module".to_string(), Value::String("config".to_string())),
-                        ("goes".to_string(), Value::String("here".to_string())),
+                        (
+                            "snippets".to_string(),
+                            Value::Sequence(bon::vec!["echo 'Hello World!'"]),
+                        ),
+                        (
+                            "scripts".to_string(),
+                            Value::Sequence(bon::vec!["install-program.sh"]),
+                        ),
                     ]))
                     .build(),
             )
