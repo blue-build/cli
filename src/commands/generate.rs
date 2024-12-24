@@ -17,6 +17,7 @@ use cached::proc_macro::cached;
 use clap::{crate_version, Args};
 use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Result};
+use oci_distribution::Reference;
 
 #[cfg(feature = "validate")]
 use crate::commands::validate::ValidateCommand;
@@ -132,6 +133,10 @@ impl GenerateCommand {
 
         info!("Templating for recipe at {}", recipe_path.display());
 
+        let base_image: Reference = format!("{}:{}", &recipe.base_image, &recipe.image_version)
+            .parse()
+            .into_diagnostic()?;
+
         let template = ContainerFileTemplate::builder()
             .os_version(
                 Driver::get_os_version()
@@ -144,12 +149,11 @@ impl GenerateCommand {
             .recipe_path(recipe_path.as_path())
             .registry(registry)
             .repo(Driver::get_repo_url()?)
-            .build_scripts_image(determine_scripts_tag(self.platform)?)
+            .build_scripts_image(determine_scripts_tag(self.platform)?.to_string())
             .base_digest(
                 Driver::get_metadata(
                     &GetMetadataOpts::builder()
-                        .image(&*recipe.base_image)
-                        .tag(&*recipe.image_version)
+                        .image(&base_image)
                         .platform(self.platform)
                         .build(),
                 )?
@@ -178,24 +182,30 @@ impl GenerateCommand {
     convert = r#"{ platform }"#,
     sync_writes = true
 )]
-fn determine_scripts_tag(platform: Platform) -> Result<String> {
-    let version = format!("v{}", crate_version!());
-    let opts = GetMetadataOpts::builder()
-        .image(BUILD_SCRIPTS_IMAGE_REF)
-        .platform(platform);
+fn determine_scripts_tag(platform: Platform) -> Result<Reference> {
+    let image: Reference = format!("{BUILD_SCRIPTS_IMAGE_REF}:{}", shadow::COMMIT_HASH)
+        .parse()
+        .into_diagnostic()?;
+    let opts = GetMetadataOpts::builder().platform(platform);
 
-    Driver::get_metadata(&opts.clone().tag(shadow::COMMIT_HASH).build())
+    Driver::get_metadata(&opts.clone().image(&image).build())
         .inspect_err(|e| trace!("{e:?}"))
-        .map(|_| format!("{BUILD_SCRIPTS_IMAGE_REF}:{}", shadow::COMMIT_HASH))
+        .map(|_| image)
         .or_else(|_| {
-            Driver::get_metadata(&opts.clone().tag(shadow::BRANCH).build())
+            let image: Reference = format!("{BUILD_SCRIPTS_IMAGE_REF}:{}", shadow::BRANCH)
+                .parse()
+                .into_diagnostic()?;
+            Driver::get_metadata(&opts.clone().image(&image).build())
                 .inspect_err(|e| trace!("{e:?}"))
-                .map(|_| format!("{BUILD_SCRIPTS_IMAGE_REF}:{}", shadow::BRANCH))
+                .map(|_| image)
         })
         .or_else(|_| {
-            Driver::get_metadata(&opts.tag(&version).build())
+            let image: Reference = format!("{BUILD_SCRIPTS_IMAGE_REF}:v{}", crate_version!())
+                .parse()
+                .into_diagnostic()?;
+            Driver::get_metadata(&opts.image(&image).build())
                 .inspect_err(|e| trace!("{e:?}"))
-                .map(|_| format!("{BUILD_SCRIPTS_IMAGE_REF}:{version}"))
+                .map(|_| image)
         })
         .inspect(|image| debug!("Using build scripts image: {image}"))
 }

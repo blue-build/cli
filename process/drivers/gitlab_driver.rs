@@ -238,11 +238,11 @@ mod test {
         setup_default_branch,
         None,
         string_vec![
-            format!("{}-40", &*TIMESTAMP),
+            format!("{}-41", &*TIMESTAMP),
             "latest",
             &*TIMESTAMP,
-            format!("{COMMIT_SHA}-40"),
-            "40",
+            format!("{COMMIT_SHA}-41"),
+            "41",
         ],
     )]
     #[case::default_branch_alt_tags(
@@ -250,43 +250,43 @@ mod test {
         Some(bon::vec![TEST_TAG_1, TEST_TAG_2]),
         string_vec![
             TEST_TAG_1,
-            format!("{TEST_TAG_1}-40"),
-            format!("{}-{TEST_TAG_1}-40", &*TIMESTAMP),
-            format!("{COMMIT_SHA}-{TEST_TAG_1}-40"),
+            format!("{TEST_TAG_1}-41"),
+            format!("{}-{TEST_TAG_1}-41", &*TIMESTAMP),
+            format!("{COMMIT_SHA}-{TEST_TAG_1}-41"),
             TEST_TAG_2,
-            format!("{TEST_TAG_2}-40"),
-            format!("{}-{TEST_TAG_2}-40", &*TIMESTAMP),
-            format!("{COMMIT_SHA}-{TEST_TAG_2}-40"),
+            format!("{TEST_TAG_2}-41"),
+            format!("{}-{TEST_TAG_2}-41", &*TIMESTAMP),
+            format!("{COMMIT_SHA}-{TEST_TAG_2}-41"),
         ],
     )]
     #[case::pr_branch(
         setup_mr_branch,
         None,
-        string_vec!["mr-12-40", format!("{COMMIT_SHA}-40")],
+        string_vec!["mr-12-41", format!("{COMMIT_SHA}-41")],
     )]
     #[case::pr_branch_alt_tags(
         setup_mr_branch,
         Some(bon::vec![TEST_TAG_1, TEST_TAG_2]),
         string_vec![
-            format!("mr-12-{TEST_TAG_1}-40"),
-            format!("{COMMIT_SHA}-{TEST_TAG_1}-40"),
-            format!("mr-12-{TEST_TAG_2}-40"),
-            format!("{COMMIT_SHA}-{TEST_TAG_2}-40"),
+            format!("mr-12-{TEST_TAG_1}-41"),
+            format!("{COMMIT_SHA}-{TEST_TAG_1}-41"),
+            format!("mr-12-{TEST_TAG_2}-41"),
+            format!("{COMMIT_SHA}-{TEST_TAG_2}-41"),
         ],
     )]
     #[case::branch(
         setup_branch,
         None,
-        string_vec![format!("{COMMIT_SHA}-40"), "br-test-40"],
+        string_vec![format!("{COMMIT_SHA}-41"), "br-test-41"],
     )]
     #[case::branch_alt_tags(
         setup_branch,
         Some(bon::vec![TEST_TAG_1, TEST_TAG_2]),
         string_vec![
-            format!("br-{BR_REF_NAME}-{TEST_TAG_1}-40"),
-            format!("{COMMIT_SHA}-{TEST_TAG_1}-40"),
-            format!("br-{BR_REF_NAME}-{TEST_TAG_2}-40"),
-            format!("{COMMIT_SHA}-{TEST_TAG_2}-40"),
+            format!("br-{BR_REF_NAME}-{TEST_TAG_1}-41"),
+            format!("{COMMIT_SHA}-{TEST_TAG_1}-41"),
+            format!("br-{BR_REF_NAME}-{TEST_TAG_2}-41"),
+            format!("{COMMIT_SHA}-{TEST_TAG_2}-41"),
         ],
     )]
     fn generate_tags(
