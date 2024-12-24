@@ -26,6 +26,7 @@ use bon::Builder;
 use clap::Args;
 use log::{info, trace, warn};
 use miette::{bail, IntoDiagnostic, Result};
+use oci_distribution::Reference;
 use tempfile::TempDir;
 
 use crate::commands::generate::GenerateCommand;
@@ -299,12 +300,15 @@ impl BuildCommand {
                 .build(),
         )?;
         let image_name = self.image_name(&recipe)?;
+        let image: Reference = format!("{image_name}:{}", tags.first().map_or("latest", |tag| tag))
+            .parse()
+            .into_diagnostic()?;
 
         let build_fn = || -> Result<Vec<String>> {
             Driver::build_tag_push(&self.archive.as_ref().map_or_else(
                 || {
                     BuildTagPushOpts::builder()
-                        .image(&image_name)
+                        .image(&image)
                         .containerfile(containerfile)
                         .platform(self.platform)
                         .tags(tags.collect_cow_vec())
@@ -319,11 +323,11 @@ impl BuildCommand {
                     BuildTagPushOpts::builder()
                         .containerfile(containerfile)
                         .platform(self.platform)
-                        .archive_path(format!(
+                        .archive_path(PathBuf::from(format!(
                             "{}/{}.{ARCHIVE_SUFFIX}",
                             archive_dir.to_string_lossy().trim_end_matches('/'),
                             recipe.name.to_lowercase().replace('/', "_"),
-                        ))
+                        )))
                         .squash(self.squash)
                         .build()
                 },
@@ -336,6 +340,10 @@ impl BuildCommand {
                 opts::{GetMetadataOpts, RechunkOpts},
                 InspectDriver, RechunkDriver,
             };
+
+            let base_image: Reference = format!("{}:{}", &recipe.base_image, &recipe.image_version)
+                .parse()
+                .into_diagnostic()?;
 
             Driver::rechunk(
                 &RechunkOpts::builder()
@@ -357,8 +365,7 @@ impl BuildCommand {
                     .base_digest(
                         Driver::get_metadata(
                             &GetMetadataOpts::builder()
-                                .image(&*recipe.base_image)
-                                .tag(&*recipe.image_version)
+                                .image(&base_image)
                                 .platform(self.platform)
                                 .build(),
                         )?
@@ -382,10 +389,9 @@ impl BuildCommand {
         if self.push && !self.no_sign {
             Driver::sign_and_verify(
                 &SignVerifyOpts::builder()
-                    .image(&image_name)
+                    .image(&image)
                     .retry_push(self.retry_push)
                     .retry_count(self.retry_count)
-                    .maybe_tag(tags.first())
                     .platform(self.platform)
                     .build(),
             )?;

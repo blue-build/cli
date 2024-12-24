@@ -1,6 +1,7 @@
 use std::{io::Write, process::Stdio};
 
 use blue_build_utils::{cmd, credentials::Credentials};
+use colored::Colorize;
 use log::{debug, error, info, trace};
 use miette::{bail, miette, IntoDiagnostic, Result};
 use semver::Version;
@@ -83,19 +84,28 @@ impl BuildDriver for BuildahDriver {
     fn tag(opts: &TagOpts) -> Result<()> {
         trace!("BuildahDriver::tag({opts:#?})");
 
-        let mut command = cmd!("buildah", "tag", &*opts.src_image, &*opts.dest_image,);
+        let dest_image_str = opts.dest_image.to_string();
+
+        let mut command = cmd!(
+            "buildah",
+            "tag",
+            opts.src_image.to_string(),
+            &dest_image_str,
+        );
 
         trace!("{command:?}");
         if command.status().into_diagnostic()?.success() {
-            info!("Successfully tagged {}!", opts.dest_image);
+            info!("Successfully tagged {}!", dest_image_str.bold().green());
         } else {
-            bail!("Failed to tag image {}", opts.dest_image);
+            bail!("Failed to tag image {}", dest_image_str.bold().red());
         }
         Ok(())
     }
 
     fn push(opts: &PushOpts) -> Result<()> {
         trace!("BuildahDriver::push({opts:#?})");
+
+        let image_str = opts.image.to_string();
 
         let command = cmd!(
             "buildah",
@@ -104,18 +114,18 @@ impl BuildDriver for BuildahDriver {
                 "--compression-format={}",
                 opts.compression_type.unwrap_or_default()
             ),
-            &*opts.image,
+            &image_str,
         );
 
         trace!("{command:?}");
         let status = command
-            .build_status(&opts.image, "Pushing Image")
+            .build_status(&image_str, "Pushing Image")
             .into_diagnostic()?;
 
         if status.success() {
-            info!("Successfully pushed {}!", opts.image);
+            info!("Successfully pushed {}!", image_str.bold().green());
         } else {
-            bail!("Failed to push image {}", opts.image);
+            bail!("Failed to push image {}", image_str.bold().red());
         }
         Ok(())
     }

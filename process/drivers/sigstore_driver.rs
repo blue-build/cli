@@ -15,6 +15,7 @@ use blue_build_utils::{
     credentials::Credentials,
     retry,
 };
+use colored::Colorize;
 use log::{debug, trace};
 use miette::{bail, miette, Context, IntoDiagnostic};
 use sigstore::{
@@ -107,12 +108,16 @@ impl SigningDriver for SigstoreDriver {
     fn sign(opts: &SignOpts) -> miette::Result<()> {
         trace!("SigstoreDriver::sign({opts:?})");
 
+        if opts.image.digest().is_none() {
+            bail!(
+                "Image ref {} is not a digest ref",
+                opts.image.to_string().bold().red(),
+            );
+        }
+
         let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
         let mut client = ClientBuilder::default().build().into_diagnostic()?;
-
-        let image_digest: &str = opts.image.as_ref();
-        let image_digest: OciReference = image_digest.parse().into_diagnostic()?;
-        trace!("{image_digest:?}");
+        let image_digest: OciReference = opts.image.to_string().parse().into_diagnostic()?;
 
         let signing_scheme = SigningScheme::default();
         let key: Zeroizing<Vec<u8>> = get_private_key(path)?.contents()?;
@@ -174,8 +179,7 @@ impl SigningDriver for SigstoreDriver {
     fn verify(opts: &VerifyOpts) -> miette::Result<()> {
         let mut client = ClientBuilder::default().build().into_diagnostic()?;
 
-        let image_digest: &str = opts.image.as_ref();
-        let image_digest: OciReference = image_digest.parse().into_diagnostic()?;
+        let image_digest: OciReference = opts.image.to_string().parse().into_diagnostic()?;
         trace!("{image_digest:?}");
 
         let signing_scheme = SigningScheme::default();

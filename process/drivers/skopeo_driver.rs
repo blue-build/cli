@@ -23,21 +23,18 @@ impl InspectDriver for SkopeoDriver {
 #[cached(
     result = true,
     key = "String",
-    convert = r#"{ format!("{}-{:?}-{}", &*opts.image, opts.tag.as_ref(), opts.platform)}"#,
+    convert = r#"{ format!("{}-{}", opts.image, opts.platform)}"#,
     sync_writes = true
 )]
 fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
     trace!("SkopeoDriver::get_metadata({opts:#?})");
 
-    let url = opts.tag.as_ref().map_or_else(
-        || format!("docker://{}", opts.image),
-        |tag| format!("docker://{}:{tag}", opts.image),
-    );
+    let image_str = opts.image.to_string();
 
     let progress = Logger::multi_progress().add(
         ProgressBar::new_spinner()
             .with_style(ProgressStyle::default_spinner())
-            .with_message(format!("Inspecting metadata for {}", url.bold())),
+            .with_message(format!("Inspecting metadata for {}", image_str.bold())),
     );
     progress.enable_steady_tick(Duration::from_millis(100));
 
@@ -48,7 +45,7 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
             opts.platform.arch(),
         ],
         "inspect",
-        &url,
+        format!("docker://{image_str}"),
         stderr = Stdio::inherit(),
     );
     trace!("{command:?}");
@@ -59,9 +56,9 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
     Logger::multi_progress().remove(&progress);
 
     if output.status.success() {
-        debug!("Successfully inspected image {url}!");
+        debug!("Successfully inspected image {}!", image_str.bold().green());
     } else {
-        bail!("Failed to inspect image {url}")
+        bail!("Failed to inspect image {}", image_str.bold().red());
     }
     serde_json::from_slice(&output.stdout).into_diagnostic()
 }

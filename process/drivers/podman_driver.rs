@@ -167,21 +167,25 @@ impl BuildDriver for PodmanDriver {
     fn tag(opts: &TagOpts) -> Result<()> {
         trace!("PodmanDriver::tag({opts:#?})");
 
-        let mut command = cmd!("podman", "tag", &*opts.src_image, &*opts.dest_image,);
+        let dest_image_str = opts.dest_image.to_string();
+
+        let mut command = cmd!("podman", "tag", opts.src_image.to_string(), &dest_image_str);
 
         trace!("{command:?}");
         let status = command.status().into_diagnostic()?;
 
         if status.success() {
-            info!("Successfully tagged {}!", opts.dest_image);
+            info!("Successfully tagged {}!", dest_image_str.bold().green());
         } else {
-            bail!("Failed to tag image {}", opts.dest_image);
+            bail!("Failed to tag image {}", dest_image_str.bold().red());
         }
         Ok(())
     }
 
     fn push(opts: &PushOpts) -> Result<()> {
         trace!("PodmanDriver::push({opts:#?})");
+
+        let image_str = opts.image.to_string();
 
         let command = cmd!(
             "podman",
@@ -190,18 +194,18 @@ impl BuildDriver for PodmanDriver {
                 "--compression-format={}",
                 opts.compression_type.unwrap_or_default()
             ),
-            &*opts.image,
+            &image_str,
         );
 
         trace!("{command:?}");
         let status = command
-            .build_status(&opts.image, "Pushing Image")
+            .build_status(&image_str, "Pushing Image")
             .into_diagnostic()?;
 
         if status.success() {
-            info!("Successfully pushed {}!", opts.image);
+            info!("Successfully pushed {}!", image_str.bold().green());
         } else {
-            bail!("Failed to push image {}", opts.image)
+            bail!("Failed to push image {}", image_str.bold().red());
         }
         Ok(())
     }
@@ -283,23 +287,20 @@ impl InspectDriver for PodmanDriver {
 #[cached(
     result = true,
     key = "String",
-    convert = r#"{ format!("{}-{:?}-{}", &*opts.image, opts.tag.as_ref(), opts.platform)}"#,
+    convert = r#"{ format!("{}-{}", opts.image, opts.platform)}"#,
     sync_writes = true
 )]
 fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
     trace!("PodmanDriver::get_metadata({opts:#?})");
 
-    let url = opts.tag.as_deref().map_or_else(
-        || format!("{}", opts.image),
-        |tag| format!("{}:{tag}", opts.image),
-    );
+    let image_str = opts.image.to_string();
 
     let progress = Logger::multi_progress().add(
         ProgressBar::new_spinner()
             .with_style(ProgressStyle::default_spinner())
             .with_message(format!(
                 "Inspecting metadata for {}, pulling image...",
-                url.bold()
+                image_str.bold()
             )),
     );
     progress.enable_steady_tick(Duration::from_millis(100));
@@ -311,17 +312,17 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
             "--platform",
             opts.platform.to_string(),
         ],
-        &url,
+        &image_str,
     );
     trace!("{command:?}");
 
     let output = command.output().into_diagnostic()?;
 
     if !output.status.success() {
-        bail!("Failed to pull {} for inspection!", url.bold());
+        bail!("Failed to pull {} for inspection!", image_str.bold().red());
     }
 
-    let mut command = cmd!("podman", "image", "inspect", "--format=json", &url);
+    let mut command = cmd!("podman", "image", "inspect", "--format=json", &image_str);
     trace!("{command:?}");
 
     let output = command.output().into_diagnostic()?;
@@ -330,9 +331,9 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
     Logger::multi_progress().remove(&progress);
 
     if output.status.success() {
-        debug!("Successfully inspected image {url}!");
+        debug!("Successfully inspected image {}!", image_str.bold().green());
     } else {
-        bail!("Failed to inspect image {url}");
+        bail!("Failed to inspect image {}", image_str.bold().red());
     }
     serde_json::from_slice::<Vec<PodmanImageMetadata>>(&output.stdout)
         .into_diagnostic()

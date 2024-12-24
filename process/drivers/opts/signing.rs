@@ -6,6 +6,7 @@ use std::{
 
 use bon::Builder;
 use miette::{IntoDiagnostic, Result};
+use oci_distribution::Reference;
 use zeroize::{Zeroize, Zeroizing};
 
 use crate::drivers::types::Platform;
@@ -69,7 +70,7 @@ pub struct CheckKeyPairOpts<'scope> {
 #[derive(Debug, Clone, Builder)]
 pub struct SignOpts<'scope> {
     #[builder(into)]
-    pub image: Cow<'scope, str>,
+    pub image: &'scope Reference,
 
     #[builder(into)]
     pub key: Option<Cow<'scope, str>>,
@@ -90,17 +91,14 @@ pub enum VerifyType<'scope> {
 #[derive(Debug, Clone, Builder)]
 pub struct VerifyOpts<'scope> {
     #[builder(into)]
-    pub image: Cow<'scope, str>,
+    pub image: &'scope Reference,
     pub verify_type: VerifyType<'scope>,
 }
 
 #[derive(Debug, Clone, Builder)]
 pub struct SignVerifyOpts<'scope> {
     #[builder(into)]
-    pub image: Cow<'scope, str>,
-
-    #[builder(into)]
-    pub tag: Option<Cow<'scope, str>>,
+    pub image: &'scope Reference,
 
     #[builder(into)]
     pub dir: Option<Cow<'scope, Path>>,

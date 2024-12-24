@@ -5,6 +5,7 @@ use blue_build_utils::{
     constants::{COSIGN_PASSWORD, COSIGN_PUB_PATH, COSIGN_YES},
     credentials::Credentials,
 };
+use colored::Colorize;
 use log::{debug, trace};
 use miette::{bail, miette, Context, IntoDiagnostic, Result};
 
@@ -121,27 +122,32 @@ impl SigningDriver for CosignDriver {
     }
 
     fn sign(opts: &SignOpts) -> Result<()> {
-        let image_digest: &str = opts.image.as_ref();
+        if opts.image.digest().is_none() {
+            bail!(
+                "Image ref {} is not a digest ref",
+                opts.image.to_string().bold().red(),
+            );
+        }
+
         let mut command = cmd!(
             "cosign",
             "sign",
             if let Some(ref key) = opts.key => format!("--key={key}"),
             "--recursive",
-            image_digest,
+            opts.image.to_string(),
             COSIGN_PASSWORD => "",
             COSIGN_YES => "true",
         );
 
         trace!("{command:?}");
         if !command.status().into_diagnostic()?.success() {
-            bail!("Failed to sign {image_digest}");
+            bail!("Failed to sign {}", opts.image.to_string().bold().red());
         }
 
         Ok(())
     }
 
     fn verify(opts: &VerifyOpts) -> Result<()> {
-        let image_name_tag: &str = opts.image.as_ref();
         let mut command = cmd!(
             "cosign",
             "verify",
@@ -157,12 +163,12 @@ impl SigningDriver for CosignDriver {
                     ),
                 };
             },
-            image_name_tag
+            opts.image.to_string(),
         );
 
         trace!("{command:?}");
         if !command.status().into_diagnostic()?.success() {
-            bail!("Failed to verify {image_name_tag}");
+            bail!("Failed to verify {}", opts.image.to_string().bold().red());
         }
 
         Ok(())

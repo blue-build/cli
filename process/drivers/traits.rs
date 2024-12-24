@@ -6,7 +6,7 @@ use std::{
 
 use blue_build_utils::{constants::COSIGN_PUB_PATH, retry, string_vec};
 use log::{debug, info, trace};
-use miette::{bail, miette, Context, IntoDiagnostic, Result};
+use miette::{bail, Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use semver::{Version, VersionReq};
 
@@ -127,12 +127,9 @@ pub trait BuildDriver: PrivateDriver {
 
         let full_image = match (opts.archive_path.as_ref(), opts.image.as_ref()) {
             (Some(archive_path), None) => {
-                format!("oci-archive:{archive_path}")
+                format!("oci-archive:{}", archive_path.display())
             }
-            (None, Some(image)) => opts
-                .tags
-                .first()
-                .map_or_else(|| image.to_string(), |tag| format!("{image}:{tag}")),
+            (None, Some(image)) => image.to_string(),
             (Some(_), Some(_)) => bail!("Cannot use both image and archive path"),
             (None, None) => bail!("Need either the image or archive path set"),
         };
@@ -148,25 +145,25 @@ pub trait BuildDriver: PrivateDriver {
         Self::build(&build_opts)?;
 
         let image_list: Vec<String> = if !opts.tags.is_empty() && opts.archive_path.is_none() {
-            let image = opts
-                .image
-                .as_ref()
-                .ok_or_else(|| miette!("Image is required in order to tag"))?;
+            let image = opts.image.unwrap();
             debug!("Tagging all images");
 
             let mut image_list = Vec::with_capacity(opts.tags.len());
 
             for tag in &opts.tags {
                 debug!("Tagging {} with {tag}", &full_image);
-                let tagged_image = format!("{image}:{tag}");
+                let tagged_image: Reference =
+                    format!("{}/{}:{tag}", image.resolve_registry(), image.repository())
+                        .parse()
+                        .into_diagnostic()?;
 
                 let tag_opts = TagOpts::builder()
-                    .src_image(&full_image)
+                    .src_image(image)
                     .dest_image(&tagged_image)
                     .build();
 
                 Self::tag(&tag_opts)?;
-                image_list.push(tagged_image);
+                image_list.push(tagged_image.to_string());
 
                 if opts.push {
                     let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
@@ -174,12 +171,10 @@ pub trait BuildDriver: PrivateDriver {
                     debug!("Pushing all images");
                     // Push images with retries (1s delay between retries)
                     blue_build_utils::retry(retry_count, 5, || {
-                        let tag_image = format!("{image}:{tag}");
-
-                        debug!("Pushing image {tag_image}");
+                        debug!("Pushing image {tagged_image}");
 
                         let push_opts = PushOpts::builder()
-                            .image(&tag_image)
+                            .image(&tagged_image)
                             .compression_type(opts.compression)
                             .build();
 
@@ -516,23 +511,20 @@ pub trait SigningDriver: PrivateDriver {
             .as_ref()
             .map_or_else(|| PathBuf::from("."), |d| d.to_path_buf());
 
-        let image_name: &str = opts.image.as_ref();
-        let inspect_opts = GetMetadataOpts::builder()
-            .image(image_name)
-            .platform(opts.platform);
-
-        let inspect_opts = if let Some(ref tag) = opts.tag {
-            inspect_opts.tag(&**tag).build()
-        } else {
-            inspect_opts.build()
-        };
-
-        let image_digest = Driver::get_metadata(&inspect_opts)?.digest;
-        let image_name_tag = opts
-            .tag
-            .as_ref()
-            .map_or_else(|| image_name.to_owned(), |t| format!("{image_name}:{t}"));
-        let image_digest = format!("{image_name}@{image_digest}");
+        let image_digest = Driver::get_metadata(
+            &GetMetadataOpts::builder()
+                .image(opts.image)
+                .platform(opts.platform)
+                .build(),
+        )?
+        .digest;
+        let image_digest: Reference = format!(
+            "{}/{}@{image_digest}",
+            opts.image.resolve_registry(),
+            opts.image.repository(),
+        )
+        .parse()
+        .into_diagnostic()?;
 
         let (sign_opts, verify_opts) = match (Driver::get_ci_driver(), get_private_key(&path)) {
             // Cosign public/private key pair
@@ -543,7 +535,7 @@ pub trait SigningDriver: PrivateDriver {
                     .key(priv_key.to_string())
                     .build(),
                 VerifyOpts::builder()
-                    .image(&image_name_tag)
+                    .image(opts.image)
                     .verify_type(VerifyType::File(path.join(COSIGN_PUB_PATH).into()))
                     .build(),
             ),
@@ -551,7 +543,7 @@ pub trait SigningDriver: PrivateDriver {
             (CiDriverType::Github | CiDriverType::Gitlab, _) => (
                 SignOpts::builder().dir(&path).image(&image_digest).build(),
                 VerifyOpts::builder()
-                    .image(&image_name_tag)
+                    .image(opts.image)
                     .verify_type(VerifyType::Keyless {
                         issuer: Driver::oidc_provider()?.into(),
                         identity: Driver::keyless_cert_identity()?.into(),

@@ -200,35 +200,30 @@ impl Driver {
             let _ = oci_ref; // silence lint
 
             if true {
-                return Ok(40);
+                return Ok(41);
             }
         }
 
         info!("Retrieving OS version from {oci_ref}");
 
-        let inspect_opts = GetMetadataOpts::builder()
-            .image(format!(
-                "{}/{}",
-                oci_ref.resolve_registry(),
-                oci_ref.repository()
-            ))
-            .tag(oci_ref.tag().unwrap_or("latest"))
-            .platform(platform)
-            .build();
-
-        let os_version = Self::get_metadata(&inspect_opts)
-            .and_then(|inspection| {
-                inspection.get_version().ok_or_else(|| {
-                    miette!(
-                        "Failed to parse version from metadata for {}",
-                        oci_ref.to_string().bold()
-                    )
-                })
+        let os_version = Self::get_metadata(
+            &GetMetadataOpts::builder()
+                .image(oci_ref)
+                .platform(platform)
+                .build(),
+        )
+        .and_then(|inspection| {
+            inspection.get_version().ok_or_else(|| {
+                miette!(
+                    "Failed to parse version from metadata for {}",
+                    oci_ref.to_string().bold()
+                )
             })
-            .or_else(|err| {
-                warn!("Unable to get version via image inspection due to error:\n{err:?}");
-                get_version_run_image(oci_ref)
-            })?;
+        })
+        .or_else(|err| {
+            warn!("Unable to get version via image inspection due to error:\n{err:?}");
+            get_version_run_image(oci_ref)
+        })?;
         trace!("os_version: {os_version}");
         Ok(os_version)
     }

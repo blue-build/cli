@@ -1,6 +1,5 @@
-use std::borrow::Cow;
-
 use bon::Builder;
+use oci_distribution::Reference;
 
 use crate::drivers::types::Platform;
 
@@ -8,10 +7,7 @@ use crate::drivers::types::Platform;
 #[builder(derive(Clone))]
 pub struct GetMetadataOpts<'scope> {
     #[builder(into)]
-    pub image: Cow<'scope, str>,
-
-    #[builder(into)]
-    pub tag: Option<Cow<'scope, str>>,
+    pub image: &'scope Reference,
 
     #[builder(default)]
     pub platform: Platform,
