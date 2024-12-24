@@ -29,6 +29,7 @@ pub struct ContainerFileTemplate<'a> {
     build_scripts_image: Cow<'a, str>,
     repo: Cow<'a, str>,
     base_digest: Cow<'a, str>,
+    nushell_version: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, Clone, Template, Builder)]
