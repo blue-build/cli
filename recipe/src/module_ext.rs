@@ -72,7 +72,7 @@ impl ModuleExt<'_> {
                 module
                     .required_fields
                     .as_ref()
-                    .is_some_and(|rf| rf.module_type == "akmods")
+                    .is_some_and(|rf| rf.module_type.typ() == "akmods")
             })
             .filter_map(|module| {
                 Some(

@@ -108,7 +108,7 @@ impl Stage<'_> {
                         required_fields: None,
                         from_file: Some(file_name),
                     } => {
-                        let file_name = PathBuf::from(file_name.as_ref());
+                        let file_name = PathBuf::from(&**file_name);
                         if traversed_files.contains(&file_name) {
                             bail!(
                                 "{} File {} has already been parsed:\n{traversed_files:?}",
