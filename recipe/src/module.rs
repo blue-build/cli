@@ -92,6 +92,13 @@ impl<'a> ModuleRequiredFields<'a> {
     }
 
     #[must_use]
+    pub fn is_local_source(&self) -> bool {
+        self.source
+            .as_deref()
+            .is_some_and(|source| source == "local")
+    }
+
+    #[must_use]
     pub fn generate_akmods_info(&'a self, os_version: &u64) -> AkmodsInfo {
         #[derive(Debug, Default, Copy, Clone)]
         enum NvidiaAkmods {
