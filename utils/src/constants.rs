@@ -13,6 +13,7 @@ pub const RECIPE_PATH: &str = "./recipes";
 
 // Labels
 pub const BUILD_ID_LABEL: &str = "org.blue-build.build-id";
+pub const NUSHELL_VERSION_LABEL: &str = "org.blue-build.nushell-version";
 pub const IMAGE_VERSION_LABEL: &str = "org.opencontainers.image.version";
 
 // BlueBuild vars
