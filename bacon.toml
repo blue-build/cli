@@ -74,14 +74,14 @@ command = ["cargo", "install", "--path", ".", "--debug", "--locked", "--color", 
 need_stdout = false
 allow_warnings = true
 default_watch = false
-watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs"]
+watch = ["src", "process", "recipe", "template", "utils", "scripts", "Cargo.toml", "build.rs"]
 
 [jobs.install-all]
 command = ["cargo", "install", "--all-features", "--path", ".", "--debug", "--locked", "--color", "always"]
 need_stdout = false
 allow_warnings = true
 default_watch = false
-watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs"]
+watch = ["src", "process", "recipe", "template", "utils", "scripts", "Cargo.toml", "build.rs"]
 
 # You may define here keybindings that would be specific to
 # a project, for example a shortcut to launch a specific job.

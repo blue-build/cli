@@ -9,12 +9,11 @@ FROM scratch AS stage-config
 COPY ./config /config
 {% endif %}
 
+{%- if self::modules_exists() %}
 # Copy modules
 # The default modules are inside blue-build/modules
 # Custom modules overwrite defaults
 FROM scratch AS stage-modules
-COPY --from=ghcr.io/blue-build/modules:latest /modules /modules
-{%- if self::modules_exists() %}
 COPY ./modules /modules
 {% endif %}
 
@@ -25,7 +24,8 @@ COPY ./modules /modules
 # can be added to the ostree commits.
 FROM scratch AS stage-bins
 COPY --from={{ blue_build_utils::constants::COSIGN_IMAGE }} /ko-app/cosign /bins/cosign
-COPY --from=ghcr.io/blue-build/cli:
+COPY --from={{ blue_build_utils::constants::NUSHELL_IMAGE }} /nu/nu* /bins/
+COPY --from={{ blue_build_utils::constants::BLUE_BULID_IMAGE_REF }}:
 {%- if let Some(tag) = recipe.blue_build_tag -%}
 {{ tag }}
 {%- else -%}

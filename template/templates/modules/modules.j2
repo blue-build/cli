@@ -19,8 +19,10 @@ RUN \
         {%- endif %}
         {%- if let Some(source) = module.get_non_local_source() %}
   --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
-        {%- else %}
+        {%- else if module.is_local_source() %}
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
+        {%- else %}
+  --mount=type=bind,from=ghcr.io/blue-build/modules/{{ module.module_type }}:latest,src=/modules,dst=/tmp/modules,rw \
         {%- endif %}
         {%- if module.module_type == "akmods" %}
   --mount=type=bind,from=stage-akmods-{{ module.generate_akmods_info(os_version).stage_name }},src=/rpms,dst=/tmp/rpms,rw \
@@ -28,8 +30,7 @@ RUN \
   --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/tmp/scripts/ \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
   --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
-  /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module|json|safe }}' \
-  && ostree container commit
+  /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module|json|safe }}'
       {%- endif %}
     {%- endif %}
   {%- endfor %}
@@ -57,8 +58,10 @@ RUN \
         {%- endif %}
         {%- if let Some(source) = module.get_non_local_source() %}
   --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
-        {%- else %}
+        {%- else if module.is_local_source() %}
   --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
+        {%- else %}
+  --mount=type=bind,from=ghcr.io/blue-build/modules/{{ module.module_type }}:latest,src=/modules,dst=/tmp/modules,rw \
         {%- endif %}
   --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/tmp/scripts/ \
   /tmp/scripts/run_module.sh '{{ module.module_type }}' '{{ module|json|safe }}'
