@@ -6,7 +6,8 @@ base-image: quay.io/fedora/fedora-silverblue
 image-version: latest
 alt-tags:
   - arm64
-stages: []
+stages:
+  - from-file: stages.yml
 modules:
   - from-file: flatpaks.yml
 
@@ -33,8 +34,33 @@ modules:
   - type: test-module
     source: local
 
+  - type: test-nu-modules
+    source: local
+    test-prop:
+      - this
+      - is
+      - a
+      - test
+
   - type: containerfile
     containerfiles:
       - labels
     snippets:
       - RUN echo "This is a snippet" && ostree container commit
+
+  - type: copy
+    from: alpine-test
+    src: /test.txt
+    dest: /
+  - type: copy
+    from: ubuntu-test
+    src: /test.txt
+    dest: /
+  - type: copy
+    from: debian-test
+    src: /test.txt
+    dest: /
+  - type: copy
+    from: fedora-test
+    src: /test.txt
+    dest: /
