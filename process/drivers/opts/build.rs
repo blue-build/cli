@@ -1,6 +1,7 @@
 use std::{borrow::Cow, path::Path};
 
 use bon::Builder;
+use oci_distribution::Reference;
 
 use crate::drivers::types::Platform;
 
@@ -26,16 +27,14 @@ pub struct BuildOpts<'scope> {
 }
 
 #[derive(Debug, Clone, Builder)]
-#[builder(on(Cow<'_, str>, into))]
 pub struct TagOpts<'scope> {
-    pub src_image: Cow<'scope, str>,
-    pub dest_image: Cow<'scope, str>,
+    pub src_image: &'scope Reference,
+    pub dest_image: &'scope Reference,
 }
 
 #[derive(Debug, Clone, Builder)]
 pub struct PushOpts<'scope> {
-    #[builder(into)]
-    pub image: Cow<'scope, str>,
+    pub image: &'scope Reference,
     pub compression_type: Option<CompressionType>,
 }
 
@@ -55,14 +54,13 @@ pub struct BuildTagPushOpts<'scope> {
     /// NOTE: This SHOULD NOT contain the tag of the image.
     ///
     /// NOTE: You cannot have this set with `archive_path` set.
-    #[builder(into)]
-    pub image: Option<Cow<'scope, str>>,
+    pub image: Option<&'scope Reference>,
 
     /// The path to the archive file.
     ///
     /// NOTE: You cannot have this set with image set.
     #[builder(into)]
-    pub archive_path: Option<Cow<'scope, str>>,
+    pub archive_path: Option<Cow<'scope, Path>>,
 
     /// The path to the Containerfile to build.
     #[builder(into)]

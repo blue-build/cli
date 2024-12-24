@@ -13,6 +13,7 @@ use blue_build_utils::{
     string_vec,
 };
 use cached::proc_macro::cached;
+use colored::Colorize;
 use log::{debug, info, trace, warn};
 use miette::{bail, miette, IntoDiagnostic, Result};
 use once_cell::sync::Lazy;
@@ -154,15 +155,17 @@ impl BuildDriver for DockerDriver {
     fn tag(opts: &TagOpts) -> Result<()> {
         trace!("DockerDriver::tag({opts:#?})");
 
+        let dest_image_str = opts.dest_image.to_string();
+
         trace!("docker tag {} {}", opts.src_image, opts.dest_image);
-        let status = cmd!("docker", "tag", &*opts.src_image, &*opts.dest_image,)
+        let status = cmd!("docker", "tag", opts.src_image.to_string(), &dest_image_str)
             .status()
             .into_diagnostic()?;
 
         if status.success() {
-            info!("Successfully tagged {}!", opts.dest_image);
+            info!("Successfully tagged {}!", dest_image_str.bold().green());
         } else {
-            bail!("Failed to tag image {}", opts.dest_image);
+            bail!("Failed to tag image {}", dest_image_str.bold().red());
         }
         Ok(())
     }
@@ -170,15 +173,17 @@ impl BuildDriver for DockerDriver {
     fn push(opts: &PushOpts) -> Result<()> {
         trace!("DockerDriver::push({opts:#?})");
 
+        let image_str = opts.image.to_string();
+
         trace!("docker push {}", opts.image);
-        let status = cmd!("docker", "push", &*opts.image)
+        let status = cmd!("docker", "push", &image_str)
             .status()
             .into_diagnostic()?;
 
         if status.success() {
-            info!("Successfully pushed {}!", opts.image);
+            info!("Successfully pushed {}!", image_str.bold().green());
         } else {
-            bail!("Failed to push image {}", opts.image);
+            bail!("Failed to push image {}", image_str.bold().red());
         }
         Ok(())
     }
@@ -315,18 +320,25 @@ impl BuildDriver for DockerDriver {
                 ],
         );
 
-        let final_images = match (opts.image.as_deref(), opts.archive_path.as_deref()) {
+        let final_images = match (opts.image, opts.archive_path.as_deref()) {
             (Some(image), None) => {
                 let images = if opts.tags.is_empty() {
-                    cmd!(command, "-t", image);
+                    let image = image.to_string();
+                    cmd!(command, "-t", &image);
                     string_vec![image]
                 } else {
                     opts.tags.iter().for_each(|tag| {
-                        cmd!(command, "-t", format!("{image}:{tag}"));
+                        cmd!(
+                            command,
+                            "-t",
+                            format!("{}/{}:{tag}", image.resolve_registry(), image.repository())
+                        );
                     });
                     opts.tags
                         .iter()
-                        .map(|tag| format!("{image}:{tag}"))
+                        .map(|tag| {
+                            format!("{}/{}:{tag}", image.resolve_registry(), image.repository())
+                        })
                         .collect()
                 };
                 let first_image = images.first().unwrap();
@@ -348,8 +360,12 @@ impl BuildDriver for DockerDriver {
                 images
             }
             (None, Some(archive_path)) => {
-                cmd!(command, "--output", format!("type=oci,dest={archive_path}"));
-                string_vec![archive_path]
+                cmd!(
+                    command,
+                    "--output",
+                    format!("type=oci,dest={}", archive_path.display())
+                );
+                string_vec![archive_path.display().to_string()]
             }
             (Some(_), Some(_)) => bail!("Cannot use both image and archive path"),
             (None, None) => bail!("Need either the image or archive path set"),
@@ -385,16 +401,12 @@ impl InspectDriver for DockerDriver {
 #[cached(
     result = true,
     key = "String",
-    convert = r#"{ format!("{}-{:?}-{}", &*opts.image, opts.tag.as_ref(), opts.platform)}"#,
+    convert = r#"{ format!("{}-{}", opts.image, opts.platform)}"#,
     sync_writes = true
 )]
 fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
     trace!("DockerDriver::get_metadata({opts:#?})");
-
-    let url = opts.tag.as_ref().map_or_else(
-        || format!("{}", opts.image),
-        |tag| format!("{}:{tag}", opts.image),
-    );
+    let image_str = opts.image.to_string();
 
     let mut command = cmd!(
         "docker",
@@ -409,16 +421,16 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
         "inspect",
         "--format",
         "{{json .}}",
-        &url
+        &image_str,
     );
     trace!("{command:?}");
 
     let output = command.output().into_diagnostic()?;
 
     if output.status.success() {
-        info!("Successfully inspected image {url}!");
+        info!("Successfully inspected image {}!", image_str.bold().green());
     } else {
-        bail!("Failed to inspect image {url}")
+        bail!("Failed to inspect image {}", image_str.bold().red())
     }
 
     serde_json::from_slice::<metadata::Metadata>(&output.stdout)
