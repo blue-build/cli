@@ -4,19 +4,30 @@
 {%- if self::files_dir_exists() %}
 FROM scratch AS stage-files
 COPY ./files /files
-{% else if self::config_dir_exists() %}
+
+{%~ else if self::config_dir_exists() %}
 FROM scratch AS stage-config
 COPY ./config /config
 {% endif %}
 
+{%~ if self::modules_exists() %}
 # Copy modules
 # The default modules are inside blue-build/modules
 # Custom modules overwrite defaults
 FROM scratch AS stage-modules
-COPY --from=ghcr.io/blue-build/modules:latest /modules /modules
-{%- if self::modules_exists() %}
 COPY ./modules /modules
 {% endif %}
+
+{%~ if !nushell_versions.is_empty() %}
+# Nushell versions
+# The versions of nushell will be added to the
+# images as necessary based on the LABEL {{ blue_build_utils::constants::NUSHELL_VERSION_LABEL }}
+# or the `nushell-version` property on a module
+FROM scratch AS stage-nushell
+  {%- for version in nushell_versions %}
+COPY --from={{ blue_build_utils::constants::NUSHELL_IMAGE }}:{{ version }} /nu/nu* /nushell-{{ version }}/
+  {%- endfor %}
+{%- endif %}
 
 # Bins to install
 # These are basic tools that are added to all images.
@@ -25,7 +36,7 @@ COPY ./modules /modules
 # can be added to the ostree commits.
 FROM scratch AS stage-bins
 COPY --from={{ blue_build_utils::constants::COSIGN_IMAGE }} /ko-app/cosign /bins/cosign
-COPY --from=ghcr.io/blue-build/cli:
+COPY --from={{ blue_build_utils::constants::BLUE_BULID_IMAGE_REF }}:
 {%- if let Some(tag) = recipe.blue_build_tag -%}
 {{ tag }}
 {%- else -%}
@@ -59,6 +70,9 @@ ARG RUST_LOG_STYLE=always
       {%- endif %}
 
       {%- if stage.from != "scratch" %}
+        {%- if !nushell_versions.is_empty() %}
+COPY --from=stage-nushell / /usr/libexec/bluebuild/
+        {%- endif %}
 # Add compatibility for modules
 RUN --mount=type=bind,from=stage-bins,src=/bins/,dst=/tmp/bins/ \
   --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/tmp/scripts/ \

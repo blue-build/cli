@@ -21,6 +21,10 @@ pub struct ModuleRequiredFields<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<Cow<'a, str>>,
 
+    #[builder(into)]
+    #[serde(skip_serializing_if = "Option::is_none", rename = "nushell-version")]
+    pub nushell_version: Option<Cow<'a, str>>,
+
     #[builder(default)]
     #[serde(rename = "no-cache", default, skip_serializing_if = "is_false")]
     pub no_cache: bool,
@@ -89,6 +93,13 @@ impl<'a> ModuleRequiredFields<'a> {
         } else {
             Some(source)
         }
+    }
+
+    #[must_use]
+    pub fn is_local_source(&self) -> bool {
+        self.source
+            .as_deref()
+            .is_some_and(|source| source == "local")
     }
 
     #[must_use]

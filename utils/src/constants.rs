@@ -13,6 +13,7 @@ pub const RECIPE_PATH: &str = "./recipes";
 
 // Labels
 pub const BUILD_ID_LABEL: &str = "org.blue-build.build-id";
+pub const NUSHELL_VERSION_LABEL: &str = "org.blue-build.nushell-version";
 pub const IMAGE_VERSION_LABEL: &str = "org.opencontainers.image.version";
 
 // BlueBuild vars
@@ -74,7 +75,9 @@ pub const XDG_RUNTIME_DIR: &str = "XDG_RUNTIME_DIR";
 
 // Misc
 pub const BUILD_SCRIPTS_IMAGE_REF: &str = "ghcr.io/blue-build/cli/build-scripts";
+pub const BLUE_BULID_IMAGE_REF: &str = "ghcr.io/blue-build/cli";
 pub const COSIGN_IMAGE: &str = "ghcr.io/sigstore/cosign/cosign:v2.4.1";
+pub const NUSHELL_IMAGE: &str = "ghcr.io/blue-build/nushell-image";
 pub const OCI_ARCHIVE: &str = "oci-archive";
 pub const OSTREE_IMAGE_SIGNED: &str = "ostree-image-signed";
 pub const OSTREE_UNVERIFIED_IMAGE: &str = "ostree-unverified-image";

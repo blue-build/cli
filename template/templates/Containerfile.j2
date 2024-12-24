@@ -35,6 +35,13 @@ RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
   && cp /tmp/bins/* /usr/bin/ \
   && ostree container commit
 
+{%~ if !nushell_versions.is_empty() %}
+RUN --mount=type=bind,from=stage-nushell,src=/,dst=/tmp/nushell \
+  mkdir -p /usr/libexec/bluebuild/ \
+  && cp -r /tmp/nushell/* /usr/libexec/bluebuild/ \
+  && ostree container commit
+{%- endif %}
+
 RUN --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/scripts/ \
   /scripts/pre_build.sh
 
