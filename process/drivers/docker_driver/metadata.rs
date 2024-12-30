@@ -54,7 +54,7 @@ impl TryFrom<(Metadata, Platform)> for ImageMetadata {
     fn try_from((metadata, platform): (Metadata, Platform)) -> Result<Self, Self::Error> {
         match metadata.image {
             MetadataImage::Single(image) => Ok(Self {
-                labels: image.config.labels,
+                labels: Some(image.config.labels),
                 digest: metadata.manifest.digest,
             }),
             MetadataImage::Multi(mut platforms) => {
@@ -70,7 +70,7 @@ impl TryFrom<(Metadata, Platform)> for ImageMetadata {
                     bail!("Manifest does not exist for {platform}");
                 };
                 Ok(Self {
-                    labels: image.config.labels,
+                    labels: Some(image.config.labels),
                     digest: manifest.digest,
                 })
             }

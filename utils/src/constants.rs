@@ -88,6 +88,7 @@ pub const UNKNOWN_SHELL: &str = "<unknown shell>";
 pub const UNKNOWN_VERSION: &str = "<unknown version>";
 pub const UNKNOWN_TERMINAL: &str = "<unknown terminal>";
 pub const GITHUB_CHAR_LIMIT: usize = 8100; // Magic number accepted by Github
+pub const BUILTIN_MODULES: [&str; 2] = ["containerfile", "copy"];
 
 // Messages
 pub const BUG_REPORT_WARNING_MESSAGE: &str =

@@ -80,7 +80,7 @@ impl TryFrom<Vec<PodmanImageMetadata>> for ImageMetadata {
             .to_string();
 
         Ok(Self {
-            labels: value.labels,
+            labels: Some(value.labels),
             digest,
         })
     }

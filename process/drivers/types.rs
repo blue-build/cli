@@ -216,10 +216,10 @@ impl std::fmt::Display for Platform {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "PascalCase")]
 pub struct ImageMetadata {
-    pub labels: HashMap<String, Value>,
+    pub labels: Option<HashMap<String, Value>>,
     pub digest: String,
 }
 
@@ -228,6 +228,7 @@ impl ImageMetadata {
     pub fn get_version(&self) -> Option<u64> {
         Some(
             self.labels
+                .as_ref()?
                 .get(IMAGE_VERSION_LABEL)?
                 .as_str()
                 .and_then(|v| lenient_semver::parse(v).ok())?

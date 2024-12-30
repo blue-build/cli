@@ -1,4 +1,6 @@
 use std::{
+    borrow::Cow,
+    collections::HashSet,
     env,
     path::{Path, PathBuf},
 };
@@ -9,7 +11,10 @@ use blue_build_process_management::drivers::{
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
-    constants::{BUILD_SCRIPTS_IMAGE_REF, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH},
+    constants::{
+        BUILD_SCRIPTS_IMAGE_REF, BUILTIN_MODULES, CONFIG_PATH, NUSHELL_VERSION_LABEL, RECIPE_FILE,
+        RECIPE_PATH,
+    },
     syntax_highlighting::{self, DefaultThemes},
 };
 use bon::Builder;
@@ -159,6 +164,7 @@ impl GenerateCommand {
                 )?
                 .digest,
             )
+            .nushell_versions(retrieve_nushell_versions(&recipe))
             .build();
 
         let output_str = template.render().into_diagnostic()?;
@@ -208,4 +214,69 @@ fn determine_scripts_tag(platform: Platform) -> Result<Reference> {
                 .map(|_| image)
         })
         .inspect(|image| debug!("Using build scripts image: {image}"))
+}
+
+fn retrieve_nushell_versions<'a>(recipe: &'a Recipe) -> Vec<Cow<'a, str>> {
+    fn process_module<'a>(module: &'a blue_build_recipe::Module<'a>) -> Option<Cow<'a, str>> {
+        let required_fields = module.required_fields.as_ref()?;
+
+        if BUILTIN_MODULES.contains(&required_fields.module_type.typ()) {
+            return None;
+        }
+
+        required_fields
+            .nushell_version
+            .as_deref()
+            .map(Cow::<'a>::Borrowed)
+            .or_else(|| {
+                let image = &required_fields
+                    .source
+                    .as_deref()
+                    .and_then(|source| source.parse().ok())
+                    .or_else(|| required_fields.module_type.as_reference())?;
+
+                Driver::get_metadata(&GetMetadataOpts::builder().image(image).build())
+                    .inspect_err(|e| warn!("Failed to inspect module image {image}:\n{e}"))
+                    .ok()?
+                    .labels
+                    .as_ref()?
+                    .get(NUSHELL_VERSION_LABEL)?
+                    .as_str()
+                    .map(ToOwned::to_owned)
+                    .map(Cow::Owned)
+            })
+    }
+
+    [
+        recipe.stages_ext.as_ref().map_or_else(Vec::new, |stages| {
+            stages
+                .stages
+                .iter()
+                .filter_map(|stage| {
+                    Some(
+                        stage
+                            .required_fields
+                            .as_ref()?
+                            .modules_ext
+                            .modules
+                            .iter()
+                            .filter_map(process_module)
+                            .collect::<Vec<_>>(),
+                    )
+                })
+                .flatten()
+                .collect()
+        }),
+        recipe
+            .modules_ext
+            .modules
+            .iter()
+            .filter_map(process_module)
+            .collect(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<HashSet<Cow<'_, str>>>()
+    .into_iter()
+    .collect()
 }

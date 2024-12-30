@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 
+use blue_build_utils::constants::BLUE_BUILD_MODULE_IMAGE_REF;
+use oci_distribution::Reference;
 use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Debug, Clone)]
@@ -17,6 +19,16 @@ impl<'scope> ModuleTypeVersion<'scope> {
     #[must_use]
     pub fn version(&self) -> &str {
         &self.version
+    }
+
+    #[must_use]
+    pub fn as_reference(&self) -> Option<Reference> {
+        format!(
+            "{BLUE_BUILD_MODULE_IMAGE_REF}/{}:{}",
+            &self.typ, &self.version
+        )
+        .parse()
+        .ok()
     }
 }
 
