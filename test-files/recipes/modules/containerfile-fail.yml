@@ -1,0 +1,5 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/modules/containerfile.json
+type: containerfile
+snippets: RUN echo "Hello!"
+containerfiles: test

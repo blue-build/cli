@@ -1,0 +1,120 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/module-list-v1.json
+modules:
+- type: akmods
+  base: main
+  install:
+    - openrgb
+- type: bling
+  install:
+    - rpmfusion
+- type: brew
+  auto-update: true
+  update-interval: "6h"
+  auto-upgrade: true
+  update-wait-after-boot: "10min"
+  upgrade-interval: "8h"
+  upgrade-wait-after-boot: "30min"
+  nofile-limits: true
+  brew-analytics: false
+- type: chezmoi
+  repository: 'test-repo.git'
+  branch: 'main'
+  all-users: false
+  run-every: "1d"
+  wait-after-boot: "5m"
+  disable-init: false
+  disable-update: false
+  file-conflict-policy: replace
+- type: containerfile
+  snippets:
+    - RUN echo "Hello!"
+  containerfiles:
+    - test
+- type: copy
+  from: test-stage
+  src: /out/test
+  dest: /in/test
+- type: default-flatpaks
+  notify: false
+  system:
+    repo-url: https://dl.flathub.org/repo/flathub.flatpakrepo
+    repo-name: flathub
+    repo-title: test-user
+    install:
+      - test.org
+    remove:
+      - bad-test.org
+  user:
+    repo-url: https://dl.flathub.org/repo/flathub.flatpakrepo
+    repo-name: flathub
+    repo-title: test-user
+    install:
+      - test.org
+    remove:
+      - bad-test.org
+- type: files
+  files:
+    - source: test
+      destination: /usr
+- type: fonts
+  fonts:
+    nerd-fonts:
+      - "JetbrainsMono"
+    google-fonts:
+      - "Test"
+- type: gnome-extensions
+  install:
+    - test
+  uninstall:
+    - rmtest
+- type: gschema-overrides
+  include:
+    - test
+- type: justfiles
+  validate: true
+  include:
+    - ./justfile
+- type: rpm-ostree
+  repos:
+    - test.repo
+  keys:
+    - test.key
+  optfix:
+    - test
+  install:
+    - test
+  remove:
+    - rmtest
+  replace:
+    - from-repo: updates
+      packages:
+        - replacetest
+- type: script
+  snippets:
+    - rm -fr /*
+  scripts:
+    - test.sh
+- type: signing
+- type: systemd
+  system:
+    enabled:
+      - test.service
+    disabled:
+      - disable-test.service
+    masked:
+      - masked-test.service
+    unmasked:
+      - unmasked-test.service
+  user:
+    enabled:
+      - test.service
+    disabled:
+      - disable-test.service
+    masked:
+      - masked-test.service
+    unmasked:
+      - unmasked-test.service
+- type: yafti
+  custom-flatpaks:
+    - PrettyTest: test.org

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "module-v1.json",
+  "anyOf": [
+    {
+      "$ref": "#/$defs/RepoModule"
+    },
+    {
+      "$ref": "#/$defs/CustomModule"
+    }
+  ],
+  "$defs": {
+    "RepoModule": {
+      "anyOf": [
+        {
+          "$ref": "/modules/akmods.json"
+        },
+        {
+          "$ref": "/modules/bling.json"
+        },
+        {
+          "$ref": "/modules/brew.json"
+        },
+        {
+          "$ref": "/modules/chezmoi.json"
+        },
+        {
+          "$ref": "/modules/default-flatpaks.json"
+        },
+        {
+          "$ref": "/modules/files.json"
+        },
+        {
+          "$ref": "/modules/fonts.json"
+        },
+        {
+          "$ref": "/modules/gnome-extensions.json"
+        },
+        {
+          "$ref": "/modules/gschema-overrides.json"
+        },
+        {
+          "$ref": "/modules/justfiles.json"
+        },
+        {
+          "$ref": "/modules/rpm-ostree.json"
+        },
+        {
+          "$ref": "/modules/script.json"
+        },
+        {
+          "$ref": "/modules/signing.json"
+        },
+        {
+          "$ref": "/modules/systemd.json"
+        },
+        {
+          "$ref": "/modules/yafti.json"
+        },
+        {
+          "$ref": "/modules/containerfile.json"
+        },
+        {
+          "$ref": "/modules/copy.json"
+        }
+      ]
+    },
+    "CustomModule": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "This is not a built-in module."
+        },
+        "source": {
+          "type": "string",
+          "description": "The image ref of the module repository (an OCI image) to pull the module from.\nIf this is a local module, set the value to 'local'.\nhttps://blue-build.org/reference/module/#source-optional"
+        },
+        "no-cache": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
+        }
+      },
+      "required": [
+        "type",
+        "source"
+      ],
+      "additionalProperties": {}
+    }
+  }
+}
