@@ -729,7 +729,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
 dependencies = [
  "lazy_static",
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2157,9 +2157,9 @@ dependencies = [
 
 [[package]]
 name = "jsonschema"
-version = "0.26.2"
+version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26a960f0c34d5423581d858ce94815cc11f0171b09939409097969ed269ede1b"
+checksum = "c2303ef9ebb6acd7afe7c48cbc06ab807349c429d4e47c4cde8b35400503198f"
 dependencies = [
  "ahash 0.8.11",
  "base64 0.22.1",
@@ -3476,9 +3476,9 @@ dependencies = [
 
 [[package]]
 name = "referencing"
-version = "0.26.2"
+version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb8e15af8558cb157432dd3d88c1d1e982d0a5755cf80ce593b6499260aebc49"
+checksum = "2fb7a1f338d8e32357ad1d7078454c248e5fdd2188fbb6966b400c2fa4d4f566"
 dependencies = [
  "ahash 0.8.11",
  "fluent-uri",
@@ -5278,7 +5278,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

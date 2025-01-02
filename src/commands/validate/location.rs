@@ -1,31 +1,37 @@
-use std::sync::Arc;
+use jsonschema::paths::{LazyLocation, Location as JsonLocation};
 
-use jsonschema::paths::{LazyLocation, Location as JsonLocation, LocationSegment};
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Location(JsonLocation);
 
-#[derive(Debug, Default, Clone, Hash, PartialEq, Eq)]
-pub struct Location(Arc<String>);
+impl std::ops::Deref for Location {
+    type Target = JsonLocation;
 
-impl Location {
-    pub fn as_str(&self) -> &str {
-        self.0.as_str()
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
-impl From<&JsonLocation> for Location {
-    fn from(value: &JsonLocation) -> Self {
-        Self(Arc::new(value.as_str().into()))
+impl std::ops::DerefMut for Location {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl std::hash::Hash for Location {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.as_str().hash(state);
     }
 }
 
 impl From<JsonLocation> for Location {
     fn from(value: JsonLocation) -> Self {
-        Self(Arc::new(value.as_str().into()))
+        Self(value)
     }
 }
 
-impl std::fmt::Display for Location {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", &self.0)
+impl From<&JsonLocation> for Location {
+    fn from(value: &JsonLocation) -> Self {
+        Self(value.clone())
     }
 }
 
@@ -38,7 +44,7 @@ impl TryFrom<&str> for Location {
             I: Iterator<Item = &'c str>,
         {
             let Some(path) = path_iter.next() else {
-                return JsonLocation::from(location).into();
+                return Location(JsonLocation::from(location));
             };
             let location = build(path, location);
             child(path_iter, &location)
@@ -61,7 +67,7 @@ impl TryFrom<&str> for Location {
         }
 
         let Some(path) = path_iter.next() else {
-            return Ok(Self::from(JsonLocation::from(&LazyLocation::new())));
+            return Ok(Self(JsonLocation::from(&LazyLocation::new())));
         };
 
         let location = LazyLocation::new();
@@ -84,37 +90,5 @@ impl TryFrom<String> for Location {
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::try_from(value.as_str())
-    }
-}
-
-pub struct LocationSegmentIterator<'a> {
-    iter: std::vec::IntoIter<LocationSegment<'a>>,
-}
-
-impl<'a> Iterator for LocationSegmentIterator<'a> {
-    type Item = LocationSegment<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
-impl<'a> IntoIterator for &'a Location {
-    type Item = LocationSegment<'a>;
-    type IntoIter = LocationSegmentIterator<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Self::IntoIter {
-            iter: self
-                .as_str()
-                .split('/')
-                .filter(|p| !p.is_empty())
-                .map(|p| {
-                    p.parse::<usize>()
-                        .map_or_else(|_| LocationSegment::Property(p), LocationSegment::Index)
-                })
-                .collect::<Vec<_>>()
-                .into_iter(),
-        }
     }
 }
