@@ -290,7 +290,7 @@ mod test {
     #[case(RECIPE, "/description", (109, 29))]
     #[case(RECIPE, "/image-version", (199, 6))]
     #[case(RECIPE, "/modules/4/install", (605, 24))]
-    #[case(RECIPE, "/modules/7/snippets", (824, 57))]
+    #[case(RECIPE, "/modules/8/snippets", (931, 57))]
     #[case(RECIPE_INVALID, "/image-version", (182, 11))]
     #[case(RECIPE_INVALID_STAGE, "/stages/0/from", (262, 8))]
     #[case(RECIPE_INVALID_MODULE, "/modules/7/containerfiles", (807, 8))]
@@ -317,7 +317,7 @@ mod test {
     #[case("test: value", "/mapping")]
     #[case(RECIPE, "/test")]
     #[case(RECIPE, "/image-version/2")]
-    #[case(RECIPE, "/modules/12")]
+    #[case(RECIPE, "/modules/13")]
     fn test_getspan_err(#[case] file: &str, #[case] path: &str) {
         let file = Arc::new(file.to_owned());
         let location = Location::try_from(path).unwrap();

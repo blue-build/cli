@@ -20,7 +20,8 @@ stages:
 modules:
   - type: files
     files:
-      - usr: /usr
+      - source: usr
+        destination: /usr
   - type: script
     scripts:
       - example.sh
@@ -33,3 +34,10 @@ modules:
       - labels
     snippets:
       - RUN echo "This is a snippet"
+  - type: test-nu-modules
+    source: local
+    test-prop:
+      - this
+      - is
+      - a
+      - test

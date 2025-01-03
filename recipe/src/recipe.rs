@@ -54,6 +54,11 @@ pub struct Recipe<'a> {
     #[builder(into)]
     pub alt_tags: Option<Vec<String>>,
 
+    /// The version of nushell to use for modules.
+    #[builder(into)]
+    #[serde(skip_serializing_if = "Option::is_none", rename = "nushell-version")]
+    pub nushell_version: Option<Cow<'a, str>>,
+
     /// The stages extension of the recipe.
     ///
     /// This hold the list of stages that can
