@@ -69,6 +69,7 @@ blue-build-utils = { version = "=0.9.1", path = "./utils" }
 blue-build-process-management = { version = "=0.9.1", path = "./process" }
 clap-verbosity-flag = "3"
 clap_complete = "4"
+clap_complete_nushell = "4"
 fuzzy-matcher = "0.3"
 jsonschema = { version = "0.28", optional = true }
 open = "5"
