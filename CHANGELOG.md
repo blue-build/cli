@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.2] - 2025-01-05
+
+### Features
+
+- Add support for NuShell scripts
+- Support versioned modules
+- Add nushell completions
+
+### Miscellaneous Tasks
+
+- Update jsonschema
+- Fix clippy lints
+
+### Refactor
+
+- Make use of Reference to ensure typing
+
 ## [0.9.1] - 2024-12-22
 
 ### Bug Fixes
@@ -23,6 +40,7 @@ All notable changes to this project will be documented in this file.
 - Use consistent syntax for getting information from os-release
 - Add Github Action auditing
 - Upgrade shadow-rs
+- Release
 
 ### Readme
 
