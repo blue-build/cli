@@ -4,6 +4,8 @@ PROJECT blue-build/cli
 IMPORT github.com/earthly/lib/rust AS rust
 
 ARG --global IMAGE=ghcr.io/blue-build/cli
+ARG --global TAGGED="false"
+ARG --global LATEST="false"
 
 all:
     WAIT
@@ -268,7 +270,6 @@ version:
 
 INSTALL:
     FUNCTION
-    ARG TAGGED="false"
     ARG --required BUILD_TARGET
     ARG --required OUT_DIR
     ARG RELEASE="true"
@@ -283,7 +284,6 @@ SAVE_IMAGE:
     FUNCTION
     ARG SUFFIX=""
     ARG IMAGE="$IMAGE"
-    ARG TAGGED="false"
 
     COPY --platform=native +version/version /
     ARG VERSION="$(cat /version)"
@@ -296,7 +296,6 @@ SAVE_IMAGE:
     IF [ "$TAGGED" = "true" ]
         SAVE IMAGE --push "${IMAGE}:v${VERSION}${SUFFIX}"
 
-        ARG LATEST=false
         IF [ "$LATEST" = "true" ]
             SAVE IMAGE --push "${IMAGE}:latest${SUFFIX}"
             SAVE IMAGE --push "${IMAGE}:v${MAJOR_VERSION}.${MINOR_VERSION}${SUFFIX}"
@@ -325,7 +324,6 @@ LABELS:
     LABEL org.opencontainers.image.description="A CLI tool built for creating Containerfile templates for ostree based atomic distros"
     LABEL org.opencontainers.image.documentation="https://raw.githubusercontent.com/blue-build/cli/main/README.md"
 
-    ARG TAGGED="false"
     IF [ "$TAGGED" = "true" ]
         ARG EARTHLY_GIT_BRANCH
         LABEL org.opencontainers.image.ref.name="$EARTHLY_GIT_BRANCH"
