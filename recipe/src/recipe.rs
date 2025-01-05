@@ -69,7 +69,7 @@ pub struct Recipe<'a> {
     pub modules_ext: ModuleExt<'a>,
 }
 
-impl<'a> Recipe<'a> {
+impl Recipe<'_> {
     /// Parse a recipe file
     ///
     /// # Errors

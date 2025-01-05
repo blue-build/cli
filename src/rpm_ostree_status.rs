@@ -19,7 +19,7 @@ struct RpmOstreeDeployments<'a> {
     staged: bool,
 }
 
-impl<'a> RpmOstreeStatus<'a> {
+impl RpmOstreeStatus<'_> {
     /// Creates a status struct for `rpm-ostree`.
     ///
     /// # Errors

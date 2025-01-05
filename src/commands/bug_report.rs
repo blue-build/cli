@@ -62,7 +62,7 @@ impl BugReportCommand {
             os_version: os_info.version().clone(),
         };
 
-        let issue_body = match generate_github_issue(&environment, &recipe) {
+        let issue_body = match generate_github_issue(&environment, recipe.as_ref()) {
             Ok(body) => body,
             Err(e) => {
                 println!("{}: {e}", "Failed to generate bug report".bright_red());
@@ -276,8 +276,8 @@ fn get_pkg_branch_tag() -> String {
     format!("{} ({})", shadow::BRANCH, shadow::LAST_TAG)
 }
 
-fn generate_github_issue(environment: &Environment, recipe: &Option<Recipe>) -> Result<String> {
-    let recipe = serde_yaml::to_string(recipe).into_diagnostic()?;
+fn generate_github_issue(environment: &Environment, recipe: Option<&Recipe>) -> Result<String> {
+    let recipe = serde_yaml::to_string(&recipe).into_diagnostic()?;
 
     let github_template = GithubIssueTemplate::builder()
         .bb_version(shadow::PKG_VERSION)
@@ -335,7 +335,7 @@ mod tests {
         };
 
         let recipe = Recipe::default();
-        let body = generate_github_issue(&environment, &Some(recipe)).unwrap();
+        let body = generate_github_issue(&environment, Some(&recipe)).unwrap();
         let link = make_github_issue_link(&body);
 
         assert!(link.contains(clap::crate_version!()));
