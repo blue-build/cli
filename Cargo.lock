@@ -378,7 +378,7 @@ dependencies = [
  "rayon",
  "regex",
  "requestty",
- "reqwest 0.12.11",
+ "reqwest 0.12.12",
  "rstest",
  "rusty-hook",
  "semver",
@@ -419,7 +419,7 @@ dependencies = [
  "once_cell",
  "os_pipe",
  "rand",
- "reqwest 0.12.11",
+ "reqwest 0.12.12",
  "rstest",
  "semver",
  "serde",
@@ -444,7 +444,7 @@ dependencies = [
  "log",
  "miette",
  "oci-distribution",
- "reqwest 0.12.11",
+ "reqwest 0.12.12",
  "serde",
  "serde_json",
  "serde_yml",
@@ -2201,7 +2201,7 @@ dependencies = [
  "percent-encoding",
  "referencing",
  "regex-syntax",
- "reqwest 0.12.11",
+ "reqwest 0.12.12",
  "serde",
  "serde_json",
  "uuid-simd",
@@ -2798,7 +2798,7 @@ dependencies = [
  "lazy_static",
  "olpc-cjson",
  "regex",
- "reqwest 0.12.11",
+ "reqwest 0.12.12",
  "serde",
  "serde_json",
  "sha2",
@@ -3635,9 +3635,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.12.11"
+version = "0.12.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fe060fe50f524be480214aba758c71f99f90ee8c83c5a36b5e9e1d568eb4eb3"
+checksum = "43e734407157c3c2034e0258f5e4473ddb361b1e85f95a66690d67264d7cd1da"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -4279,7 +4279,7 @@ dependencies = [
  "rand",
  "regex",
  "reqwest 0.11.27",
- "reqwest 0.12.11",
+ "reqwest 0.12.12",
  "ring",
  "rsa",
  "rustls-webpki 0.102.8",
