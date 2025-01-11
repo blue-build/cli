@@ -7,13 +7,13 @@ use std::{
 };
 
 use blue_build_utils::{
-    cmd,
     constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, GITHUB_ACTIONS},
     credentials::Credentials,
     string_vec,
 };
 use cached::proc_macro::cached;
 use colored::Colorize;
+use comlexr::cmd;
 use log::{debug, info, trace, warn};
 use miette::{bail, miette, IntoDiagnostic, Result};
 use once_cell::sync::Lazy;
@@ -204,10 +204,11 @@ impl BuildDriver for DockerDriver {
                 username,
                 "--password-stdin",
                 registry,
-                stdin = Stdio::piped(),
-                stdout = Stdio::piped(),
-                stderr = Stdio::piped(),
             );
+            command
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
 
             trace!("{command:?}");
             let mut child = command.spawn().into_diagnostic()?;
@@ -253,17 +254,18 @@ impl BuildDriver for DockerDriver {
                 });
 
                 let buildx = scope.spawn(|| {
+                    let run_setup = !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty());
+
+                    if run_setup {
+                        Self::setup()?;
+                    }
+
                     cmd!(
                         "docker",
                         "buildx",
                         "prune",
                         "--force",
-                        |command|? {
-                            if !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty()) {
-                                Self::setup()?;
-                                cmd!(command, "--builder=bluebuild");
-                            }
-                        },
+                        if run_setup => "--builder=bluebuild",
                         if opts.all => "--all",
                     )
                     .message_status("docker buildx prune", "Pruning Docker Buildx")
@@ -293,16 +295,58 @@ impl BuildDriver for DockerDriver {
             warn!("Squash is deprecated for docker so this build will not squash");
         }
 
-        let mut command = cmd!(
+        let run_setup = !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty());
+
+        if run_setup {
+            Self::setup()?;
+        }
+
+        let final_images = match (opts.image, opts.archive_path.as_deref()) {
+            (Some(image), None) => {
+                let images = if opts.tags.is_empty() {
+                    let image = image.to_string();
+                    string_vec![image]
+                } else {
+                    opts.tags
+                        .iter()
+                        .map(|tag| {
+                            format!("{}/{}:{tag}", image.resolve_registry(), image.repository())
+                        })
+                        .collect()
+                };
+
+                images
+            }
+            (None, Some(archive_path)) => {
+                string_vec![archive_path.display().to_string()]
+            }
+            (Some(_), Some(_)) => bail!("Cannot use both image and archive path"),
+            (None, None) => bail!("Need either the image or archive path set"),
+        };
+
+        let first_image = final_images.first().unwrap();
+
+        let command = cmd!(
             "docker",
             "buildx",
-            |command|? {
-                if !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty()) {
-                    Self::setup()?;
-                    cmd!(command, "--builder=bluebuild");
-                }
-            },
+            if run_setup => "--builder=bluebuild",
             "build",
+            ".",
+            match (opts.image, opts.archive_path.as_deref()) {
+                (Some(_), None) if opts.push => [
+                    "--output",
+                    format!(
+                        "type=image,name={first_image},push=true,compression={},oci-mediatypes=true",
+                        opts.compression
+                    ),
+                ],
+                (Some(_), None) if env::var(GITHUB_ACTIONS).is_err() => "--load",
+                (None, Some(archive_path)) => [
+                    "--output",
+                    format!("type=oci,dest={}", archive_path.display()),
+                ],
+                _ => [],
+            },
             "--pull",
             if !matches!(opts.platform, Platform::Native) => [
                 "--platform",
@@ -320,73 +364,19 @@ impl BuildDriver for DockerDriver {
                 ],
         );
 
-        let final_images = match (opts.image, opts.archive_path.as_deref()) {
-            (Some(image), None) => {
-                let images = if opts.tags.is_empty() {
-                    let image = image.to_string();
-                    cmd!(command, "-t", &image);
-                    string_vec![image]
-                } else {
-                    opts.tags.iter().for_each(|tag| {
-                        cmd!(
-                            command,
-                            "-t",
-                            format!("{}/{}:{tag}", image.resolve_registry(), image.repository())
-                        );
-                    });
-                    opts.tags
-                        .iter()
-                        .map(|tag| {
-                            format!("{}/{}:{tag}", image.resolve_registry(), image.repository())
-                        })
-                        .collect()
-                };
-                let first_image = images.first().unwrap();
-
-                if opts.push {
-                    cmd!(
-                        command,
-                        "--output",
-                        format!(
-                            "type=image,name={first_image},push=true,compression={},oci-mediatypes=true",
-                            opts.compression
-                        ),
-                    );
-
-                // We don't want to load the image into docker as it will double disk usage
-                } else if env::var(GITHUB_ACTIONS).is_err() {
-                    cmd!(command, "--load");
-                }
-                images
-            }
-            (None, Some(archive_path)) => {
-                cmd!(
-                    command,
-                    "--output",
-                    format!("type=oci,dest={}", archive_path.display())
-                );
-                string_vec![archive_path.display().to_string()]
-            }
-            (Some(_), Some(_)) => bail!("Cannot use both image and archive path"),
-            (None, None) => bail!("Need either the image or archive path set"),
-        };
-        let display_image = final_images.first().unwrap(); // There will always be at least one image
-
-        cmd!(command, ".");
-
         trace!("{command:?}");
         if command
-            .build_status(display_image, "Building Image")
+            .build_status(first_image, "Building Image")
             .into_diagnostic()?
             .success()
         {
             if opts.push {
-                info!("Successfully built and pushed image {}", display_image);
+                info!("Successfully built and pushed image {}", first_image);
             } else {
-                info!("Successfully built image {}", display_image);
+                info!("Successfully built image {}", first_image);
             }
         } else {
-            bail!("Failed to build image {}", display_image);
+            bail!("Failed to build image {}", first_image);
         }
         Ok(final_images)
     }
@@ -408,15 +398,16 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
     trace!("DockerDriver::get_metadata({opts:#?})");
     let image_str = opts.image.to_string();
 
+    let run_setup = !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty());
+
+    if run_setup {
+        DockerDriver::setup()?;
+    }
+
     let mut command = cmd!(
         "docker",
         "buildx",
-        |command|? {
-            if !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty()) {
-                DockerDriver::setup()?;
-                cmd!(command, "--builder=bluebuild");
-            }
-        },
+        if run_setup => "--builder=bluebuild",
         "imagetools",
         "inspect",
         "--format",

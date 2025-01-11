@@ -28,6 +28,7 @@ cached.workspace = true
 chrono.workspace = true
 clap = { workspace = true, features = ["derive", "env"] }
 colored.workspace = true
+comlexr.workspace = true
 indicatif.workspace = true
 indexmap.workspace = true
 log.workspace = true

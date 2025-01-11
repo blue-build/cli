@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
-use blue_build_utils::{cmd, string_vec};
+use blue_build_utils::string_vec;
+use comlexr::cmd;
 use log::trace;
 
 use super::{opts::GenerateTagsOpts, CiDriver, Driver};

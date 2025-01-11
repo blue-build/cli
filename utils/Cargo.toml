@@ -20,6 +20,7 @@ which = "7"
 
 chrono.workspace = true
 clap = { workspace = true, features = ["derive", "env"] }
+comlexr.workspace = true
 log.workspace = true
 miette.workspace = true
 serde.workspace = true

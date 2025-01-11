@@ -1,11 +1,11 @@
 use std::{fmt::Debug, fs, io::Write, path::Path, process::Stdio};
 
 use blue_build_utils::{
-    cmd,
     constants::{COSIGN_PASSWORD, COSIGN_PUB_PATH, COSIGN_YES},
     credentials::Credentials,
 };
 use colored::Colorize;
+use comlexr::cmd;
 use log::{debug, trace};
 use miette::{bail, miette, Context, IntoDiagnostic, Result};
 
@@ -27,10 +27,13 @@ impl SigningDriver for CosignDriver {
         let mut command = cmd!(
             "cosign",
             "generate-key-pair",
-            COSIGN_PASSWORD => "",
-            COSIGN_YES => "true",
+            // COSIGN_PASSWORD => "",
+            // COSIGN_YES => "true",
         );
-        command.current_dir(path);
+        command
+            .current_dir(path)
+            .env(COSIGN_PASSWORD, "")
+            .env(COSIGN_YES, "true");
 
         let status = command.status().into_diagnostic()?;
 
@@ -49,9 +52,10 @@ impl SigningDriver for CosignDriver {
             "cosign",
             "public-key",
             format!("--key={priv_key}"),
-            COSIGN_PASSWORD => "",
-            COSIGN_YES => "true",
+            // COSIGN_PASSWORD => "",
+            // COSIGN_YES => "true",
         );
+        command.env(COSIGN_PASSWORD, "").env(COSIGN_YES, "true");
 
         trace!("{command:?}");
         let output = command.output().into_diagnostic()?;
@@ -93,10 +97,11 @@ impl SigningDriver for CosignDriver {
                 username,
                 "--password-stdin",
                 registry,
-                stdin = Stdio::piped(),
-                stdout = Stdio::piped(),
-                stderr = Stdio::piped(),
             );
+            command
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
 
             trace!("{command:?}");
             let mut child = command.spawn().into_diagnostic()?;
@@ -135,9 +140,10 @@ impl SigningDriver for CosignDriver {
             if let Some(ref key) = opts.key => format!("--key={key}"),
             "--recursive",
             opts.image.to_string(),
-            COSIGN_PASSWORD => "",
-            COSIGN_YES => "true",
+            // COSIGN_PASSWORD => "",
+            // COSIGN_YES => "true",
         );
+        command.env(COSIGN_PASSWORD, "").env(COSIGN_YES, "true");
 
         trace!("{command:?}");
         if !command.status().into_diagnostic()?.success() {
@@ -151,17 +157,14 @@ impl SigningDriver for CosignDriver {
         let mut command = cmd!(
             "cosign",
             "verify",
-            |c| {
-                match &opts.verify_type {
-                    VerifyType::File(path) => cmd!(c, format!("--key={}", path.display())),
-                    VerifyType::Keyless { issuer, identity } => cmd!(
-                        c,
-                        "--certificate-identity-regexp",
-                        identity as &str,
-                        "--certificate-oidc-issuer",
-                        issuer as &str,
-                    ),
-                };
+            match &opts.verify_type {
+                VerifyType::File(path) => format!("--key={}", path.display()),
+                VerifyType::Keyless { issuer, identity } => [
+                    "--certificate-identity-regexp",
+                    &**identity,
+                    "--certificate-oidc-issuer",
+                    &**issuer,
+                ],
             },
             opts.image.to_string(),
         );

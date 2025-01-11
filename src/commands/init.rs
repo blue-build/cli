@@ -11,12 +11,10 @@ use blue_build_process_management::drivers::{
     opts::GenerateKeyPairOpts, CiDriver, Driver, DriverArgs, GitlabDriver, SigningDriver,
 };
 use blue_build_template::{GitlabCiTemplate, InitReadmeTemplate, Template};
-use blue_build_utils::{
-    cmd,
-    constants::{COSIGN_PUB_PATH, RECIPE_FILE, RECIPE_PATH, TEMPLATE_REPO_URL},
-};
+use blue_build_utils::constants::{COSIGN_PUB_PATH, RECIPE_FILE, RECIPE_PATH, TEMPLATE_REPO_URL};
 use bon::Builder;
 use clap::{crate_version, Args, ValueEnum};
+use comlexr::cmd;
 use log::{debug, info, trace};
 use miette::{bail, miette, Context, IntoDiagnostic, Report, Result};
 use requestty::{questions, Answer, Answers, OnEsc};
@@ -316,14 +314,8 @@ impl InitCommand {
 
         let dir = self.dir.as_ref().unwrap();
 
-        let mut command = cmd!(
-            "git",
-            "commit",
-            "-a",
-            "-m",
-            "chore: Initial Commit",
-            current_dir = dir,
-        );
+        let mut command = cmd!("git", "commit", "-a", "-m", "chore: Initial Commit");
+        command.current_dir(dir);
         trace!("{command:?}");
 
         let status = command
@@ -345,7 +337,8 @@ impl InitCommand {
 
         let dir = self.dir.as_ref().unwrap();
 
-        let mut command = cmd!("git", "add", ".", current_dir = dir,);
+        let mut command = cmd!("git", "add", ".");
+        command.current_dir(dir);
         trace!("{command:?}");
 
         let status = command
