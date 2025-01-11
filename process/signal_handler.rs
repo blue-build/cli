@@ -6,7 +6,7 @@ use std::{
     thread,
 };
 
-use blue_build_utils::cmd;
+use comlexr::cmd;
 use log::{debug, error, trace, warn};
 use nix::{
     libc::{SIGABRT, SIGCONT, SIGHUP, SIGTSTP},

@@ -1,6 +1,6 @@
 use std::{borrow::Cow, path::Path};
 
-use blue_build_utils::cmd;
+use comlexr::cmd;
 use log::trace;
 use miette::{bail, IntoDiagnostic, Result};
 use serde::Deserialize;

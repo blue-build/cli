@@ -1,8 +1,8 @@
 use std::{process::Stdio, time::Duration};
 
-use blue_build_utils::cmd;
 use cached::proc_macro::cached;
 use colored::Colorize;
+use comlexr::cmd;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, trace};
 use miette::{bail, IntoDiagnostic, Result};
@@ -46,8 +46,8 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
         ],
         "inspect",
         format!("docker://{image_str}"),
-        stderr = Stdio::inherit(),
     );
+    command.stderr(Stdio::inherit());
     trace!("{command:?}");
 
     let output = command.output().into_diagnostic()?;

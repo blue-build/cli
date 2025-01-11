@@ -6,9 +6,10 @@ use std::{
     time::Duration,
 };
 
-use blue_build_utils::{cmd, credentials::Credentials};
+use blue_build_utils::credentials::Credentials;
 use cached::proc_macro::cached;
 use colored::Colorize;
+use comlexr::cmd;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace};
 use miette::{bail, miette, IntoDiagnostic, Report, Result};

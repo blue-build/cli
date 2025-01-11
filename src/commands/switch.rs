@@ -8,16 +8,17 @@ use blue_build_process_management::{
     logging::CommandLogging,
 };
 use blue_build_recipe::Recipe;
-use blue_build_utils::{
-    cmd,
-    constants::{ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_UNVERIFIED_IMAGE},
+use blue_build_utils::constants::{
+    ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_UNVERIFIED_IMAGE,
 };
 use bon::Builder;
 use clap::Args;
 use colored::Colorize;
+use comlexr::cmd;
 use indicatif::ProgressBar;
 use log::{debug, trace, warn};
 use miette::{bail, IntoDiagnostic, Result};
+use nix::unistd::Uid;
 use tempfile::TempDir;
 
 use crate::{commands::build::BuildCommand, rpm_ostree_status::RpmOstreeStatus};
@@ -89,15 +90,17 @@ impl BlueBuildCommand for SwitchCommand {
         let temp_file_path = tempdir.path().join(&image_file_name);
         let archive_path = Path::new(LOCAL_BUILD).join(&image_file_name);
 
-        warn!(
-            "{notice}: {} {sudo} {}",
-            "The next few steps will require".yellow(),
-            "You may have to supply your password".yellow(),
-            notice = "NOTICE".bright_red().bold(),
-            sudo = "`sudo`.".italic().bright_red().bold(),
-        );
-        Self::sudo_clean_local_build_dir()?;
-        Self::sudo_move_archive(&temp_file_path, &archive_path)?;
+        if !Uid::effective().is_root() {
+            warn!(
+                "{notice}: {} {sudo} {}",
+                "The next few steps will require".yellow(),
+                "You may have to supply your password".yellow(),
+                notice = "NOTICE".bright_red().bold(),
+                sudo = "`sudo`.".italic().bright_red().bold(),
+            );
+        }
+        Self::clean_local_build_dir()?;
+        Self::move_archive(&temp_file_path, &archive_path)?;
 
         // We drop the tempdir ahead of time so that the directory
         // can be cleaned out.
@@ -117,11 +120,7 @@ impl SwitchCommand {
         let status = if status.is_booted_on_archive(archive_path)
             || status.is_staged_on_archive(archive_path)
         {
-            let mut command = cmd!("rpm-ostree", "upgrade");
-
-            if self.reboot {
-                cmd!(command, "--reboot");
-            }
+            let command = cmd!("rpm-ostree", "upgrade", if self.reboot => "--reboot");
 
             trace!("{command:?}");
             command
@@ -131,11 +130,12 @@ impl SwitchCommand {
                 path = archive_path.display()
             );
 
-            let mut command = cmd!("rpm-ostree", "rebase", &image_ref);
-
-            if self.reboot {
-                cmd!(command, "--reboot");
-            }
+            let command = cmd!(
+                "rpm-ostree",
+                "rebase",
+                &image_ref,
+                if self.reboot => "--reboot",
+            );
 
             trace!("{command:?}");
             command
@@ -152,9 +152,9 @@ impl SwitchCommand {
         Ok(())
     }
 
-    fn sudo_move_archive(from: &Path, to: &Path) -> Result<()> {
+    fn move_archive(from: &Path, to: &Path) -> Result<()> {
         trace!(
-            "SwitchCommand::sudo_move_archive({}, {})",
+            "SwitchCommand::move_archive({}, {})",
             from.display(),
             to.display()
         );
@@ -163,8 +163,17 @@ impl SwitchCommand {
         progress.enable_steady_tick(Duration::from_millis(100));
         progress.set_message(format!("Moving image archive to {}...", to.display()));
 
-        trace!("sudo mv {} {}", from.display(), to.display());
-        let status = cmd!("sudo", "mv", from, to).status().into_diagnostic()?;
+        let status = {
+            let c = if Uid::effective().is_root() {
+                cmd!("mv", from, to)
+            } else {
+                cmd!("sudo", "mv", from, to)
+            };
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
 
         progress.finish_and_clear();
 
@@ -179,7 +188,7 @@ impl SwitchCommand {
         Ok(())
     }
 
-    fn sudo_clean_local_build_dir() -> Result<()> {
+    fn clean_local_build_dir() -> Result<()> {
         trace!("SwitchCommand::clean_local_build_dir()");
 
         let local_build_path = Path::new(LOCAL_BUILD);
@@ -188,13 +197,17 @@ impl SwitchCommand {
             debug!("Cleaning out build dir {LOCAL_BUILD}");
 
             trace!("sudo ls {LOCAL_BUILD}");
-            let output = String::from_utf8(
-                cmd!("sudo", "ls", LOCAL_BUILD)
-                    .output()
-                    .into_diagnostic()?
-                    .stdout,
-            )
-            .into_diagnostic()?;
+            let mut command = {
+                let c = if Uid::effective().is_root() {
+                    cmd!("ls", LOCAL_BUILD)
+                } else {
+                    cmd!("sudo", "ls", LOCAL_BUILD)
+                };
+                trace!("{c:?}");
+                c
+            };
+            let output =
+                String::from_utf8(command.output().into_diagnostic()?.stdout).into_diagnostic()?;
 
             trace!("{output}");
 
@@ -212,7 +225,17 @@ impl SwitchCommand {
                 progress.set_message("Removing old image archive files...");
 
                 trace!("sudo rm -f {files}");
-                let status = cmd!("sudo", "rm", "-f", files).status().into_diagnostic()?;
+                let status = {
+                    let c = if Uid::effective().is_root() {
+                        cmd!("rm", "-f", files)
+                    } else {
+                        cmd!("sudo", "rm", "-f", files)
+                    };
+                    trace!("{c:?}");
+                    c
+                }
+                .status()
+                .into_diagnostic()?;
 
                 progress.finish_and_clear();
 
@@ -226,9 +249,17 @@ impl SwitchCommand {
                 local_build_path.display()
             );
 
-            let status = cmd!("sudo", "mkdir", "-p", LOCAL_BUILD)
-                .status()
-                .into_diagnostic()?;
+            let status = {
+                let c = if Uid::effective().is_root() {
+                    cmd!("mkdir", "-p", LOCAL_BUILD)
+                } else {
+                    cmd!("sudo", "mkdir", "-p", LOCAL_BUILD)
+                };
+                trace!("{c:?}");
+                c
+            }
+            .status()
+            .into_diagnostic()?;
 
             if !status.success() {
                 bail!("Failed to create directory {LOCAL_BUILD}");

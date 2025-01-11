@@ -10,11 +10,12 @@ categories = ["command-line-utilities"]
 version = "0.9.2"
 
 [workspace.dependencies]
-bon = "2"
+bon = "3"
 cached = "0.53"
 chrono = "0.4"
 clap = "4"
 colored = "2"
+comlexr = "1"
 indexmap = { version = "2", features = ["serde"] }
 indicatif = { version = "0.17", features = ["improved_unicode"] }
 log = "0.4"
@@ -84,6 +85,7 @@ yaml-rust2 = { version = "0.9", optional = true }
 cached.workspace = true
 clap = { workspace = true, features = ["derive", "cargo", "unicode", "env"] }
 colored.workspace = true
+comlexr.workspace = true
 indexmap.workspace = true
 indicatif.workspace = true
 log.workspace = true

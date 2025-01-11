@@ -20,6 +20,7 @@ use blake2::{
     Blake2bVar,
 };
 use chrono::Local;
+use comlexr::cmd;
 use format_serde_error::SerdeError;
 use log::{trace, warn};
 use miette::{miette, Context, IntoDiagnostic, Result};

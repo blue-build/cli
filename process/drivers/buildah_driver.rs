@@ -1,7 +1,8 @@
 use std::{io::Write, process::Stdio};
 
-use blue_build_utils::{cmd, credentials::Credentials};
+use blue_build_utils::credentials::Credentials;
 use colored::Colorize;
+use comlexr::cmd;
 use log::{debug, error, info, trace};
 use miette::{bail, miette, IntoDiagnostic, Result};
 use semver::Version;
