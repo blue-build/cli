@@ -7,7 +7,7 @@ use std::{
 };
 
 use blue_build_utils::{
-    constants::{BB_BUILDKIT_CACHE_GHA, CONTAINER_FILE, DOCKER_HOST, GITHUB_ACTIONS},
+    constants::{BB_BUILDKIT_CACHE_GHA, DOCKER_HOST, GITHUB_ACTIONS},
     credentials::Credentials,
     string_vec,
 };
@@ -16,6 +16,7 @@ use colored::Colorize;
 use comlexr::cmd;
 use log::{debug, info, trace, warn};
 use miette::{bail, miette, IntoDiagnostic, Result};
+use oci_distribution::Reference;
 use once_cell::sync::Lazy;
 use semver::Version;
 use serde::Deserialize;
@@ -30,8 +31,7 @@ use crate::{
             RunOptsVolume, TagOpts,
         },
         traits::{BuildDriver, DriverVersion, InspectDriver, RunDriver},
-        types::ImageMetadata,
-        types::Platform,
+        types::{ContainerId, ImageMetadata, Platform},
     },
     logging::CommandLogging,
     signal_handler::{add_cid, remove_cid, ContainerRuntime, ContainerSignalId},
@@ -66,9 +66,13 @@ impl DockerDriver {
         }
 
         trace!("docker buildx ls --format={}", "{{.Name}}");
-        let ls_out = cmd!("docker", "buildx", "ls", "--format={{.Name}}")
-            .output()
-            .into_diagnostic()?;
+        let ls_out = {
+            let c = cmd!("docker", "buildx", "ls", "--format={{.Name}}");
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
 
         if !ls_out.status.success() {
             bail!("{}", String::from_utf8_lossy(&ls_out.stderr));
@@ -79,15 +83,18 @@ impl DockerDriver {
         trace!("{ls_out}");
 
         if !ls_out.lines().any(|line| line == "bluebuild") {
-            trace!("docker buildx create --bootstrap --driver=docker-container --name=bluebuild");
-            let create_out = cmd!(
-                "docker",
-                "buildx",
-                "create",
-                "--bootstrap",
-                "--driver=docker-container",
-                "--name=bluebuild",
-            )
+            let create_out = {
+                let c = cmd!(
+                    "docker",
+                    "buildx",
+                    "create",
+                    "--bootstrap",
+                    "--driver=docker-container",
+                    "--name=bluebuild",
+                );
+                trace!("{c:?}");
+                c
+            }
             .output()
             .into_diagnostic()?;
 
@@ -108,9 +115,13 @@ impl DriverVersion for DockerDriver {
     const VERSION_REQ: &'static str = ">=23";
 
     fn version() -> Result<Version> {
-        let output = cmd!("docker", "version", "-f", "json")
-            .output()
-            .into_diagnostic()?;
+        let output = {
+            let c = cmd!("docker", "version", "-f", "json");
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
 
         let version_json: DockerVersionJson =
             serde_json::from_slice(&output.stdout).into_diagnostic()?;
@@ -127,20 +138,23 @@ impl BuildDriver for DockerDriver {
             warn!("Squash is deprecated for docker so this build will not squash");
         }
 
-        trace!("docker build -t {} -f {CONTAINER_FILE} .", opts.image);
-        let status = cmd!(
-            "docker",
-            "build",
-            if !matches!(opts.platform, Platform::Native) => [
-                "--platform",
-                opts.platform.to_string(),
-            ],
-            "-t",
-            &*opts.image,
-            "-f",
-            &*opts.containerfile,
-            ".",
-        )
+        let status = {
+            let c = cmd!(
+                "docker",
+                "build",
+                if !matches!(opts.platform, Platform::Native) => [
+                    "--platform",
+                    opts.platform.to_string(),
+                ],
+                "-t",
+                &*opts.image,
+                "-f",
+                &*opts.containerfile,
+                ".",
+            );
+            trace!("{c:?}");
+            c
+        }
         .status()
         .into_diagnostic()?;
 
@@ -157,10 +171,13 @@ impl BuildDriver for DockerDriver {
 
         let dest_image_str = opts.dest_image.to_string();
 
-        trace!("docker tag {} {}", opts.src_image, opts.dest_image);
-        let status = cmd!("docker", "tag", opts.src_image.to_string(), &dest_image_str)
-            .status()
-            .into_diagnostic()?;
+        let status = {
+            let c = cmd!("docker", "tag", opts.src_image.to_string(), &dest_image_str);
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
 
         if status.success() {
             info!("Successfully tagged {}!", dest_image_str.bold().green());
@@ -175,10 +192,13 @@ impl BuildDriver for DockerDriver {
 
         let image_str = opts.image.to_string();
 
-        trace!("docker push {}", opts.image);
-        let status = cmd!("docker", "push", &image_str)
-            .status()
-            .into_diagnostic()?;
+        let status = {
+            let c = cmd!("docker", "push", &image_str);
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
 
         if status.success() {
             info!("Successfully pushed {}!", image_str.bold().green());
@@ -241,14 +261,18 @@ impl BuildDriver for DockerDriver {
         let (system, buildx) = std::thread::scope(
             |scope| -> std::thread::Result<(Result<ExitStatus>, Result<ExitStatus>)> {
                 let system = scope.spawn(|| {
-                    cmd!(
-                        "docker",
-                        "system",
-                        "prune",
-                        "--force",
-                        if opts.all => "--all",
-                        if opts.volumes => "--volumes",
-                    )
+                    {
+                        let c = cmd!(
+                            "docker",
+                            "system",
+                            "prune",
+                            "--force",
+                            if opts.all => "--all",
+                            if opts.volumes => "--volumes",
+                        );
+                        trace!("{c:?}");
+                        c
+                    }
                     .message_status("docker system prune", "Pruning Docker System")
                     .into_diagnostic()
                 });
@@ -260,14 +284,18 @@ impl BuildDriver for DockerDriver {
                         Self::setup()?;
                     }
 
-                    cmd!(
-                        "docker",
-                        "buildx",
-                        "prune",
-                        "--force",
-                        if run_setup => "--builder=bluebuild",
-                        if opts.all => "--all",
-                    )
+                    {
+                        let c = cmd!(
+                            "docker",
+                            "buildx",
+                            "prune",
+                            "--force",
+                            if run_setup => "--builder=bluebuild",
+                            if opts.all => "--all",
+                        );
+                        trace!("{c:?}");
+                        c
+                    }
                     .message_status("docker buildx prune", "Pruning Docker Buildx")
                     .into_diagnostic()
                 });
@@ -464,6 +492,97 @@ impl RunDriver for DockerDriver {
         remove_cid(&cid);
 
         Ok(output)
+    }
+
+    fn create_container(image: &oci_distribution::Reference) -> Result<super::types::ContainerId> {
+        trace!("DockerDriver::create_container({image})");
+
+        let output = {
+            let c = cmd!("docker", "create", image.to_string(), "bash",);
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to create container from image {image}");
+        }
+
+        Ok(ContainerId(
+            String::from_utf8(output.stdout.trim_ascii().to_vec()).into_diagnostic()?,
+        ))
+    }
+
+    fn remove_container(container_id: &super::types::ContainerId) -> Result<()> {
+        trace!("DockerDriver::remove_container({container_id})");
+
+        let output = {
+            let c = cmd!("docker", "rm", container_id);
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to remove container {container_id}");
+        }
+
+        Ok(())
+    }
+
+    fn remove_image(image: &oci_distribution::Reference) -> Result<()> {
+        trace!("DockerDriver::remove_image({image})");
+
+        let output = {
+            let c = cmd!("docker", "rmi", image.to_string());
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to remove the image {image}");
+        }
+
+        Ok(())
+    }
+
+    fn list_images() -> Result<Vec<Reference>> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct Image {
+            repository: String,
+            tag: String,
+        }
+
+        let output = {
+            let c = cmd!("docker", "images", "--format", "json");
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to list images");
+        }
+
+        let images: Vec<Image> = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(|line| serde_json::from_str::<Image>(line).into_diagnostic())
+            .collect::<Result<_>>()?;
+
+        images
+            .into_iter()
+            .map(|image| {
+                format!("{}:{}", image.repository, image.tag)
+                    .parse::<Reference>()
+                    .into_diagnostic()
+            })
+            .collect()
     }
 }
 
