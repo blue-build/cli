@@ -271,6 +271,12 @@ fn get_version_run_image(oci_ref: &Reference) -> Result<u64> {
     );
     progress.enable_steady_tick(Duration::from_millis(100));
 
+    let should_remove = if matches!(Driver::get_run_driver(), RunDriverType::Docker) {
+        !Driver::list_images()?.contains(oci_ref)
+    } else {
+        false
+    };
+
     let output = Driver::run_output(
         &RunOpts::builder()
             .image(oci_ref.to_string())
@@ -283,6 +289,10 @@ fn get_version_run_image(oci_ref: &Reference) -> Result<u64> {
             .remove(true)
             .build(),
     )?;
+
+    if should_remove {
+        Driver::remove_image(oci_ref)?;
+    }
 
     progress.finish_and_clear();
     Logger::multi_progress().remove(&progress);
@@ -396,6 +406,22 @@ impl RunDriver for Driver {
     fn run_output(opts: &RunOpts) -> Result<Output> {
         impl_run_driver!(run_output(opts))
     }
+
+    fn create_container(image: &Reference) -> Result<types::ContainerId> {
+        impl_run_driver!(create_container(image))
+    }
+
+    fn remove_container(container_id: &types::ContainerId) -> Result<()> {
+        impl_run_driver!(remove_container(container_id))
+    }
+
+    fn remove_image(image: &Reference) -> Result<()> {
+        impl_run_driver!(remove_image(image))
+    }
+
+    fn list_images() -> Result<Vec<Reference>> {
+        impl_run_driver!(list_images())
+    }
 }
 
 macro_rules! impl_ci_driver {
@@ -447,18 +473,6 @@ impl CiDriver for Driver {
 
 #[cfg(feature = "rechunk")]
 impl ContainerMountDriver for Driver {
-    fn create_container(image: &Reference) -> Result<types::ContainerId> {
-        PodmanDriver::create_container(image)
-    }
-
-    fn remove_container(container_id: &types::ContainerId) -> Result<()> {
-        PodmanDriver::remove_container(container_id)
-    }
-
-    fn remove_image(image: &Reference) -> Result<()> {
-        PodmanDriver::remove_image(image)
-    }
-
     fn mount_container(container_id: &types::ContainerId) -> Result<types::MountId> {
         PodmanDriver::mount_container(container_id)
     }

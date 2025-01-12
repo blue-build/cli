@@ -236,17 +236,14 @@ impl ImageMetadata {
     }
 }
 
-#[cfg(feature = "rechunk")]
 pub struct ContainerId(pub(super) String);
 
-#[cfg(feature = "rechunk")]
 impl std::fmt::Display for ContainerId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", &self.0)
     }
 }
 
-#[cfg(feature = "rechunk")]
 impl AsRef<std::ffi::OsStr> for ContainerId {
     fn as_ref(&self) -> &std::ffi::OsStr {
         self.0.as_ref()

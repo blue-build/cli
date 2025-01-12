@@ -28,11 +28,9 @@ use crate::{
     signal_handler::{add_cid, remove_cid, ContainerRuntime, ContainerSignalId},
 };
 
+use super::types::ContainerId;
 #[cfg(feature = "rechunk")]
-use super::{
-    types::{ContainerId, MountId},
-    ContainerMountDriver, RechunkDriver,
-};
+use super::{types::MountId, ContainerMountDriver, RechunkDriver};
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "PascalCase")]
@@ -345,56 +343,6 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
 
 #[cfg(feature = "rechunk")]
 impl ContainerMountDriver for PodmanDriver {
-    fn create_container(image: &Reference) -> Result<ContainerId> {
-        let output = {
-            let c = cmd!("podman", "create", image.to_string(), "bash");
-            trace!("{c:?}");
-            c
-        }
-        .output()
-        .into_diagnostic()?;
-
-        if !output.status.success() {
-            bail!("Failed to create a container from image {image}");
-        }
-
-        Ok(ContainerId(
-            String::from_utf8(output.stdout.trim_ascii().to_vec()).into_diagnostic()?,
-        ))
-    }
-
-    fn remove_container(container_id: &super::types::ContainerId) -> Result<()> {
-        let output = {
-            let c = cmd!("podman", "rm", container_id);
-            trace!("{c:?}");
-            c
-        }
-        .output()
-        .into_diagnostic()?;
-
-        if !output.status.success() {
-            bail!("Failed to remove container {container_id}");
-        }
-
-        Ok(())
-    }
-
-    fn remove_image(image: &Reference) -> Result<()> {
-        let output = {
-            let c = cmd!("podman", "rmi", image.to_string());
-            trace!("{c:?}");
-            c
-        }
-        .output()
-        .into_diagnostic()?;
-
-        if !output.status.success() {
-            bail!("Failed to remove the image {image}");
-        }
-
-        Ok(())
-    }
-
     fn mount_container(container_id: &super::types::ContainerId) -> Result<MountId> {
         let output = {
             let c = cmd!("podman", "mount", container_id);
@@ -492,6 +440,88 @@ impl RunDriver for PodmanDriver {
         remove_cid(&cid);
 
         Ok(output)
+    }
+
+    fn create_container(image: &Reference) -> Result<ContainerId> {
+        let output = {
+            let c = cmd!("podman", "create", image.to_string(), "bash");
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to create a container from image {image}");
+        }
+
+        Ok(ContainerId(
+            String::from_utf8(output.stdout.trim_ascii().to_vec()).into_diagnostic()?,
+        ))
+    }
+
+    fn remove_container(container_id: &super::types::ContainerId) -> Result<()> {
+        let output = {
+            let c = cmd!("podman", "rm", container_id);
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to remove container {container_id}");
+        }
+
+        Ok(())
+    }
+
+    fn remove_image(image: &Reference) -> Result<()> {
+        let output = {
+            let c = cmd!("podman", "rmi", image.to_string());
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to remove the image {image}");
+        }
+
+        Ok(())
+    }
+
+    fn list_images() -> Result<Vec<Reference>> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct Image {
+            names: Option<Vec<String>>,
+        }
+
+        let output = {
+            let c = cmd!("podman", "images", "--format", "json");
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to list images");
+        }
+
+        let images: Vec<Image> = serde_json::from_slice(&output.stdout).into_diagnostic()?;
+
+        images
+            .into_iter()
+            .filter_map(|image| image.names)
+            .flat_map(|names| {
+                names
+                    .into_iter()
+                    .map(|name| name.parse::<Reference>().into_diagnostic())
+            })
+            .collect()
     }
 }
 

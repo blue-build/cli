@@ -28,13 +28,10 @@ use super::{
     },
     podman_driver::PodmanDriver,
     skopeo_driver::SkopeoDriver,
-    types::ImageMetadata,
+    types::{ContainerId, ImageMetadata},
 };
 #[cfg(feature = "rechunk")]
-use super::{
-    opts::RechunkOpts,
-    types::{ContainerId, MountId},
-};
+use super::{opts::RechunkOpts, types::MountId};
 
 trait PrivateDriver {}
 
@@ -216,11 +213,7 @@ pub trait RunDriver: PrivateDriver {
     /// # Errors
     /// Will error if there is an issue running the container.
     fn run_output(opts: &RunOpts) -> Result<Output>;
-}
 
-#[allow(private_bounds)]
-#[cfg(feature = "rechunk")]
-pub(super) trait ContainerMountDriver: PrivateDriver {
     /// Creates container
     ///
     /// # Errors
@@ -239,6 +232,16 @@ pub(super) trait ContainerMountDriver: PrivateDriver {
     /// Will error if the image remove command fails.
     fn remove_image(image: &Reference) -> Result<()>;
 
+    /// List all images in the local image registry.
+    ///
+    /// # Errors
+    /// Will error if the image list command fails.
+    fn list_images() -> Result<Vec<Reference>>;
+}
+
+#[allow(private_bounds)]
+#[cfg(feature = "rechunk")]
+pub(super) trait ContainerMountDriver: PrivateDriver {
     /// Mounts the container
     ///
     /// # Errors

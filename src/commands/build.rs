@@ -14,8 +14,8 @@ use blue_build_process_management::{
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{
-        ARCHIVE_SUFFIX, BB_BUILD_RECHUNK, BB_BUILD_RECHUNK_CLEAR_PLAN, BB_REGISTRY_NAMESPACE,
-        CONFIG_PATH, CONTAINER_FILE, RECIPE_FILE, RECIPE_PATH,
+        ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, CONFIG_PATH, CONTAINER_FILE, RECIPE_FILE,
+        RECIPE_PATH,
     },
     cowstr,
     credentials::{Credentials, CredentialsArgs},
@@ -118,7 +118,7 @@ pub struct BuildCommand {
     /// and take up more space during build-time.
     ///
     /// NOTE: This must be run as root!
-    #[arg(long, group = "archive_rechunk", env = BB_BUILD_RECHUNK)]
+    #[arg(long, group = "archive_rechunk", env = blue_build_utils::constants::BB_BUILD_RECHUNK)]
     #[builder(default)]
     #[cfg(feature = "rechunk")]
     rechunk: bool,
@@ -126,7 +126,7 @@ pub struct BuildCommand {
     /// Use a fresh rechunk plan, regardless of previous ref.
     ///
     /// NOTE: Only works with `--rechunk`.
-    #[arg(long, env = BB_BUILD_RECHUNK_CLEAR_PLAN)]
+    #[arg(long, env = blue_build_utils::constants::BB_BUILD_RECHUNK_CLEAR_PLAN)]
     #[builder(default)]
     #[cfg(feature = "rechunk")]
     rechunk_clear_plan: bool,
