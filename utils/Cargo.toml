@@ -12,7 +12,7 @@ license.workspace = true
 atty = "0.2"
 base64 = "0.22"
 blake2 = "0.10"
-directories = "5"
+directories = "6"
 docker_credential = "1"
 format_serde_error = "0.3"
 process_control = { version = "4", features = ["crossbeam-channel"] }
