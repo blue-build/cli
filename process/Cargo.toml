@@ -12,7 +12,7 @@ path = "process.rs"
 
 [dependencies]
 anyhow = "1"
-blue-build-utils = { version = "=0.9.2", path = "../utils" }
+blue-build-utils = { version = "=0.9.3", path = "../utils" }
 indicatif-log-bridge = "0.2"
 lenient_semver = "0.4"
 log4rs = { version = "1", features = ["background_rotation"] }
@@ -47,7 +47,7 @@ uuid.workspace = true
 
 [dev-dependencies]
 rstest.workspace = true
-blue-build-utils = { version = "=0.9.2", path = "../utils", features = ["test"]  }
+blue-build-utils = { version = "=0.9.3", path = "../utils", features = ["test"]  }
 
 [lints]
 workspace = true

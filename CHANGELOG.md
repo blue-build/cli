@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.3] - 2025-01-19
+
+### Bug Fixes
+
+- Don't install all features when building tag
+- Remove image for docker inspect after running image to get version
+
+### Miscellaneous Tasks
+
+- Switch to using my new proc_macro comlexr
+
 ## [0.9.2] - 2025-01-05
 
 ### Features
@@ -14,6 +25,7 @@ All notable changes to this project will be documented in this file.
 
 - Update jsonschema
 - Fix clippy lints
+- Release
 
 ### Refactor
 
