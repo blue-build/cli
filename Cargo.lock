@@ -760,9 +760,9 @@ dependencies = [
 
 [[package]]
 name = "comlexr"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ab00d94d115dea65c19267edbaa5d1b63f0da13dbaa254f3d2e35b340383005"
+checksum = "c52a48dde2c773a43dcb0129a244daa02486b23fab691b0dcfca3bd5e4967a90"
 dependencies = [
  "proc-macro2",
  "quote",
