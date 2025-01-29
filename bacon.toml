@@ -21,7 +21,7 @@ watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.r
 
 [jobs.clippy]
 command = [
-    "cargo", "clippy",
+    "cargo", "clippy", "--workspace",
     "--color", "always",
 ]
 need_stdout = false
@@ -30,7 +30,7 @@ watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.r
 
 [jobs.clippy-all]
 command = [
-    "cargo", "clippy",
+    "cargo", "clippy", "--workspace",
     "--all-features",
     "--color", "always",
 ]

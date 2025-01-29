@@ -35,11 +35,11 @@ prebuild:
 
 lint:
     FROM +common
-    RUN cargo fmt --check
-    DO rust+CARGO --args="clippy"
-    DO rust+CARGO --args="clippy --all-features"
-    DO rust+CARGO --args="clippy --no-default-features"
-    DO +EACH_PACKAGE --args="clippy --no-default-features"
+    RUN cargo fmt --all --check
+    DO rust+CARGO --args="clippy --workspace"
+    DO rust+CARGO --args="clippy --workspace --all-features"
+    DO rust+CARGO --args="clippy --workspace --no-default-features"
+    DO +EACH_PACKAGE --args="clippy --workspace --no-default-features"
 
 test:
     FROM +common
