@@ -25,15 +25,14 @@ impl SigningDriver for CosignDriver {
         let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
 
         let mut command = cmd!(
+            cd path;
+            env {
+                COSIGN_PASSWORD: "",
+                COSIGN_YES: "true",
+            };
             "cosign",
             "generate-key-pair",
-            // COSIGN_PASSWORD => "",
-            // COSIGN_YES => "true",
         );
-        command
-            .current_dir(path)
-            .env(COSIGN_PASSWORD, "")
-            .env(COSIGN_YES, "true");
 
         let status = command.status().into_diagnostic()?;
 
@@ -49,13 +48,14 @@ impl SigningDriver for CosignDriver {
         let priv_key = get_private_key(path)?;
 
         let mut command = cmd!(
+            env {
+                COSIGN_PASSWORD: "",
+                COSIGN_YES: "true"
+            };
             "cosign",
             "public-key",
             format!("--key={priv_key}"),
-            // COSIGN_PASSWORD => "",
-            // COSIGN_YES => "true",
         );
-        command.env(COSIGN_PASSWORD, "").env(COSIGN_YES, "true");
 
         trace!("{command:?}");
         let output = command.output().into_diagnostic()?;

@@ -314,8 +314,7 @@ impl InitCommand {
 
         let dir = self.dir.as_ref().unwrap();
 
-        let mut command = cmd!("git", "commit", "-a", "-m", "chore: Initial Commit");
-        command.current_dir(dir);
+        let mut command = cmd!(cd dir; "git", "commit", "-a", "-m", "chore: Initial Commit");
         trace!("{command:?}");
 
         let status = command
@@ -337,8 +336,7 @@ impl InitCommand {
 
         let dir = self.dir.as_ref().unwrap();
 
-        let mut command = cmd!("git", "add", ".");
-        command.current_dir(dir);
+        let mut command = cmd!(cd dir; "git", "add", ".");
         trace!("{command:?}");
 
         let status = command
