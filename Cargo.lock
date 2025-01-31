@@ -745,7 +745,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
 dependencies = [
  "lazy_static",
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -760,9 +760,19 @@ dependencies = [
 
 [[package]]
 name = "comlexr"
-version = "1.2.0"
+version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c52a48dde2c773a43dcb0129a244daa02486b23fab691b0dcfca3bd5e4967a90"
+checksum = "83ea9f8823bb5c2a06db91ce3da3a33ef80fa263963f18dff19974d1111839e5"
+dependencies = [
+ "comlexr_macro",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "comlexr_macro"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa83196c671d0251387f7d1967623825f38ee2885e8a41d83ab63b56babc435c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5306,7 +5316,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

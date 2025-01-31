@@ -1,13 +1,13 @@
-use std::{fmt::Debug, fs, io::Write, path::Path, process::Stdio};
+use std::{fmt::Debug, fs, path::Path};
 
 use blue_build_utils::{
     constants::{COSIGN_PASSWORD, COSIGN_PUB_PATH, COSIGN_YES},
     credentials::Credentials,
 };
 use colored::Colorize;
-use comlexr::cmd;
+use comlexr::{cmd, pipe};
 use log::{debug, trace};
-use miette::{bail, miette, Context, IntoDiagnostic, Result};
+use miette::{bail, Context, IntoDiagnostic, Result};
 
 use crate::drivers::opts::VerifyType;
 
@@ -24,17 +24,21 @@ impl SigningDriver for CosignDriver {
     fn generate_key_pair(opts: &GenerateKeyPairOpts) -> Result<()> {
         let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
 
-        let mut command = cmd!(
-            cd path;
-            env {
-                COSIGN_PASSWORD: "",
-                COSIGN_YES: "true",
-            };
-            "cosign",
-            "generate-key-pair",
-        );
-
-        let status = command.status().into_diagnostic()?;
+        let status = {
+            let c = cmd!(
+                cd path;
+                env {
+                    COSIGN_PASSWORD: "",
+                    COSIGN_YES: "true",
+                };
+                "cosign",
+                "generate-key-pair",
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
 
         if !status.success() {
             bail!("Failed to generate cosign key-pair!");
@@ -47,18 +51,21 @@ impl SigningDriver for CosignDriver {
         let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
         let priv_key = get_private_key(path)?;
 
-        let mut command = cmd!(
-            env {
-                COSIGN_PASSWORD: "",
-                COSIGN_YES: "true"
-            };
-            "cosign",
-            "public-key",
-            format!("--key={priv_key}"),
-        );
-
-        trace!("{command:?}");
-        let output = command.output().into_diagnostic()?;
+        let output = {
+            let c = cmd!(
+                env {
+                    COSIGN_PASSWORD: "",
+                    COSIGN_YES: "true"
+                };
+                "cosign",
+                "public-key",
+                format!("--key={priv_key}"),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
 
         if !output.status.success() {
             bail!(
@@ -90,32 +97,23 @@ impl SigningDriver for CosignDriver {
             password,
         }) = Credentials::get()
         {
-            let mut command = cmd!(
-                "cosign",
-                "login",
-                "-u",
-                username,
-                "--password-stdin",
-                registry,
-            );
-            command
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped());
-
-            trace!("{command:?}");
-            let mut child = command.spawn().into_diagnostic()?;
-
-            write!(
-                child
-                    .stdin
-                    .as_mut()
-                    .ok_or_else(|| miette!("Unable to open pipe to stdin"))?,
-                "{password}"
+            let output = pipe!(
+                stdin = password;
+                {
+                    let c = cmd!(
+                        "cosign",
+                        "login",
+                        "-u",
+                        username,
+                        "--password-stdin",
+                        registry,
+                    );
+                    trace!("{c:?}");
+                    c
+                }
             )
+            .output()
             .into_diagnostic()?;
-
-            let output = child.wait_with_output().into_diagnostic()?;
 
             if !output.status.success() {
                 let err_out = String::from_utf8_lossy(&output.stderr);
@@ -134,19 +132,25 @@ impl SigningDriver for CosignDriver {
             );
         }
 
-        let mut command = cmd!(
-            "cosign",
-            "sign",
-            if let Some(ref key) = opts.key => format!("--key={key}"),
-            "--recursive",
-            opts.image.to_string(),
-            // COSIGN_PASSWORD => "",
-            // COSIGN_YES => "true",
-        );
-        command.env(COSIGN_PASSWORD, "").env(COSIGN_YES, "true");
+        let status = {
+            let c = cmd!(
+                env {
+                    COSIGN_PASSWORD: "",
+                    COSIGN_YES: "true",
+                };
+                "cosign",
+                "sign",
+                if let Some(ref key) = opts.key => format!("--key={key}"),
+                "--recursive",
+                opts.image.to_string(),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
 
-        trace!("{command:?}");
-        if !command.status().into_diagnostic()?.success() {
+        if !status.success() {
             bail!("Failed to sign {}", opts.image.to_string().bold().red());
         }
 
@@ -154,23 +158,28 @@ impl SigningDriver for CosignDriver {
     }
 
     fn verify(opts: &VerifyOpts) -> Result<()> {
-        let mut command = cmd!(
-            "cosign",
-            "verify",
-            match &opts.verify_type {
-                VerifyType::File(path) => format!("--key={}", path.display()),
-                VerifyType::Keyless { issuer, identity } => [
-                    "--certificate-identity-regexp",
-                    &**identity,
-                    "--certificate-oidc-issuer",
-                    &**issuer,
-                ],
-            },
-            opts.image.to_string(),
-        );
+        let status = {
+            let c = cmd!(
+                "cosign",
+                "verify",
+                match &opts.verify_type {
+                    VerifyType::File(path) => format!("--key={}", path.display()),
+                    VerifyType::Keyless { issuer, identity } => [
+                        "--certificate-identity-regexp",
+                        &**identity,
+                        "--certificate-oidc-issuer",
+                        &**issuer,
+                    ],
+                },
+                opts.image.to_string(),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
 
-        trace!("{command:?}");
-        if !command.status().into_diagnostic()?.success() {
+        if !status.success() {
             bail!("Failed to verify {}", opts.image.to_string().bold().red());
         }
 

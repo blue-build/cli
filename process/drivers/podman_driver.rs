@@ -1,15 +1,14 @@
 use std::{
     collections::HashMap,
-    io::Write,
     path::Path,
-    process::{Command, ExitStatus, Stdio},
+    process::{Command, ExitStatus},
     time::Duration,
 };
 
 use blue_build_utils::credentials::Credentials;
 use cached::proc_macro::cached;
 use colored::Colorize;
-use comlexr::cmd;
+use comlexr::{cmd, pipe};
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace};
 use miette::{bail, miette, IntoDiagnostic, Report, Result};
@@ -218,32 +217,23 @@ impl BuildDriver for PodmanDriver {
             password,
         }) = Credentials::get()
         {
-            let mut command = cmd!(
-                "podman",
-                "login",
-                "-u",
-                username,
-                "--password-stdin",
-                registry
-            );
-            command
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped());
-
-            trace!("{command:?}");
-            let mut child = command.spawn().into_diagnostic()?;
-
-            write!(
-                child
-                    .stdin
-                    .as_mut()
-                    .ok_or_else(|| miette!("Unable to open pipe to stdin"))?,
-                "{password}"
+            let output = pipe!(
+                stdin = password;
+                {
+                    let c = cmd!(
+                        "podman",
+                        "login",
+                        "-u",
+                        username,
+                        "--password-stdin",
+                        registry,
+                    );
+                    trace!("{c:?}");
+                    c
+                }
             )
+            .output()
             .into_diagnostic()?;
-
-            let output = child.wait_with_output().into_diagnostic()?;
 
             if !output.status.success() {
                 let err_out = String::from_utf8_lossy(&output.stderr);
@@ -258,14 +248,18 @@ impl BuildDriver for PodmanDriver {
     fn prune(opts: &super::opts::PruneOpts) -> Result<()> {
         trace!("PodmanDriver::prune({opts:?})");
 
-        let status = cmd!(
-            "podman",
-            "system",
-            "prune",
-            "--force",
-            if opts.all => "--all",
-            if opts.volumes => "--volumes",
-        )
+        let status = {
+            let c = cmd!(
+                "podman",
+                "system",
+                "prune",
+                "--force",
+                if opts.all => "--all",
+                if opts.volumes => "--volumes",
+            );
+            trace!("{c:?}");
+            c
+        }
         .message_status("podman system prune", "Pruning Podman System")
         .into_diagnostic()?;
 
@@ -304,27 +298,33 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
     );
     progress.enable_steady_tick(Duration::from_millis(100));
 
-    let mut command = cmd!(
-        "podman",
-        "pull",
-        if !matches!(opts.platform, Platform::Native) => [
-            "--platform",
-            opts.platform.to_string(),
-        ],
-        &image_str,
-    );
-    trace!("{command:?}");
-
-    let output = command.output().into_diagnostic()?;
+    let output = {
+        let c = cmd!(
+            "podman",
+            "pull",
+            if !matches!(opts.platform, Platform::Native) => [
+                "--platform",
+                opts.platform.to_string(),
+            ],
+            &image_str,
+        );
+        trace!("{c:?}");
+        c
+    }
+    .output()
+    .into_diagnostic()?;
 
     if !output.status.success() {
         bail!("Failed to pull {} for inspection!", image_str.bold().red());
     }
 
-    let mut command = cmd!("podman", "image", "inspect", "--format=json", &image_str);
-    trace!("{command:?}");
-
-    let output = command.output().into_diagnostic()?;
+    let output = {
+        let c = cmd!("podman", "image", "inspect", "--format=json", &image_str);
+        trace!("{c:?}");
+        c
+    }
+    .output()
+    .into_diagnostic()?;
 
     progress.finish_and_clear();
     Logger::multi_progress().remove(&progress);

@@ -1,8 +1,7 @@
 use std::{
     env,
-    io::Write,
     path::Path,
-    process::{Command, ExitStatus, Stdio},
+    process::{Command, ExitStatus},
     sync::Mutex,
 };
 
@@ -13,7 +12,7 @@ use blue_build_utils::{
 };
 use cached::proc_macro::cached;
 use colored::Colorize;
-use comlexr::cmd;
+use comlexr::{cmd, pipe};
 use log::{debug, info, trace, warn};
 use miette::{bail, miette, IntoDiagnostic, Result};
 use oci_distribution::Reference;
@@ -65,7 +64,6 @@ impl DockerDriver {
             return Ok(());
         }
 
-        trace!("docker buildx ls --format={}", "{{.Name}}");
         let ls_out = {
             let c = cmd!("docker", "buildx", "ls", "--format={{.Name}}");
             trace!("{c:?}");
@@ -217,32 +215,23 @@ impl BuildDriver for DockerDriver {
             password,
         }) = Credentials::get()
         {
-            let mut command = cmd!(
-                "docker",
-                "login",
-                "-u",
-                username,
-                "--password-stdin",
-                registry,
-            );
-            command
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped());
-
-            trace!("{command:?}");
-            let mut child = command.spawn().into_diagnostic()?;
-
-            write!(
-                child
-                    .stdin
-                    .as_mut()
-                    .ok_or_else(|| miette!("Unable to open pipe to stdin"))?,
-                "{password}"
+            let output = pipe!(
+                stdin = password;
+                {
+                    let c = cmd!(
+                        "docker",
+                        "login",
+                        "-u",
+                        username,
+                        "--password-stdin",
+                        registry,
+                    );
+                    trace!("{c:?}");
+                    c
+                }
             )
+            .output()
             .into_diagnostic()?;
-
-            let output = child.wait_with_output().into_diagnostic()?;
 
             if !output.status.success() {
                 let err_out = String::from_utf8_lossy(&output.stderr);
@@ -354,50 +343,50 @@ impl BuildDriver for DockerDriver {
 
         let first_image = final_images.first().unwrap();
 
-        let command = cmd!(
-            "docker",
-            "buildx",
-            if run_setup => "--builder=bluebuild",
-            "build",
-            ".",
-            match (opts.image, opts.archive_path.as_deref()) {
-                (Some(_), None) if opts.push => [
-                    "--output",
-                    format!(
-                        "type=image,name={first_image},push=true,compression={},oci-mediatypes=true",
-                        opts.compression
-                    ),
+        let status = {
+            let c = cmd!(
+                "docker",
+                "buildx",
+                if run_setup => "--builder=bluebuild",
+                "build",
+                ".",
+                match (opts.image, opts.archive_path.as_deref()) {
+                    (Some(_), None) if opts.push => [
+                        "--output",
+                        format!(
+                            "type=image,name={first_image},push=true,compression={},oci-mediatypes=true",
+                            opts.compression
+                        ),
+                    ],
+                    (Some(_), None) if env::var(GITHUB_ACTIONS).is_err() => "--load",
+                    (None, Some(archive_path)) => [
+                        "--output",
+                        format!("type=oci,dest={}", archive_path.display()),
+                    ],
+                    _ => [],
+                },
+                "--pull",
+                if !matches!(opts.platform, Platform::Native) => [
+                    "--platform",
+                    opts.platform.to_string(),
                 ],
-                (Some(_), None) if env::var(GITHUB_ACTIONS).is_err() => "--load",
-                (None, Some(archive_path)) => [
-                    "--output",
-                    format!("type=oci,dest={}", archive_path.display()),
-                ],
-                _ => [],
-            },
-            "--pull",
-            if !matches!(opts.platform, Platform::Native) => [
-                "--platform",
-                opts.platform.to_string(),
-            ],
-            "-f",
-            &*opts.containerfile,
-            // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
-            if env::var(BB_BUILDKIT_CACHE_GHA)
-                .map_or_else(|_| false, |e| e == "true") => [
-                    "--cache-from",
-                    "type=gha",
-                    "--cache-to",
-                    "type=gha",
-                ],
-        );
+                "-f",
+                &*opts.containerfile,
+                // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
+                if env::var(BB_BUILDKIT_CACHE_GHA)
+                    .map_or_else(|_| false, |e| e == "true") => [
+                        "--cache-from",
+                        "type=gha",
+                        "--cache-to",
+                        "type=gha",
+                    ],
+            );
+            trace!("{c:?}");
+            c
+        }
+        .build_status(first_image, "Building Image").into_diagnostic()?;
 
-        trace!("{command:?}");
-        if command
-            .build_status(first_image, "Building Image")
-            .into_diagnostic()?
-            .success()
-        {
+        if status.success() {
             if opts.push {
                 info!("Successfully built and pushed image {}", first_image);
             } else {
@@ -432,19 +421,22 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
         DockerDriver::setup()?;
     }
 
-    let mut command = cmd!(
-        "docker",
-        "buildx",
-        if run_setup => "--builder=bluebuild",
-        "imagetools",
-        "inspect",
-        "--format",
-        "{{json .}}",
-        &image_str,
-    );
-    trace!("{command:?}");
-
-    let output = command.output().into_diagnostic()?;
+    let output = {
+        let c = cmd!(
+            "docker",
+            "buildx",
+            if run_setup => "--builder=bluebuild",
+            "imagetools",
+            "inspect",
+            "--format",
+            "{{json .}}",
+            &image_str,
+        );
+        trace!("{c:?}");
+        c
+    }
+    .output()
+    .into_diagnostic()?;
 
     if output.status.success() {
         info!("Successfully inspected image {}!", image_str.bold().green());
