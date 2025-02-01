@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.4] - 2025-02-01
+
+### Bug Fixes
+
+- Improve validation errors
+
+### Miscellaneous Tasks
+
+- Use new comlexr features
+- Make sure clippy checks entire workspace
+- Upgrade comlexr to 1.3.0
+- Cleanup code before release and update deps
+
 ## [0.9.3] - 2025-01-19
 
 ### Bug Fixes
@@ -12,6 +25,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Switch to using my new proc_macro comlexr
+- Release
 
 ## [0.9.2] - 2025-01-05
 
@@ -723,9 +737,21 @@ All notable changes to this project will be documented in this file.
 
 ### Miscellaneous Tasks
 
+- Create GitHub Workflow (#9)
+- Don't build integration tests in +all
+- Allow write for contents and id-token
+- Allow workflow_dispatch on build
+- Use docker/login-action@v3
+- Set packages permissions to write
+- Update README.md (#10)
+- Use GHCR for install.sh (#11)
+- Remove input for release
+- Add CARGO_REGISTRY_TOKEN
+- Fetch all to get history for changelog updates
+- Allow write for id-token
 - Bump version
 
-## [0.5.2] - 2024-01-24
+## [0.5.2] - 2024-01-22
 
 ### Bug Fixes
 
@@ -745,18 +771,6 @@ All notable changes to this project will be documented in this file.
 
 - Update Cargo.toml with new repo URL
 - Manual bump of version
-- Create GitHub Workflow (#9)
-- Don't build integration tests in +all
-- Allow write for contents and id-token
-- Allow workflow_dispatch on build
-- Use docker/login-action@v3
-- Set packages permissions to write
-- Update README.md (#10)
-- Use GHCR for install.sh (#11)
-- Remove input for release
-- Add CARGO_REGISTRY_TOKEN
-- Fetch all to get history for changelog updates
-- Allow write for id-token
 
 ## [0.5.1] - 2024-01-22
 
