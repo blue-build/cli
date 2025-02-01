@@ -79,6 +79,7 @@ rayon = { version = "1", optional = true }
 regex = { version = "1", optional = true }
 requestty = { version = "0.5", features = ["macros", "termion"] }
 shadow-rs = { version = "0.38", default-features = false }
+thiserror = "2"
 urlencoding = "2"
 yaml-rust2 = { version = "0.9", optional = true }
 
@@ -102,7 +103,6 @@ tempfile.workspace = true
 tokio = { workspace = true, optional = true }
 bon.workspace = true
 users.workspace = true
-thiserror = "2.0.7"
 
 [features]
 # Top level features

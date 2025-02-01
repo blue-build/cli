@@ -6,6 +6,9 @@ use std::{
 
 use blue_build_process_management::ASYNC_RUNTIME;
 use blue_build_recipe::ModuleTypeVersion;
+use blue_build_utils::constants::{
+    CUSTOM_MODULE_SCHEMA, IMPORT_MODULE_SCHEMA, JSON_SCHEMA, STAGE_SCHEMA,
+};
 use bon::bon;
 use cached::proc_macro::cached;
 use colored::Colorize;
@@ -222,15 +225,15 @@ fn process_anyof_error(err: &ValidationError<'_>) -> Option<Vec<ValidationError<
         ) => {
             trace!("FOUND MODULE ANYOF ERROR at {instance_path}");
             if instance.get("source").is_some() {
-                Uri::parse("json-schema:///module-custom-v1.json".to_string()).ok()?
+                Uri::parse(CUSTOM_MODULE_SCHEMA.to_string()).ok()?
             } else if instance.get("from-file").is_some() {
-                Uri::parse("json-schema:///import-v1.json".to_string()).ok()?
+                Uri::parse(IMPORT_MODULE_SCHEMA.to_string()).ok()?
             } else {
                 let typ = instance.get("type").and_then(Value::as_str)?;
                 let typ = ModuleTypeVersion::from(typ);
                 trace!("Module type: {typ}");
                 Uri::parse(format!(
-                    "json-schema:///modules/{}-{}.json",
+                    "{JSON_SCHEMA}/modules/{}-{}.json",
                     typ.typ(),
                     typ.version().unwrap_or("latest")
                 ))
@@ -245,9 +248,9 @@ fn process_anyof_error(err: &ValidationError<'_>) -> Option<Vec<ValidationError<
             trace!("FOUND STAGE ANYOF ERROR at {instance_path}");
 
             if instance.get("from-file").is_some() {
-                Uri::parse("json-schema:///import-v1.json".to_string()).ok()?
+                Uri::parse(IMPORT_MODULE_SCHEMA.to_string()).ok()?
             } else {
-                Uri::parse("json-schema:///stage-v1.json".to_string()).ok()?
+                Uri::parse(STAGE_SCHEMA.to_string()).ok()?
             }
         }
         _ => return None,
@@ -317,11 +320,11 @@ async fn cache_retrieve(uri: &Uri<&str>) -> miette::Result<Value> {
 
     #[cfg(not(test))]
     {
-        const BASE_SCHEMA_URL: &str = "https://schema.blue-build.org";
+        use blue_build_utils::constants::SCHEMA_BASE_URL;
 
         let uri = match scheme.as_str() {
             "json-schema" => {
-                format!("{BASE_SCHEMA_URL}{path}")
+                format!("{SCHEMA_BASE_URL}{path}")
             }
             "https" => uri.to_string(),
             scheme => miette::bail!("Unknown scheme {scheme}"),

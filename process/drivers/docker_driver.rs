@@ -14,7 +14,7 @@ use cached::proc_macro::cached;
 use colored::Colorize;
 use comlexr::{cmd, pipe};
 use log::{debug, info, trace, warn};
-use miette::{bail, miette, IntoDiagnostic, Result};
+use miette::{bail, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use once_cell::sync::Lazy;
 use semver::Version;
@@ -292,7 +292,7 @@ impl BuildDriver for DockerDriver {
                 Ok((system.join()?, buildx.join()?))
             },
         )
-        .map_err(|e| miette!("{e:?}"))?;
+        .map_err(|e| miette::miette!("{e:?}"))?;
 
         if !system?.success() {
             bail!("Failed to prune docker system");

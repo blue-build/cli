@@ -98,6 +98,12 @@ pub const MODULE_V1_SCHEMA_URL: &str = concat!(SCHEMA_BASE_URL, "/module-v1.json
 pub const MODULE_STAGE_LIST_V1_SCHEMA_URL: &str =
     concat!(SCHEMA_BASE_URL, "/module-stage-list-v1.json");
 
+// JSON Schema
+pub const JSON_SCHEMA: &str = "json-schema://";
+pub const CUSTOM_MODULE_SCHEMA: &str = concat!(JSON_SCHEMA, "/module-custom-v1.json");
+pub const IMPORT_MODULE_SCHEMA: &str = concat!(JSON_SCHEMA, "/import-v1.json");
+pub const STAGE_SCHEMA: &str = concat!(JSON_SCHEMA, "/stage-v1.json");
+
 // Messages
 pub const BUG_REPORT_WARNING_MESSAGE: &str =
     "Please copy the above report and open an issue manually.";
