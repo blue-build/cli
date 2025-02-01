@@ -2,11 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.9.5-rc.1] - 2025-02-01
+## [0.9.5] - 2025-02-01
 
 ### Bug Fixes
 
 - Determin scripts tag
+
+### Miscellaneous Tasks
+
+- Release
 
 ## [0.9.4] - 2025-02-01
 
