@@ -183,14 +183,17 @@ impl GenerateCommand {
     sync_writes = true
 )]
 fn determine_scripts_tag(platform: Platform) -> Result<Reference> {
-    let image: Reference = format!("{BUILD_SCRIPTS_IMAGE_REF}:{}", shadow::COMMIT_HASH)
-        .parse()
-        .into_diagnostic()?;
-    let opts = GetMetadataOpts::builder().platform(platform);
+    trace!("determine_scripts_tag({platform:?})");
 
-    Driver::get_metadata(&opts.clone().image(&image).build())
-        .inspect_err(|e| trace!("{e:?}"))
-        .map(|_| image)
+    let opts = GetMetadataOpts::builder().platform(platform);
+    format!("{BUILD_SCRIPTS_IMAGE_REF}:{}", shadow::COMMIT_HASH)
+        .parse()
+        .into_diagnostic()
+        .and_then(|image| {
+            Driver::get_metadata(&opts.clone().image(&image).build())
+                .inspect_err(|e| trace!("{e:?}"))
+                .map(|_| image)
+        })
         .or_else(|_| {
             let image: Reference = format!("{BUILD_SCRIPTS_IMAGE_REF}:{}", shadow::BRANCH)
                 .parse()
