@@ -10,8 +10,8 @@ license.workspace = true
 
 [dependencies]
 rinja = { version = "0.3", features = ["serde_json"] }
-blue-build-recipe = { version = "=0.9.4", path = "../recipe" }
-blue-build-utils = { version = "=0.9.4", path = "../utils" }
+blue-build-recipe = { version = "=0.9.5-rc.1", path = "../recipe" }
+blue-build-utils = { version = "=0.9.5-rc.1", path = "../utils" }
 
 chrono.workspace = true
 log.workspace = true
