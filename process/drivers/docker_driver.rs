@@ -365,6 +365,14 @@ impl BuildDriver for DockerDriver {
                     ],
                     _ => [],
                 },
+                for opts.image.as_ref().map_or_else(Vec::new, |image| {
+                        opts.tags.iter().flat_map(|tag| {
+                            vec![
+                                "-t".to_string(),
+                                format!("{}/{}:{tag}", image.resolve_registry(), image.repository())
+                            ]
+                        }).collect()
+                    }),
                 "--pull",
                 if !matches!(opts.platform, Platform::Native) => [
                     "--platform",
