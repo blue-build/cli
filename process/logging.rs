@@ -482,7 +482,7 @@ pub fn gen_random_ansi_color() -> u8 {
     const LOW_END: u8 = 21; // Blue1 #0000ff rgb(0,0,255) hsl(240,100%,50%)
     const HIGH_END: u8 = 230; // Cornsilk1 #ffffd7 rgb(255,255,215) hsl(60,100%,92%)
 
-    rand::thread_rng().gen_range(LOW_END..=HIGH_END)
+    rand::rng().random_range(LOW_END..=HIGH_END)
 }
 
 pub fn color_str<T>(text: T, ansi_color: u8) -> String
