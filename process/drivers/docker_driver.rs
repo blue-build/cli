@@ -57,6 +57,10 @@ impl DockerDriver {
     fn setup() -> Result<()> {
         trace!("DockerDriver::setup()");
 
+        if !Self::has_buildx() {
+            bail!("Docker Buildx is required to use the Docker driver");
+        }
+
         let mut lock = DOCKER_SETUP.lock().expect("Should lock");
 
         if *lock {
@@ -104,6 +108,13 @@ impl DockerDriver {
         *lock = true;
         drop(lock);
         Ok(())
+    }
+
+    #[must_use]
+    pub fn has_buildx() -> bool {
+        pipe!(cmd!("docker", "--help") | cmd!("grep", "buildx"))
+            .status()
+            .is_ok_and(|status| status.success())
     }
 }
 

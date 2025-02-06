@@ -58,7 +58,9 @@ impl DetermineDriver<BuildDriverType> for Option<BuildDriverType> {
                 blue_build_utils::check_command_exists("podman"),
                 blue_build_utils::check_command_exists("buildah"),
             ) {
-                (Ok(_docker), _, _) if DockerDriver::is_supported_version() => {
+                (Ok(_docker), _, _)
+                    if DockerDriver::is_supported_version() && DockerDriver::has_buildx() =>
+                {
                     BuildDriverType::Docker
                 }
                 (_, Ok(_podman), _) if PodmanDriver::is_supported_version() => {
@@ -70,7 +72,10 @@ impl DetermineDriver<BuildDriverType> for Option<BuildDriverType> {
                 _ => panic!(
                     "{}{}{}{}",
                     "Could not determine strategy, ",
-                    format_args!("need either docker version {}, ", DockerDriver::VERSION_REQ,),
+                    format_args!(
+                        "need either docker version {} with buildx, ",
+                        DockerDriver::VERSION_REQ,
+                    ),
                     format_args!("podman version {}, ", PodmanDriver::VERSION_REQ,),
                     format_args!(
                         "or buildah version {} to continue",
