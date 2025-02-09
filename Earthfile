@@ -246,6 +246,14 @@ installer:
     DO --pass-args +SAVE_IMAGE --SUFFIX="-installer"
     SAVE ARTIFACT /out/bluebuild
 
+rpm-build:
+    FROM fedora
+    RUN dnf -y install --refresh gcc rpm-build rpm-devel rpmlint mock make python3 bash coreutils diffutils patch rpmdevtools cargo
+    RUN rpmdev-setuptree
+    COPY bluebuild.spec $HOME/rpmbuild/SPECS/
+    RUN rpmbuild -ba ~/rpmbuild/SPECS/bluebuild.spec
+    RUN mock -r fedora-rawhide-x86_64 --buildsrpm --spec ~/rpmbuild/SPECS/myprogram.spec --resultdir=~/rpmbuild/results
+
 cosign:
     FROM ghcr.io/sigstore/cosign/cosign:v2.4.3
     SAVE ARTIFACT /ko-app/cosign
