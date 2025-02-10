@@ -1,6 +1,9 @@
 use std::{collections::HashMap, env};
 
-use blue_build_utils::constants::{GITHUB_ACTIONS, GITLAB_CI, IMAGE_VERSION_LABEL};
+use blue_build_utils::{
+    constants::{GITHUB_ACTIONS, GITLAB_CI, IMAGE_VERSION_LABEL},
+    semver::Version,
+};
 use clap::ValueEnum;
 use log::trace;
 use serde::Deserialize;
@@ -233,9 +236,9 @@ impl ImageMetadata {
     pub fn get_version(&self) -> Option<u64> {
         Some(
             self.labels
-                .get(IMAGE_VERSION_LABEL)?
-                .as_str()
-                .and_then(|v| lenient_semver::parse(v).ok())?
+                .get(IMAGE_VERSION_LABEL)
+                .map(ToOwned::to_owned)
+                .and_then(|v| serde_json::from_value::<Version>(v).ok())?
                 .major,
         )
     }

@@ -1,11 +1,10 @@
 use std::{io::Write, process::Stdio};
 
-use blue_build_utils::credentials::Credentials;
+use blue_build_utils::{credentials::Credentials, semver::Version};
 use colored::Colorize;
 use comlexr::cmd;
 use log::{debug, error, info, trace};
 use miette::{bail, miette, IntoDiagnostic, Result};
-use semver::Version;
 use serde::Deserialize;
 
 use crate::{drivers::types::Platform, logging::CommandLogging};
@@ -36,10 +35,13 @@ impl DriverVersion for BuildahDriver {
     fn version() -> Result<Version> {
         trace!("BuildahDriver::version()");
 
-        trace!("buildah version --json");
-        let output = cmd!("buildah", "version", "--json")
-            .output()
-            .into_diagnostic()?;
+        let output = {
+            let c = cmd!("buildah", "version", "--json");
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
 
         let version_json: BuildahVersionJson = serde_json::from_slice(&output.stdout)
             .inspect_err(|e| error!("{e}: {}", String::from_utf8_lossy(&output.stdout)))

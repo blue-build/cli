@@ -4,11 +4,11 @@ use std::{
     process::{ExitStatus, Output},
 };
 
-use blue_build_utils::{constants::COSIGN_PUB_PATH, retry, string_vec};
+use blue_build_utils::{constants::COSIGN_PUB_PATH, retry, semver::Version, string_vec};
 use log::{debug, info, trace};
 use miette::{bail, Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
-use semver::{Version, VersionReq};
+use semver::VersionReq;
 
 use crate::drivers::{functions::get_private_key, types::CiDriverType, Driver};
 

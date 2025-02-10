@@ -19,10 +19,10 @@ comlexr = "1"
 indexmap = { version = "2", features = ["serde"] }
 indicatif = { version = "0.17", features = ["improved_unicode"] }
 log = "0.4"
+miette = "7"
 nix = { version = "0.29" }
 oci-distribution = { version = "0.11", default-features = false }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
-miette = "7"
 rstest = "0.18"
 semver = "1"
 serde = { version = "1", features = ["derive"] }
