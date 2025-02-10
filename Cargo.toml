@@ -72,7 +72,7 @@ clap-verbosity-flag = "3"
 clap_complete = "4"
 clap_complete_nushell = "4"
 fuzzy-matcher = "0.3"
-jsonschema = { version = "0.28", optional = true }
+jsonschema = { version = "0.29", optional = true }
 open = "5"
 os_info = "3"
 rayon = { version = "1", optional = true }
