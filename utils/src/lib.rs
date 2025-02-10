@@ -2,6 +2,7 @@ pub mod command_output;
 pub mod constants;
 pub mod credentials;
 mod macros;
+pub mod semver;
 pub mod syntax_highlighting;
 #[cfg(feature = "test")]
 pub mod test_utils;

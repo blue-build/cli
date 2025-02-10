@@ -8,6 +8,7 @@ use std::{
 use blue_build_utils::{
     constants::{BB_BUILDKIT_CACHE_GHA, DOCKER_HOST, GITHUB_ACTIONS},
     credentials::Credentials,
+    semver::Version,
     string_vec,
 };
 use cached::proc_macro::cached;
@@ -17,7 +18,6 @@ use log::{debug, info, trace, warn};
 use miette::{bail, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use once_cell::sync::Lazy;
-use semver::Version;
 use serde::Deserialize;
 use tempfile::TempDir;
 
@@ -124,6 +124,8 @@ impl DriverVersion for DockerDriver {
     const VERSION_REQ: &'static str = ">=23";
 
     fn version() -> Result<Version> {
+        trace!("DockerDriver::version()");
+
         let output = {
             let c = cmd!("docker", "version", "-f", "json");
             trace!("{c:?}");

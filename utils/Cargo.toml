@@ -16,6 +16,7 @@ constcat = "0.6"
 directories = "6"
 docker_credential = "1"
 format_serde_error = "0.3"
+lenient_semver = "0.4"
 process_control = { version = "4", features = ["crossbeam-channel"] }
 which = "7"
 
@@ -24,6 +25,7 @@ clap = { workspace = true, features = ["derive", "env"] }
 comlexr.workspace = true
 log.workspace = true
 miette.workspace = true
+semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true

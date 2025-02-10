@@ -411,7 +411,6 @@ dependencies = [
  "indexmap 2.7.1",
  "indicatif",
  "indicatif-log-bridge",
- "lenient_semver",
  "log",
  "log4rs",
  "miette",
@@ -481,10 +480,12 @@ dependencies = [
  "directories",
  "docker_credential",
  "format_serde_error",
+ "lenient_semver",
  "log",
  "miette",
  "process_control",
  "rstest",
+ "semver",
  "serde",
  "serde_json",
  "serde_yml",
@@ -4057,9 +4058,6 @@ name = "semver"
 version = "1.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f79dfe2d285b0488816f30e700a7438c5a73d816b5b7d3ac72fbc48b0d185e03"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "serde"

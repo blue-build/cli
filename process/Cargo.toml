@@ -14,7 +14,6 @@ path = "process.rs"
 anyhow = "1"
 blue-build-utils = { version = "=0.9.6", path = "../utils" }
 indicatif-log-bridge = "0.2"
-lenient_semver = "0.4"
 log4rs = { version = "1", features = ["background_rotation"] }
 nu-ansi-term = { version = "0.50", features = ["gnu_legacy"] }
 once_cell = "1"
@@ -36,7 +35,7 @@ miette.workspace = true
 nix = { workspace = true, features = ["signal", "user"] }
 oci-distribution.workspace = true
 reqwest.workspace = true
-semver = { workspace = true, features = ["serde"] }
+semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true

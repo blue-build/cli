@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use blue_build_utils::credentials::Credentials;
+use blue_build_utils::{credentials::Credentials, semver::Version};
 use cached::proc_macro::cached;
 use colored::Colorize;
 use comlexr::{cmd, pipe};
@@ -13,7 +13,6 @@ use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace};
 use miette::{bail, miette, IntoDiagnostic, Report, Result};
 use oci_distribution::Reference;
-use semver::Version;
 use serde::Deserialize;
 use tempfile::TempDir;
 
@@ -114,10 +113,13 @@ impl DriverVersion for PodmanDriver {
     fn version() -> Result<Version> {
         trace!("PodmanDriver::version()");
 
-        trace!("podman version -f json");
-        let output = cmd!("podman", "version", "-f", "json")
-            .output()
-            .into_diagnostic()?;
+        let output = {
+            let c = cmd!("podman", "version", "-f", "json");
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
 
         let version_json: PodmanVersionJson = serde_json::from_slice(&output.stdout)
             .inspect_err(|e| error!("{e}: {}", String::from_utf8_lossy(&output.stdout)))
