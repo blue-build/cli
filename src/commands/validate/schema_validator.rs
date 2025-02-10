@@ -257,7 +257,7 @@ fn process_anyof_error(err: &ValidationError<'_>) -> Option<Vec<ValidationError<
     };
 
     trace!("Schema URI: {uri}");
-    let schema = ASYNC_RUNTIME.block_on(cache_retrieve(&uri.borrow())).ok()?;
+    let schema = ASYNC_RUNTIME.block_on(cache_retrieve(&uri)).ok()?;
 
     let validator = jsonschema::options()
         .with_retriever(ModuleSchemaRetriever)
@@ -307,14 +307,14 @@ struct ModuleSchemaRetriever;
 impl Retrieve for ModuleSchemaRetriever {
     fn retrieve(
         &self,
-        uri: &Uri<&str>,
+        uri: &Uri<String>,
     ) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
         Ok(ASYNC_RUNTIME.block_on(cache_retrieve(uri))?)
     }
 }
 
 #[cached(result = true, key = "String", convert = r#"{ format!("{uri}") }"#)]
-async fn cache_retrieve(uri: &Uri<&str>) -> miette::Result<Value> {
+async fn cache_retrieve(uri: &Uri<String>) -> miette::Result<Value> {
     let scheme = uri.scheme();
     let path = uri.path();
 
