@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.7] - 2025-02-11
+
+### Bug Fixes
+
+- Check for buildx before using docker
+- Use lenient_semver for build drivers version check to handle pre-release versions
+
+### Miscellaneous Tasks
+
+- Bump cosign to 2.4.2
+
 ## [0.9.6] - 2025-02-05
 
 ### Bug Fixes
@@ -11,6 +22,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Fix clippy lints
+- Release
 
 ## [0.9.5] - 2025-02-01
 
