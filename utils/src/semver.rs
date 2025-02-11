@@ -31,7 +31,6 @@ impl<'de> Deserialize<'de> for Version {
         };
         // delete pre-release field or we can never match pre-release versions of tools
         parsed_ver.pre = Prerelease::EMPTY;
-        Some(Self(parsed_ver))
-            .ok_or_else(|| D::Error::custom(format!("Failed to deserialize version {ver}")))
+        Ok(Self(parsed_ver))
     }
 }
