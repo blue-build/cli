@@ -1,3 +1,4 @@
+use semver::Prerelease;
 use serde::{de::Error, Deserialize};
 
 #[derive(Debug)]
@@ -23,9 +24,13 @@ impl<'de> Deserialize<'de> for Version {
         D: serde::Deserializer<'de>,
     {
         let ver = String::deserialize(deserializer)?;
-        lenient_semver::parse(&ver)
-            .ok()
-            .map(Self)
-            .ok_or_else(|| D::Error::custom(format!("Failed to deserialize version {ver}")))
+        let Ok(mut parsed_ver) = lenient_semver::parse(&ver) else {
+            return Err(D::Error::custom(format!(
+                "Failed to deserialize version {ver}"
+            )));
+        };
+        // delete pre-release field or we can never match pre-release versions of tools
+        parsed_ver.pre = Prerelease::EMPTY;
+        Ok(Self(parsed_ver))
     }
 }
