@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.8] - 2025-02-12
+
+### Bug Fixes
+
+- Ignore pre-release field when parsing versions (#364)
+- Filter out images whose repo or tag is <none> when listing images
+- Make sure to update flake.nix during release
+
+### Miscellaneous Tasks
+
+- Add more context for list_images image parsing
+
 ## [0.9.7] - 2025-02-11
 
 ### Bug Fixes
@@ -12,6 +24,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Bump cosign to 2.4.2
+- Release
 
 ## [0.9.6] - 2025-02-05
 
