@@ -590,6 +590,7 @@ impl RunDriver for DockerDriver {
 
         images
             .into_iter()
+            .filter(|image| image.repository != "<none>" && image.tag != "<none>")
             .map(|image| {
                 format!("{}:{}", image.repository, image.tag)
                     .parse::<Reference>()
