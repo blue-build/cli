@@ -15,7 +15,7 @@ use cached::proc_macro::cached;
 use colored::Colorize;
 use comlexr::{cmd, pipe};
 use log::{debug, info, trace, warn};
-use miette::{bail, IntoDiagnostic, Result};
+use miette::{bail, Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
@@ -564,7 +564,7 @@ impl RunDriver for DockerDriver {
     }
 
     fn list_images() -> Result<Vec<Reference>> {
-        #[derive(Deserialize)]
+        #[derive(Deserialize, Debug)]
         #[serde(rename_all = "PascalCase")]
         struct Image {
             repository: String,
@@ -594,6 +594,7 @@ impl RunDriver for DockerDriver {
                 format!("{}:{}", image.repository, image.tag)
                     .parse::<Reference>()
                     .into_diagnostic()
+                    .with_context(|| format!("While parsing {image:?}"))
             })
             .collect()
     }
