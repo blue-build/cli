@@ -332,14 +332,19 @@ async fn cache_retrieve(uri: &Uri<String>) -> miette::Result<Value> {
 
         log::debug!("Retrieving schema from {}", uri.bold().italic());
         tokio::spawn(async move {
-            reqwest::get(&uri)
+            let response = reqwest::get(&uri)
                 .await
                 .into_diagnostic()
-                .with_context(|| format!("Failed to retrieve schema from {uri}"))?
-                .json()
-                .await
+                .with_context(|| format!("Failed to retrieve schema from {uri}"))?;
+            let raw_output = response.bytes().await.into_diagnostic()?;
+            serde_json::from_slice(&raw_output)
                 .into_diagnostic()
-                .with_context(|| format!("Failed to parse json from {uri}"))
+                .with_context(|| {
+                    format!(
+                        "Failed to parse json from {uri}, contents:\n{}",
+                        String::from_utf8_lossy(&raw_output)
+                    )
+                })
                 .inspect(|value| trace!("{}:\n{value}", uri.bold().italic()))
         })
         .await
