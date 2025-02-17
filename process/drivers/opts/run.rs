@@ -1,11 +1,15 @@
 use std::borrow::Cow;
 
 use bon::Builder;
+use oci_distribution::Reference;
 
 #[derive(Debug, Clone, Builder)]
 pub struct RunOpts<'scope> {
     #[builder(into)]
-    pub image: Cow<'scope, str>,
+    pub image: &'scope Reference,
+
+    #[builder(into)]
+    pub command: Option<Cow<'scope, str>>,
 
     #[builder(default, into)]
     pub args: Vec<Cow<'scope, str>>,

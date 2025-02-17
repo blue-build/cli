@@ -247,16 +247,19 @@ impl GenerateIsoCommand {
             }
         }
 
-        // Currently testing local tarball builds
-        let opts = RunOpts::builder()
-            .image("ghcr.io/jasonn3/build-container-installer")
-            .privileged(true)
-            .remove(true)
-            .args(args.collect_cow_vec())
-            .volumes(vols)
-            .build();
-
-        let status = Driver::run(&opts)?;
+        let status = Driver::run(
+            &RunOpts::builder()
+                .image(
+                    &"ghcr.io/jasonn3/build-container-installer"
+                        .try_into()
+                        .unwrap(),
+                )
+                .privileged(true)
+                .remove(true)
+                .args(args.collect_cow_vec())
+                .volumes(vols)
+                .build(),
+        )?;
 
         if !status.success() {
             bail!("Failed to create ISO");

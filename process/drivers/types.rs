@@ -14,6 +14,8 @@ use crate::drivers::{
     DriverVersion,
 };
 
+use super::Driver;
+
 pub(super) trait DetermineDriver<T> {
     fn determine_driver(&mut self) -> T;
 }
@@ -51,25 +53,30 @@ pub enum BuildDriverType {
     Buildah,
     Podman,
     Docker,
+    #[cfg(feature = "buildkit")]
+    Buildkit,
 }
 
 impl DetermineDriver<BuildDriverType> for Option<BuildDriverType> {
     fn determine_driver(&mut self) -> BuildDriverType {
         *self.get_or_insert(
             match (
+                Driver::get_run_driver(),
                 blue_build_utils::check_command_exists("docker"),
                 blue_build_utils::check_command_exists("podman"),
                 blue_build_utils::check_command_exists("buildah"),
             ) {
-                (Ok(_docker), _, _)
+                #[cfg(feature = "buildkit")]
+                (RunDriverType::Docker, _, _, _) => BuildDriverType::Buildkit,
+                (_, Ok(_docker), _, _)
                     if DockerDriver::is_supported_version() && DockerDriver::has_buildx() =>
                 {
                     BuildDriverType::Docker
                 }
-                (_, Ok(_podman), _) if PodmanDriver::is_supported_version() => {
+                (_, _, Ok(_podman), _) if PodmanDriver::is_supported_version() => {
                     BuildDriverType::Podman
                 }
-                (_, _, Ok(_buildah)) if BuildahDriver::is_supported_version() => {
+                (_, _, _, Ok(_buildah)) if BuildahDriver::is_supported_version() => {
                     BuildDriverType::Buildah
                 }
                 _ => panic!(

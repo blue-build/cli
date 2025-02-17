@@ -16,6 +16,7 @@ use crate::drivers::{functions::get_private_key, types::CiDriverType, Driver};
 use super::sigstore_driver::SigstoreDriver;
 use super::{
     buildah_driver::BuildahDriver,
+    buildkit_driver::BuildkitDriver,
     cosign_driver::CosignDriver,
     docker_driver::DockerDriver,
     github_driver::GithubDriver,
@@ -45,6 +46,7 @@ macro_rules! impl_private_driver {
 
 impl_private_driver!(
     Driver,
+    BuildkitDriver,
     DockerDriver,
     PodmanDriver,
     BuildahDriver,
@@ -214,11 +216,11 @@ pub trait RunDriver: PrivateDriver {
     /// Will error if there is an issue running the container.
     fn run_output(opts: &RunOpts) -> Result<Output>;
 
-    /// Creates container
+    /// Creates container without waiting for execution.
     ///
     /// # Errors
     /// Will error if the container create command fails.
-    fn create_container(image: &Reference) -> Result<ContainerId>;
+    fn create_container(opts: &RunOpts) -> Result<ContainerId>;
 
     /// Removes a container
     ///
@@ -300,7 +302,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                 .build(),
         )?;
 
-        let container = &Self::create_container(raw_image)?;
+        let container = &Self::create_container(&RunOpts::builder().image(raw_image).build())?;
         let mount = &Self::mount_container(container)?;
 
         Self::prune_image(mount, container, raw_image, opts)?;
@@ -351,7 +353,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
     ) -> Result<(), miette::Error> {
         let status = Self::run(
             &RunOpts::builder()
-                .image(Self::RECHUNK_IMAGE)
+                .image(&Self::RECHUNK_IMAGE.try_into().unwrap())
                 .remove(true)
                 .user("0:0")
                 .privileged(true)
@@ -388,7 +390,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
     ) -> Result<()> {
         let status = Self::run(
             &RunOpts::builder()
-                .image(Self::RECHUNK_IMAGE)
+                .image(&Self::RECHUNK_IMAGE.try_into().unwrap())
                 .remove(true)
                 .user("0:0")
                 .privileged(true)
@@ -427,7 +429,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
     ) -> Result<()> {
         let status = Self::run(
         &RunOpts::builder()
-            .image(Self::RECHUNK_IMAGE)
+            .image(&Self::RECHUNK_IMAGE.try_into().unwrap())
             .remove(true)
             .user("0:0")
             .privileged(true)
