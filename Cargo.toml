@@ -1,5 +1,10 @@
 [workspace]
-members = ["utils", "recipe", "template", "process"]
+members = [
+  "utils",
+  "recipe",
+  "template",
+  "process",
+]
 
 [workspace.package]
 description = "A CLI tool built for creating Containerfile templates for ostree based atomic distros"
