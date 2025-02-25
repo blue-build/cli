@@ -6,7 +6,7 @@ use miette::{Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use serde::{Deserialize, Serialize};
 
-use crate::{Module, ModuleExt, StagesExt};
+use crate::{maybe_version::MaybeVersion, Module, ModuleExt, StagesExt};
 
 /// The build recipe.
 ///
@@ -40,8 +40,7 @@ pub struct Recipe<'a> {
 
     /// The version of `bluebuild` to install in the image
     #[serde(alias = "blue-build-tag", skip_serializing_if = "Option::is_none")]
-    #[builder(into)]
-    pub blue_build_tag: Option<Cow<'a, str>>,
+    pub blue_build_tag: Option<MaybeVersion>,
 
     /// Alternate tags to the `latest` tag to add to the image.
     ///
@@ -55,9 +54,8 @@ pub struct Recipe<'a> {
     pub alt_tags: Option<Vec<String>>,
 
     /// The version of nushell to use for modules.
-    #[builder(into)]
     #[serde(skip_serializing_if = "Option::is_none", rename = "nushell-version")]
-    pub nushell_version: Option<Cow<'a, str>>,
+    pub nushell_version: Option<MaybeVersion>,
 
     /// The stages extension of the recipe.
     ///
@@ -126,5 +124,21 @@ impl Recipe<'_> {
             .parse()
             .into_diagnostic()
             .with_context(|| format!("Unable to parse base image {base_image}"))
+    }
+
+    #[must_use]
+    pub const fn should_install_bluebuild(&self) -> bool {
+        match self.blue_build_tag {
+            None | Some(MaybeVersion::Version(_)) => true,
+            Some(MaybeVersion::None) => false,
+        }
+    }
+
+    #[must_use]
+    pub fn get_bluebuild_version(&self) -> String {
+        match &self.blue_build_tag {
+            Some(MaybeVersion::None) | None => "latest-installer".to_string(),
+            Some(MaybeVersion::Version(version)) => version.to_string(),
+        }
     }
 }

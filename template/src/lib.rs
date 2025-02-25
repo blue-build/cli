@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fs, path::Path, process};
 
-use blue_build_recipe::Recipe;
+use blue_build_recipe::{MaybeVersion, Recipe};
 use blue_build_utils::constants::{
     CONFIG_PATH, CONTAINERFILES_PATH, CONTAINER_FILE, COSIGN_PUB_PATH, FILES_PATH,
 };
@@ -29,7 +29,23 @@ pub struct ContainerFileTemplate<'a> {
     build_scripts_image: Cow<'a, str>,
     repo: Cow<'a, str>,
     base_digest: Cow<'a, str>,
-    nushell_version: Option<Cow<'a, str>>,
+    nushell_version: Option<&'a MaybeVersion>,
+}
+
+impl ContainerFileTemplate<'_> {
+    const fn should_install_nu(&self) -> bool {
+        match self.nushell_version {
+            None | Some(MaybeVersion::Version(_)) => true,
+            Some(MaybeVersion::None) => false,
+        }
+    }
+
+    fn get_nu_version(&self) -> String {
+        match self.nushell_version {
+            Some(MaybeVersion::None) | None => "default".to_string(),
+            Some(MaybeVersion::Version(version)) => version.to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Template, Builder)]

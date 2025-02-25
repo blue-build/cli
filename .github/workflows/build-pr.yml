@@ -218,7 +218,7 @@ jobs:
           earthly --ci +lint
 
   docker-build:
-    timeout-minutes: 20
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -259,7 +259,7 @@ jobs:
         run: just test-docker-build
 
   rechunk-build:
-    timeout-minutes: 20
+    timeout-minutes: 30
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -300,7 +300,7 @@ jobs:
           just test-rechunk-build
 
   arm64-build:
-    timeout-minutes: 40
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -341,7 +341,7 @@ jobs:
         run: just test-arm64-build
 
   docker-build-external-login:
-    timeout-minutes: 20
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     if: github.repository == github.event.pull_request.head.repo.full_name
     permissions:
@@ -389,7 +389,7 @@ jobs:
         run: just test-docker-build-external-login
 
   podman-build:
-    timeout-minutes: 20
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -421,7 +421,7 @@ jobs:
         run: just test-podman-build
 
   buildah-build:
-    timeout-minutes: 20
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -453,7 +453,7 @@ jobs:
         run: just test-buildah-build
 
   iso-from-image:
-    timeout-minutes: 20
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -494,7 +494,7 @@ jobs:
         run: just test-generate-iso-image
 
   iso-from-recipe:
-    timeout-minutes: 20
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
       contents: read

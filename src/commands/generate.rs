@@ -159,6 +159,7 @@ impl GenerateCommand {
                 )?
                 .digest,
             )
+            .maybe_nushell_version(recipe.nushell_version.as_ref())
             .build();
 
         let output_str = template.render().into_diagnostic()?;
