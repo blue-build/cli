@@ -82,7 +82,7 @@ requestty = { version = "0.5", features = ["macros", "termion"] }
 shadow-rs = { version = "0.38", default-features = false }
 thiserror = "2"
 urlencoding = "2"
-yaml-rust2 = { version = "0.9", optional = true }
+yaml-rust2 = { version = "0.10", optional = true }
 
 cached.workspace = true
 clap = { workspace = true, features = ["derive", "cargo", "unicode", "env"] }
