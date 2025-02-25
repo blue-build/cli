@@ -3,6 +3,8 @@
 name: cli/test
 description: This is my personal OS image.
 base-image: ghcr.io/ublue-os/silverblue-main
+nushell-version: none
+blue-build-tag: none
 alt-tags:
   - gts
   - stable

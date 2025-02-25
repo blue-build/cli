@@ -1,7 +1,10 @@
-use semver::Prerelease;
-use serde::{de::Error, Deserialize};
+use std::str::FromStr;
 
-#[derive(Debug)]
+use miette::bail;
+use semver::Prerelease;
+use serde::{de::Error, Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize)]
 pub struct Version(semver::Version);
 
 impl std::ops::Deref for Version {
@@ -24,10 +27,17 @@ impl<'de> Deserialize<'de> for Version {
         D: serde::Deserializer<'de>,
     {
         let ver = String::deserialize(deserializer)?;
-        let Ok(mut parsed_ver) = lenient_semver::parse(&ver) else {
-            return Err(D::Error::custom(format!(
-                "Failed to deserialize version {ver}"
-            )));
+        ver.parse()
+            .map_err(|e: miette::Error| D::Error::custom(e.to_string()))
+    }
+}
+
+impl FromStr for Version {
+    type Err = miette::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let Ok(mut parsed_ver) = lenient_semver::parse(s) else {
+            bail!("Failed to deserialize version {s}");
         };
         // delete pre-release field or we can never match pre-release versions of tools
         parsed_ver.pre = Prerelease::EMPTY;

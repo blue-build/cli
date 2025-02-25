@@ -25,7 +25,7 @@ clap = { workspace = true, features = ["derive", "env"] }
 comlexr.workspace = true
 log.workspace = true
 miette.workspace = true
-semver.workspace = true
+semver = { workspace = true, features = ["serde"] }
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true

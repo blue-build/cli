@@ -25,12 +25,10 @@ COPY ./modules /modules
 # can be added to the ostree commits.
 FROM scratch AS stage-bins
 COPY --from={{ blue_build_utils::constants::COSIGN_IMAGE }} /ko-app/cosign /bins/cosign
-COPY --from={{ blue_build_utils::constants::BLUE_BULID_IMAGE_REF }}:
-{%- if let Some(tag) = recipe.blue_build_tag -%}
-{{ tag }}
-{%- else -%}
-latest-installer
-{%- endif %} /out/bluebuild /bins/bluebuild
+{%- if recipe.should_install_bluebuild() %}
+COPY --from={{ blue_build_utils::constants::BLUE_BULID_IMAGE_REF }}:{{ recipe.get_bluebuild_version() }} \
+  /out/bluebuild /bins/bluebuild
+{%- endif %}
 
 # Keys for pre-verified images
 # Used to copy the keys into the final image
@@ -59,12 +57,7 @@ ARG RUST_LOG_STYLE=always
       {%- endif %}
 
       {%- if stage.from != "scratch" %}
-COPY --from={{ blue_build_utils::constants::NUSHELL_IMAGE }}:
-        {%- if let Some(version) = nushell_version -%}
-          {{ version }}
-        {%- else -%}
-          default
-        {%- endif %} /nu/* /usr/libexec/bluebuild/nu/
+COPY --from={{ blue_build_utils::constants::NUSHELL_IMAGE }}:{{ get_nu_version() }} /nu/* /usr/libexec/bluebuild/nu/
 
 # Add compatibility for modules
 RUN --mount=type=bind,from=stage-bins,src=/bins/,dst=/tmp/bins/ \

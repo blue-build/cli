@@ -1,9 +1,10 @@
-pub mod akmods_info;
-pub mod module;
-pub mod module_ext;
-pub mod recipe;
-pub mod stage;
-pub mod stages_ext;
+mod akmods_info;
+mod maybe_version;
+mod module;
+mod module_ext;
+mod recipe;
+mod stage;
+mod stages_ext;
 
 use std::path::{Path, PathBuf};
 
@@ -11,6 +12,7 @@ use blue_build_utils::constants::{CONFIG_PATH, RECIPE_PATH};
 use log::warn;
 
 pub use akmods_info::*;
+pub use maybe_version::*;
 pub use module::*;
 pub use module_ext::*;
 pub use recipe::*;
