@@ -13,6 +13,8 @@ path = "process.rs"
 [dependencies]
 anyhow = "1"
 blue-build-utils = { version = "=0.9.8", path = "../utils" }
+bollard = { version = "0.18", features = ["buildkit"] }
+bollard-buildkit-proto = "0.5"
 indicatif-log-bridge = "0.2"
 log4rs = { version = "1", features = ["background_rotation"] }
 nu-ansi-term = { version = "0.50", features = ["gnu_legacy"] }
