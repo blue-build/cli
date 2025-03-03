@@ -13,6 +13,8 @@ fn main() {
             ("hyper_util", LevelFilter::Off),
             ("oci_distribution", LevelFilter::Off),
             ("reqwest", LevelFilter::Off),
+            ("oci_client", LevelFilter::Off),
+            ("rustls", LevelFilter::Off),
         ])
         .log_out_dir(args.log_out.clone())
         .init();
