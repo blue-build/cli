@@ -36,14 +36,16 @@ use uuid::Uuid;
 use crate::logging::Logger;
 
 pub use self::{
-    buildah_driver::BuildahDriver, cosign_driver::CosignDriver, docker_driver::DockerDriver,
-    github_driver::GithubDriver, gitlab_driver::GitlabDriver, local_driver::LocalDriver,
-    podman_driver::PodmanDriver, skopeo_driver::SkopeoDriver, traits::*,
+    buildah_driver::BuildahDriver, buildkit_driver::BuildkitDriver, cosign_driver::CosignDriver,
+    docker_driver::DockerDriver, github_driver::GithubDriver, gitlab_driver::GitlabDriver,
+    local_driver::LocalDriver, podman_driver::PodmanDriver, skopeo_driver::SkopeoDriver, traits::*,
 };
 #[cfg(feature = "sigstore")]
 pub use sigstore_driver::SigstoreDriver;
 
 mod buildah_driver;
+#[cfg(feature = "buildkit")]
+mod buildkit_driver;
 mod cosign_driver;
 mod docker_driver;
 mod functions;
@@ -159,9 +161,9 @@ impl Driver {
 
         impl_driver_init! {
             INIT;
+            args.run_driver => SELECTED_RUN_DRIVER;
             args.build_driver => SELECTED_BUILD_DRIVER;
             args.inspect_driver => SELECTED_INSPECT_DRIVER;
-            args.run_driver => SELECTED_RUN_DRIVER;
             args.signing_driver => SELECTED_SIGNING_DRIVER;
             default => SELECTED_CI_DRIVER;
         }
@@ -279,7 +281,7 @@ fn get_version_run_image(oci_ref: &Reference) -> Result<u64> {
 
     let output = Driver::run_output(
         &RunOpts::builder()
-            .image(oci_ref.to_string())
+            .image(oci_ref)
             .args(bon::vec![
                 "/bin/bash",
                 "-c",
@@ -306,6 +308,7 @@ fn get_version_run_image(oci_ref: &Reference) -> Result<u64> {
 macro_rules! impl_build_driver {
     ($func:ident($($args:expr),*)) => {
         match Self::get_build_driver() {
+            BuildDriverType::Buildkit => BuildkitDriver::$func($($args,)*),
             BuildDriverType::Buildah => BuildahDriver::$func($($args,)*),
             BuildDriverType::Podman => PodmanDriver::$func($($args,)*),
             BuildDriverType::Docker => DockerDriver::$func($($args,)*),
@@ -407,8 +410,8 @@ impl RunDriver for Driver {
         impl_run_driver!(run_output(opts))
     }
 
-    fn create_container(image: &Reference) -> Result<types::ContainerId> {
-        impl_run_driver!(create_container(image))
+    fn create_container(opts: &RunOpts) -> Result<types::ContainerId> {
+        impl_run_driver!(create_container(opts))
     }
 
     fn remove_container(container_id: &types::ContainerId) -> Result<()> {
