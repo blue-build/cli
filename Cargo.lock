@@ -408,7 +408,7 @@ dependencies = [
  "blue-build-template",
  "blue-build-utils",
  "bon",
- "cached 0.53.1",
+ "cached",
  "clap",
  "clap-verbosity-flag",
  "clap_complete",
@@ -452,7 +452,7 @@ dependencies = [
  "anyhow",
  "blue-build-utils",
  "bon",
- "cached 0.53.1",
+ "cached",
  "chrono",
  "clap",
  "colored",
@@ -606,24 +606,6 @@ name = "bytes"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f61dac84819c6588b558454b194026eb1f09c293b9036ae9b159e74e73ab6cf9"
-
-[[package]]
-name = "cached"
-version = "0.53.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4d73155ae6b28cf5de4cfc29aeb02b8a1c6dab883cb015d15cd514e42766846"
-dependencies = [
- "ahash 0.8.11",
- "async-trait",
- "cached_proc_macro",
- "cached_proc_macro_types",
- "futures",
- "hashbrown 0.14.5",
- "once_cell",
- "thiserror 1.0.69",
- "tokio",
- "web-time",
-]
 
 [[package]]
 name = "cached"
@@ -4394,7 +4376,7 @@ checksum = "9958ac57dea620d4059784dc0df9f997a873a168828d1028c5c7b9d7a089f5f2"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
- "cached 0.54.0",
+ "cached",
  "cfg-if",
  "chrono",
  "const-oid",
