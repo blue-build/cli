@@ -13,6 +13,7 @@ path = "process.rs"
 [dependencies]
 anyhow = "1"
 blue-build-utils = { version = "=0.9.8", path = "../utils" }
+bollard-buildkit-proto = { version = "0.5", optional = true }
 indicatif-log-bridge = "0.2"
 log4rs = { version = "1", features = ["background_rotation"] }
 nu-ansi-term = { version = "0.50", features = ["gnu_legacy"] }
@@ -21,6 +22,7 @@ os_pipe = { version = "1", features = ["io_safety"] }
 rand = "0.9"
 signal-hook = { version = "0.3", features = ["extended-siginfo"] }
 sigstore = { version = "0.11", features = ["full-rustls-tls", "cached-client", "sigstore-trust-root", "sign"], default-features = false, optional = true }
+tonic = { version = "0.12", optional = true }
 zeroize = { version = "1", features = ["aarch64", "derive", "serde"] }
 
 cached.workspace = true
@@ -56,3 +58,4 @@ sigstore = ["dep:tokio", "dep:sigstore"]
 validate = ["dep:tokio"]
 prune = []
 rechunk = []
+buildkit = ["dep:tonic", "dep:bollard-buildkit-proto"]

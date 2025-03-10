@@ -483,7 +483,7 @@ impl RunDriver for DockerDriver {
         add_cid(&cid);
 
         let status = docker_run(opts, &cid_file)
-            .build_status(&*opts.image, "Running container")
+            .build_status(opts.image.to_string(), "Running container")
             .into_diagnostic()?;
 
         remove_cid(&cid);
@@ -507,11 +507,32 @@ impl RunDriver for DockerDriver {
         Ok(output)
     }
 
-    fn create_container(image: &oci_distribution::Reference) -> Result<super::types::ContainerId> {
-        trace!("DockerDriver::create_container({image})");
+    fn create_container(opts: &RunOpts) -> Result<super::types::ContainerId> {
+        trace!("DockerDriver::create_container({opts:#?})");
 
         let output = {
-            let c = cmd!("docker", "create", image.to_string(), "bash",);
+            let c = cmd!(
+                "docker",
+                "create",
+                if opts.privileged => "--privileged",
+                if opts.remove => "--rm",
+                if opts.pull => "--pull=always",
+                if let Some(user) = opts.user.as_deref() => [
+                    "--user",
+                    user
+                ],
+                for RunOptsVolume { path_or_vol_name, container_path } in opts.volumes.iter() => [
+                    "--volume",
+                    format!("{path_or_vol_name}:{container_path}"),
+                ],
+                for RunOptsEnv { key, value } in opts.env_vars.iter() => [
+                    "--env",
+                    format!("{key}={value}"),
+                ],
+                opts.image.to_string(),
+                if let Some(command) = opts.command.as_deref() => command,
+                for arg in opts.args.iter() => &**arg,
+            );
             trace!("{c:?}");
             c
         }
@@ -519,7 +540,7 @@ impl RunDriver for DockerDriver {
         .into_diagnostic()?;
 
         if !output.status.success() {
-            bail!("Failed to create container from image {image}");
+            bail!("Failed to create container from image {}", &opts.image);
         }
 
         Ok(ContainerId(
@@ -610,7 +631,10 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
         if opts.privileged => "--privileged",
         if opts.remove => "--rm",
         if opts.pull => "--pull=always",
-        if let Some(user) = opts.user.as_ref() => format!("--user={user}"),
+        if let Some(user) = opts.user.as_deref() => [
+            "--user",
+            user
+        ],
         for RunOptsVolume { path_or_vol_name, container_path } in opts.volumes.iter() => [
             "--volume",
             format!("{path_or_vol_name}:{container_path}"),
@@ -619,7 +643,8 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
             "--env",
             format!("{key}={value}"),
         ],
-        &*opts.image,
+        opts.image.to_string(),
+        if let Some(command) = opts.command.as_deref() => command,
         for arg in opts.args.iter() => &**arg,
     );
     trace!("{command:?}");

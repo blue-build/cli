@@ -1,5 +1,10 @@
 [workspace]
-members = ["utils", "recipe", "template", "process"]
+members = [
+  "utils",
+  "recipe",
+  "template",
+  "process",
+]
 
 [workspace.package]
 description = "A CLI tool built for creating Containerfile templates for ostree based atomic distros"
@@ -125,6 +130,9 @@ v0_9_0 = [
   "prune",
   "rechunk",
 ]
+v0_10_0 = [
+  "buildkit"
+]
 init = []
 stages = ["blue-build-recipe/stages"]
 copy = ["blue-build-recipe/copy"]
@@ -148,6 +156,9 @@ prune = [
 ]
 rechunk = [
   "blue-build-process-management/rechunk"
+]
+buildkit = [
+  "blue-build-process-management/buildkit"
 ]
 
 [dev-dependencies]
