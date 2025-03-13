@@ -403,10 +403,6 @@ impl RunDriver for PodmanDriver {
     fn run(opts: &RunOpts) -> Result<ExitStatus> {
         trace!("PodmanDriver::run({opts:#?})");
 
-        if !nix::unistd::Uid::effective().is_root() {
-            bail!("You must be root to run privileged podman!");
-        }
-
         let cid_path = TempDir::new().into_diagnostic()?;
         let cid_file = cid_path.path().join("cid");
 
@@ -425,10 +421,6 @@ impl RunDriver for PodmanDriver {
 
     fn run_output(opts: &RunOpts) -> Result<std::process::Output> {
         trace!("PodmanDriver::run_output({opts:#?})");
-
-        if !nix::unistd::Uid::effective().is_root() {
-            bail!("You must be root to run privileged podman!");
-        }
 
         let cid_path = TempDir::new().into_diagnostic()?;
         let cid_file = cid_path.path().join("cid");
@@ -529,6 +521,7 @@ impl RunDriver for PodmanDriver {
 
 fn podman_run(opts: &RunOpts, cid_file: &Path) -> Command {
     let command = cmd!(
+        if opts.priviledged && !nix::unistd::Uid::effective().is_root() => "sudo",
         "podman",
         "run",
         format!("--cidfile={}", cid_file.display()),
