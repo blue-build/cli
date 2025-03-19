@@ -520,14 +520,18 @@ impl RunDriver for PodmanDriver {
 }
 
 fn podman_run(opts: &RunOpts, cid_file: &Path) -> Command {
-    let argv0 = if opts.privileged && !nix::unistd::Uid::effective().is_root() {
-        "sudo"
-    } else {
-        "podman"
-    };
+    let use_sudo = opts.privileged && !nix::unistd::Uid::effective().is_root();
     let command = cmd!(
-        argv0,
-        if argv0 != "podman" => "podman",
+        if use_sudo {
+            "sudo"
+        } else {
+            "podman"
+        },
+        if use_sudo => [
+            "-A",
+            "--",
+            "podman",
+        ],
         "run",
         format!("--cidfile={}", cid_file.display()),
         if opts.privileged => [
