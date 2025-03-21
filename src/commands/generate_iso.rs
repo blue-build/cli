@@ -12,7 +12,7 @@ use oci_distribution::Reference;
 use tempfile::TempDir;
 
 use blue_build_process_management::{
-    drivers::{opts::RunOpts, types::RunDriverType, Driver, DriverArgs, RunDriver},
+    drivers::{opts::RunOpts, Driver, DriverArgs, RunDriver},
     run_volumes,
 };
 
@@ -126,12 +126,6 @@ impl std::fmt::Display for GenIsoVariant {
 impl BlueBuildCommand for GenerateIsoCommand {
     fn try_run(&mut self) -> Result<()> {
         Driver::init(self.drivers);
-
-        if !nix::unistd::Uid::effective().is_root()
-            && matches!(Driver::get_run_driver(), RunDriverType::Podman)
-        {
-            bail!("You must be root to build an ISO!");
-        }
 
         let image_out_dir = if let Some(ref dir) = self.tempdir {
             TempDir::new_in(dir).into_diagnostic()?
