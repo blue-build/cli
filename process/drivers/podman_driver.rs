@@ -30,7 +30,7 @@ use crate::{
 };
 
 use super::{
-    opts::{ContainerOpts, CreateContainerOpts, RemoveContainerOpts, RemoveImageOpts, VolumeOpts},
+    opts::{CreateContainerOpts, RemoveContainerOpts, RemoveImageOpts},
     types::ContainerId,
 };
 #[cfg(feature = "rechunk")]
@@ -374,7 +374,7 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
 
 #[cfg(feature = "rechunk")]
 impl ContainerMountDriver for PodmanDriver {
-    fn mount_container(opts: &ContainerOpts) -> Result<MountId> {
+    fn mount_container(opts: &super::opts::ContainerOpts) -> Result<MountId> {
         let use_sudo = opts.privileged && !running_as_root();
         let output = {
             let c = cmd!(
@@ -403,7 +403,7 @@ impl ContainerMountDriver for PodmanDriver {
         ))
     }
 
-    fn unmount_container(opts: &ContainerOpts) -> Result<()> {
+    fn unmount_container(opts: &super::opts::ContainerOpts) -> Result<()> {
         let use_sudo = opts.privileged && !running_as_root();
         let output = {
             let c = cmd!(
@@ -430,7 +430,7 @@ impl ContainerMountDriver for PodmanDriver {
         Ok(())
     }
 
-    fn remove_volume(opts: &VolumeOpts) -> Result<()> {
+    fn remove_volume(opts: &super::opts::VolumeOpts) -> Result<()> {
         let use_sudo = opts.privileged && !running_as_root();
         let output = {
             let c = cmd!(
