@@ -5,7 +5,10 @@ use std::{
     time::Duration,
 };
 
-use blue_build_utils::{credentials::Credentials, running_as_root, semver::Version};
+use blue_build_utils::{
+    constants::SUDO_ASKPASS, credentials::Credentials, has_env_var, running_as_root,
+    semver::Version,
+};
 use cached::proc_macro::cached;
 use colored::Colorize;
 use comlexr::{cmd, pipe};
@@ -141,10 +144,8 @@ impl BuildDriver for PodmanDriver {
             } else {
                 "podman"
             },
-            if use_sudo => [
-                "-A",
-                "podman",
-            ],
+            if use_sudo && has_env_var(SUDO_ASKPASS) => "-A",
+            if use_sudo => "podman",
             "build",
             if !matches!(opts.platform, Platform::Native) => [
                 "--platform",
@@ -185,10 +186,8 @@ impl BuildDriver for PodmanDriver {
             } else {
                 "podman"
             },
-            if use_sudo => [
-                "-A",
-                "podman",
-            ],
+            if use_sudo && has_env_var(SUDO_ASKPASS) => "-A",
+            if use_sudo => "podman",
             "tag",
             opts.src_image.to_string(),
             &dest_image_str
@@ -217,10 +216,8 @@ impl BuildDriver for PodmanDriver {
             } else {
                 "podman"
             },
-            if use_sudo => [
-                "-A",
-                "podman",
-            ],
+            if use_sudo && has_env_var(SUDO_ASKPASS) => "-A",
+            if use_sudo => "podman",
             "push",
             format!(
                 "--compression-format={}",
@@ -386,10 +383,8 @@ impl ContainerMountDriver for PodmanDriver {
                 } else {
                     "podman"
                 },
-                if use_sudo => [
-                    "-A",
-                    "podman",
-                ],
+                if use_sudo && has_env_var(SUDO_ASKPASS) => "-A",
+                if use_sudo => "podman",
                 "mount",
                 opts.container_id,
             );
@@ -417,10 +412,8 @@ impl ContainerMountDriver for PodmanDriver {
                 } else {
                     "podman"
                 },
-                if use_sudo => [
-                    "-A",
-                    "podman",
-                ],
+                if use_sudo && has_env_var(SUDO_ASKPASS) => "-A",
+                if use_sudo => "podman",
                 "unmount",
                 opts.container_id
             );
@@ -446,10 +439,8 @@ impl ContainerMountDriver for PodmanDriver {
                 } else {
                     "podman"
                 },
-                if use_sudo => [
-                    "-A",
-                    "podman",
-                ],
+                if use_sudo && has_env_var(SUDO_ASKPASS) => "-A",
+                if use_sudo => "podman",
                 "volume",
                 "rm",
                 &*opts.volume_id
@@ -519,10 +510,8 @@ impl RunDriver for PodmanDriver {
                 } else {
                     "podman"
                 },
-                if use_sudo => [
-                    "-A",
-                    "podman",
-                ],
+                if use_sudo && has_env_var(SUDO_ASKPASS) => "-A",
+                if use_sudo => "podman",
                 "create",
                 opts.image.to_string(),
                 "bash"
@@ -553,10 +542,8 @@ impl RunDriver for PodmanDriver {
                 } else {
                     "podman"
                 },
-                if use_sudo => [
-                    "-A",
-                    "podman",
-                ],
+                if use_sudo && has_env_var(SUDO_ASKPASS) => "-A",
+                if use_sudo => "podman",
                 "rm",
                 opts.container_id,
             );
@@ -584,10 +571,8 @@ impl RunDriver for PodmanDriver {
                 } else {
                     "podman"
                 },
-                if use_sudo => [
-                    "-A",
-                    "podman",
-                ],
+                if use_sudo && has_env_var(SUDO_ASKPASS) => "-A",
+                if use_sudo => "podman",
                 "rmi",
                 opts.image.to_string()
             );
@@ -621,10 +606,8 @@ impl RunDriver for PodmanDriver {
                 } else {
                     "podman"
                 },
-                if use_sudo => [
-                    "-A",
-                    "podman",
-                ],
+                if use_sudo && has_env_var(SUDO_ASKPASS) => "-A",
+                if use_sudo => "podman",
                 "images",
                 "--format",
                 "json"
