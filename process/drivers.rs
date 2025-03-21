@@ -24,9 +24,9 @@ use miette::{miette, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use once_cell::sync::Lazy;
 use opts::{
-    BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, ContainerOpts, CreateContainerOpts,
-    GenerateImageNameOpts, GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts,
-    RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, TagOpts, VerifyOpts, VolumeOpts,
+    BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, CreateContainerOpts, GenerateImageNameOpts,
+    GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts, RemoveContainerOpts,
+    RemoveImageOpts, RunOpts, SignOpts, TagOpts, VerifyOpts,
 };
 use types::{
     BuildDriverType, CiDriverType, DetermineDriver, ImageMetadata, InspectDriverType, Platform,
@@ -474,15 +474,15 @@ impl CiDriver for Driver {
 
 #[cfg(feature = "rechunk")]
 impl ContainerMountDriver for Driver {
-    fn mount_container(opts: &ContainerOpts) -> Result<types::MountId> {
+    fn mount_container(opts: &opts::ContainerOpts) -> Result<types::MountId> {
         PodmanDriver::mount_container(opts)
     }
 
-    fn unmount_container(opts: &ContainerOpts) -> Result<()> {
+    fn unmount_container(opts: &opts::ContainerOpts) -> Result<()> {
         PodmanDriver::unmount_container(opts)
     }
 
-    fn remove_volume(opts: &VolumeOpts) -> Result<()> {
+    fn remove_volume(opts: &opts::VolumeOpts) -> Result<()> {
         PodmanDriver::remove_volume(opts)
     }
 }

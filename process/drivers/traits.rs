@@ -22,10 +22,9 @@ use super::{
     gitlab_driver::GitlabDriver,
     local_driver::LocalDriver,
     opts::{
-        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, ContainerOpts, CreateContainerOpts,
-        GenerateImageNameOpts, GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts,
-        RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts,
-        VerifyOpts, VerifyType, VolumeOpts,
+        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, CreateContainerOpts, GenerateImageNameOpts,
+        GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts, RemoveContainerOpts,
+        RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts, VerifyOpts, VerifyType,
     },
     podman_driver::PodmanDriver,
     skopeo_driver::SkopeoDriver,
@@ -247,19 +246,19 @@ pub(super) trait ContainerMountDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if the container mount command fails.
-    fn mount_container(opts: &ContainerOpts) -> Result<MountId>;
+    fn mount_container(opts: &super::opts::ContainerOpts) -> Result<MountId>;
 
     /// Unmount the container
     ///
     /// # Errors
     /// Will error if the container unmount command fails.
-    fn unmount_container(opts: &ContainerOpts) -> Result<()>;
+    fn unmount_container(opts: &super::opts::ContainerOpts) -> Result<()>;
 
     /// Remove a volume
     ///
     /// # Errors
     /// Will error if the volume remove command fails.
-    fn remove_volume(opts: &VolumeOpts) -> Result<()>;
+    fn remove_volume(opts: &super::opts::VolumeOpts) -> Result<()>;
 }
 
 #[cfg(feature = "rechunk")]
@@ -309,7 +308,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                 .build(),
         )?;
         let mount = &Self::mount_container(
-            &ContainerOpts::builder()
+            &super::opts::ContainerOpts::builder()
                 .container_id(container)
                 .privileged(true)
                 .build(),
@@ -379,7 +378,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
 
         if !status.success() {
             Self::unmount_container(
-                &ContainerOpts::builder()
+                &super::opts::ContainerOpts::builder()
                     .container_id(container)
                     .privileged(true)
                     .build(),
@@ -432,7 +431,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                 .build(),
         )?;
         Self::unmount_container(
-            &ContainerOpts::builder()
+            &super::opts::ContainerOpts::builder()
                 .container_id(container)
                 .privileged(true)
                 .build(),
@@ -503,7 +502,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         )?;
 
         Self::remove_volume(
-            &VolumeOpts::builder()
+            &super::opts::VolumeOpts::builder()
                 .volume_id(ostree_cache_id)
                 .privileged(true)
                 .build(),
