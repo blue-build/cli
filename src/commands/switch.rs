@@ -14,12 +14,10 @@ use blue_build_utils::{
 };
 use bon::Builder;
 use clap::Args;
-use colored::Colorize;
 use comlexr::cmd;
 use indicatif::ProgressBar;
-use log::{debug, trace, warn};
+use log::{debug, trace};
 use miette::{bail, IntoDiagnostic, Result};
-use nix::unistd::Uid;
 use tempfile::TempDir;
 
 use crate::{commands::build::BuildCommand, rpm_ostree_status::RpmOstreeStatus};
@@ -91,15 +89,6 @@ impl BlueBuildCommand for SwitchCommand {
         let temp_file_path = tempdir.path().join(&image_file_name);
         let archive_path = Path::new(LOCAL_BUILD).join(&image_file_name);
 
-        if !Uid::effective().is_root() {
-            warn!(
-                "{notice}: {} {sudo} {}",
-                "The next few steps will require".yellow(),
-                "You may have to supply your password".yellow(),
-                notice = "NOTICE".bright_red().bold(),
-                sudo = "`sudo`.".italic().bright_red().bold(),
-            );
-        }
         Self::clean_local_build_dir()?;
         Self::move_archive(&temp_file_path, &archive_path)?;
 
@@ -171,12 +160,12 @@ impl SwitchCommand {
                 } else {
                     "sudo"
                 },
-                if running_as_root() && has_env_var(SUDO_ASKPASS) => [
+                if !running_as_root() && has_env_var(SUDO_ASKPASS) => [
                     "-A",
                     "-p",
                     format!("Password needed to move {from:?} to {to:?}"),
                 ],
-                if running_as_root() => "mv",
+                if !running_as_root() => "mv",
                 from,
                 to,
             );
@@ -207,7 +196,6 @@ impl SwitchCommand {
         if local_build_path.exists() {
             debug!("Cleaning out build dir {LOCAL_BUILD}");
 
-            trace!("sudo ls {LOCAL_BUILD}");
             let mut command = {
                 let c = cmd!(
                     if running_as_root() {
@@ -215,12 +203,12 @@ impl SwitchCommand {
                     } else {
                         "sudo"
                     },
-                    if running_as_root() && has_env_var(SUDO_ASKPASS) => [
+                    if !running_as_root() && has_env_var(SUDO_ASKPASS) => [
                         "-A",
                         "-p",
                         format!("Password required to list files in {LOCAL_BUILD}"),
                     ],
-                    if running_as_root() => "ls",
+                    if !running_as_root() => "ls",
                     LOCAL_BUILD
                 );
                 trace!("{c:?}");
@@ -249,12 +237,12 @@ impl SwitchCommand {
                         } else {
                             "sudo"
                         },
-                        if running_as_root() && has_env_var(SUDO_ASKPASS) => [
+                        if !running_as_root() && has_env_var(SUDO_ASKPASS) => [
                             "-A",
                             "-p",
                             format!("Password required to remove files: {files:?}"),
                         ],
-                        if running_as_root() => "rm",
+                        if !running_as_root() => "rm",
                         "-f",
                         for files,
                     );
@@ -283,12 +271,12 @@ impl SwitchCommand {
                     } else {
                         "sudo"
                     },
-                    if running_as_root() && has_env_var(SUDO_ASKPASS) => [
+                    if !running_as_root() && has_env_var(SUDO_ASKPASS) => [
                         "-A",
                         "-p",
                         format!("Password needed to create directory {local_build_path:?}"),
                     ],
-                    if running_as_root() => "mkdir",
+                    if !running_as_root() => "mkdir",
                     "-p",
                     local_build_path,
                 );
