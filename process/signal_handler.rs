@@ -6,6 +6,7 @@ use std::{
     thread,
 };
 
+use blue_build_utils::{constants::SUDO_ASKPASS, has_env_var};
 use comlexr::cmd;
 use log::{debug, error, trace, warn};
 use nix::{
@@ -120,11 +121,22 @@ where
                         let id = id.trim();
                         debug!("Killing container {id}");
 
-                        let status = if cid.requires_sudo {
-                            cmd!("sudo", cid.container_runtime.to_string(), "stop", id).status()
-                        } else {
-                            cmd!(cid.container_runtime.to_string(), "stop", id).status()
-                        };
+                        let status = cmd!(
+                            if cid.requires_sudo {
+                                "sudo".to_string()
+                            } else {
+                                cid.container_runtime.to_string()
+                            },
+                            if cid.requires_sudo && has_env_var(SUDO_ASKPASS) => [
+                                "-A",
+                                "-p",
+                                format!("Password needed to kill container {id}"),
+                            ],
+                            if cid.requires_sudo => cid.container_runtime.to_string(),
+                            "stop",
+                            id
+                        )
+                        .status();
 
                         if let Err(e) = status {
                             error!("Failed to kill container {id}: Error {e}");

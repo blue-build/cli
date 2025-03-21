@@ -27,7 +27,6 @@ modules:
       - starship
     remove:
       - firefox
-      - firefox-langpacks
 
   - type: signing
 
