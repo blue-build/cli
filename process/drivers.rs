@@ -24,8 +24,9 @@ use miette::{miette, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use once_cell::sync::Lazy;
 use opts::{
-    BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
-    GenerateTagsOpts, GetMetadataOpts, PushOpts, RunOpts, SignOpts, TagOpts, VerifyOpts,
+    BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, ContainerOpts, CreateContainerOpts,
+    GenerateImageNameOpts, GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts,
+    RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, TagOpts, VerifyOpts, VolumeOpts,
 };
 use types::{
     BuildDriverType, CiDriverType, DetermineDriver, ImageMetadata, InspectDriverType, Platform,
@@ -272,7 +273,7 @@ fn get_version_run_image(oci_ref: &Reference) -> Result<u64> {
     progress.enable_steady_tick(Duration::from_millis(100));
 
     let should_remove = if matches!(Driver::get_run_driver(), RunDriverType::Docker) {
-        !Driver::list_images()?.contains(oci_ref)
+        !Driver::list_images(false)?.contains(oci_ref)
     } else {
         false
     };
@@ -291,7 +292,7 @@ fn get_version_run_image(oci_ref: &Reference) -> Result<u64> {
     )?;
 
     if should_remove {
-        Driver::remove_image(oci_ref)?;
+        Driver::remove_image(&RemoveImageOpts::builder().image(oci_ref).build())?;
     }
 
     progress.finish_and_clear();
@@ -407,20 +408,20 @@ impl RunDriver for Driver {
         impl_run_driver!(run_output(opts))
     }
 
-    fn create_container(image: &Reference) -> Result<types::ContainerId> {
-        impl_run_driver!(create_container(image))
+    fn create_container(opts: &CreateContainerOpts) -> Result<types::ContainerId> {
+        impl_run_driver!(create_container(opts))
     }
 
-    fn remove_container(container_id: &types::ContainerId) -> Result<()> {
-        impl_run_driver!(remove_container(container_id))
+    fn remove_container(opts: &RemoveContainerOpts) -> Result<()> {
+        impl_run_driver!(remove_container(opts))
     }
 
-    fn remove_image(image: &Reference) -> Result<()> {
-        impl_run_driver!(remove_image(image))
+    fn remove_image(opts: &RemoveImageOpts) -> Result<()> {
+        impl_run_driver!(remove_image(opts))
     }
 
-    fn list_images() -> Result<Vec<Reference>> {
-        impl_run_driver!(list_images())
+    fn list_images(privileged: bool) -> Result<Vec<Reference>> {
+        impl_run_driver!(list_images(privileged))
     }
 }
 
@@ -473,16 +474,16 @@ impl CiDriver for Driver {
 
 #[cfg(feature = "rechunk")]
 impl ContainerMountDriver for Driver {
-    fn mount_container(container_id: &types::ContainerId) -> Result<types::MountId> {
-        PodmanDriver::mount_container(container_id)
+    fn mount_container(opts: &ContainerOpts) -> Result<types::MountId> {
+        PodmanDriver::mount_container(opts)
     }
 
-    fn unmount_container(container_id: &types::ContainerId) -> Result<()> {
-        PodmanDriver::unmount_container(container_id)
+    fn unmount_container(opts: &ContainerOpts) -> Result<()> {
+        PodmanDriver::unmount_container(opts)
     }
 
-    fn remove_volume(volume_id: &str) -> Result<()> {
-        PodmanDriver::remove_volume(volume_id)
+    fn remove_volume(opts: &VolumeOpts) -> Result<()> {
+        PodmanDriver::remove_volume(opts)
     }
 }
 
@@ -500,33 +501,5 @@ impl OciCopy for Driver {
 impl RechunkDriver for Driver {
     fn rechunk(opts: &opts::RechunkOpts) -> Result<Vec<String>> {
         PodmanDriver::rechunk(opts)
-    }
-
-    fn prune_image(
-        _mount: &types::MountId,
-        _container: &types::ContainerId,
-        _raw_image: &Reference,
-        _opts: &opts::RechunkOpts<'_>,
-    ) -> Result<(), miette::Error> {
-        unimplemented!("Use the `rechunk` function instead");
-    }
-
-    fn create_ostree_commit(
-        _mount: &types::MountId,
-        _ostree_cache_id: &str,
-        _container: &types::ContainerId,
-        _raw_image: &Reference,
-        _opts: &opts::RechunkOpts<'_>,
-    ) -> Result<()> {
-        unimplemented!("Use the `rechunk` function instead");
-    }
-
-    fn rechunk_image(
-        _ostree_cache_id: &str,
-        _temp_dir_str: &str,
-        _current_dir: &str,
-        _opts: &opts::RechunkOpts<'_>,
-    ) -> Result<()> {
-        unimplemented!("Use the `rechunk` function instead");
     }
 }

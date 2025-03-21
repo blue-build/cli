@@ -244,6 +244,7 @@ impl ImageMetadata {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ContainerId(pub(super) String);
 
 impl std::fmt::Display for ContainerId {
