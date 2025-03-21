@@ -150,11 +150,6 @@ impl BlueBuildCommand for BuildCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
-        #[cfg(feature = "rechunk")]
-        if !nix::unistd::Uid::effective().is_root() && self.rechunk {
-            bail!("You must be root to use the rechunk feature!");
-        }
-
         Driver::init(self.drivers);
 
         Credentials::init(self.credentials.clone());

@@ -1,10 +1,10 @@
 # TODO: Add back installs after upstream issues are fixed
 
-modules:
+modules: []
   # Tests installing rpms from a combo image stage
-  - type: akmods
-    base: surface
-    nvidia-version: 550
-    install:
-      - nvidia
-      - openrazer
+  # - type: akmods
+  #   base: surface
+  #   nvidia-version: 550
+  #   install:
+  #     - nvidia
+  #     - openrazer

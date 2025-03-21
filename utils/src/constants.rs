@@ -73,6 +73,7 @@ pub const LC_TERMINAL: &str = "LC_TERMINAL";
 pub const TERM_PROGRAM_VERSION: &str = "TERM_PROGRAM_VERSION";
 pub const LC_TERMINAL_VERSION: &str = "LC_TERMINAL_VERSION";
 pub const XDG_RUNTIME_DIR: &str = "XDG_RUNTIME_DIR";
+pub const SUDO_ASKPASS: &str = "SUDO_ASKPASS";
 
 // Misc
 pub const BUILD_SCRIPTS_IMAGE_REF: &str = "ghcr.io/blue-build/cli/build-scripts";

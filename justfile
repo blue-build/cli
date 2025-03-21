@@ -149,7 +149,7 @@ test-docker-build: install-debug-all-features
 
 test-rechunk-build: install-debug-all-features
   cd integration-tests/test-repo \
-  && sudo -E {{ cargo_bin }}/bluebuild build \
+  && bluebuild build \
     {{ should_push }} \
     -vv \
     --rechunk \
@@ -157,7 +157,7 @@ test-rechunk-build: install-debug-all-features
 
 test-fresh-rechunk-build: install-debug-all-features
   cd integration-tests/test-repo \
-  && sudo -E {{ cargo_bin }}/bluebuild build \
+  && bluebuild build \
     {{ should_push }} \
     -vv \
     --rechunk \

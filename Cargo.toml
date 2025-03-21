@@ -92,7 +92,6 @@ indexmap.workspace = true
 indicatif.workspace = true
 log.workspace = true
 miette = { workspace = true, features = ["fancy", "syntect-highlighter"] }
-nix = { workspace = true, features = ["user"] }
 oci-distribution.workspace = true
 reqwest.workspace = true
 semver.workspace = true

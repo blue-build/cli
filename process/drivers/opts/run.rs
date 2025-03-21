@@ -1,6 +1,9 @@
 use std::borrow::Cow;
 
 use bon::Builder;
+use oci_distribution::Reference;
+
+use crate::drivers::types::ContainerId;
 
 #[derive(Debug, Clone, Builder)]
 pub struct RunOpts<'scope> {
@@ -73,4 +76,28 @@ macro_rules! run_envs {
             ]
         }
     };
+}
+
+#[derive(Debug, Clone, Builder)]
+pub struct CreateContainerOpts<'scope> {
+    pub image: &'scope Reference,
+
+    #[builder(default)]
+    pub privileged: bool,
+}
+
+#[derive(Debug, Clone, Builder)]
+pub struct RemoveContainerOpts<'scope> {
+    pub container_id: &'scope ContainerId,
+
+    #[builder(default)]
+    pub privileged: bool,
+}
+
+#[derive(Debug, Clone, Builder)]
+pub struct RemoveImageOpts<'scope> {
+    pub image: &'scope Reference,
+
+    #[builder(default)]
+    pub privileged: bool,
 }

@@ -36,6 +36,8 @@ use crate::{
     signal_handler::{add_cid, remove_cid, ContainerRuntime, ContainerSignalId},
 };
 
+use super::opts::{CreateContainerOpts, RemoveContainerOpts, RemoveImageOpts};
+
 #[derive(Debug, Deserialize)]
 struct DockerVerisonJsonClient {
     #[serde(alias = "Version")]
@@ -507,11 +509,11 @@ impl RunDriver for DockerDriver {
         Ok(output)
     }
 
-    fn create_container(image: &oci_distribution::Reference) -> Result<super::types::ContainerId> {
-        trace!("DockerDriver::create_container({image})");
+    fn create_container(opts: &CreateContainerOpts) -> Result<super::types::ContainerId> {
+        trace!("DockerDriver::create_container({opts:?})");
 
         let output = {
-            let c = cmd!("docker", "create", image.to_string(), "bash",);
+            let c = cmd!("docker", "create", opts.image.to_string(), "bash",);
             trace!("{c:?}");
             c
         }
@@ -519,7 +521,7 @@ impl RunDriver for DockerDriver {
         .into_diagnostic()?;
 
         if !output.status.success() {
-            bail!("Failed to create container from image {image}");
+            bail!("Failed to create container from image {}", opts.image);
         }
 
         Ok(ContainerId(
@@ -527,11 +529,11 @@ impl RunDriver for DockerDriver {
         ))
     }
 
-    fn remove_container(container_id: &super::types::ContainerId) -> Result<()> {
-        trace!("DockerDriver::remove_container({container_id})");
+    fn remove_container(opts: &RemoveContainerOpts) -> Result<()> {
+        trace!("DockerDriver::remove_container({opts:?})");
 
         let output = {
-            let c = cmd!("docker", "rm", container_id);
+            let c = cmd!("docker", "rm", opts.container_id);
             trace!("{c:?}");
             c
         }
@@ -539,17 +541,17 @@ impl RunDriver for DockerDriver {
         .into_diagnostic()?;
 
         if !output.status.success() {
-            bail!("Failed to remove container {container_id}");
+            bail!("Failed to remove container {}", opts.container_id);
         }
 
         Ok(())
     }
 
-    fn remove_image(image: &oci_distribution::Reference) -> Result<()> {
-        trace!("DockerDriver::remove_image({image})");
+    fn remove_image(opts: &RemoveImageOpts) -> Result<()> {
+        trace!("DockerDriver::remove_image({opts:?})");
 
         let output = {
-            let c = cmd!("docker", "rmi", image.to_string());
+            let c = cmd!("docker", "rmi", opts.image.to_string());
             trace!("{c:?}");
             c
         }
@@ -557,13 +559,13 @@ impl RunDriver for DockerDriver {
         .into_diagnostic()?;
 
         if !output.status.success() {
-            bail!("Failed to remove the image {image}");
+            bail!("Failed to remove the image {}", opts.image);
         }
 
         Ok(())
     }
 
-    fn list_images() -> Result<Vec<Reference>> {
+    fn list_images(_privileged: bool) -> Result<Vec<Reference>> {
         #[derive(Deserialize, Debug)]
         #[serde(rename_all = "PascalCase")]
         struct Image {
