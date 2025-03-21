@@ -22,9 +22,10 @@ use super::{
     gitlab_driver::GitlabDriver,
     local_driver::LocalDriver,
     opts::{
-        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
-        GenerateTagsOpts, GetMetadataOpts, PushOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts,
-        VerifyOpts, VerifyType,
+        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, ContainerOpts, CreateContainerOpts,
+        GenerateImageNameOpts, GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts,
+        RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts,
+        VerifyOpts, VerifyType, VolumeOpts,
     },
     podman_driver::PodmanDriver,
     skopeo_driver::SkopeoDriver,
@@ -218,25 +219,25 @@ pub trait RunDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if the container create command fails.
-    fn create_container(image: &Reference) -> Result<ContainerId>;
+    fn create_container(opts: &CreateContainerOpts) -> Result<ContainerId>;
 
     /// Removes a container
     ///
     /// # Errors
     /// Will error if the container remove command fails.
-    fn remove_container(container_id: &ContainerId) -> Result<()>;
+    fn remove_container(opts: &RemoveContainerOpts) -> Result<()>;
 
     /// Removes an image
     ///
     /// # Errors
     /// Will error if the image remove command fails.
-    fn remove_image(image: &Reference) -> Result<()>;
+    fn remove_image(opts: &RemoveImageOpts) -> Result<()>;
 
     /// List all images in the local image registry.
     ///
     /// # Errors
     /// Will error if the image list command fails.
-    fn list_images() -> Result<Vec<Reference>>;
+    fn list_images(privileged: bool) -> Result<Vec<Reference>>;
 }
 
 #[allow(private_bounds)]
@@ -246,19 +247,19 @@ pub(super) trait ContainerMountDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if the container mount command fails.
-    fn mount_container(container_id: &ContainerId) -> Result<MountId>;
+    fn mount_container(opts: &ContainerOpts) -> Result<MountId>;
 
     /// Unmount the container
     ///
     /// # Errors
     /// Will error if the container unmount command fails.
-    fn unmount_container(container_id: &ContainerId) -> Result<()>;
+    fn unmount_container(opts: &ContainerOpts) -> Result<()>;
 
     /// Remove a volume
     ///
     /// # Errors
     /// Will error if the volume remove command fails.
-    fn remove_volume(volume_id: &str) -> Result<()>;
+    fn remove_volume(opts: &VolumeOpts) -> Result<()>;
 }
 
 #[cfg(feature = "rechunk")]
@@ -295,13 +296,24 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                 .image(raw_image.to_string())
                 .containerfile(&*opts.containerfile)
                 .platform(opts.platform)
+                .privileged(true)
                 .squash(true)
                 .host_network(true)
                 .build(),
         )?;
 
-        let container = &Self::create_container(raw_image)?;
-        let mount = &Self::mount_container(container)?;
+        let container = &Self::create_container(
+            &CreateContainerOpts::builder()
+                .image(raw_image)
+                .privileged(true)
+                .build(),
+        )?;
+        let mount = &Self::mount_container(
+            &ContainerOpts::builder()
+                .container_id(container)
+                .privileged(true)
+                .build(),
+        )?;
 
         Self::prune_image(mount, container, raw_image, opts)?;
         Self::create_ostree_commit(mount, ostree_cache_id, container, raw_image, opts)?;
@@ -366,9 +378,24 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         )?;
 
         if !status.success() {
-            Self::unmount_container(container)?;
-            Self::remove_container(container)?;
-            Self::remove_image(raw_image)?;
+            Self::unmount_container(
+                &ContainerOpts::builder()
+                    .container_id(container)
+                    .privileged(true)
+                    .build(),
+            )?;
+            Self::remove_container(
+                &RemoveContainerOpts::builder()
+                    .container_id(container)
+                    .privileged(true)
+                    .build(),
+            )?;
+            Self::remove_image(
+                &RemoveImageOpts::builder()
+                    .image(raw_image)
+                    .privileged(true)
+                    .build(),
+            )?;
             bail!("Failed to run prune step for {}", &opts.image);
         }
 
@@ -404,9 +431,24 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                 .args(bon::vec!["/sources/rechunk/2_create.sh"])
                 .build(),
         )?;
-        Self::unmount_container(container)?;
-        Self::remove_container(container)?;
-        Self::remove_image(raw_image)?;
+        Self::unmount_container(
+            &ContainerOpts::builder()
+                .container_id(container)
+                .privileged(true)
+                .build(),
+        )?;
+        Self::remove_container(
+            &RemoveContainerOpts::builder()
+                .container_id(container)
+                .privileged(true)
+                .build(),
+        )?;
+        Self::remove_image(
+            &RemoveImageOpts::builder()
+                .image(raw_image)
+                .privileged(true)
+                .build(),
+        )?;
 
         if !status.success() {
             bail!("Failed to run Ostree create step for {}", &opts.image);
@@ -460,7 +502,12 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
             .build(),
         )?;
 
-        Self::remove_volume(ostree_cache_id)?;
+        Self::remove_volume(
+            &VolumeOpts::builder()
+                .volume_id(ostree_cache_id)
+                .privileged(true)
+                .build(),
+        )?;
 
         if !status.success() {
             bail!("Failed to run rechunking for {}", &opts.image);

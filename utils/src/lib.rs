@@ -9,6 +9,7 @@ pub mod test_utils;
 pub mod traits;
 
 use std::{
+    ops::Not,
     os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
     thread,
@@ -20,6 +21,7 @@ use blake2::{
     digest::{Update, VariableOutput},
     Blake2bVar,
 };
+use cached::proc_macro::once;
 use chrono::Local;
 use comlexr::cmd;
 use format_serde_error::SerdeError;
@@ -128,4 +130,19 @@ pub fn get_env_var(key: &str) -> Result<String> {
     std::env::var(key)
         .into_diagnostic()
         .with_context(|| format!("Failed to get {key}'"))
+}
+
+/// Checks if an environment variable is set and isn't empty.
+#[must_use]
+pub fn has_env_var(key: &str) -> bool {
+    get_env_var(key).is_ok_and(|v| v.is_empty().not())
+}
+
+/// Checks if the process is running as root.
+///
+/// This call is cached to reduce syscalls.
+#[once]
+#[must_use]
+pub fn running_as_root() -> bool {
+    nix::unistd::Uid::effective().is_root()
 }

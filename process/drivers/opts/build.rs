@@ -24,18 +24,27 @@ pub struct BuildOpts<'scope> {
 
     #[builder(default)]
     pub host_network: bool,
+
+    #[builder(default)]
+    pub privileged: bool,
 }
 
 #[derive(Debug, Clone, Builder)]
 pub struct TagOpts<'scope> {
     pub src_image: &'scope Reference,
     pub dest_image: &'scope Reference,
+
+    #[builder(default)]
+    pub privileged: bool,
 }
 
 #[derive(Debug, Clone, Builder)]
 pub struct PushOpts<'scope> {
     pub image: &'scope Reference,
     pub compression_type: Option<CompressionType>,
+
+    #[builder(default)]
+    pub privileged: bool,
 }
 
 #[derive(Debug, Clone, Builder)]
@@ -95,4 +104,8 @@ pub struct BuildTagPushOpts<'scope> {
     /// The platform to build the image on.
     #[builder(default)]
     pub platform: Platform,
+
+    /// Runs the build with elevated privileges
+    #[builder(default)]
+    pub privileged: bool,
 }

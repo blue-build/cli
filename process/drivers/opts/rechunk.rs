@@ -2,7 +2,7 @@ use std::{borrow::Cow, path::Path};
 
 use bon::Builder;
 
-use crate::drivers::types::Platform;
+use crate::drivers::types::{ContainerId, Platform};
 
 use super::CompressionType;
 
@@ -48,4 +48,21 @@ pub struct RechunkOpts<'scope> {
 
     #[builder(default)]
     pub clear_plan: bool,
+}
+
+#[derive(Debug, Clone, Builder)]
+pub struct ContainerOpts<'scope> {
+    pub container_id: &'scope ContainerId,
+
+    #[builder(default)]
+    pub privileged: bool,
+}
+
+#[derive(Debug, Clone, Builder)]
+pub struct VolumeOpts<'scope> {
+    #[builder(into)]
+    pub volume_id: Cow<'scope, str>,
+
+    #[builder(default)]
+    pub privileged: bool,
 }
