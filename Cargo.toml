@@ -155,7 +155,7 @@ rusty-hook = "0.11"
 rstest.workspace = true
 
 [build-dependencies]
-shadow-rs = "*"
+shadow-rs = "1"
 
 [lints]
 workspace = true
