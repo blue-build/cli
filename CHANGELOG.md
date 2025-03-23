@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.9] - 2025-03-23
+
+### Bug Fixes
+
+- Allow user to not install Nushell in their system
+
+### Features
+
+- Invoke sudo when needed for privileged
+
+### Miscellaneous Tasks
+
+- Add more context to schema parsing errors
+- Disable logs for sensitive crates
+- Bump cosign to v2.4.3
+- Bump cosign image to 2.4.3
+- Pin actions to commit hashes
+- Upgrade deps
+
 ## [0.9.8] - 2025-02-12
 
 ### Bug Fixes
@@ -13,6 +32,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Add more context for list_images image parsing
+- Release
 
 ## [0.9.7] - 2025-02-11
 

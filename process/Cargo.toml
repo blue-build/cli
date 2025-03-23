@@ -12,7 +12,7 @@ path = "process.rs"
 
 [dependencies]
 anyhow = "1"
-blue-build-utils = { version = "=0.9.8", path = "../utils" }
+blue-build-utils = { version = "=0.9.9", path = "../utils" }
 indicatif-log-bridge = "0.2"
 log4rs = { version = "1", features = ["background_rotation"] }
 nu-ansi-term = { version = "0.50", features = ["gnu_legacy"] }
@@ -46,7 +46,7 @@ uuid.workspace = true
 
 [dev-dependencies]
 rstest.workspace = true
-blue-build-utils = { version = "=0.9.8", path = "../utils", features = ["test"]  }
+blue-build-utils = { version = "=0.9.9", path = "../utils", features = ["test"]  }
 
 [lints]
 workspace = true
