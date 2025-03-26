@@ -303,7 +303,8 @@ SAVE_IMAGE:
         END
     ELSE
         ARG EARTHLY_GIT_BRANCH
-        SAVE IMAGE --push "${IMAGE}:${EARTHLY_GIT_BRANCH}${SUFFIX}"
+        ARG IMAGE_TAG="$(echo "${EARTHLY_GIT_BRANCH}" | sed 's|/|_|g')"
+        SAVE IMAGE --push "${IMAGE}:${IMAGE_TAG}${SUFFIX}"
     END
     ARG EARTHLY_GIT_HASH
     SAVE IMAGE --push "${IMAGE}:${EARTHLY_GIT_HASH}${SUFFIX}"
