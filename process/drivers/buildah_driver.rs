@@ -133,7 +133,7 @@ impl BuildDriver for BuildahDriver {
         Ok(())
     }
 
-    fn login(_privileged: bool) -> Result<()> {
+    fn login() -> Result<()> {
         trace!("BuildahDriver::login()");
 
         if let Some(Credentials {

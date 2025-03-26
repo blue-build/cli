@@ -161,7 +161,7 @@ impl BlueBuildCommand for BuildCommand {
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
             Driver::check_signing_files(&CheckKeyPairOpts::builder().dir(Path::new(".")).build())?;
-            Driver::login(self.rechunk)?;
+            Driver::login()?;
             Driver::signing_login()?;
         }
 

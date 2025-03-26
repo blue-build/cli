@@ -327,8 +327,8 @@ impl BuildDriver for Driver {
         impl_build_driver!(push(opts))
     }
 
-    fn login(privileged: bool) -> Result<()> {
-        impl_build_driver!(login(privileged))
+    fn login() -> Result<()> {
+        impl_build_driver!(login())
     }
 
     #[cfg(feature = "prune")]
