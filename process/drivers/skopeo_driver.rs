@@ -1,6 +1,5 @@
 use std::{process::Stdio, time::Duration};
 
-use blue_build_utils::constants::SUDO_ASKPASS;
 use cached::proc_macro::cached;
 use colored::Colorize;
 use comlexr::cmd;
@@ -77,7 +76,7 @@ impl super::OciCopy for SkopeoDriver {
                 } else {
                     "skopeo"
                 },
-                if use_sudo && blue_build_utils::has_env_var(SUDO_ASKPASS) => [
+                if use_sudo && blue_build_utils::has_env_var(blue_build_utils::constants::SUDO_ASKPASS) => [
                     "-A",
                     "-p",
                     format!(
