@@ -287,8 +287,6 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         ))
         .into_diagnostic()?;
 
-        Self::login(true)?;
-
         Self::build(
             &BuildOpts::builder()
                 .image(raw_image.to_string())
