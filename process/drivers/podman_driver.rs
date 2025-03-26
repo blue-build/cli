@@ -253,7 +253,7 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
-    fn login() -> Result<()> {
+    fn login(privileged: bool) -> Result<()> {
         trace!("PodmanDriver::login()");
 
         if let Some(Credentials {
@@ -262,11 +262,22 @@ impl BuildDriver for PodmanDriver {
             password,
         }) = Credentials::get()
         {
+            let use_sudo = privileged && !running_as_root();
             let output = pipe!(
                 stdin = password;
                 {
                     let c = cmd!(
-                        "podman",
+                        if use_sudo {
+                            "sudo"
+                        } else {
+                            "podman"
+                        },
+                        if use_sudo && has_env_var(SUDO_ASKPASS) => [
+                            "-A",
+                            "-p",
+                            SUDO_PROMPT,
+                        ],
+                        if use_sudo => "podman",
                         "login",
                         "-u",
                         username,

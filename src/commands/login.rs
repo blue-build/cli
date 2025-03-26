@@ -45,7 +45,7 @@ impl BlueBuildCommand for LoginCommand {
                 .build(),
         );
 
-        Driver::login()?;
+        Driver::login(false)?;
         Driver::signing_login()?;
 
         Ok(())

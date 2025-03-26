@@ -221,7 +221,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn login() -> Result<()> {
+    fn login(_privileged: bool) -> Result<()> {
         trace!("DockerDriver::login()");
 
         if let Some(Credentials {
