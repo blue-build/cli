@@ -489,11 +489,8 @@ impl ContainerMountDriver for Driver {
 
 #[cfg(feature = "rechunk")]
 impl OciCopy for Driver {
-    fn copy_oci_dir(
-        oci_dir: &self::types::OciDir,
-        registry: &oci_distribution::Reference,
-    ) -> Result<()> {
-        SkopeoDriver::copy_oci_dir(oci_dir, registry)
+    fn copy_oci_dir(opts: &opts::CopyOciDirOpts) -> Result<()> {
+        SkopeoDriver::copy_oci_dir(opts)
     }
 }
 

@@ -284,12 +284,13 @@ impl<'a> From<&'a MountId> for std::borrow::Cow<'a, str> {
 }
 
 #[cfg(feature = "rechunk")]
-pub struct OciDir(String);
+#[derive(Debug, Clone)]
+pub struct OciDir(std::path::PathBuf);
 
 #[cfg(feature = "rechunk")]
 impl std::fmt::Display for OciDir {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", &self.0)
+        write!(f, "{}", &self.0.display())
     }
 }
 
@@ -309,6 +310,6 @@ impl TryFrom<std::path::PathBuf> for OciDir {
             miette::bail!("OCI directory doesn't exist at {}", value.display());
         }
 
-        Ok(Self(format!("oci:{}", value.display())))
+        Ok(Self(value))
     }
 }

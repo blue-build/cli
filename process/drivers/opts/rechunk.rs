@@ -1,8 +1,9 @@
 use std::{borrow::Cow, path::Path};
 
 use bon::Builder;
+use oci_distribution::Reference;
 
-use crate::drivers::types::{ContainerId, Platform};
+use crate::drivers::types::{ContainerId, OciDir, Platform};
 
 use super::CompressionType;
 
@@ -62,6 +63,15 @@ pub struct ContainerOpts<'scope> {
 pub struct VolumeOpts<'scope> {
     #[builder(into)]
     pub volume_id: Cow<'scope, str>,
+
+    #[builder(default)]
+    pub privileged: bool,
+}
+
+#[derive(Debug, Clone, Builder)]
+pub struct CopyOciDirOpts<'scope> {
+    pub oci_dir: &'scope OciDir,
+    pub registry: &'scope Reference,
 
     #[builder(default)]
     pub privileged: bool,

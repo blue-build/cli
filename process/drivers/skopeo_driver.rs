@@ -1,5 +1,6 @@
 use std::{process::Stdio, time::Duration};
 
+use blue_build_utils::constants::SUDO_ASKPASS;
 use cached::proc_macro::cached;
 use colored::Colorize;
 use comlexr::cmd;
@@ -65,22 +66,45 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
 
 #[cfg(feature = "rechunk")]
 impl super::OciCopy for SkopeoDriver {
-    fn copy_oci_dir(
-        oci_dir: &super::types::OciDir,
-        registry: &oci_distribution::Reference,
-    ) -> Result<()> {
+    fn copy_oci_dir(opts: &super::opts::CopyOciDirOpts) -> Result<()> {
         use crate::logging::CommandLogging;
 
+        let use_sudo = opts.privileged && !blue_build_utils::running_as_root();
         let status = {
-            let c = cmd!("skopeo", "copy", oci_dir, format!("docker://{registry}"),);
+            let c = cmd!(
+                if use_sudo {
+                    "sudo"
+                } else {
+                    "skopeo"
+                },
+                if use_sudo && blue_build_utils::has_env_var(SUDO_ASKPASS) => [
+                    "-A",
+                    "-p",
+                    format!(
+                        concat!(
+                            "Password is required to copy ",
+                            "OCI directory {dir:?} to remote registry {registry}"
+                        ),
+                        dir = opts.oci_dir,
+                        registry = opts.registry,
+                    )
+                ],
+                if use_sudo => "skopeo",
+                "copy",
+                opts.oci_dir,
+                format!("docker://{}", opts.registry),
+            );
             trace!("{c:?}");
             c
         }
-        .build_status(registry.to_string(), format!("Copying {oci_dir} to"))
+        .build_status(
+            opts.registry.to_string(),
+            format!("Copying {} to", opts.oci_dir),
+        )
         .into_diagnostic()?;
 
         if !status.success() {
-            bail!("Failed to copy {oci_dir} to {registry}");
+            bail!("Failed to copy {} to {}", opts.oci_dir, opts.registry);
         }
 
         Ok(())

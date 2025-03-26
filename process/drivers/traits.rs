@@ -263,10 +263,7 @@ pub(super) trait ContainerMountDriver: PrivateDriver {
 
 #[cfg(feature = "rechunk")]
 pub(super) trait OciCopy {
-    fn copy_oci_dir(
-        oci_dir: &super::types::OciDir,
-        registry: &oci_distribution::Reference,
-    ) -> Result<()>;
+    fn copy_oci_dir(opts: &super::opts::CopyOciDirOpts) -> Result<()>;
 }
 
 #[allow(private_bounds)]
@@ -341,7 +338,13 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                 blue_build_utils::retry(opts.retry_count, 5, || {
                     debug!("Pushing image {tagged_image}");
 
-                    Driver::copy_oci_dir(oci_dir, &tagged_image)
+                    Driver::copy_oci_dir(
+                        &super::opts::CopyOciDirOpts::builder()
+                            .oci_dir(oci_dir)
+                            .registry(&tagged_image)
+                            .privileged(true)
+                            .build(),
+                    )
                 })?;
                 image_list.push(tagged_image.into());
             }
