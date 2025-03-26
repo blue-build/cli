@@ -2,11 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.10] - 2025-03-26
+
+### Bug Fixes
+
+- Use sudo for skopeo copy for rechunk
+- Revert change to OciDir
+- Use sudo for login when using rechunk
+- Fix lints and be sure to login before build in rechunk
+- Handle login for skopeo during rechunk flow
+
 ## [0.9.9] - 2025-03-23
 
 ### Bug Fixes
 
 - Allow user to not install Nushell in their system
+- Don't use * for shadow-rs build dependency
 
 ### Features
 
@@ -20,6 +31,7 @@ All notable changes to this project will be documented in this file.
 - Bump cosign image to 2.4.3
 - Pin actions to commit hashes
 - Upgrade deps
+- Release
 
 ## [0.9.8] - 2025-02-12
 
