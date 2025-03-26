@@ -106,7 +106,7 @@ pub trait BuildDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if login fails.
-    fn login(privileged: bool) -> Result<()>;
+    fn login() -> Result<()>;
 
     /// Runs prune commands for the driver.
     ///
