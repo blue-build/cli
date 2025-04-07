@@ -834,9 +834,9 @@ dependencies = [
 
 [[package]]
 name = "comlexr"
-version = "1.3.1"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83ea9f8823bb5c2a06db91ce3da3a33ef80fa263963f18dff19974d1111839e5"
+checksum = "7be089dd6e862f96a59a21de3c31fff3edeb74c775919736328c2d9efa61ce05"
 dependencies = [
  "comlexr_macro",
  "thiserror 1.0.69",
@@ -844,9 +844,9 @@ dependencies = [
 
 [[package]]
 name = "comlexr_macro"
-version = "1.3.1"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa83196c671d0251387f7d1967623825f38ee2885e8a41d83ab63b56babc435c"
+checksum = "b93ba93c292a378e011d9b707170072a91f1c669ac7deaa455a4b82e66caf58b"
 dependencies = [
  "proc-macro2",
  "quote",
