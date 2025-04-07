@@ -326,7 +326,7 @@ impl InspectDriver for PodmanDriver {
     result = true,
     key = "String",
     convert = r#"{ format!("{}-{}", opts.image, opts.platform)}"#,
-    sync_writes = true
+    sync_writes = "by_key"
 )]
 fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
     trace!("PodmanDriver::get_metadata({opts:#?})");

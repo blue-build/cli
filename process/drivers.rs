@@ -254,7 +254,7 @@ impl Driver {
     result = true,
     key = "String",
     convert = r#"{ oci_ref.to_string() }"#,
-    sync_writes = true
+    sync_writes = "by_key"
 )]
 fn get_version_run_image(oci_ref: &Reference) -> Result<u64> {
     warn!(concat!(

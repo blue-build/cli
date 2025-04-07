@@ -11,7 +11,7 @@ version = "0.9.10"
 
 [workspace.dependencies]
 bon = "3"
-cached = "0.54"
+cached = "0.55"
 chrono = "0.4"
 clap = "4"
 colored = "2"

@@ -313,7 +313,12 @@ impl Retrieve for ModuleSchemaRetriever {
     }
 }
 
-#[cached(result = true, key = "String", convert = r#"{ format!("{uri}") }"#)]
+#[cached(
+    result = true,
+    key = "String",
+    convert = r#"{ format!("{uri}") }"#,
+    sync_writes = "by_key"
+)]
 async fn cache_retrieve(uri: &Uri<String>) -> miette::Result<Value> {
     let scheme = uri.scheme();
     let path = uri.path();

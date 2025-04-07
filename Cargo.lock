@@ -439,7 +439,7 @@ dependencies = [
  "blue-build-template",
  "blue-build-utils",
  "bon",
- "cached",
+ "cached 0.55.1",
  "clap",
  "clap-verbosity-flag",
  "clap_complete",
@@ -482,7 +482,7 @@ dependencies = [
  "anyhow",
  "blue-build-utils",
  "bon",
- "cached",
+ "cached 0.55.1",
  "chrono",
  "clap",
  "colored",
@@ -552,7 +552,7 @@ dependencies = [
  "base64 0.22.1",
  "blake2",
  "bon",
- "cached",
+ "cached 0.55.1",
  "chrono",
  "clap",
  "comlexr",
@@ -647,7 +647,7 @@ checksum = "9718806c4a2fe9e8a56fd736f97b340dd10ed1be8ed733ed50449f351dc33cae"
 dependencies = [
  "ahash 0.8.11",
  "async-trait",
- "cached_proc_macro",
+ "cached_proc_macro 0.23.0",
  "cached_proc_macro_types",
  "futures",
  "hashbrown 0.14.5",
@@ -658,10 +658,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "cached"
+version = "0.55.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0839c297f8783316fcca9d90344424e968395413f0662a5481f79c6648bbc14"
+dependencies = [
+ "ahash 0.8.11",
+ "async-trait",
+ "cached_proc_macro 0.24.0",
+ "cached_proc_macro_types",
+ "futures",
+ "hashbrown 0.14.5",
+ "once_cell",
+ "thiserror 2.0.12",
+ "tokio",
+ "web-time",
+]
+
+[[package]]
 name = "cached_proc_macro"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f42a145ed2d10dce2191e1dcf30cfccfea9026660e143662ba5eec4017d5daa"
+dependencies = [
+ "darling",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
+]
+
+[[package]]
+name = "cached_proc_macro"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "673992d934f0711b68ebb3e1b79cdc4be31634b37c98f26867ced0438ca5c603"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -4431,7 +4461,7 @@ checksum = "9958ac57dea620d4059784dc0df9f997a873a168828d1028c5c7b9d7a089f5f2"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
- "cached",
+ "cached 0.54.0",
  "cfg-if",
  "chrono",
  "const-oid",

@@ -181,7 +181,7 @@ impl GenerateCommand {
     result = true,
     key = "Platform",
     convert = r#"{ platform }"#,
-    sync_writes = true
+    sync_writes = "by_key"
 )]
 fn determine_scripts_tag(platform: Platform) -> Result<Reference> {
     trace!("determine_scripts_tag({platform:?})");
