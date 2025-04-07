@@ -10,7 +10,7 @@ use colored::control::ShouldColorize;
 use log::{debug, error, trace, warn};
 use uuid::Uuid;
 
-pub use rinja::Template;
+pub use askama::Template;
 
 #[derive(Debug, Clone, Template, Builder)]
 #[template(path = "Containerfile.j2", escape = "none", whitespace = "minimize")]
@@ -147,7 +147,7 @@ fn should_color() -> bool {
 
 mod filters {
     #[allow(clippy::unnecessary_wraps)]
-    pub fn replace<T>(input: T, from: char, to: &str) -> rinja::Result<String>
+    pub fn replace<T>(input: T, from: char, to: &str) -> askama::Result<String>
     where
         T: std::fmt::Display,
     {
