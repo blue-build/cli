@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.11] - 2025-04-15
+
+### Bug Fixes
+
+- Get os ID with built-ins
+
+### Miscellaneous Tasks
+
+- Upgrade deps
+- Migrate from rinja to askama
+- Upgrade cached and use new sync_writes by_key for faster operations
+
 ## [0.9.10] - 2025-03-26
 
 ### Bug Fixes
@@ -11,6 +23,10 @@ All notable changes to this project will be documented in this file.
 - Use sudo for login when using rechunk
 - Fix lints and be sure to login before build in rechunk
 - Handle login for skopeo during rechunk flow
+
+### Miscellaneous Tasks
+
+- Release
 
 ## [0.9.9] - 2025-03-23
 
