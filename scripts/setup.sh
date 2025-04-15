@@ -1,7 +1,18 @@
 #!/bin/sh
 
 if [ -f /etc/os-release ]; then
-  export ID="$(awk -F= '/^ID=/ {gsub(/"/, "", $2); print $2}' /etc/os-release)"
+  # Initialize variable to store the ID
+  ID=""
+
+  # Read the /etc/os-release file line by line
+  while IFS== read -r key value; do
+    # Check if the key is 'ID'
+    if [ "$key" = "ID" ]; then
+      # Remove any quotes from the value and store it in id variable
+      ID=$(echo "$value" | tr -d '"')
+      break
+    fi
+  done < /etc/os-release
 
   if [ "$ID" = "alpine" ]; then
     echo "Setting up Alpine based image to run BlueBuild modules"
