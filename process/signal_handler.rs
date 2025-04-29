@@ -14,7 +14,6 @@ use nix::{
     sys::signal::{kill, Signal},
     unistd::Pid,
 };
-use once_cell::sync::Lazy;
 use signal_hook::{
     consts::TERM_SIGNALS,
     flag,
@@ -60,9 +59,10 @@ impl ContainerSignalId {
     }
 }
 
-static PID_LIST: Lazy<Arc<Mutex<Vec<i32>>>> = Lazy::new(|| Arc::new(Mutex::new(vec![])));
-static CID_LIST: Lazy<Arc<Mutex<Vec<ContainerSignalId>>>> =
-    Lazy::new(|| Arc::new(Mutex::new(vec![])));
+static PID_LIST: std::sync::LazyLock<Arc<Mutex<Vec<i32>>>> =
+    std::sync::LazyLock::new(|| Arc::new(Mutex::new(vec![])));
+static CID_LIST: std::sync::LazyLock<Arc<Mutex<Vec<ContainerSignalId>>>> =
+    std::sync::LazyLock::new(|| Arc::new(Mutex::new(vec![])));
 
 /// Initialize Ctrl-C handler. This should be done at the start
 /// of a binary.

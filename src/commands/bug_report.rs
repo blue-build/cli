@@ -146,7 +146,7 @@ fn get_config_file(title: &str, message: &str) -> Result<String> {
         Ok(requestty::Answer::String(path)) => Ok(path),
         Ok(_) => unreachable!(),
         Err(e) => {
-            trace!("Failed to get file: {}", e);
+            trace!("Failed to get file: {e}");
             Err(e).into_diagnostic()
         }
     }

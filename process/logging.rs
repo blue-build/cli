@@ -31,7 +31,6 @@ use log4rs::{
     Config, Logger as L4RSLogger,
 };
 use nu_ansi_term::Color;
-use once_cell::sync::Lazy;
 use private::Private;
 use rand::Rng;
 
@@ -43,8 +42,10 @@ mod private {
 
 impl Private for Command {}
 
-static MULTI_PROGRESS: Lazy<MultiProgress> = Lazy::new(MultiProgress::new);
-static LOG_DIR: Lazy<Mutex<PathBuf>> = Lazy::new(|| Mutex::new(PathBuf::new()));
+static MULTI_PROGRESS: std::sync::LazyLock<MultiProgress> =
+    std::sync::LazyLock::new(MultiProgress::new);
+static LOG_DIR: std::sync::LazyLock<Mutex<PathBuf>> =
+    std::sync::LazyLock::new(|| Mutex::new(PathBuf::new()));
 
 #[derive(Debug, Clone)]
 pub struct Logger {
@@ -76,7 +77,7 @@ impl Logger {
         self
     }
 
-    pub fn filter_level(&mut self, filter_level: LevelFilter) -> &mut Self {
+    pub const fn filter_level(&mut self, filter_level: LevelFilter) -> &mut Self {
         self.level = filter_level;
         self
     }

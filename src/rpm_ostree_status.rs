@@ -79,7 +79,7 @@ impl RpmOstreeStatus<'_> {
         self.booted_image().is_some_and(|deployment| {
             deployment
                 .split(':')
-                .last()
+                .next_back()
                 .is_some_and(|boot_ref| Path::new(boot_ref) == archive_path.as_ref())
         })
     }
@@ -92,7 +92,7 @@ impl RpmOstreeStatus<'_> {
         self.staged_image().is_some_and(|deployment| {
             deployment
                 .split(':')
-                .last()
+                .next_back()
                 .is_some_and(|boot_ref| Path::new(boot_ref) == archive_path.as_ref())
         })
     }

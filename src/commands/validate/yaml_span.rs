@@ -1,3 +1,4 @@
+#![allow(clippy::needless_continue)]
 use std::sync::Arc;
 
 use bon::bon;
@@ -79,7 +80,7 @@ where
     P: Iterator<Item = LocationSegment<'b>>,
 {
     #[builder]
-    pub fn new(events: &'a mut I, path: &'b mut P) -> Self {
+    pub const fn new(events: &'a mut I, path: &'b mut P) -> Self {
         Self { events, path }
     }
 
@@ -103,11 +104,9 @@ where
             match event {
                 Event::StreamStart if !stream_start && !document_start => {
                     stream_start = true;
-                    continue;
                 }
                 Event::DocumentStart if stream_start && !document_start => {
                     document_start = true;
-                    continue;
                 }
                 Event::MappingStart(_, _) if stream_start && document_start => {
                     break self.key(key)?.into();
@@ -182,8 +181,8 @@ where
                 Event::Scalar(value, _, _, _) => {
                     last_index = marker.index() + value.len();
                 }
-                _ => continue,
-            };
+                _ => (),
+            }
         }
     }
 
@@ -203,7 +202,7 @@ where
                     last_index = marker.index() + value.len();
                 }
                 _ => continue,
-            };
+            }
         }
     }
 

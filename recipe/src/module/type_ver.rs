@@ -11,7 +11,7 @@ pub struct ModuleTypeVersion<'scope> {
 impl ModuleTypeVersion<'_> {
     #[must_use]
     pub fn typ(&self) -> &str {
-        &self.typ
+        self.typ.as_ref()
     }
 
     #[must_use]

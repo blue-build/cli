@@ -22,7 +22,6 @@ use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
 use miette::{miette, IntoDiagnostic, Result};
 use oci_distribution::Reference;
-use once_cell::sync::Lazy;
 use opts::{
     BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, CreateContainerOpts, GenerateImageNameOpts,
     GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts, RemoveContainerOpts,
@@ -59,18 +58,20 @@ mod skopeo_driver;
 mod traits;
 pub mod types;
 
-static INIT: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
-static SELECTED_BUILD_DRIVER: Lazy<RwLock<Option<BuildDriverType>>> =
-    Lazy::new(|| RwLock::new(None));
-static SELECTED_INSPECT_DRIVER: Lazy<RwLock<Option<InspectDriverType>>> =
-    Lazy::new(|| RwLock::new(None));
-static SELECTED_RUN_DRIVER: Lazy<RwLock<Option<RunDriverType>>> = Lazy::new(|| RwLock::new(None));
-static SELECTED_SIGNING_DRIVER: Lazy<RwLock<Option<SigningDriverType>>> =
-    Lazy::new(|| RwLock::new(None));
-static SELECTED_CI_DRIVER: Lazy<RwLock<Option<CiDriverType>>> = Lazy::new(|| RwLock::new(None));
+static INIT: std::sync::LazyLock<Mutex<bool>> = std::sync::LazyLock::new(|| Mutex::new(false));
+static SELECTED_BUILD_DRIVER: std::sync::LazyLock<RwLock<Option<BuildDriverType>>> =
+    std::sync::LazyLock::new(|| RwLock::new(None));
+static SELECTED_INSPECT_DRIVER: std::sync::LazyLock<RwLock<Option<InspectDriverType>>> =
+    std::sync::LazyLock::new(|| RwLock::new(None));
+static SELECTED_RUN_DRIVER: std::sync::LazyLock<RwLock<Option<RunDriverType>>> =
+    std::sync::LazyLock::new(|| RwLock::new(None));
+static SELECTED_SIGNING_DRIVER: std::sync::LazyLock<RwLock<Option<SigningDriverType>>> =
+    std::sync::LazyLock::new(|| RwLock::new(None));
+static SELECTED_CI_DRIVER: std::sync::LazyLock<RwLock<Option<CiDriverType>>> =
+    std::sync::LazyLock::new(|| RwLock::new(None));
 
 /// UUID used to mark the current builds
-static BUILD_ID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
+static BUILD_ID: std::sync::LazyLock<Uuid> = std::sync::LazyLock::new(Uuid::new_v4);
 
 /// Args for selecting the various drivers to use for runtime.
 ///

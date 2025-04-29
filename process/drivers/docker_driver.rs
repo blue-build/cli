@@ -17,7 +17,6 @@ use comlexr::{cmd, pipe};
 use log::{debug, info, trace, warn};
 use miette::{bail, Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
-use once_cell::sync::Lazy;
 use serde::Deserialize;
 use tempfile::TempDir;
 
@@ -50,7 +49,8 @@ struct DockerVersionJson {
     pub client: DockerVerisonJsonClient,
 }
 
-static DOCKER_SETUP: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(false));
+static DOCKER_SETUP: std::sync::LazyLock<Mutex<bool>> =
+    std::sync::LazyLock::new(|| Mutex::new(false));
 
 #[derive(Debug)]
 pub struct DockerDriver;
@@ -411,9 +411,9 @@ impl BuildDriver for DockerDriver {
 
         if status.success() {
             if opts.push {
-                info!("Successfully built and pushed image {}", first_image);
+                info!("Successfully built and pushed image {first_image}");
             } else {
-                info!("Successfully built image {}", first_image);
+                info!("Successfully built image {first_image}");
             }
         } else {
             bail!("Failed to build image {}", first_image);

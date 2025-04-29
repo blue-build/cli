@@ -1,4 +1,5 @@
 use std::{
+    fmt::Write,
     fs::OpenOptions,
     io::{BufReader, Read},
     path::{Path, PathBuf},
@@ -66,10 +67,13 @@ impl BlueBuildCommand for ValidateCommand {
         ASYNC_RUNTIME.block_on(self.setup_validators())?;
 
         if let Err(errors) = self.validate_recipe() {
-            let errors = errors.into_iter().fold(String::new(), |mut full, err| {
-                full.push_str(&format!("{err:?}"));
-                full
-            });
+            let errors = errors.into_iter().try_fold(
+                String::new(),
+                |mut full, err| -> miette::Result<String> {
+                    write!(&mut full, "{err:?}").into_diagnostic()?;
+                    Ok(full)
+                },
+            )?;
             let main_err = format!("Recipe {recipe_path_display} failed to validate");
 
             if self.all_errors {

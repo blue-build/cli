@@ -496,7 +496,6 @@ dependencies = [
  "nix",
  "nu-ansi-term",
  "oci-distribution",
- "once_cell",
  "os_pipe",
  "rand 0.9.1",
  "reqwest",
