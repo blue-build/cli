@@ -27,6 +27,12 @@ pub struct BuildOpts<'scope> {
 
     #[builder(default)]
     pub privileged: bool,
+
+    #[builder(into)]
+    pub cache_from: Option<&'scope Reference>,
+
+    #[builder(into)]
+    pub cache_to: Option<&'scope Reference>,
 }
 
 #[derive(Debug, Clone, Builder)]
@@ -108,4 +114,10 @@ pub struct BuildTagPushOpts<'scope> {
     /// Runs the build with elevated privileges
     #[builder(default)]
     pub privileged: bool,
+
+    /// Cache layers from the registry.
+    pub cache_from: Option<&'scope Reference>,
+
+    /// Cache layers to the registry.
+    pub cache_to: Option<&'scope Reference>,
 }

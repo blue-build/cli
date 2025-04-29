@@ -24,7 +24,7 @@ use blue_build_utils::{
 };
 use bon::Builder;
 use clap::Args;
-use log::{info, trace, warn};
+use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
 use tempfile::TempDir;
@@ -135,6 +135,13 @@ pub struct BuildCommand {
     /// while building. If unset, it will use `/tmp`.
     #[arg(long)]
     tempdir: Option<PathBuf>,
+
+    /// Automatically cache build layers to the registry.
+    ///
+    /// NOTE: Only works when using --push
+    #[builder(default)]
+    #[arg(long, env = blue_build_utils::constants::BB_CACHE_LAYERS)]
+    cache_layers: bool,
 
     #[clap(flatten)]
     #[builder(default)]
@@ -298,6 +305,18 @@ impl BuildCommand {
         let image: Reference = format!("{image_name}:{}", tags.first().map_or("latest", |tag| tag))
             .parse()
             .into_diagnostic()?;
+        let cache_image = (self.cache_layers && self.push).then(|| {
+            let cache_image = Reference::with_tag(
+                image.registry().to_string(),
+                image.repository().to_string(),
+                format!(
+                    "{}-cache",
+                    image.tag().expect("Reference should be built with tag")
+                ),
+            );
+            debug!("Using {cache_image} for caching layers");
+            cache_image
+        });
 
         let build_fn = || -> Result<Vec<String>> {
             Driver::build_tag_push(&self.archive.as_ref().map_or_else(
@@ -312,6 +331,8 @@ impl BuildCommand {
                         .retry_count(self.retry_count)
                         .compression(self.compression_format)
                         .squash(self.squash)
+                        .maybe_cache_from(cache_image.as_ref())
+                        .maybe_cache_to(cache_image.as_ref())
                         .build()
                 },
                 |archive_dir| {
@@ -324,6 +345,8 @@ impl BuildCommand {
                             recipe.name.to_lowercase().replace('/', "_"),
                         )))
                         .squash(self.squash)
+                        .maybe_cache_from(cache_image.as_ref())
+                        .maybe_cache_to(cache_image.as_ref())
                         .build()
                 },
             ))
@@ -331,48 +354,12 @@ impl BuildCommand {
 
         #[cfg(feature = "rechunk")]
         let images = if self.rechunk {
-            use blue_build_process_management::drivers::{
-                InspectDriver, RechunkDriver,
-                opts::{GetMetadataOpts, RechunkOpts},
-            };
-
-            let base_image: Reference = format!("{}:{}", &recipe.base_image, &recipe.image_version)
-                .parse()
-                .into_diagnostic()?;
-
-            Driver::rechunk(
-                &RechunkOpts::builder()
-                    .image(&image_name)
-                    .containerfile(containerfile)
-                    .platform(self.platform)
-                    .tags(tags.collect_cow_vec())
-                    .push(self.push)
-                    .version(format!(
-                        "{version}.<date>",
-                        version = Driver::get_os_version()
-                            .oci_ref(&recipe.base_image_ref()?)
-                            .platform(self.platform)
-                            .call()?,
-                    ))
-                    .retry_push(self.retry_push)
-                    .retry_count(self.retry_count)
-                    .compression(self.compression_format)
-                    .base_digest(
-                        Driver::get_metadata(
-                            &GetMetadataOpts::builder()
-                                .image(&base_image)
-                                .platform(self.platform)
-                                .build(),
-                        )?
-                        .digest,
-                    )
-                    .repo(Driver::get_repo_url()?)
-                    .name(&*recipe.name)
-                    .description(&*recipe.description)
-                    .base_image(format!("{}:{}", &recipe.base_image, &recipe.image_version))
-                    .maybe_tempdir(self.tempdir.as_deref())
-                    .clear_plan(self.rechunk_clear_plan)
-                    .build(),
+            self.rechunk(
+                containerfile,
+                &recipe,
+                &tags,
+                &image_name,
+                cache_image.as_ref(),
             )?
         } else {
             build_fn()?
@@ -393,6 +380,60 @@ impl BuildCommand {
         }
 
         Ok(images)
+    }
+
+    #[cfg(feature = "rechunk")]
+    fn rechunk(
+        &self,
+        containerfile: &Path,
+        recipe: &Recipe<'_>,
+        tags: &[String],
+        image_name: &str,
+        cache_image: Option<&Reference>,
+    ) -> Result<Vec<String>, miette::Error> {
+        use blue_build_process_management::drivers::{
+            InspectDriver, RechunkDriver,
+            opts::{GetMetadataOpts, RechunkOpts},
+        };
+        let base_image: Reference = format!("{}:{}", &recipe.base_image, &recipe.image_version)
+            .parse()
+            .into_diagnostic()?;
+        Driver::rechunk(
+            &RechunkOpts::builder()
+                .image(image_name)
+                .containerfile(containerfile)
+                .platform(self.platform)
+                .tags(tags.collect_cow_vec())
+                .push(self.push)
+                .version(format!(
+                    "{version}.<date>",
+                    version = Driver::get_os_version()
+                        .oci_ref(&recipe.base_image_ref()?)
+                        .platform(self.platform)
+                        .call()?,
+                ))
+                .retry_push(self.retry_push)
+                .retry_count(self.retry_count)
+                .compression(self.compression_format)
+                .base_digest(
+                    Driver::get_metadata(
+                        &GetMetadataOpts::builder()
+                            .image(&base_image)
+                            .platform(self.platform)
+                            .build(),
+                    )?
+                    .digest,
+                )
+                .repo(Driver::get_repo_url()?)
+                .name(&*recipe.name)
+                .description(&*recipe.description)
+                .base_image(format!("{}:{}", &recipe.base_image, &recipe.image_version))
+                .maybe_tempdir(self.tempdir.as_deref())
+                .clear_plan(self.rechunk_clear_plan)
+                .maybe_cache_from(cache_image)
+                .maybe_cache_to(cache_image)
+                .build(),
+        )
     }
 
     fn image_name(&self, recipe: &Recipe) -> Result<String> {
