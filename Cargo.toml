@@ -3,7 +3,7 @@ members = ["utils", "recipe", "template", "process"]
 
 [workspace.package]
 description = "A CLI tool built for creating Containerfile templates for ostree based atomic distros"
-edition = "2021"
+edition = "2024"
 repository = "https://github.com/blue-build/cli"
 license = "Apache-2.0"
 categories = ["command-line-utilities"]
