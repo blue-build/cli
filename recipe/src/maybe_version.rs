@@ -1,5 +1,5 @@
 use blue_build_utils::semver::Version;
-use serde::{de::Error, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error};
 
 #[derive(Default, Clone, Debug)]
 pub enum MaybeVersion {

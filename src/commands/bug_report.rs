@@ -8,10 +8,10 @@ use bon::Builder;
 use clap::Args;
 use clap_complete::Shell;
 use colored::Colorize;
-use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
+use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use log::{debug, error, trace};
 use miette::{IntoDiagnostic, Result};
-use requestty::question::{completions, Completions};
+use requestty::question::{Completions, completions};
 use std::time::Duration;
 
 use super::BlueBuildCommand;
@@ -85,15 +85,22 @@ impl BugReportCommand {
             .default(true)
             .build();
 
-        println!("{} To avoid any sensitive data from being exposed, please review the included information before proceeding.", "Warning:".on_bright_red().bright_white());
-        println!("Data forwarded to GitHub is subject to GitHub's privacy policy. For more information, see https://docs.github.com/en/github/site-policy/github-privacy-statement.\n");
+        println!(
+            "{} To avoid any sensitive data from being exposed, please review the included information before proceeding.",
+            "Warning:".on_bright_red().bright_white()
+        );
+        println!(
+            "Data forwarded to GitHub is subject to GitHub's privacy policy. For more information, see https://docs.github.com/en/github/site-policy/github-privacy-statement.\n"
+        );
         match requestty::prompt_one(question) {
             Ok(answer) => {
                 if answer.as_bool().unwrap() {
                     let link = make_github_issue_link(&issue_body);
                     if let Err(e) = open::that(&link) {
                         println!("Failed to open issue report in your browser: {e}");
-                        println!("Please copy the above report and open an issue manually, or try opening the following link:\n{link}");
+                        println!(
+                            "Please copy the above report and open an issue manually, or try opening the following link:\n{link}"
+                        );
                         return Err(e).into_diagnostic();
                     }
                 } else {

@@ -16,7 +16,7 @@ use blue_build_utils::get_env_var;
 #[cfg(test)]
 use blue_build_utils::test_utils::get_env_var;
 
-use super::{opts::GenerateTagsOpts, CiDriver, Driver};
+use super::{CiDriver, Driver, opts::GenerateTagsOpts};
 
 mod event;
 
@@ -153,7 +153,7 @@ mod test {
     use rstest::rstest;
 
     use crate::{
-        drivers::{opts::GenerateTagsOpts, types::Platform, CiDriver},
+        drivers::{CiDriver, opts::GenerateTagsOpts, types::Platform},
         test::{TEST_TAG_1, TEST_TAG_2, TIMESTAMP},
     };
 

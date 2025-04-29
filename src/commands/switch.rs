@@ -17,7 +17,7 @@ use clap::Args;
 use comlexr::cmd;
 use indicatif::ProgressBar;
 use log::{debug, trace};
-use miette::{bail, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, bail};
 use tempfile::TempDir;
 
 use crate::{commands::build::BuildCommand, rpm_ostree_status::RpmOstreeStatus};

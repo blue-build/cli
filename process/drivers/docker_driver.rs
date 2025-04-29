@@ -15,7 +15,7 @@ use cached::proc_macro::cached;
 use colored::Colorize;
 use comlexr::{cmd, pipe};
 use log::{debug, info, trace, warn};
-use miette::{bail, Context, IntoDiagnostic, Result};
+use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
 use serde::Deserialize;
 use tempfile::TempDir;
@@ -32,7 +32,7 @@ use crate::{
         types::{ContainerId, ImageMetadata, Platform},
     },
     logging::CommandLogging,
-    signal_handler::{add_cid, remove_cid, ContainerRuntime, ContainerSignalId},
+    signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
 };
 
 use super::opts::{CreateContainerOpts, RemoveContainerOpts, RemoveImageOpts};

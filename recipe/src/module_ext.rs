@@ -9,7 +9,7 @@ use log::trace;
 use miette::{Context, IntoDiagnostic, Report, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{base_recipe_path, AkmodsInfo, FromFileList, Module};
+use crate::{AkmodsInfo, FromFileList, Module, base_recipe_path};
 
 #[derive(Default, Serialize, Clone, Deserialize, Debug, Builder)]
 pub struct ModuleExt<'a> {

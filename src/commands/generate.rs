@@ -4,7 +4,7 @@ use std::{
 };
 
 use blue_build_process_management::drivers::{
-    opts::GetMetadataOpts, types::Platform, CiDriver, Driver, DriverArgs, InspectDriver,
+    CiDriver, Driver, DriverArgs, InspectDriver, opts::GetMetadataOpts, types::Platform,
 };
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
@@ -14,7 +14,7 @@ use blue_build_utils::{
 };
 use bon::Builder;
 use cached::proc_macro::cached;
-use clap::{crate_version, Args};
+use clap::{Args, crate_version};
 use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Result};
 use oci_distribution::Reference;

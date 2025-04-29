@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use miette::bail;
 use semver::Prerelease;
-use serde::{de::Error, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Version(semver::Version);

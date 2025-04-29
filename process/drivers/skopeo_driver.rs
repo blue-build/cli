@@ -5,11 +5,11 @@ use colored::Colorize;
 use comlexr::cmd;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, trace};
-use miette::{bail, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, bail};
 
 use crate::{drivers::types::Platform, logging::Logger};
 
-use super::{opts::GetMetadataOpts, types::ImageMetadata, InspectDriver};
+use super::{InspectDriver, opts::GetMetadataOpts, types::ImageMetadata};
 
 #[derive(Debug)]
 pub struct SkopeoDriver;

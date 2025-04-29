@@ -1,6 +1,6 @@
 use clap::ValueEnum;
 use log::trace;
-use miette::{miette, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, miette};
 use serde::ser::Serialize;
 use syntect::{dumps, easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet};
 

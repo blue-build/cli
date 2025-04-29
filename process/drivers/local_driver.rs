@@ -4,7 +4,7 @@ use blue_build_utils::string_vec;
 use comlexr::cmd;
 use log::trace;
 
-use super::{opts::GenerateTagsOpts, CiDriver, Driver};
+use super::{CiDriver, Driver, opts::GenerateTagsOpts};
 
 pub struct LocalDriver;
 

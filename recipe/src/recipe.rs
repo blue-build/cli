@@ -6,7 +6,7 @@ use miette::{Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use serde::{Deserialize, Serialize};
 
-use crate::{maybe_version::MaybeVersion, Module, ModuleExt, StagesExt};
+use crate::{Module, ModuleExt, StagesExt, maybe_version::MaybeVersion};
 
 /// The build recipe.
 ///

@@ -36,7 +36,9 @@ pub(crate) fn base_recipe_path() -> &'static Path {
     if recipe_path.exists() && recipe_path.is_dir() {
         recipe_path
     } else {
-        warn!("Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}");
+        warn!(
+            "Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}"
+        );
         legacy_path
     }
 }

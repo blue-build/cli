@@ -1,10 +1,10 @@
 use std::{env, path::Path};
 
 use blue_build_utils::{
-    constants::{BB_PRIVATE_KEY, COSIGN_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PUB_PATH},
+    constants::{BB_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PRIVATE_KEY, COSIGN_PUB_PATH},
     string,
 };
-use miette::{bail, Result};
+use miette::{Result, bail};
 
 use super::opts::PrivateKey;
 

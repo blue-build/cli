@@ -6,11 +6,11 @@ use std::{
 
 use blue_build_utils::{constants::COSIGN_PUB_PATH, retry, semver::Version, string_vec};
 use log::{debug, info, trace};
-use miette::{bail, Context, IntoDiagnostic, Result};
+use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
 use semver::VersionReq;
 
-use crate::drivers::{functions::get_private_key, types::CiDriverType, Driver};
+use crate::drivers::{Driver, functions::get_private_key, types::CiDriverType};
 
 #[cfg(feature = "sigstore")]
 use super::sigstore_driver::SigstoreDriver;

@@ -1,14 +1,14 @@
 use std::{fs, path::Path};
 
 use crate::{
-    drivers::opts::{PrivateKeyContents, VerifyType},
     ASYNC_RUNTIME,
+    drivers::opts::{PrivateKeyContents, VerifyType},
 };
 
 use super::{
+    SigningDriver,
     functions::get_private_key,
     opts::{CheckKeyPairOpts, GenerateKeyPairOpts, SignOpts, VerifyOpts},
-    SigningDriver,
 };
 use blue_build_utils::{
     constants::{COSIGN_PRIV_PATH, COSIGN_PUB_PATH},
@@ -17,14 +17,14 @@ use blue_build_utils::{
 };
 use colored::Colorize;
 use log::{debug, trace};
-use miette::{bail, miette, Context, IntoDiagnostic};
+use miette::{Context, IntoDiagnostic, bail, miette};
 use sigstore::{
     cosign::{
+        ClientBuilder, Constraint, CosignCapabilities, SignatureLayer,
         constraint::PrivateKeySigner,
         verification_constraint::{PublicKeyVerifier, VerificationConstraintVec},
-        ClientBuilder, Constraint, CosignCapabilities, SignatureLayer,
     },
-    crypto::{signing_key::SigStoreKeyPair, SigningScheme},
+    crypto::{SigningScheme, signing_key::SigStoreKeyPair},
     errors::SigstoreVerifyConstraintsError,
     registry::{Auth, OciReference},
 };
@@ -167,8 +167,8 @@ impl SigningDriver for SigstoreDriver {
                 .into_diagnostic()
                 .with_context(|| {
                     format!(
-                    "Failed to push signature {cosign_signature_image} for image {image_digest}"
-                )
+                        "Failed to push signature {cosign_signature_image} for image {image_digest}"
+                    )
                 })
         })?;
         debug!("Successfully pushed signature");
@@ -242,9 +242,9 @@ mod test {
     use tempfile::TempDir;
 
     use crate::drivers::{
+        SigningDriver,
         cosign_driver::CosignDriver,
         opts::{CheckKeyPairOpts, GenerateKeyPairOpts},
-        SigningDriver,
     };
 
     use super::SigstoreDriver;

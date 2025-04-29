@@ -7,11 +7,11 @@ use bon::Builder;
 use colored::Colorize;
 use indexmap::IndexMap;
 use log::trace;
-use miette::{bail, Result};
+use miette::{Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 
-use crate::{base_recipe_path, AkmodsInfo, ModuleExt};
+use crate::{AkmodsInfo, ModuleExt, base_recipe_path};
 
 mod type_ver;
 

@@ -5,9 +5,9 @@ use bon::bon;
 use jsonschema::paths::LocationSegment;
 use miette::SourceSpan;
 use yaml_rust2::{
+    Event,
     parser::{MarkedEventReceiver, Parser},
     scanner::Marker,
-    Event,
 };
 
 #[cfg(not(test))]
@@ -147,7 +147,7 @@ where
                     return Err(YamlSpanError::ExpectIndexFoundKey {
                         key: key.to_owned(),
                         index,
-                    })
+                    });
                 }
                 (Event::SequenceStart(_, _), LocationSegment::Index(index)) => {
                     break self.sequence(index, 0);
@@ -159,7 +159,7 @@ where
                     self.skip_mapping(marker.index());
                 }
                 (Event::MappingEnd, _) => {
-                    return Err(YamlSpanError::EndOfMapNoKey(expected_key.to_string()))
+                    return Err(YamlSpanError::EndOfMapNoKey(expected_key.to_string()));
                 }
                 event => unreachable!("{event:?}"),
             }
@@ -265,7 +265,7 @@ where
                 return Err(YamlSpanError::UnexpectedScalar {
                     value: value.to_owned(),
                     segment: segment.to_string(),
-                })
+                });
             }
             (Event::MappingStart(_, _), Some(LocationSegment::Property(key))) => {
                 self.key(LocationSegment::Property(key))?
@@ -290,7 +290,7 @@ where
 mod test {
     use std::sync::Arc;
 
-    use miette::{miette, LabeledSpan};
+    use miette::{LabeledSpan, miette};
     use rstest::rstest;
 
     use crate::commands::validate::location::Location;

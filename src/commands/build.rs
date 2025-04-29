@@ -2,12 +2,12 @@ use std::path::{Path, PathBuf};
 
 use blue_build_process_management::{
     drivers::{
+        BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
         opts::{
             BuildTagPushOpts, CheckKeyPairOpts, CompressionType, GenerateImageNameOpts,
             GenerateTagsOpts, SignVerifyOpts,
         },
         types::Platform,
-        BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
     },
     logging::{color_str, gen_random_ansi_color},
 };
@@ -25,7 +25,7 @@ use blue_build_utils::{
 use bon::Builder;
 use clap::Args;
 use log::{info, trace, warn};
-use miette::{bail, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
 use tempfile::TempDir;
 
@@ -332,8 +332,8 @@ impl BuildCommand {
         #[cfg(feature = "rechunk")]
         let images = if self.rechunk {
             use blue_build_process_management::drivers::{
-                opts::{GetMetadataOpts, RechunkOpts},
                 InspectDriver, RechunkDriver,
+                opts::{GetMetadataOpts, RechunkOpts},
             };
 
             let base_image: Reference = format!("{}:{}", &recipe.base_image, &recipe.image_version)

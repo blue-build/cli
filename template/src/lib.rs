@@ -2,7 +2,7 @@ use std::{borrow::Cow, fs, path::Path, process};
 
 use blue_build_recipe::{MaybeVersion, Recipe};
 use blue_build_utils::constants::{
-    CONFIG_PATH, CONTAINERFILES_PATH, CONTAINER_FILE, COSIGN_PUB_PATH, FILES_PATH,
+    CONFIG_PATH, CONTAINER_FILE, CONTAINERFILES_PATH, COSIGN_PUB_PATH, FILES_PATH,
 };
 use bon::Builder;
 use chrono::Utc;
@@ -102,7 +102,9 @@ fn print_containerfile(containerfile: &str) -> String {
     let path = if containerfiles_path.exists() && containerfiles_path.is_dir() {
         containerfiles_path.join(format!("{containerfile}/{CONTAINER_FILE}"))
     } else {
-        warn!("Use of {CONFIG_PATH} is deprecated for the containerfile module, please move your containerfile directories into {CONTAINERFILES_PATH}");
+        warn!(
+            "Use of {CONFIG_PATH} is deprecated for the containerfile module, please move your containerfile directories into {CONTAINERFILES_PATH}"
+        );
         legacy_path.join(format!("containerfiles/{containerfile}/{CONTAINER_FILE}"))
     };
 
@@ -131,7 +133,9 @@ fn config_dir_exists() -> bool {
     let exists = path.exists() && path.is_dir();
 
     if exists {
-        warn!("Use of the {CONFIG_PATH} directory is deprecated. Please move your non-recipe files into {FILES_PATH}");
+        warn!(
+            "Use of the {CONFIG_PATH} directory is deprecated. Please move your non-recipe files into {FILES_PATH}"
+        );
     }
 
     exists

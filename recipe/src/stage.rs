@@ -3,10 +3,10 @@ use std::{borrow::Cow, path::PathBuf};
 use blue_build_utils::syntax_highlighting::highlight_ser;
 use bon::Builder;
 use colored::Colorize;
-use miette::{bail, Result};
+use miette::{Result, bail};
 use serde::{Deserialize, Serialize};
 
-use crate::{base_recipe_path, Module, ModuleExt, StagesExt};
+use crate::{Module, ModuleExt, StagesExt, base_recipe_path};
 
 /// Contains the required fields for a stage.
 #[derive(Serialize, Deserialize, Debug, Clone, Builder)]

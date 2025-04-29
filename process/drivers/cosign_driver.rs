@@ -7,14 +7,14 @@ use blue_build_utils::{
 use colored::Colorize;
 use comlexr::{cmd, pipe};
 use log::{debug, trace};
-use miette::{bail, Context, IntoDiagnostic, Result};
+use miette::{Context, IntoDiagnostic, Result, bail};
 
 use crate::drivers::opts::VerifyType;
 
 use super::{
+    SigningDriver,
     functions::get_private_key,
     opts::{CheckKeyPairOpts, GenerateKeyPairOpts, SignOpts, VerifyOpts},
-    SigningDriver,
 };
 
 #[derive(Debug)]
@@ -195,8 +195,8 @@ mod test {
     use tempfile::TempDir;
 
     use crate::drivers::{
-        opts::{CheckKeyPairOpts, GenerateKeyPairOpts},
         SigningDriver,
+        opts::{CheckKeyPairOpts, GenerateKeyPairOpts},
     };
 
     use super::CosignDriver;

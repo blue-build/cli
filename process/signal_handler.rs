@@ -2,7 +2,7 @@ use std::{
     fs,
     path::PathBuf,
     process,
-    sync::{atomic::AtomicBool, Arc, Mutex},
+    sync::{Arc, Mutex, atomic::AtomicBool},
     thread,
 };
 
@@ -11,13 +11,13 @@ use comlexr::cmd;
 use log::{debug, error, trace, warn};
 use nix::{
     libc::{SIGABRT, SIGCONT, SIGHUP, SIGTSTP},
-    sys::signal::{kill, Signal},
+    sys::signal::{Signal, kill},
     unistd::Pid,
 };
 use signal_hook::{
     consts::TERM_SIGNALS,
     flag,
-    iterator::{exfiltrator::WithOrigin, SignalsInfo},
+    iterator::{SignalsInfo, exfiltrator::WithOrigin},
     low_level,
 };
 

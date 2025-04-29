@@ -14,27 +14,27 @@ use colored::Colorize;
 use comlexr::{cmd, pipe};
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace};
-use miette::{bail, miette, IntoDiagnostic, Report, Result};
+use miette::{IntoDiagnostic, Report, Result, bail, miette};
 use oci_distribution::Reference;
 use serde::Deserialize;
 use tempfile::TempDir;
 
 use crate::{
     drivers::{
+        BuildDriver, DriverVersion, InspectDriver, RunDriver,
         opts::{BuildOpts, GetMetadataOpts, PushOpts, RunOpts, RunOptsEnv, RunOptsVolume, TagOpts},
         types::{ImageMetadata, Platform},
-        BuildDriver, DriverVersion, InspectDriver, RunDriver,
     },
     logging::{CommandLogging, Logger},
-    signal_handler::{add_cid, remove_cid, ContainerRuntime, ContainerSignalId},
+    signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
 };
 
+#[cfg(feature = "rechunk")]
+use super::{ContainerMountDriver, RechunkDriver, types::MountId};
 use super::{
     opts::{CreateContainerOpts, RemoveContainerOpts, RemoveImageOpts},
     types::ContainerId,
 };
-#[cfg(feature = "rechunk")]
-use super::{types::MountId, ContainerMountDriver, RechunkDriver};
 
 const SUDO_PROMPT: &str = "Password for %u required to run 'podman' as privileged";
 

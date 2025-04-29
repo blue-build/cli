@@ -7,7 +7,7 @@ use bon::Builder;
 use miette::{Context, IntoDiagnostic, Report, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{base_recipe_path, FromFileList, Module, Stage};
+use crate::{FromFileList, Module, Stage, base_recipe_path};
 
 #[derive(Default, Serialize, Clone, Deserialize, Debug, Builder)]
 pub struct StagesExt<'a> {

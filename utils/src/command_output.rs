@@ -113,7 +113,9 @@ fn exec_timeout(cmd: &mut Command, time_limit: Duration) -> Option<CommandOutput
         }
         Ok(None) => {
             log::warn!("Executing command {:?} timed out.", cmd.get_program());
-            log::warn!("You can set command_timeout in your config to a higher value to allow longer-running commands to keep executing.");
+            log::warn!(
+                "You can set command_timeout in your config to a higher value to allow longer-running commands to keep executing."
+            );
             None
         }
         Err(error) => {

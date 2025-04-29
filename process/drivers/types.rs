@@ -10,8 +10,8 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::drivers::{
-    buildah_driver::BuildahDriver, docker_driver::DockerDriver, podman_driver::PodmanDriver,
-    DriverVersion,
+    DriverVersion, buildah_driver::BuildahDriver, docker_driver::DockerDriver,
+    podman_driver::PodmanDriver,
 };
 
 pub(super) trait DetermineDriver<T> {

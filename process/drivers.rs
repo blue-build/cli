@@ -14,13 +14,13 @@ use std::{
     time::Duration,
 };
 
-use bon::{bon, Builder};
+use bon::{Builder, bon};
 use cached::proc_macro::cached;
 use clap::Args;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
-use miette::{miette, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, miette};
 use oci_distribution::Reference;
 use opts::{
     BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, CreateContainerOpts, GenerateImageNameOpts,

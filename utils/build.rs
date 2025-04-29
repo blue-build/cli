@@ -1,8 +1,8 @@
 use std::env;
 use std::path::PathBuf;
 use syntect::dumps;
-use syntect::parsing::syntax_definition::SyntaxDefinition;
 use syntect::parsing::SyntaxSetBuilder;
+use syntect::parsing::syntax_definition::SyntaxDefinition;
 
 fn main() {
     let mut ssb = SyntaxSetBuilder::new();

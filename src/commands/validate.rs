@@ -16,7 +16,7 @@ use bon::Builder;
 use clap::Args;
 use colored::Colorize;
 use log::{debug, info, trace};
-use miette::{bail, miette, Context, IntoDiagnostic, Report};
+use miette::{Context, IntoDiagnostic, Report, bail, miette};
 use rayon::prelude::*;
 use schema_validator::SchemaValidator;
 use serde::de::DeserializeOwned;

@@ -2,7 +2,7 @@ use std::{borrow::Cow, path::Path};
 
 use comlexr::cmd;
 use log::trace;
-use miette::{bail, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, bail};
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -208,18 +208,22 @@ mod test {
 
     #[test]
     fn test_booted_image() {
-        assert!(create_image_status()
-            .booted_image()
-            .expect("Contains image")
-            .ends_with("cli/test"));
+        assert!(
+            create_image_status()
+                .booted_image()
+                .expect("Contains image")
+                .ends_with("cli/test")
+        );
     }
 
     #[test]
     fn test_staged_image() {
-        assert!(create_archive_staged_status()
-            .staged_image()
-            .expect("Contains image")
-            .ends_with(&format!("cli_test.{ARCHIVE_SUFFIX}")));
+        assert!(
+            create_archive_staged_status()
+                .staged_image()
+                .expect("Contains image")
+                .ends_with(&format!("cli_test.{ARCHIVE_SUFFIX}"))
+        );
     }
 
     #[test]
@@ -230,8 +234,10 @@ mod test {
 
     #[test]
     fn test_is_booted_archive() {
-        assert!(!create_archive_status()
-            .is_booted_on_archive(Path::new(LOCAL_BUILD).join(format!("cli.{ARCHIVE_SUFFIX}"))));
+        assert!(
+            !create_archive_status()
+                .is_booted_on_archive(Path::new(LOCAL_BUILD).join(format!("cli.{ARCHIVE_SUFFIX}")))
+        );
         assert!(create_archive_status().is_booted_on_archive(
             Path::new(LOCAL_BUILD).join(format!("cli_test.{ARCHIVE_SUFFIX}"))
         ));
@@ -239,8 +245,10 @@ mod test {
 
     #[test]
     fn test_is_staged_archive() {
-        assert!(!create_archive_staged_status()
-            .is_staged_on_archive(Path::new(LOCAL_BUILD).join(format!("cli.{ARCHIVE_SUFFIX}"))));
+        assert!(
+            !create_archive_staged_status()
+                .is_staged_on_archive(Path::new(LOCAL_BUILD).join(format!("cli.{ARCHIVE_SUFFIX}")))
+        );
         assert!(create_archive_staged_status().is_staged_on_archive(
             Path::new(LOCAL_BUILD).join(format!("cli_test.{ARCHIVE_SUFFIX}"))
         ));

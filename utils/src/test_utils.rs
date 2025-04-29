@@ -4,7 +4,7 @@ use std::{
     thread::{self, ThreadId},
 };
 
-use miette::{miette, Result};
+use miette::{Result, miette};
 
 use crate::string;
 

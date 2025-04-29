@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use miette::{bail, Report};
+use miette::{Report, bail};
 use serde::Deserialize;
 
 use crate::drivers::types::{ImageMetadata, Platform};

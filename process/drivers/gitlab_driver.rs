@@ -18,7 +18,7 @@ use blue_build_utils::test_utils::get_env_var;
 
 use crate::drivers::Driver;
 
-use super::{opts::GenerateTagsOpts, CiDriver};
+use super::{CiDriver, opts::GenerateTagsOpts};
 
 pub struct GitlabDriver;
 
@@ -165,7 +165,7 @@ mod test {
     use rstest::rstest;
 
     use crate::{
-        drivers::{opts::GenerateTagsOpts, CiDriver},
+        drivers::{CiDriver, opts::GenerateTagsOpts},
         test::{TEST_TAG_1, TEST_TAG_2, TIMESTAMP},
     };
 

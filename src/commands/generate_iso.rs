@@ -7,16 +7,16 @@ use blue_build_recipe::Recipe;
 use blue_build_utils::{constants::ARCHIVE_SUFFIX, string_vec, traits::CowCollecter};
 use bon::Builder;
 use clap::{Args, Subcommand, ValueEnum};
-use miette::{bail, Context, IntoDiagnostic, Result};
+use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
 use tempfile::TempDir;
 
 use blue_build_process_management::{
-    drivers::{opts::RunOpts, Driver, DriverArgs, RunDriver},
+    drivers::{Driver, DriverArgs, RunDriver, opts::RunOpts},
     run_volumes,
 };
 
-use super::{build::BuildCommand, BlueBuildCommand};
+use super::{BlueBuildCommand, build::BuildCommand};
 
 #[derive(Clone, Debug, Builder, Args)]
 pub struct GenerateIsoCommand {

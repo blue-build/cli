@@ -12,23 +12,23 @@ use std::{
 
 use bon::Builder;
 use chrono::Local;
-use colored::{control::ShouldColorize, ColoredString, Colorize};
+use colored::{ColoredString, Colorize, control::ShouldColorize};
 use indicatif::{MultiProgress, ProgressBar};
 use indicatif_log_bridge::LogWrapper;
-use log::{warn, Level, LevelFilter, Record};
+use log::{Level, LevelFilter, Record, warn};
 use log4rs::{
+    Config, Logger as L4RSLogger,
     append::{
         console::ConsoleAppender,
         rolling_file::{
-            policy::compound::{
-                roll::fixed_window::FixedWindowRoller, trigger::size::SizeTrigger, CompoundPolicy,
-            },
             RollingFileAppender,
+            policy::compound::{
+                CompoundPolicy, roll::fixed_window::FixedWindowRoller, trigger::size::SizeTrigger,
+            },
         },
     },
     config::{Appender, Root},
-    encode::{pattern::PatternEncoder, Encode, Write},
-    Config, Logger as L4RSLogger,
+    encode::{Encode, Write, pattern::PatternEncoder},
 };
 use nu_ansi_term::Color;
 use private::Private;

@@ -3,7 +3,7 @@ use std::io::{self, Read};
 use blue_build_process_management::drivers::{BuildDriver, Driver, DriverArgs, SigningDriver};
 use blue_build_utils::credentials::{Credentials, CredentialsArgs};
 use clap::Args;
-use miette::{bail, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, bail};
 use requestty::questions;
 
 use super::BlueBuildCommand;

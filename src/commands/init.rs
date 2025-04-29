@@ -8,16 +8,16 @@ use std::{
 };
 
 use blue_build_process_management::drivers::{
-    opts::GenerateKeyPairOpts, CiDriver, Driver, DriverArgs, GitlabDriver, SigningDriver,
+    CiDriver, Driver, DriverArgs, GitlabDriver, SigningDriver, opts::GenerateKeyPairOpts,
 };
 use blue_build_template::{GitlabCiTemplate, InitReadmeTemplate, Template};
 use blue_build_utils::constants::{COSIGN_PUB_PATH, RECIPE_FILE, RECIPE_PATH, TEMPLATE_REPO_URL};
 use bon::Builder;
-use clap::{crate_version, Args, ValueEnum};
+use clap::{Args, ValueEnum, crate_version};
 use comlexr::cmd;
 use log::{debug, info, trace};
-use miette::{bail, miette, Context, IntoDiagnostic, Report, Result};
-use requestty::{questions, Answer, Answers, OnEsc};
+use miette::{Context, IntoDiagnostic, Report, Result, bail, miette};
+use requestty::{Answer, Answers, OnEsc, questions};
 use semver::Version;
 
 use crate::commands::BlueBuildCommand;
@@ -202,8 +202,7 @@ impl InitCommand {
             },
             Input {
                 name: Self::REGISTRY,
-                message:
-                    "What is the registry for the image? (e.g. ghcr.io or registry.gitlab.com)",
+                message: "What is the registry for the image? (e.g. ghcr.io or registry.gitlab.com)",
                 when: when!(self.common.registry.is_none()),
                 on_esc: OnEsc::Terminate,
             },

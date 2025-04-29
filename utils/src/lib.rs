@@ -18,15 +18,15 @@ use std::{
 
 use base64::prelude::*;
 use blake2::{
-    digest::{Update, VariableOutput},
     Blake2bVar,
+    digest::{Update, VariableOutput},
 };
 use cached::proc_macro::once;
 use chrono::Local;
 use comlexr::cmd;
 use format_serde_error::SerdeError;
 use log::{trace, warn};
-use miette::{miette, Context, IntoDiagnostic, Result};
+use miette::{Context, IntoDiagnostic, Result, miette};
 
 use crate::constants::CONTAINER_FILE;
 
@@ -110,7 +110,7 @@ where
                 warn!("Failed operation, will retry {retries} more time(s). Error:\n{e:?}");
                 thread::sleep(Duration::from_secs(delay_secs));
             }
-        };
+        }
     }
 }
 
