@@ -6,8 +6,9 @@ use std::{
 
 use blue_build_process_management::ASYNC_RUNTIME;
 use blue_build_recipe::ModuleTypeVersion;
-use blue_build_utils::constants::{
-    CUSTOM_MODULE_SCHEMA, IMPORT_MODULE_SCHEMA, JSON_SCHEMA, STAGE_SCHEMA,
+use blue_build_utils::{
+    constants::{CUSTOM_MODULE_SCHEMA, IMPORT_MODULE_SCHEMA, JSON_SCHEMA, STAGE_SCHEMA},
+    retry_async,
 };
 use bon::bon;
 use cached::proc_macro::cached;
@@ -336,22 +337,24 @@ async fn cache_retrieve(uri: &Uri<String>) -> miette::Result<Value> {
         };
 
         log::debug!("Retrieving schema from {}", uri.bold().italic());
-        tokio::spawn(async move {
-            let response = reqwest::get(&uri)
-                .await
-                .into_diagnostic()
-                .with_context(|| format!("Failed to retrieve schema from {uri}"))?;
-            let raw_output = response.bytes().await.into_diagnostic()?;
-            serde_json::from_slice(&raw_output)
-                .into_diagnostic()
-                .with_context(|| {
-                    format!(
-                        "Failed to parse json from {uri}, contents:\n{}",
-                        String::from_utf8_lossy(&raw_output)
-                    )
-                })
-                .inspect(|value| trace!("{}:\n{value}", uri.bold().italic()))
-        })
+        tokio::spawn(
+            retry_async(3, 2, async move || {
+                let response = reqwest::get(&*uri)
+                    .await
+                    .into_diagnostic()
+                    .with_context(|| format!("Failed to retrieve schema from {uri}"))?;
+                let raw_output = response.bytes().await.into_diagnostic()?;
+                serde_json::from_slice(&raw_output)
+                    .into_diagnostic()
+                    .with_context(|| {
+                        format!(
+                            "Failed to parse json from {uri}, contents:\n{}",
+                            String::from_utf8_lossy(&raw_output)
+                        )
+                    })
+                    .inspect(|value| trace!("{}:\n{value}", uri.bold().italic()))
+            })
+        )
         .await
         .expect("Should join task")
     }

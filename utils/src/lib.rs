@@ -9,7 +9,7 @@ pub mod test_utils;
 pub mod traits;
 
 use std::{
-    ops::Not,
+    ops::{AsyncFnMut, Not},
     os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
     thread,
@@ -78,10 +78,31 @@ pub fn serde_yaml_err(contents: &str) -> impl Fn(serde_yaml::Error) -> SerdeErro
 /// Will error when retries have been expended.
 pub fn retry<V, F>(mut retries: u8, delay_secs: u64, mut f: F) -> miette::Result<V>
 where
-    F: FnMut() -> miette::Result<V>,
+    F: FnMut() -> miette::Result<V> + Send,
 {
     loop {
         match f() {
+            Ok(v) => return Ok(v),
+            Err(e) if retries == 0 => return Err(e),
+            Err(e) => {
+                retries -= 1;
+                warn!("Failed operation, will retry {retries} more time(s). Error:\n{e:?}");
+                thread::sleep(Duration::from_secs(delay_secs));
+            }
+        }
+    }
+}
+
+/// Performs a retry on a given closure with a given nubmer of attempts and delay.
+///
+/// # Errors
+/// Will error when retries have been expended.
+pub async fn retry_async<V, F>(mut retries: u8, delay_secs: u64, mut f: F) -> miette::Result<V>
+where
+    F: AsyncFnMut() -> miette::Result<V>,
+{
+    loop {
+        match f().await {
             Ok(v) => return Ok(v),
             Err(e) if retries == 0 => return Err(e),
             Err(e) => {
