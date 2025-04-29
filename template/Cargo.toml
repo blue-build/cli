@@ -9,7 +9,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-askama = { version = "0.13", features = ["serde_json"] }
+askama = { version = "0.14", features = ["serde_json"] }
 blue-build-recipe = { version = "=0.9.11", path = "../recipe" }
 blue-build-utils = { version = "=0.9.11", path = "../utils" }
 
