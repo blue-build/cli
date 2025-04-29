@@ -157,6 +157,22 @@ impl BuildDriver for PodmanDriver {
                 "--platform",
                 opts.platform.to_string(),
             ],
+            if let Some(cache_from) = opts.cache_from.as_ref() => [
+                "--cache-from",
+                format!(
+                    "{}/{}",
+                    cache_from.registry(),
+                    cache_from.repository()
+                ),
+            ],
+            if let Some(cache_to) = opts.cache_to.as_ref() => [
+                "--cache-to",
+                format!(
+                    "{}/{}",
+                    cache_to.registry(),
+                    cache_to.repository()
+                ),
+            ],
             "--pull=true",
             if opts.host_network => "--net=host",
             format!("--layers={}", !opts.squash),

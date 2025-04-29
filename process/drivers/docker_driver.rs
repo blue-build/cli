@@ -1,17 +1,17 @@
 use std::{
     env,
+    ops::Not,
     path::Path,
     process::{Command, ExitStatus},
-    sync::Mutex,
 };
 
 use blue_build_utils::{
-    constants::{BB_BUILDKIT_CACHE_GHA, DOCKER_HOST, GITHUB_ACTIONS},
+    constants::{BB_BUILDKIT_CACHE_GHA, BLUE_BUILD, DOCKER_HOST, GITHUB_ACTIONS},
     credentials::Credentials,
     semver::Version,
     string_vec,
 };
-use cached::proc_macro::cached;
+use cached::proc_macro::{cached, once};
 use colored::Colorize;
 use comlexr::{cmd, pipe};
 use log::{debug, info, trace, warn};
@@ -38,78 +38,107 @@ use crate::{
 use super::opts::{CreateContainerOpts, RemoveContainerOpts, RemoveImageOpts};
 
 #[derive(Debug, Deserialize)]
-struct DockerVerisonJsonClient {
+struct VerisonJsonClient {
     #[serde(alias = "Version")]
-    pub version: Version,
+    version: Version,
 }
 
 #[derive(Debug, Deserialize)]
-struct DockerVersionJson {
+struct VersionJson {
     #[serde(alias = "Client")]
-    pub client: DockerVerisonJsonClient,
+    client: VerisonJsonClient,
 }
 
-static DOCKER_SETUP: std::sync::LazyLock<Mutex<bool>> =
-    std::sync::LazyLock::new(|| Mutex::new(false));
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct ContextListItem {
+    name: String,
+}
 
 #[derive(Debug)]
 pub struct DockerDriver;
 
 impl DockerDriver {
     fn setup() -> Result<()> {
-        trace!("DockerDriver::setup()");
+        #[once(result = true, sync_writes = true)]
+        fn exec() -> Result<()> {
+            trace!("DockerDriver::setup()");
 
-        if !Self::has_buildx() {
-            bail!("Docker Buildx is required to use the Docker driver");
-        }
+            if !DockerDriver::has_buildx() {
+                bail!("Docker Buildx is required to use the Docker driver");
+            }
 
-        let mut lock = DOCKER_SETUP.lock().expect("Should lock");
-
-        if *lock {
-            drop(lock);
-            return Ok(());
-        }
-
-        let ls_out = {
-            let c = cmd!("docker", "buildx", "ls", "--format={{.Name}}");
-            trace!("{c:?}");
-            c
-        }
-        .output()
-        .into_diagnostic()?;
-
-        if !ls_out.status.success() {
-            bail!("{}", String::from_utf8_lossy(&ls_out.stderr));
-        }
-
-        let ls_out = String::from_utf8(ls_out.stdout).into_diagnostic()?;
-
-        trace!("{ls_out}");
-
-        if !ls_out.lines().any(|line| line == "bluebuild") {
-            let create_out = {
-                let c = cmd!(
-                    "docker",
-                    "buildx",
-                    "create",
-                    "--bootstrap",
-                    "--driver=docker-container",
-                    "--name=bluebuild",
-                );
+            let ls_out = {
+                let c = cmd!("docker", "buildx", "ls", "--format={{.Name}}");
                 trace!("{c:?}");
                 c
             }
             .output()
             .into_diagnostic()?;
 
-            if !create_out.status.success() {
-                bail!("{}", String::from_utf8_lossy(&create_out.stderr));
+            if !ls_out.status.success() {
+                bail!("{}", String::from_utf8_lossy(&ls_out.stderr));
             }
+
+            let ls_out = String::from_utf8(ls_out.stdout).into_diagnostic()?;
+
+            trace!("{ls_out}");
+
+            if !ls_out.lines().any(|line| line == BLUE_BUILD) {
+                let remote = env::var(DOCKER_HOST).is_ok();
+                if remote {
+                    let context_list = get_context_list()?;
+                    trace!("{context_list:#?}");
+
+                    if context_list.iter().any(|ctx| ctx.name == BLUE_BUILD).not() {
+                        let context_out = {
+                            let c = cmd!(
+                                "docker",
+                                "context",
+                                "create",
+                                "--from=default",
+                                format!("{BLUE_BUILD}0")
+                            );
+                            trace!("{c:?}");
+                            c
+                        }
+                        .output()
+                        .into_diagnostic()?;
+
+                        if context_out.status.success().not() {
+                            bail!("{}", String::from_utf8_lossy(&context_out.stderr));
+                        }
+
+                        let context_list = get_context_list()?;
+                        trace!("{context_list:#?}");
+                    }
+                }
+
+                let create_out = {
+                    let c = cmd!(
+                        "docker",
+                        "buildx",
+                        "create",
+                        "--bootstrap",
+                        "--driver=docker-container",
+                        format!("--name={BLUE_BUILD}"),
+                        if remote => format!("{BLUE_BUILD}0"),
+                    );
+                    trace!("{c:?}");
+                    c
+                }
+                .output()
+                .into_diagnostic()?;
+
+                if !create_out.status.success() {
+                    bail!("{}", String::from_utf8_lossy(&create_out.stderr));
+                }
+            }
+
+            Ok(())
         }
 
-        *lock = true;
-        drop(lock);
-        Ok(())
+        exec()
     }
 
     #[must_use]
@@ -118,6 +147,25 @@ impl DockerDriver {
             .status()
             .is_ok_and(|status| status.success())
     }
+}
+
+fn get_context_list() -> Result<Vec<ContextListItem>> {
+    {
+        let c = cmd!("docker", "context", "ls", "--format=json");
+        trace!("{c:?}");
+        c
+    }
+    .output()
+    .into_diagnostic()
+    .and_then(|out| {
+        if out.status.success().not() {
+            bail!("{}", String::from_utf8_lossy(&out.stderr));
+        }
+        String::from_utf8(out.stdout).into_diagnostic()
+    })?
+    .lines()
+    .map(|line| serde_json::from_str(line).into_diagnostic())
+    .collect()
 }
 
 impl DriverVersion for DockerDriver {
@@ -136,8 +184,7 @@ impl DriverVersion for DockerDriver {
         .output()
         .into_diagnostic()?;
 
-        let version_json: DockerVersionJson =
-            serde_json::from_slice(&output.stdout).into_diagnostic()?;
+        let version_json: VersionJson = serde_json::from_slice(&output.stdout).into_diagnostic()?;
 
         Ok(version_json.client.version)
     }
@@ -162,6 +209,22 @@ impl BuildDriver for DockerDriver {
                 "-t",
                 &*opts.image,
                 "-f",
+                if let Some(cache_from) = opts.cache_from.as_ref() => [
+                    "--cache-from",
+                    format!(
+                        "type=registry,ref={registry}/{repository}",
+                        registry = cache_from.registry(),
+                        repository = cache_from.repository(),
+                    ),
+                ],
+                if let Some(cache_to) = opts.cache_to.as_ref() => [
+                    "--cache-to",
+                    format!(
+                        "type=registry,ref={registry}/{repository},mode=max",
+                        registry = cache_to.registry(),
+                        repository = cache_to.repository(),
+                    ),
+                ],
                 &*opts.containerfile,
                 ".",
             );
@@ -282,11 +345,7 @@ impl BuildDriver for DockerDriver {
                 });
 
                 let buildx = scope.spawn(|| {
-                    let run_setup = !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty());
-
-                    if run_setup {
-                        Self::setup()?;
-                    }
+                    Self::setup()?;
 
                     {
                         let c = cmd!(
@@ -294,7 +353,7 @@ impl BuildDriver for DockerDriver {
                             "buildx",
                             "prune",
                             "--force",
-                            if run_setup => "--builder=bluebuild",
+                            format!("--builder={BLUE_BUILD}"),
                             if opts.all => "--all",
                         );
                         trace!("{c:?}");
@@ -327,87 +386,15 @@ impl BuildDriver for DockerDriver {
             warn!("Squash is deprecated for docker so this build will not squash");
         }
 
-        let run_setup = !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty());
+        Self::setup()?;
 
-        if run_setup {
-            Self::setup()?;
-        }
-
-        let final_images = match (opts.image, opts.archive_path.as_deref()) {
-            (Some(image), None) => {
-                let images = if opts.tags.is_empty() {
-                    let image = image.to_string();
-                    string_vec![image]
-                } else {
-                    opts.tags
-                        .iter()
-                        .map(|tag| {
-                            format!("{}/{}:{tag}", image.resolve_registry(), image.repository())
-                        })
-                        .collect()
-                };
-
-                images
-            }
-            (None, Some(archive_path)) => {
-                string_vec![archive_path.display().to_string()]
-            }
-            (Some(_), Some(_)) => bail!("Cannot use both image and archive path"),
-            (None, None) => bail!("Need either the image or archive path set"),
-        };
+        let final_images = get_final_images(opts)?;
 
         let first_image = final_images.first().unwrap();
 
-        let status = {
-            let c = cmd!(
-                "docker",
-                "buildx",
-                if run_setup => "--builder=bluebuild",
-                "build",
-                ".",
-                match (opts.image, opts.archive_path.as_deref()) {
-                    (Some(_), None) if opts.push => [
-                        "--output",
-                        format!(
-                            "type=image,name={first_image},push=true,compression={},oci-mediatypes=true",
-                            opts.compression
-                        ),
-                    ],
-                    (Some(_), None) if env::var(GITHUB_ACTIONS).is_err() => "--load",
-                    (None, Some(archive_path)) => [
-                        "--output",
-                        format!("type=oci,dest={}", archive_path.display()),
-                    ],
-                    _ => [],
-                },
-                for opts.image.as_ref().map_or_else(Vec::new, |image| {
-                        opts.tags.iter().flat_map(|tag| {
-                            vec![
-                                "-t".to_string(),
-                                format!("{}/{}:{tag}", image.resolve_registry(), image.repository())
-                            ]
-                        }).collect()
-                    }),
-                "--pull",
-                if !matches!(opts.platform, Platform::Native) => [
-                    "--platform",
-                    opts.platform.to_string(),
-                ],
-                "-f",
-                &*opts.containerfile,
-                // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
-                if env::var(BB_BUILDKIT_CACHE_GHA)
-                    .map_or_else(|_| false, |e| e == "true") => [
-                        "--cache-from",
-                        "type=gha",
-                        "--cache-to",
-                        "type=gha",
-                    ],
-            );
-            trace!("{c:?}");
-            c
-        }
-        .build_status(first_image, "Building Image").into_diagnostic()?;
+        let status = build_tag_push_cmd(opts, first_image)
+            .build_status(first_image, "Building Image")
+            .into_diagnostic()?;
 
         if status.success() {
             if opts.push {
@@ -420,6 +407,93 @@ impl BuildDriver for DockerDriver {
         }
         Ok(final_images)
     }
+}
+
+fn build_tag_push_cmd(opts: &BuildTagPushOpts<'_>, first_image: &str) -> Command {
+    // let remote = env::var(DOCKER_HOST).is_ok();
+    let c = cmd!(
+        "docker",
+        // if remote => format!("--context={BLUE_BUILD}0"),
+        "buildx",
+        format!("--builder={BLUE_BUILD}"),
+        "build",
+        ".",
+        match (opts.image, opts.archive_path.as_deref()) {
+            (Some(_), None) if opts.push => [
+                "--output",
+                format!(
+                    "type=image,name={first_image},push=true,compression={},oci-mediatypes=true",
+                    opts.compression
+                ),
+            ],
+            (Some(_), None) if env::var(GITHUB_ACTIONS).is_err() => "--load",
+            (None, Some(archive_path)) => [
+                "--output",
+                format!("type=oci,dest={}", archive_path.display()),
+            ],
+            _ => [],
+        },
+        for opts.image.as_ref().map_or_else(Vec::new, |image| {
+                opts.tags.iter().flat_map(|tag| {
+                    vec![
+                        "-t".to_string(),
+                        format!("{}/{}:{tag}", image.resolve_registry(), image.repository())
+                    ]
+                }).collect()
+            }),
+        "--pull",
+        if !matches!(opts.platform, Platform::Native) => [
+            "--platform",
+            opts.platform.to_string(),
+        ],
+        "-f",
+        &*opts.containerfile,
+        // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
+        if env::var(BB_BUILDKIT_CACHE_GHA)
+            .map_or_else(|_| false, |e| e == "true") => [
+                "--cache-from",
+                "type=gha",
+                "--cache-to",
+                "type=gha",
+            ],
+        if let Some(cache_from) = opts.cache_from.as_ref() => [
+            "--cache-from",
+            format!(
+                "type=registry,ref={cache_from}",
+            ),
+        ],
+        if let Some(cache_to) = opts.cache_to.as_ref() => [
+            "--cache-to",
+            format!(
+                "type=registry,ref={cache_to},mode=max",
+            ),
+        ],
+    );
+    trace!("{c:?}");
+    c
+}
+
+fn get_final_images(opts: &BuildTagPushOpts<'_>) -> Result<Vec<String>> {
+    Ok(match (opts.image, opts.archive_path.as_deref()) {
+        (Some(image), None) => {
+            let images = if opts.tags.is_empty() {
+                let image = image.to_string();
+                string_vec![image]
+            } else {
+                opts.tags
+                    .iter()
+                    .map(|tag| format!("{}/{}:{tag}", image.resolve_registry(), image.repository()))
+                    .collect()
+            };
+
+            images
+        }
+        (None, Some(archive_path)) => {
+            string_vec![archive_path.display().to_string()]
+        }
+        (Some(_), Some(_)) => bail!("Cannot use both image and archive path"),
+        (None, None) => bail!("Need either the image or archive path set"),
+    })
 }
 
 impl InspectDriver for DockerDriver {
@@ -438,17 +512,13 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
     trace!("DockerDriver::get_metadata({opts:#?})");
     let image_str = opts.image.to_string();
 
-    let run_setup = !env::var(DOCKER_HOST).is_ok_and(|dh| !dh.is_empty());
-
-    if run_setup {
-        DockerDriver::setup()?;
-    }
+    DockerDriver::setup()?;
 
     let output = {
         let c = cmd!(
             "docker",
             "buildx",
-            if run_setup => "--builder=bluebuild",
+            format!("--builder={BLUE_BUILD}"),
             "imagetools",
             "inspect",
             "--format",

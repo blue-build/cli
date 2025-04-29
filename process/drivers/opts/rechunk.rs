@@ -49,6 +49,12 @@ pub struct RechunkOpts<'scope> {
 
     #[builder(default)]
     pub clear_plan: bool,
+
+    /// Cache layers from the registry.
+    pub cache_from: Option<&'scope Reference>,
+
+    /// Cache layers to the registry.
+    pub cache_to: Option<&'scope Reference>,
 }
 
 #[derive(Debug, Clone, Builder)]

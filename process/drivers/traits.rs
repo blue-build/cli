@@ -136,6 +136,8 @@ pub trait BuildDriver: PrivateDriver {
             .containerfile(opts.containerfile.as_ref())
             .platform(opts.platform)
             .squash(opts.squash)
+            .maybe_cache_from(opts.cache_from)
+            .maybe_cache_to(opts.cache_to)
             .build();
 
         info!("Building image {full_image}");

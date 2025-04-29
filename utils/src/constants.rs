@@ -19,6 +19,7 @@ pub const IMAGE_VERSION_LABEL: &str = "org.opencontainers.image.version";
 
 // BlueBuild vars
 pub const BB_BUILDKIT_CACHE_GHA: &str = "BB_BUILDKIT_CACHE_GHA";
+pub const BB_CACHE_LAYERS: &str = "BB_CACHE_LAYERS";
 pub const BB_PASSWORD: &str = "BB_PASSWORD";
 pub const BB_PRIVATE_KEY: &str = "BB_PRIVATE_KEY";
 pub const BB_REGISTRY: &str = "BB_REGISTRY";
@@ -76,6 +77,7 @@ pub const XDG_RUNTIME_DIR: &str = "XDG_RUNTIME_DIR";
 pub const SUDO_ASKPASS: &str = "SUDO_ASKPASS";
 
 // Misc
+pub const BLUE_BUILD: &str = "bluebuild";
 pub const BUILD_SCRIPTS_IMAGE_REF: &str = "ghcr.io/blue-build/cli/build-scripts";
 pub const BLUE_BULID_IMAGE_REF: &str = "ghcr.io/blue-build/cli";
 pub const BLUE_BUILD_MODULE_IMAGE_REF: &str = "ghcr.io/blue-build/modules";

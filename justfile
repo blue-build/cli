@@ -1,4 +1,5 @@
 export RUST_BACKTRACE := "1"
+export BB_CACHE_LAYERS := "true"
 
 set dotenv-load := true
 set positional-arguments := true
