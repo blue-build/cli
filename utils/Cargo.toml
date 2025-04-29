@@ -35,7 +35,7 @@ syntect.workspace = true
 bon.workspace = true
 
 [build-dependencies]
-syntect = "5"
+syntect.workspace = true
 
 [dev-dependencies]
 rstest.workspace = true

@@ -91,7 +91,7 @@ comlexr.workspace = true
 indexmap.workspace = true
 indicatif.workspace = true
 log.workspace = true
-miette = { workspace = true, features = ["fancy", "syntect-highlighter"] }
+miette = { workspace = true, features = ["fancy"] }
 oci-distribution.workspace = true
 reqwest.workspace = true
 semver.workspace = true
