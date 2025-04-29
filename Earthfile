@@ -104,6 +104,12 @@ install-all-features:
 common:
     FROM --platform=native ghcr.io/blue-build/earthly-lib/cargo-builder
 
+    RUN rustup self update && \
+        rustup toolchain add stable && \
+        rustup default stable && \
+        rustup component add clippy rustfmt && \
+        rustup update
+
     WORKDIR /app
     COPY --keep-ts --dir src/ template/ recipe/ utils/ process/ /app
     COPY --keep-ts Cargo.* /app
