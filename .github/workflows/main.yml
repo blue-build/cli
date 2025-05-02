@@ -11,8 +11,19 @@ on:
       - main
 
 jobs:
-  main_branch:
+  build:
     uses: ./.github/workflows/build.yml
+    if: github.repository == 'blue-build/cli'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    with:
+      repo: ${{ github.repository }}
+      ref: main
+    secrets: inherit
+  test:
+    uses: ./.github/workflows/test.yml
     permissions:
       contents: read
       packages: write
