@@ -16,15 +16,6 @@ jobs:
     steps:
       - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
 
-      - name: Earthly login
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN != null
-        run: |
-          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
-          earthly org s blue-build
-          earthly sat s arm
-
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
@@ -50,15 +41,6 @@ jobs:
 
     steps:
       - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
-
-      - name: Earthly login
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN != null
-        run: |
-          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
-          earthly org s blue-build
-          earthly sat s amd
 
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -91,11 +73,6 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@38b70195107dddab2c7bbd522bcf763bac00963b # stable
       - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
-      - name: Earthly login
-        run: |
-          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
-          earthly org s blue-build
-          earthly sat s tag
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
@@ -131,11 +108,6 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
       - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
-      - name: Earthly login
-        run: |
-          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
-          earthly org s blue-build
-          earthly sat s tag
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0

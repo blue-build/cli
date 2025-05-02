@@ -1,0 +1,23 @@
+name: Main branch build
+
+concurrency: 
+  group: ${{ github.workflow }}-main
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  main_branch:
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    with:
+      repo: ${{ github.repository }}
+      ref: main
+    secrets: inherit

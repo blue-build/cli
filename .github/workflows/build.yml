@@ -1,15 +1,16 @@
-name: Earthly main branch +all
-
-concurrency: 
-  group: ${{ github.workflow }}-main
-  cancel-in-progress: true
-
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      repo:
+        required: true
+        type: string
+      pr_event_number:
+        type: string
+    secrets:
+      TEST_SIGNING_SECRET:
 env:
   FORCE_COLOR: 1
   CLICOLOR_FORCE: 1
@@ -17,7 +18,7 @@ env:
 
 jobs:
   test:
-    timeout-minutes: 20
+    timeout-minutes: 40
     runs-on: ubuntu-latest
 
     steps:
@@ -27,8 +28,8 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{github.event.pull_request.head.ref}}
-          repository: ${{github.event.pull_request.head.repo.full_name}}
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
 
       - name: Run build
         id: build
@@ -36,7 +37,7 @@ jobs:
           earthly --ci +test
 
   lint:
-    timeout-minutes: 20
+    timeout-minutes: 40
     runs-on: ubuntu-latest
 
     steps:
@@ -46,46 +47,33 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{github.event.pull_request.head.ref}}
-          repository: ${{github.event.pull_request.head.repo.full_name}}
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
+
 
       - name: Run build
         id: build
         run: |
-          earthly --ci +test
+          earthly --ci +lint
 
   arm64-prebuild:
-    timeout-minutes: 60
-    runs-on: ubuntu-latest
-    if: github.repository == 'blue-build/cli'
+    timeout-minutes: 20
+    runs-on: ubuntu-24.04-arm
+    if: inputs.repo == 'blue-build/cli'
 
     steps:
-      - name: Maximize build space
-        uses: ublue-os/remove-unwanted-software@e3843c85f5f9b73626845de0f5d44fb78ce22e12 # v6
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN == null
-
       - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
 
-      - name: Earthly login
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN != null
-        run: |
-          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
-          earthly org s blue-build
-          earthly sat s arm
-
-      # Setup repo and add caching
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-          ref: main
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
+
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
-        if: github.token != null
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -97,41 +85,29 @@ jobs:
           earthly --ci --push -P +prebuild
 
   amd64-prebuild:
-    timeout-minutes: 60
+    timeout-minutes: 20
     runs-on: ubuntu-latest
-    if: github.repository == 'blue-build/cli'
+    if: inputs.repo == 'blue-build/cli'
 
     steps:
-      - name: Maximize build space
-        uses: ublue-os/remove-unwanted-software@e3843c85f5f9b73626845de0f5d44fb78ce22e12 # v6
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN == null
-
       - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
-
-      - name: Earthly login
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN != null
-        run: |
-          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
-          earthly org s blue-build
-          earthly sat s amd
 
       # Setup repo and add caching
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-          ref: main
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
+
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
-        if: github.token != null
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
+
 
       - name: Run build
         id: build
@@ -141,31 +117,20 @@ jobs:
   build-scripts:
     timeout-minutes: 60
     runs-on: ubuntu-latest
-    if: github.repository == 'blue-build/cli'
+    if: inputs.repo == 'blue-build/cli'
     steps:
-      - name: Maximize build space
-        uses: ublue-os/remove-unwanted-software@e3843c85f5f9b73626845de0f5d44fb78ce22e12 # v6
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN == null
-
       - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
 
-      - name: Earthly login
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN != null
-        run: |
-          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
-          earthly org s blue-build
-          earthly sat s main
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
+        with: 
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{github.event.pull_request.head.ref}}
-          repository: ${{github.event.pull_request.head.repo.full_name}}
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
+
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
@@ -173,6 +138,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
+
 
       - name: Run build
         id: build
@@ -184,47 +150,40 @@ jobs:
       packages: write
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    if: inputs.repo == 'blue-build/cli'
     needs:
       - arm64-prebuild
       - amd64-prebuild
 
     steps:
-      - name: Maximize build space
-        uses: ublue-os/remove-unwanted-software@e3843c85f5f9b73626845de0f5d44fb78ce22e12 # v6
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN == null
-
       - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
 
-      - name: Earthly login
-        env:
-          EARTHLY_SAT_TOKEN: ${{ secrets.EARTHLY_SAT_TOKEN }}
-        if: env.EARTHLY_SAT_TOKEN != null
-        run: |
-          earthly account login --token ${{ secrets.EARTHLY_SAT_TOKEN }} >> /dev/null
-          earthly org s blue-build
-          earthly sat s main
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
       # Setup repo and add caching
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
+        with: 
           persist-credentials: false
-          ref: main
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
+
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ github.token }}
+
 
       - name: Run build
-        if: github.repository == 'blue-build/cli'
+        if: inputs.repo == 'blue-build/cli'
         run: earthly --push --ci -P +build-images-all
 
       - name: Run build fork
-        if: github.repository != 'blue-build/cli'
+        if: inputs.repo != 'blue-build/cli'
         run: earthly --ci -P +build-images-all
 
   integration-tests:
@@ -232,10 +191,6 @@ jobs:
       packages: write
     timeout-minutes: 60
     runs-on: ubuntu-latest
-    if: github.repository == 'blue-build/cli'
-    needs:
-      - build-scripts
-      - amd64-prebuild
 
     steps:
       - name: Maximize build space
@@ -245,12 +200,14 @@ jobs:
 
       # Setup repo and add caching
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
+        with: 
           persist-credentials: false
-          ref: main
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
+
 
       - name: Run integration tests
-        if: github.repository == 'blue-build/cli'
         run: |
           earthly bootstrap
           earthly --ci -P ./integration-tests+all
@@ -262,9 +219,6 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    if: github.repository == 'blue-build/cli'
-    needs:
-      - build-scripts
 
     steps:
       - name: Maximize build space
@@ -281,9 +235,12 @@ jobs:
 
       # Setup repo and add caching
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
+        with: 
           persist-credentials: false
-          ref: main
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
+
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@b3a9207c0e1ef41f4cf215303c976869d0c2c1c4 # v3.0.0
@@ -293,13 +250,13 @@ jobs:
       - name: Run Build
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_PR_EVENT_NUMBER: ${{ github.event.number }}
+          GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
           BB_BUILDKIT_CACHE_GHA: true
         run: just test-docker-build
 
   rechunk-build:
-    timeout-minutes: 20
+    timeout-minutes: 40
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -320,7 +277,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-          ref: main
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
+
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@b3a9207c0e1ef41f4cf215303c976869d0c2c1c4 # v3.0.0
@@ -330,27 +290,29 @@ jobs:
       - name: Run Build
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_PR_EVENT_NUMBER: ${{ github.event.number }}
+          GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
+          BB_BUILDKIT_CACHE_GHA: true
         run: |
           export CARGO_HOME=$HOME/.cargo
           just test-fresh-rechunk-build
           just test-rechunk-build
 
   arm64-build:
-    timeout-minutes: 40
+    timeout-minutes: 90
+    # runs-on: ubuntu-24.04-arm
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
       id-token: write
-    if: github.repository == 'blue-build/cli'
-    needs:
-      - build-scripts
 
     steps:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@e3843c85f5f9b73626845de0f5d44fb78ce22e12 # v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
       - uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.3.0
 
@@ -365,8 +327,9 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{github.event.pull_request.head.ref}}
-          repository: ${{github.event.pull_request.head.repo.full_name}}
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
+
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@b3a9207c0e1ef41f4cf215303c976869d0c2c1c4 # v3.0.0
@@ -376,7 +339,7 @@ jobs:
       - name: Run Build
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_PR_EVENT_NUMBER: ${{ github.event.number }}
+          GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
           BB_BUILDKIT_CACHE_GHA: true
         run: just test-arm64-build
@@ -388,9 +351,6 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    if: github.repository == 'blue-build/cli'
-    needs:
-      - build-scripts
 
     steps:
       - name: Maximize build space
@@ -405,10 +365,12 @@ jobs:
 
       - name: Docker Login
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        if: inputs.repo == 'blue-build/cli'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
+
 
       - uses: actions-rust-lang/setup-rust-toolchain@9399c7bb15d4c7d47b27263d024f0a4978346ba4 # v1.11.0
 
@@ -416,7 +378,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-          ref: main
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
+
 
 
       - name: Expose GitHub Runtime
@@ -426,69 +391,11 @@ jobs:
 
       - name: Run Build
         env:
-          GH_PR_EVENT_NUMBER: ${{ github.event.number }}
+          GH_TOKEN: ${{ github.token }}
+          GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
           BB_BUILDKIT_CACHE_GHA: true
         run: just test-docker-build-external-login
-
-  # Free trial is over
-  # docker-build-oauth-login:
-  #   timeout-minutes: 60
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     contents: read
-  #     packages: write
-  #     id-token: write
-  #   needs:
-  #     - build-scripts
-  #   if: github.repository == 'blue-build/cli'
-
-  #   steps:
-  #     - name: Google Auth
-  #       id: auth
-  #       uses: "google-github-actions/auth@v2"
-  #       with:
-  #         token_format: "access_token"
-  #         service_account: ${{ secrets.SERVICE_ACCOUNT }}
-  #         project_id: bluebuild-oidc
-  #         create_credentials_file: false
-  #         workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY }}
-
-  #     - name: Maximize build space
-  #       uses: ublue-os/remove-unwanted-software@e3843c85f5f9b73626845de0f5d44fb78ce22e12 # v6
-
-  #     - uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.3.0
-
-  #     - name: Set up Docker Buildx
-  #       uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
-  #       with:
-  #         install: true
-
-  #     - uses: actions-rust-lang/setup-rust-toolchain@9399c7bb15d4c7d47b27263d024f0a4978346ba4 # v1.11.0
-
-  #     - name: Docker Auth
-  #       id: docker-auth
-  #       uses: "docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0"
-  #       with:
-  #         username: "oauth2accesstoken"
-  #         password: "${{ steps.auth.outputs.access_token }}"
-  #         registry: us-east1-docker.pkg.dev
-
-  #     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-  #       with:
-  #         ref: main
-
-  #     - name: Expose GitHub Runtime
-  #       uses: crazy-max/ghaction-github-runtime@b3a9207c0e1ef41f4cf215303c976869d0c2c1c4 # v3.0.0
-
-  #     - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
-
-  #     - name: Run Build
-  #       env:
-  #         GH_PR_EVENT_NUMBER: ${{ github.event.number }}
-  #         COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
-  #         BB_BUILDKIT_CACHE_GHA: true
-  #       run: just test-docker-build-oauth-login
 
   podman-build:
     timeout-minutes: 60
@@ -497,9 +404,6 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    if: github.repository == 'blue-build/cli'
-    needs:
-      - build-scripts
 
     steps:
       - name: Maximize build space
@@ -513,7 +417,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-          ref: main
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
+
 
 
       - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
@@ -521,8 +428,9 @@ jobs:
       - name: Run Build
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_PR_EVENT_NUMBER: ${{ github.event.number }}
+          GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
+          BB_BUILDKIT_CACHE_GHA: true
         run: just test-podman-build
 
   buildah-build:
@@ -532,9 +440,6 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    if: github.repository == 'blue-build/cli'
-    needs:
-      - build-scripts
 
     steps:
       - name: Maximize build space
@@ -548,7 +453,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-          ref: main
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
+
 
 
       - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
@@ -556,8 +464,9 @@ jobs:
       - name: Run Build
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_PR_EVENT_NUMBER: ${{ github.event.number }}
+          GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
+          BB_BUILDKIT_CACHE_GHA: true
         run: just test-buildah-build
 
   iso-from-image:
@@ -567,9 +476,6 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    needs:
-      - build-scripts
-    if: github.repository == 'blue-build/cli'
 
     steps:
       - name: Maximize build space
@@ -588,8 +494,9 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{github.event.pull_request.head.ref}}
-          repository: ${{github.event.pull_request.head.repo.full_name}}
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
+
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@b3a9207c0e1ef41f4cf215303c976869d0c2c1c4 # v3.0.0
@@ -599,7 +506,7 @@ jobs:
       - name: Run Build
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_PR_EVENT_NUMBER: ${{ github.event.number }}
+          GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
           BB_BUILDKIT_CACHE_GHA: true
         run: just test-generate-iso-image
@@ -611,9 +518,6 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    needs:
-      - build-scripts
-    if: github.repository == 'blue-build/cli'
 
     steps:
       - name: Maximize build space
@@ -632,8 +536,9 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{github.event.pull_request.head.ref}}
-          repository: ${{github.event.pull_request.head.repo.full_name}}
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
+
 
       - name: Expose GitHub Runtime
         uses: crazy-max/ghaction-github-runtime@b3a9207c0e1ef41f4cf215303c976869d0c2c1c4 # v3.0.0
@@ -643,7 +548,7 @@ jobs:
       - name: Run Build
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_PR_EVENT_NUMBER: ${{ github.event.number }}
+          GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
           BB_BUILDKIT_CACHE_GHA: true
         run: just test-generate-iso-image
