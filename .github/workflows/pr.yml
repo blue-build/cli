@@ -1,0 +1,21 @@
+name: PR build
+
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+
+jobs:
+  pull_request:
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    with:
+      repo: ${{ github.event.pull_request.head.repo.full_name }}
+      ref: ${{ github.event.pull_request.head.ref }}
+      pr_event_number: ${{ github.event.number }}
+    secrets: inherit
