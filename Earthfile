@@ -1,7 +1,8 @@
 VERSION 0.8
 PROJECT blue-build/cli
 
-IMPORT github.com/earthly/lib/rust AS rust
+IMPORT github.com/blue-build/earthly-lib/rust AS rust
+# IMPORT ../earthly-lib/rust AS rust
 
 ARG --global IMAGE=ghcr.io/blue-build/cli
 ARG --global TAGGED="false"
@@ -36,44 +37,48 @@ prebuild:
 lint:
     FROM +common
     RUN cargo fmt --all --check
-    DO rust+CARGO --args="clippy --workspace"
-    DO rust+CARGO --args="clippy --workspace --all-features"
-    DO rust+CARGO --args="clippy --workspace --no-default-features"
+    BUILD +cargo-op --args="clippy --workspace"
+    BUILD +cargo-op --args="clippy --workspace --all-features"
+    BUILD +cargo-op --args="clippy --workspace --no-default-features"
     DO +EACH_PACKAGE --args="clippy --workspace --no-default-features"
 
 test:
     FROM +common
-    COPY --dir test-files/ integration-tests/ /app
-    COPY +cosign/cosign /usr/bin/cosign
 
-    DO rust+CARGO --args="test --workspace"
-    DO rust+CARGO --args="test --workspace --all-features"
-    DO rust+CARGO --args="test --workspace --no-default-features"
+    BUILD +cargo-op --args="test --workspace"
+    BUILD +cargo-op --args="test --workspace --all-features"
+    BUILD +cargo-op --args="test --workspace --no-default-features"
     DO +EACH_PACKAGE --args="test --no-default-features"
 
 EACH_PACKAGE:
     FUNCTION
+    ARG packages="$(cargo metadata --format-version 1 | jq -cr '.workspace_members | .[]' | sed 's|.*#||' | sed 's|@.*||')"
+
     ARG --required args
 
-    FOR package IN $( \
-        cargo metadata --format-version 1 \
-        | jq -cr '.workspace_members | .[]' \
-        | sed 's|.*#||' | sed 's|@.*||' \
-    )
-        DO --pass-args +EACH_FEAT --package="$package"
+    FOR package IN $packages
+        DO +EACH_FEAT --package="$package" --args="$args"
     END
 
 EACH_FEAT:
     FUNCTION
-    ARG --required args
     ARG --required package
+    ARG features="$(cargo metadata --format-version 1 | jq -cr ".packages[] | select(.name == \"$package\") | .features | keys | .[] | select(. != \"default\")")"
 
-    FOR feat IN $( \
-        cargo metadata --format-version 1 \
-        | jq -cr ".packages[] | select(.name == \"$package\") | .features | keys | .[] | select(. != \"default\")" \
-    )
-        DO rust+CARGO --args="$args --package $package --features $feat"
+    ARG --required args
+
+    FOR feat IN $features
+        BUILD +cargo-op --args="$args --package $package --features $feat"
     END
+
+cargo-op:
+    FROM +common
+    COPY --dir test-files/ integration-tests/ /app
+    COPY +cosign/cosign /usr/bin/cosign
+
+    ARG --required args
+
+    DO rust+CARGO --args="$args"
 
 install:
     FROM +common
