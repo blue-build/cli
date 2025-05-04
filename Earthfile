@@ -37,17 +37,19 @@ prebuild:
 lint:
     FROM +common
     RUN cargo fmt --all --check
-    BUILD +cargo-op --args="clippy --workspace"
-    BUILD +cargo-op --args="clippy --workspace --all-features"
-    BUILD +cargo-op --args="clippy --workspace --no-default-features"
+    DO rust+CARGO --args="clippy --workspace"
+    DO rust+CARGO --args="clippy --workspace --all-features"
+    DO rust+CARGO --args="clippy --workspace --no-default-features"
     DO +EACH_PACKAGE --args="clippy --workspace --no-default-features"
 
 test:
     FROM +common
+    COPY --dir test-files/ integration-tests/ /app
+    COPY +cosign/cosign /usr/bin/cosign
 
-    BUILD +cargo-op --args="test --workspace"
-    BUILD +cargo-op --args="test --workspace --all-features"
-    BUILD +cargo-op --args="test --workspace --no-default-features"
+    DO rust+CARGO --args="test --workspace"
+    DO rust+CARGO --args="test --workspace --all-features"
+    DO rust+CARGO --args="test --workspace --no-default-features"
     DO +EACH_PACKAGE --args="test --no-default-features"
 
 EACH_PACKAGE:
@@ -68,17 +70,8 @@ EACH_FEAT:
     ARG --required args
 
     FOR feat IN $features
-        BUILD +cargo-op --args="$args --package $package --features $feat"
+        DO rust+CARGO --args="$args --package $package --features $feat"
     END
-
-cargo-op:
-    FROM +common
-    COPY --dir test-files/ integration-tests/ /app
-    COPY +cosign/cosign /usr/bin/cosign
-
-    ARG --required args
-
-    DO rust+CARGO --args="$args"
 
 install:
     FROM +common
