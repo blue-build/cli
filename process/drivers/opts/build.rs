@@ -3,7 +3,7 @@ use std::{borrow::Cow, path::Path};
 use bon::Builder;
 use oci_distribution::Reference;
 
-use crate::drivers::types::Platform;
+use crate::drivers::types::{ImageRef, Platform};
 
 use super::CompressionType;
 
@@ -11,7 +11,7 @@ use super::CompressionType;
 #[derive(Debug, Clone, Builder)]
 pub struct BuildOpts<'scope> {
     #[builder(into)]
-    pub image: Cow<'scope, str>,
+    pub image: ImageRef<'scope>,
 
     #[builder(default)]
     pub squash: bool,
@@ -65,17 +65,8 @@ pub struct PruneOpts {
 #[derive(Debug, Clone, Builder)]
 pub struct BuildTagPushOpts<'scope> {
     /// The base image name.
-    ///
-    /// NOTE: This SHOULD NOT contain the tag of the image.
-    ///
-    /// NOTE: You cannot have this set with `archive_path` set.
-    pub image: Option<&'scope Reference>,
-
-    /// The path to the archive file.
-    ///
-    /// NOTE: You cannot have this set with image set.
     #[builder(into)]
-    pub archive_path: Option<Cow<'scope, Path>>,
+    pub image: ImageRef<'scope>,
 
     /// The path to the Containerfile to build.
     #[builder(into)]

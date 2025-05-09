@@ -29,7 +29,7 @@ use crate::{
             RunOptsVolume, TagOpts,
         },
         traits::{BuildDriver, DriverVersion, InspectDriver, RunDriver},
-        types::{ContainerId, ImageMetadata, Platform},
+        types::{ContainerId, ImageMetadata, ImageRef, Platform},
     },
     logging::CommandLogging,
     signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
@@ -207,7 +207,7 @@ impl BuildDriver for DockerDriver {
                     opts.platform.to_string(),
                 ],
                 "-t",
-                &*opts.image,
+                opts.image.to_string(),
                 "-f",
                 if let Some(cache_from) = opts.cache_from.as_ref() => [
                     "--cache-from",
@@ -388,7 +388,7 @@ impl BuildDriver for DockerDriver {
 
         Self::setup()?;
 
-        let final_images = get_final_images(opts)?;
+        let final_images = get_final_images(opts);
 
         let first_image = final_images.first().unwrap();
 
@@ -418,22 +418,22 @@ fn build_tag_push_cmd(opts: &BuildTagPushOpts<'_>, first_image: &str) -> Command
         format!("--builder={BLUE_BUILD}"),
         "build",
         ".",
-        match (opts.image, opts.archive_path.as_deref()) {
-            (Some(_), None) if opts.push => [
+        match &opts.image {
+            ImageRef::Remote(_remote) if opts.push => [
                 "--output",
                 format!(
                     "type=image,name={first_image},push=true,compression={},oci-mediatypes=true",
                     opts.compression
                 ),
             ],
-            (Some(_), None) if env::var(GITHUB_ACTIONS).is_err() => "--load",
-            (None, Some(archive_path)) => [
+            ImageRef::Remote(_remote) if env::var(GITHUB_ACTIONS).is_err() => "--load",
+            ImageRef::LocalTar(archive_path) => [
                 "--output",
                 format!("type=oci,dest={}", archive_path.display()),
             ],
             _ => [],
         },
-        for opts.image.as_ref().map_or_else(Vec::new, |image| {
+        for opts.image.remote_ref().map_or_else(Vec::new, |image| {
                 opts.tags.iter().flat_map(|tag| {
                     vec![
                         "-t".to_string(),
@@ -465,9 +465,9 @@ fn build_tag_push_cmd(opts: &BuildTagPushOpts<'_>, first_image: &str) -> Command
     c
 }
 
-fn get_final_images(opts: &BuildTagPushOpts<'_>) -> Result<Vec<String>> {
-    Ok(match (opts.image, opts.archive_path.as_deref()) {
-        (Some(image), None) => {
+fn get_final_images(opts: &BuildTagPushOpts<'_>) -> Vec<String> {
+    match &opts.image {
+        ImageRef::Remote(image) => {
             let images = if opts.tags.is_empty() {
                 let image = image.to_string();
                 string_vec![image]
@@ -480,12 +480,10 @@ fn get_final_images(opts: &BuildTagPushOpts<'_>) -> Result<Vec<String>> {
 
             images
         }
-        (None, Some(archive_path)) => {
+        ImageRef::LocalTar(archive_path) => {
             string_vec![archive_path.display().to_string()]
         }
-        (Some(_), Some(_)) => bail!("Cannot use both image and archive path"),
-        (None, None) => bail!("Need either the image or archive path set"),
-    })
+    }
 }
 
 impl InspectDriver for DockerDriver {
