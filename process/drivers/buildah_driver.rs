@@ -84,12 +84,12 @@ impl BuildDriver for BuildahDriver {
             "-f",
             &*opts.containerfile,
             "-t",
-            &*opts.image,
+            opts.image.to_string(),
         );
 
         trace!("{command:?}");
         let status = command
-            .build_status(&opts.image, "Building Image")
+            .build_status(opts.image.to_string(), "Building Image")
             .into_diagnostic()?;
 
         if status.success() {

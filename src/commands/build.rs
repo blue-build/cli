@@ -339,7 +339,7 @@ impl BuildCommand {
                     BuildTagPushOpts::builder()
                         .containerfile(containerfile)
                         .platform(self.platform)
-                        .archive_path(PathBuf::from(format!(
+                        .image(PathBuf::from(format!(
                             "{}/{}.{ARCHIVE_SUFFIX}",
                             archive_dir.to_string_lossy().trim_end_matches('/'),
                             recipe.name.to_lowercase().replace('/', "_"),

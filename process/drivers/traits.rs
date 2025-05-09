@@ -10,7 +10,11 @@ use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
 use semver::VersionReq;
 
-use crate::drivers::{Driver, functions::get_private_key, types::CiDriverType};
+use crate::drivers::{
+    Driver,
+    functions::get_private_key,
+    types::{CiDriverType, ImageRef},
+};
 
 #[cfg(feature = "sigstore")]
 use super::sigstore_driver::SigstoreDriver;
@@ -122,17 +126,8 @@ pub trait BuildDriver: PrivateDriver {
     fn build_tag_push(opts: &BuildTagPushOpts) -> Result<Vec<String>> {
         trace!("BuildDriver::build_tag_push({opts:#?})");
 
-        let full_image = match (opts.archive_path.as_ref(), opts.image.as_ref()) {
-            (Some(archive_path), None) => {
-                format!("oci-archive:{}", archive_path.display())
-            }
-            (None, Some(image)) => image.to_string(),
-            (Some(_), Some(_)) => bail!("Cannot use both image and archive path"),
-            (None, None) => bail!("Need either the image or archive path set"),
-        };
-
         let build_opts = BuildOpts::builder()
-            .image(&full_image)
+            .image(&opts.image)
             .containerfile(opts.containerfile.as_ref())
             .platform(opts.platform)
             .squash(opts.squash)
@@ -140,51 +135,54 @@ pub trait BuildDriver: PrivateDriver {
             .maybe_cache_to(opts.cache_to)
             .build();
 
-        info!("Building image {full_image}");
+        info!("Building image {}", opts.image);
         Self::build(&build_opts)?;
 
-        let image_list: Vec<String> = if !opts.tags.is_empty() && opts.archive_path.is_none() {
-            let image = opts.image.unwrap();
-            debug!("Tagging all images");
+        let image_list: Vec<String> = match &opts.image {
+            ImageRef::Remote(image) if !opts.tags.is_empty() => {
+                debug!("Tagging all images");
 
-            let mut image_list = Vec::with_capacity(opts.tags.len());
+                let mut image_list = Vec::with_capacity(opts.tags.len());
 
-            for tag in &opts.tags {
-                debug!("Tagging {} with {tag}", &full_image);
-                let tagged_image: Reference =
-                    format!("{}/{}:{tag}", image.resolve_registry(), image.repository())
-                        .parse()
-                        .into_diagnostic()?;
+                for tag in &opts.tags {
+                    debug!("Tagging {} with {tag}", &image);
+                    let tagged_image = Reference::with_tag(
+                        image.registry().into(),
+                        image.repository().into(),
+                        tag.to_string(),
+                    );
 
-                let tag_opts = TagOpts::builder()
-                    .src_image(image)
-                    .dest_image(&tagged_image)
-                    .build();
+                    let tag_opts = TagOpts::builder()
+                        .src_image(image.as_ref())
+                        .dest_image(&tagged_image)
+                        .build();
 
-                Self::tag(&tag_opts)?;
-                image_list.push(tagged_image.to_string());
+                    Self::tag(&tag_opts)?;
+                    image_list.push(tagged_image.to_string());
 
-                if opts.push {
-                    let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
+                    if opts.push {
+                        let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
 
-                    debug!("Pushing all images");
-                    // Push images with retries (1s delay between retries)
-                    blue_build_utils::retry(retry_count, 5, || {
-                        debug!("Pushing image {tagged_image}");
+                        debug!("Pushing all images");
+                        // Push images with retries (1s delay between retries)
+                        blue_build_utils::retry(retry_count, 5, || {
+                            debug!("Pushing image {tagged_image}");
 
-                        let push_opts = PushOpts::builder()
-                            .image(&tagged_image)
-                            .compression_type(opts.compression)
-                            .build();
+                            let push_opts = PushOpts::builder()
+                                .image(&tagged_image)
+                                .compression_type(opts.compression)
+                                .build();
 
-                        Self::push(&push_opts)
-                    })?;
+                            Self::push(&push_opts)
+                        })?;
+                    }
                 }
-            }
 
-            image_list
-        } else {
-            string_vec![&full_image]
+                image_list
+            }
+            _ => {
+                string_vec![&opts.image]
+            }
         };
 
         Ok(image_list)
@@ -293,7 +291,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
 
         Self::build(
             &BuildOpts::builder()
-                .image(raw_image.to_string())
+                .image(raw_image)
                 .containerfile(&*opts.containerfile)
                 .platform(opts.platform)
                 .privileged(true)
