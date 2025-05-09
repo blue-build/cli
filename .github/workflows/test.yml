@@ -112,9 +112,6 @@ jobs:
           repository: ${{ inputs.repo }}
 
 
-      - name: Expose GitHub Runtime
-        uses: crazy-max/ghaction-github-runtime@b3a9207c0e1ef41f4cf215303c976869d0c2c1c4 # v3.0.0
-
       - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
 
       - name: Run Build
@@ -122,7 +119,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
-          BB_BUILDKIT_CACHE_GHA: true
         run: just test-docker-build
 
   rechunk-build:
@@ -152,9 +148,6 @@ jobs:
           repository: ${{ inputs.repo }}
 
 
-      - name: Expose GitHub Runtime
-        uses: crazy-max/ghaction-github-runtime@b3a9207c0e1ef41f4cf215303c976869d0c2c1c4 # v3.0.0
-
       - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
 
       - name: Run Build
@@ -162,7 +155,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
-          BB_BUILDKIT_CACHE_GHA: true
         run: |
           export CARGO_HOME=$HOME/.cargo
           just test-fresh-rechunk-build
@@ -201,9 +193,6 @@ jobs:
           repository: ${{ inputs.repo }}
 
 
-      - name: Expose GitHub Runtime
-        uses: crazy-max/ghaction-github-runtime@b3a9207c0e1ef41f4cf215303c976869d0c2c1c4 # v3.0.0
-
       - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
 
       - name: Run Build
@@ -211,7 +200,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
-          BB_BUILDKIT_CACHE_GHA: true
         run: just test-arm64-build
 
   docker-build-external-login:
@@ -254,9 +242,6 @@ jobs:
 
 
 
-      - name: Expose GitHub Runtime
-        uses: crazy-max/ghaction-github-runtime@b3a9207c0e1ef41f4cf215303c976869d0c2c1c4 # v3.0.0
-
       - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
 
       - name: Run Build
@@ -264,7 +249,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
-          BB_BUILDKIT_CACHE_GHA: true
         run: just test-docker-build-external-login
 
   podman-build:
@@ -300,7 +284,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
-          BB_BUILDKIT_CACHE_GHA: true
         run: just test-podman-build
 
   buildah-build:
@@ -336,7 +319,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
-          BB_BUILDKIT_CACHE_GHA: true
         run: just test-buildah-build
 
   iso-from-image:
@@ -368,9 +350,6 @@ jobs:
           repository: ${{ inputs.repo }}
 
 
-      - name: Expose GitHub Runtime
-        uses: crazy-max/ghaction-github-runtime@b3a9207c0e1ef41f4cf215303c976869d0c2c1c4 # v3.0.0
-
       - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
 
       - name: Run Build
@@ -378,7 +357,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
-          BB_BUILDKIT_CACHE_GHA: true
         run: just test-generate-iso-image
 
   iso-from-recipe:
@@ -410,9 +388,6 @@ jobs:
           repository: ${{ inputs.repo }}
 
 
-      - name: Expose GitHub Runtime
-        uses: crazy-max/ghaction-github-runtime@b3a9207c0e1ef41f4cf215303c976869d0c2c1c4 # v3.0.0
-
       - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
 
       - name: Run Build
@@ -420,5 +395,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
-          BB_BUILDKIT_CACHE_GHA: true
         run: just test-generate-iso-image

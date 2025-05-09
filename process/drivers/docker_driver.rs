@@ -6,7 +6,7 @@ use std::{
 };
 
 use blue_build_utils::{
-    constants::{BB_BUILDKIT_CACHE_GHA, BLUE_BUILD, DOCKER_HOST, GITHUB_ACTIONS},
+    constants::{BLUE_BUILD, DOCKER_HOST, GITHUB_ACTIONS},
     credentials::Credentials,
     semver::Version,
     string_vec,
@@ -448,14 +448,6 @@ fn build_tag_push_cmd(opts: &BuildTagPushOpts<'_>, first_image: &str) -> Command
         ],
         "-f",
         &*opts.containerfile,
-        // https://github.com/moby/buildkit?tab=readme-ov-file#github-actions-cache-experimental
-        if env::var(BB_BUILDKIT_CACHE_GHA)
-            .map_or_else(|_| false, |e| e == "true") => [
-                "--cache-from",
-                "type=gha",
-                "--cache-to",
-                "type=gha",
-            ],
         if let Some(cache_from) = opts.cache_from.as_ref() => [
             "--cache-from",
             format!(
