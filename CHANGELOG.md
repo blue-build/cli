@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.12] - 2025-05-09
+
+### Bug Fixes
+
+- Remove onig from dep tree
+- Add retry for retrieving schemas
+- Use our rust earthly lib now; make tests and lints more efficient
+- Maximize build space for building the image
+- Revert test and lint changes
+
+### Features
+
+- Add cache layer support
+
+### Miscellaneous Tasks
+
+- Clippy fixes
+- Update edition to 2024
+- Install toolchains and components in build
+- Format files
+- Rework the workflows to make it easier to manage
+- Create separate test and build workflows
+- Add extra test recipes
+- Simplify opts using new ImageRef type
+
 ## [0.9.11] - 2025-04-15
 
 ### Bug Fixes
@@ -13,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - Upgrade deps
 - Migrate from rinja to askama
 - Upgrade cached and use new sync_writes by_key for faster operations
+- Release
 
 ## [0.9.10] - 2025-03-26
 
