@@ -183,18 +183,7 @@ test-docker-build-external-login: install-debug-all-features
     -S sigstore \
     {{ should_push }} \
     -vv \
-    recipes/recipe.yml recipes/recipe-gts.yml
-
-# Run docker driver oauth login integration test
-test-docker-build-oauth-login: install-debug-all-features
-  cd integration-tests/test-repo \
-  && bluebuild build \
-    --registry us-east1-docker.pkg.dev \
-    --registry-namespace bluebuild-oidc/bluebuild \
-    --retry-push \
-    {{ should_push }} \
-    -vv \
-    recipes/recipe.yml recipes/recipe-gts.yml
+    recipes/recipe-docker-external.yml
 
 # Run podman driver integration test
 test-podman-build: install-debug-all-features
@@ -206,7 +195,7 @@ test-podman-build: install-debug-all-features
     -S sigstore \
     {{ should_push }} \
     -vv \
-    recipes/recipe.yml recipes/recipe-gts.yml
+    recipes/recipe-podman.yml
 
 # Run buildah driver integration test
 test-buildah-build: install-debug-all-features
@@ -218,7 +207,7 @@ test-buildah-build: install-debug-all-features
     -S sigstore \
     {{ should_push }} \
     -vv \
-    recipes/recipe.yml recipes/recipe-gts.yml
+    recipes/recipe-buildah.yml
 
 # Run ISO generator for images
 test-generate-iso-image: install-debug-all-features

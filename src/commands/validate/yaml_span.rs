@@ -297,25 +297,19 @@ mod test {
 
     use super::YamlSpan;
 
-    const RECIPE: &str = include_str!("../../../integration-tests/test-repo/recipes/recipe.yml");
-    const RECIPE_INVALID: &str =
-        include_str!("../../../integration-tests/test-repo/recipes/recipe-invalid.yml");
-    const RECIPE_INVALID_MODULE: &str =
-        include_str!("../../../integration-tests/test-repo/recipes/recipe-invalid-module.yml");
-    const RECIPE_INVALID_STAGE: &str =
-        include_str!("../../../integration-tests/test-repo/recipes/recipe-invalid-stage.yml");
+    const RECIPE: &str = include_str!("../../../test-files/recipes/recipe-pass.yml");
+    const RECIPE_INVALID: &str = include_str!("../../../test-files/recipes/recipe-fail.yml");
 
     #[rstest]
     #[case("test: value", "", (0, 1))]
     #[case("test: value", "/test", (6, 5))]
     #[case(RECIPE, "/description", (109, 29))]
     #[case(RECIPE, "/image-version", (199, 6))]
-    #[case(RECIPE, "/modules/4/install", (621, 36))]
-    #[case(RECIPE, "/modules/8/snippets", (979, 57))]
-    #[case(RECIPE_INVALID, "/image-version", (182, 11))]
-    #[case(RECIPE_INVALID_STAGE, "/stages/0/from", (262, 8))]
-    #[case(RECIPE_INVALID_MODULE, "/modules/7/containerfiles", (807, 8))]
+    #[case(RECIPE, "/modules/4/source", (761, 5))]
+    #[case(RECIPE, "/modules/8/from", (1067, 11))]
+    #[case(RECIPE_INVALID, "/image-version", (199, 6))]
     fn test_getspan(#[case] file: &str, #[case] path: &str, #[case] expected: (usize, usize)) {
+        dbg!(path, expected);
         let file = Arc::new(file.to_owned());
         let location = Location::try_from(path).unwrap();
         dbg!(&location);

@@ -1,6 +1,6 @@
 ---
 # yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
-name: cli/test-rechunk
+name: cli/test-buildah
 description: This is my personal OS image.
 base-image: ghcr.io/ublue-os/silverblue-main
 image-version: latest

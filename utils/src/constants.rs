@@ -18,7 +18,6 @@ pub const BUILD_ID_LABEL: &str = "org.blue-build.build-id";
 pub const IMAGE_VERSION_LABEL: &str = "org.opencontainers.image.version";
 
 // BlueBuild vars
-pub const BB_BUILDKIT_CACHE_GHA: &str = "BB_BUILDKIT_CACHE_GHA";
 pub const BB_CACHE_LAYERS: &str = "BB_CACHE_LAYERS";
 pub const BB_PASSWORD: &str = "BB_PASSWORD";
 pub const BB_PRIVATE_KEY: &str = "BB_PRIVATE_KEY";
