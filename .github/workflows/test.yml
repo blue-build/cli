@@ -112,7 +112,7 @@ jobs:
           repository: ${{ inputs.repo }}
 
 
-      - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v1
 
       - name: Run Build
         env:
@@ -148,7 +148,7 @@ jobs:
           repository: ${{ inputs.repo }}
 
 
-      - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v1
 
       - name: Run Build
         env:
@@ -193,7 +193,7 @@ jobs:
           repository: ${{ inputs.repo }}
 
 
-      - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v1
 
       - name: Run Build
         env:
@@ -242,7 +242,7 @@ jobs:
 
 
 
-      - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v1
 
       - name: Run Build
         env:
@@ -277,7 +277,7 @@ jobs:
 
 
 
-      - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v1
 
       - name: Run Build
         env:
@@ -312,7 +312,7 @@ jobs:
 
 
 
-      - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v1
 
       - name: Run Build
         env:
@@ -350,7 +350,7 @@ jobs:
           repository: ${{ inputs.repo }}
 
 
-      - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v1
 
       - name: Run Build
         env:
@@ -388,7 +388,7 @@ jobs:
           repository: ${{ inputs.repo }}
 
 
-      - uses: extractions/setup-just@69d82fb0233557aec017ef13706851d0694e0f1d # v1
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v1
 
       - name: Run Build
         env:
