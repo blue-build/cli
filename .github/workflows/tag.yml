@@ -23,7 +23,7 @@ jobs:
           fetch-tags: true
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         if: github.token != null
         with:
           registry: ghcr.io
@@ -49,7 +49,7 @@ jobs:
           fetch-tags: true
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         if: github.token != null
         with:
           registry: ghcr.io
@@ -75,7 +75,7 @@ jobs:
       - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -113,7 +113,7 @@ jobs:
       - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
