@@ -94,7 +94,7 @@ jobs:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@e3843c85f5f9b73626845de0f5d44fb78ce22e12 # v6
 
-      - uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.3.0
+      - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.3.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
@@ -133,7 +133,7 @@ jobs:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@e3843c85f5f9b73626845de0f5d44fb78ce22e12 # v6
 
-      - uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.3.0
+      - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.3.0
         with:
           install-dir: /usr/bin
           use-sudo: true
@@ -176,7 +176,7 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
-      - uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.3.0
+      - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.3.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
@@ -214,7 +214,7 @@ jobs:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@e3843c85f5f9b73626845de0f5d44fb78ce22e12 # v6
 
-      - uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.3.0
+      - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.3.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
@@ -263,7 +263,7 @@ jobs:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@e3843c85f5f9b73626845de0f5d44fb78ce22e12 # v6
 
-      - uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.3.0
+      - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.3.0
 
       - uses: actions-rust-lang/setup-rust-toolchain@9d7e65c320fdb52dcd45ffaa68deb6c02c8754d9 # v1.12.0
 
@@ -298,7 +298,7 @@ jobs:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@e3843c85f5f9b73626845de0f5d44fb78ce22e12 # v6
 
-      - uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.3.0
+      - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.3.0
 
       - uses: actions-rust-lang/setup-rust-toolchain@9d7e65c320fdb52dcd45ffaa68deb6c02c8754d9 # v1.12.0
 
@@ -333,7 +333,7 @@ jobs:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@e3843c85f5f9b73626845de0f5d44fb78ce22e12 # v6
 
-      - uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.3.0
+      - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.3.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
@@ -371,7 +371,7 @@ jobs:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@e3843c85f5f9b73626845de0f5d44fb78ce22e12 # v6
 
-      - uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.3.0
+      - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.3.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
