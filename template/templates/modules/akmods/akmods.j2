@@ -2,7 +2,9 @@
 # Stage for AKmod {{ info.stage_name }}
 FROM scratch as stage-akmods-{{ info.stage_name }}
 COPY --from=ghcr.io/ublue-os/{{ info.images.0 }} /rpms /rpms
-COPY --from=ghcr.io/ublue-os/{{ info.images.1 }} /rpms /rpms
+  {%- if let Some(extra_image) = info.images.1 %}
+COPY --from=ghcr.io/ublue-os/{{ extra_image }} /rpms /rpms
+  {%- endif %}
   {%- if let Some(nv_image) = info.images.2 %}
 COPY --from=ghcr.io/ublue-os/{{ nv_image }} /rpms /rpms
   {%- endif %}
