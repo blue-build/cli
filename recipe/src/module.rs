@@ -154,34 +154,43 @@ impl<'a> ModuleRequiredFields<'a> {
 
         AkmodsInfo::builder()
             .images(match (base, nvidia) {
-                (Some(b), NvidiaAkmods::Enabled | NvidiaAkmods::Proprietary) if !b.is_empty() => (
-                    format!("akmods:{b}-{os_version}"),
-                    format!("akmods-extra:{b}-{os_version}"),
-                    Some(format!("akmods-nvidia:{b}-{os_version}")),
+                (Some("bazzite"), NvidiaAkmods::Enabled | NvidiaAkmods::Proprietary) => (
+                    format!("akmods:bazzite-{os_version}"),
+                    Some(format!("akmods-extra:bazzite-{os_version}")),
+                    Some(format!("akmods-nvidia:bazzite-{os_version}")),
                 ),
-                (Some(b), NvidiaAkmods::Disabled) if !b.is_empty() => (
-                    format!("akmods:{b}-{os_version}"),
-                    format!("akmods-extra:{b}-{os_version}"),
+                (Some("bazzite"), NvidiaAkmods::Disabled) => (
+                    format!("akmods:bazzite-{os_version}"),
+                    Some(format!("akmods-extra:bazzite-{os_version}")),
                     None,
                 ),
+                (Some("bazzite"), NvidiaAkmods::Open) => (
+                    format!("akmods:bazzite-{os_version}"),
+                    Some(format!("akmods-extra:bazzite-{os_version}")),
+                    Some(format!("akmods-nvidia-open:bazzite-{os_version}")),
+                ),
+                (Some(b), NvidiaAkmods::Enabled | NvidiaAkmods::Proprietary) if !b.is_empty() => (
+                    format!("akmods:{b}-{os_version}"),
+                    None,
+                    Some(format!("akmods-nvidia:{b}-{os_version}")),
+                ),
+                (Some(b), NvidiaAkmods::Disabled) if !b.is_empty() => {
+                    (format!("akmods:{b}-{os_version}"), None, None)
+                }
                 (Some(b), NvidiaAkmods::Open) if !b.is_empty() => (
                     format!("akmods:{b}-{os_version}"),
-                    format!("akmods-extra:{b}-{os_version}"),
+                    None,
                     Some(format!("akmods-nvidia-open:{b}-{os_version}")),
                 ),
                 (_, NvidiaAkmods::Enabled | NvidiaAkmods::Proprietary) => (
                     format!("akmods:main-{os_version}"),
-                    format!("akmods-extra:main-{os_version}"),
+                    None,
                     Some(format!("akmods-nvidia:main-{os_version}")),
                 ),
-                (_, NvidiaAkmods::Disabled) => (
-                    format!("akmods:main-{os_version}"),
-                    format!("akmods-extra:main-{os_version}"),
-                    None,
-                ),
+                (_, NvidiaAkmods::Disabled) => (format!("akmods:main-{os_version}"), None, None),
                 (_, NvidiaAkmods::Open) => (
                     format!("akmods:main-{os_version}"),
-                    format!("akmods-extra:main-{os_version}"),
+                    None,
                     Some(format!("akmods-nvidia-open:main-{os_version}")),
                 ),
             })
