@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    env,
     fs::OpenOptions,
     io::{BufRead, BufReader, Result, Write as IoWrite},
     path::{Path, PathBuf},
@@ -10,6 +9,7 @@ use std::{
     time::Duration,
 };
 
+use blue_build_utils::get_env_var;
 use bon::Builder;
 use chrono::Local;
 use colored::{ColoredString, Colorize, control::ShouldColorize};
@@ -95,7 +95,7 @@ impl Logger {
     /// # Panics
     /// Will panic if logging is unable to be initialized.
     pub fn init(&self) {
-        let home = env::var("HOME").expect("$HOME should be defined");
+        let home = get_env_var("HOME").expect("$HOME should be defined");
         let log_dir = self.log_dir.as_ref().map_or_else(
             || Path::new(home.as_str()).join(".cache/bluebuild"),
             Clone::clone,

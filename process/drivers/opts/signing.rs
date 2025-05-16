@@ -1,9 +1,10 @@
 use std::{
     borrow::Cow,
-    env, fs,
+    fs,
     path::{Path, PathBuf},
 };
 
+use blue_build_utils::get_env_var;
 use bon::Builder;
 use miette::{IntoDiagnostic, Result};
 use oci_distribution::Reference;
@@ -49,7 +50,7 @@ impl PrivateKeyContents<Vec<u8>> for PrivateKey {
 impl PrivateKeyContents<String> for PrivateKey {
     fn contents(&self) -> Result<Zeroizing<String>> {
         Ok(Zeroizing::new(match *self {
-            Self::Env(ref env) => env::var(env).into_diagnostic()?,
+            Self::Env(ref env) => get_env_var(env)?,
             Self::Path(ref path) => fs::read_to_string(path).into_diagnostic()?,
         }))
     }

@@ -1,7 +1,4 @@
-use std::{
-    env,
-    sync::{LazyLock, Mutex},
-};
+use std::sync::{LazyLock, Mutex};
 
 use bon::Builder;
 use clap::Args;
@@ -13,7 +10,7 @@ use crate::{
         BB_PASSWORD, BB_REGISTRY, BB_USERNAME, CI_REGISTRY, CI_REGISTRY_PASSWORD, CI_REGISTRY_USER,
         GITHUB_ACTIONS, GITHUB_ACTOR, GITHUB_TOKEN,
     },
-    string,
+    get_env_var, string,
 };
 
 static INIT: LazyLock<Mutex<bool>> = LazyLock::new(|| Mutex::new(false));
@@ -52,8 +49,8 @@ static ENV_CREDENTIALS: LazyLock<Option<Credentials>> = LazyLock::new(|| {
 
     let registry = match (
         registry,
-        env::var(CI_REGISTRY).ok(),
-        env::var(GITHUB_ACTIONS).ok(),
+        get_env_var(CI_REGISTRY).ok(),
+        get_env_var(GITHUB_ACTIONS).ok(),
     ) {
         (Some(registry), _, _) | (_, Some(registry), _) if !registry.is_empty() => registry,
         (_, _, Some(_)) => string!("ghcr.io"),
@@ -66,10 +63,13 @@ static ENV_CREDENTIALS: LazyLock<Option<Credentials>> = LazyLock::new(|| {
         docker_credential::get_credential(&registry).ok(),
         docker_credential::get_podman_credential(&registry).ok(),
         (
-            env::var(CI_REGISTRY_USER).ok(),
-            env::var(CI_REGISTRY_PASSWORD).ok(),
+            get_env_var(CI_REGISTRY_USER).ok(),
+            get_env_var(CI_REGISTRY_PASSWORD).ok(),
         ),
-        (env::var(GITHUB_ACTOR).ok(), env::var(GITHUB_TOKEN).ok()),
+        (
+            get_env_var(GITHUB_ACTOR).ok(),
+            get_env_var(GITHUB_TOKEN).ok(),
+        ),
     ) {
         ((Some(username), Some(password)), _, _, _, _)
         | (_, Some(DockerCredential::UsernamePassword(username, password)), _, _, _)

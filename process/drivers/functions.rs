@@ -1,8 +1,8 @@
-use std::{env, path::Path};
+use std::path::Path;
 
 use blue_build_utils::{
     constants::{BB_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PRIVATE_KEY, COSIGN_PUB_PATH},
-    string,
+    get_env_var, string,
 };
 use miette::{Result, bail};
 
@@ -17,8 +17,8 @@ where
     Ok(
         match (
             path.join(COSIGN_PUB_PATH).exists(),
-            env::var(BB_PRIVATE_KEY).ok(),
-            env::var(COSIGN_PRIVATE_KEY).ok(),
+            get_env_var(BB_PRIVATE_KEY).ok(),
+            get_env_var(COSIGN_PRIVATE_KEY).ok(),
             path.join(COSIGN_PRIV_PATH),
         ) {
             (true, Some(private_key), _, _) if !private_key.is_empty() => {

@@ -1,5 +1,4 @@
 use std::{
-    env,
     ops::Not,
     path::Path,
     process::{Command, ExitStatus},
@@ -8,6 +7,7 @@ use std::{
 use blue_build_utils::{
     constants::{BLUE_BUILD, DOCKER_HOST, GITHUB_ACTIONS},
     credentials::Credentials,
+    get_env_var,
     semver::Version,
     string_vec,
 };
@@ -85,7 +85,7 @@ impl DockerDriver {
             trace!("{ls_out}");
 
             if !ls_out.lines().any(|line| line == BLUE_BUILD) {
-                let remote = env::var(DOCKER_HOST).is_ok();
+                let remote = get_env_var(DOCKER_HOST).is_ok();
                 if remote {
                     let context_list = get_context_list()?;
                     trace!("{context_list:#?}");
@@ -410,10 +410,8 @@ impl BuildDriver for DockerDriver {
 }
 
 fn build_tag_push_cmd(opts: &BuildTagPushOpts<'_>, first_image: &str) -> Command {
-    // let remote = env::var(DOCKER_HOST).is_ok();
     let c = cmd!(
         "docker",
-        // if remote => format!("--context={BLUE_BUILD}0"),
         "buildx",
         format!("--builder={BLUE_BUILD}"),
         "build",
@@ -426,7 +424,7 @@ fn build_tag_push_cmd(opts: &BuildTagPushOpts<'_>, first_image: &str) -> Command
                     opts.compression
                 ),
             ],
-            ImageRef::Remote(_remote) if env::var(GITHUB_ACTIONS).is_err() => "--load",
+            ImageRef::Remote(_remote) if get_env_var(GITHUB_ACTIONS).is_err() => "--load",
             ImageRef::LocalTar(archive_path) => [
                 "--output",
                 format!("type=oci,dest={}", archive_path.display()),

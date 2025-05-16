@@ -1,12 +1,12 @@
 use std::{
     borrow::Cow,
     collections::HashMap,
-    env,
     path::{Path, PathBuf},
 };
 
 use blue_build_utils::{
     constants::{GITHUB_ACTIONS, GITLAB_CI, IMAGE_VERSION_LABEL},
+    get_env_var,
     semver::Version,
 };
 use clap::ValueEnum;
@@ -175,7 +175,10 @@ impl DetermineDriver<CiDriverType> for Option<CiDriverType> {
         trace!("CiDriverType::determine_driver()");
 
         *self.get_or_insert(
-            match (env::var(GITLAB_CI).ok(), env::var(GITHUB_ACTIONS).ok()) {
+            match (
+                get_env_var(GITLAB_CI).ok(),
+                get_env_var(GITHUB_ACTIONS).ok(),
+            ) {
                 (Some(_gitlab_ci), None) => CiDriverType::Gitlab,
                 (None, Some(_github_actions)) => CiDriverType::Github,
                 _ => CiDriverType::Local,

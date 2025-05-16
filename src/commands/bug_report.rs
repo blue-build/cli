@@ -1,8 +1,11 @@
 use blue_build_recipe::Recipe;
 use blue_build_template::{GithubIssueTemplate, Template};
-use blue_build_utils::constants::{
-    BUG_REPORT_WARNING_MESSAGE, GITHUB_CHAR_LIMIT, LC_TERMINAL, LC_TERMINAL_VERSION, TERM_PROGRAM,
-    TERM_PROGRAM_VERSION, UNKNOWN_SHELL, UNKNOWN_TERMINAL, UNKNOWN_VERSION,
+use blue_build_utils::{
+    constants::{
+        BUG_REPORT_WARNING_MESSAGE, GITHUB_CHAR_LIMIT, LC_TERMINAL, LC_TERMINAL_VERSION,
+        TERM_PROGRAM, TERM_PROGRAM_VERSION, UNKNOWN_SHELL, UNKNOWN_TERMINAL, UNKNOWN_VERSION,
+    },
+    get_env_var,
 };
 use bon::Builder;
 use clap::Args;
@@ -221,12 +224,12 @@ struct TerminalInfo {
 }
 
 fn get_terminal_info() -> TerminalInfo {
-    let terminal = std::env::var(TERM_PROGRAM)
-        .or_else(|_| std::env::var(LC_TERMINAL))
+    let terminal = get_env_var(TERM_PROGRAM)
+        .or_else(|_| get_env_var(LC_TERMINAL))
         .unwrap_or_else(|_| UNKNOWN_TERMINAL.to_string());
 
-    let version = std::env::var(TERM_PROGRAM_VERSION)
-        .or_else(|_| std::env::var(LC_TERMINAL_VERSION))
+    let version = get_env_var(TERM_PROGRAM_VERSION)
+        .or_else(|_| get_env_var(LC_TERMINAL_VERSION))
         .unwrap_or_else(|_| UNKNOWN_VERSION.to_string());
 
     TerminalInfo {
