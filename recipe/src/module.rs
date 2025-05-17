@@ -31,6 +31,10 @@ pub struct ModuleRequiredFields<'a> {
     #[serde(rename = "no-cache", default, skip_serializing_if = "is_false")]
     pub no_cache: bool,
 
+    #[builder(into)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env: Option<IndexMap<String, String>>,
+
     #[serde(flatten)]
     #[builder(default, into)]
     pub config: IndexMap<String, Value>,
@@ -75,6 +79,15 @@ impl<'a> ModuleRequiredFields<'a> {
             self.config.get("src")?.as_str()?,
             self.config.get("dest")?.as_str()?,
         ))
+    }
+
+    #[must_use]
+    pub fn get_env(&self) -> Vec<(&String, &String)> {
+        self.env
+            .as_ref()
+            .iter()
+            .flat_map(|args| args.iter())
+            .collect()
     }
 
     #[must_use]
