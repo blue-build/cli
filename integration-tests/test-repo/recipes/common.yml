@@ -11,6 +11,24 @@ modules:
     scripts:
       - example.sh
 
+  - type: script
+    # Use this to pass schema check
+    source: ghcr.io/blue-build/modules/script
+    snippets:
+      - '[ -z "$TEST_ARG" ]'
+  - type: script
+    # Use this to pass schema check
+    source: ghcr.io/blue-build/modules/script
+    env:
+      TEST_ARG: "test"
+    snippets:
+      - '[ "$TEST_ARG" = "test" ]'
+  - type: script
+    # Use this to pass schema check
+    source: ghcr.io/blue-build/modules/script
+    snippets:
+      - '[ -z "$TEST_ARG" ]'
+
   - type: dnf
     repos:
       files:
