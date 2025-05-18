@@ -427,7 +427,7 @@ impl InitCommand {
             .ok_or_else(|| miette!("Couldn't get parent directory from {ci_file_path:?}"))?;
         fs::create_dir_all(parent_path)
             .into_diagnostic()
-            .with_context(|| format!("Couldn't create directory path {parent_path:?}"))?;
+            .with_context(|| format!("Couldn't create directory path {}", parent_path.display()))?;
 
         let file = &mut BufWriter::new(
             OpenOptions::new()
@@ -436,14 +436,14 @@ impl InitCommand {
                 .write(true)
                 .open(&ci_file_path)
                 .into_diagnostic()
-                .with_context(|| format!("Failed to open file at {ci_file_path:?}"))?,
+                .with_context(|| format!("Failed to open file at {}", ci_file_path.display()))?,
         );
 
         let template = ci_provider.render_file()?;
 
         writeln!(file, "{template}")
             .into_diagnostic()
-            .with_context(|| format!("Failed to write CI file {ci_file_path:?}"))
+            .with_context(|| format!("Failed to write CI file {}", ci_file_path.display()))
     }
 
     fn update_recipe_file(&self, answers: &Answers) -> Result<()> {
@@ -456,10 +456,10 @@ impl InitCommand {
             .join(RECIPE_PATH)
             .join(RECIPE_FILE);
 
-        debug!("Reading {recipe_path:?}");
+        debug!("Reading {}", recipe_path.display());
         let file = fs::read_to_string(&recipe_path)
             .into_diagnostic()
-            .with_context(|| format!("Failed to read {recipe_path:?}"))?;
+            .with_context(|| format!("Failed to read {}", recipe_path.display()))?;
 
         let description = self
             .common
@@ -502,11 +502,11 @@ impl InitCommand {
                 .write(true)
                 .open(&recipe_path)
                 .into_diagnostic()
-                .with_context(|| format!("Failed to open {recipe_path:?}"))?,
+                .with_context(|| format!("Failed to open {}", recipe_path.display()))?,
         );
         write!(file, "{new_file_str}")
             .into_diagnostic()
-            .with_context(|| format!("Failed to write to file {recipe_path:?}"))
+            .with_context(|| format!("Failed to write to file {}", recipe_path.display()))
     }
 
     fn generate_signing_files(&self) -> Result<()> {

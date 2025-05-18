@@ -22,15 +22,18 @@ pub struct CommandOutput {
 ///
 fn create_command<T: AsRef<OsStr>>(binary_name: T) -> Result<Command> {
     let binary_name = binary_name.as_ref();
-    log::trace!("Creating Command for binary {binary_name:?}");
+    log::trace!("Creating Command for binary {}", binary_name.display());
 
     let full_path = match which::which(binary_name) {
         Ok(full_path) => {
-            log::trace!("Using {full_path:?} as {binary_name:?}");
+            log::trace!("Using {} as {}", full_path.display(), binary_name.display());
             full_path
         }
         Err(error) => {
-            log::trace!("Unable to find {binary_name:?} in PATH, {error:?}");
+            log::trace!(
+                "Unable to find {} in PATH, {error:?}",
+                binary_name.display()
+            );
             return Err(Error::new(ErrorKind::NotFound, error));
         }
     };
@@ -68,7 +71,7 @@ fn exec_timeout(cmd: &mut Command, time_limit: Duration) -> Option<CommandOutput
     let process = match cmd.spawn() {
         Ok(process) => process,
         Err(error) => {
-            log::trace!("Unable to run {:?}, {:?}", cmd.get_program(), error);
+            log::trace!("Unable to run {}, {:?}", cmd.get_program().display(), error);
             return None;
         }
     };
@@ -112,7 +115,10 @@ fn exec_timeout(cmd: &mut Command, time_limit: Duration) -> Option<CommandOutput
             })
         }
         Ok(None) => {
-            log::warn!("Executing command {:?} timed out.", cmd.get_program());
+            log::warn!(
+                "Executing command {} timed out.",
+                cmd.get_program().display()
+            );
             log::warn!(
                 "You can set command_timeout in your config to a higher value to allow longer-running commands to keep executing."
             );
@@ -120,8 +126,8 @@ fn exec_timeout(cmd: &mut Command, time_limit: Duration) -> Option<CommandOutput
         }
         Err(error) => {
             log::trace!(
-                "Executing command {:?} failed by: {:?}",
-                cmd.get_program(),
+                "Executing command {} failed by: {:?}",
+                cmd.get_program().display(),
                 error
             );
             None

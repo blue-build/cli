@@ -20,7 +20,6 @@ pub struct ModuleExt<'a> {
 impl FromFileList for ModuleExt<'_> {
     const LIST_KEY: &'static str = "modules";
 
-    #[must_use]
     fn get_from_file_paths(&self) -> Vec<PathBuf> {
         self.modules
             .iter()

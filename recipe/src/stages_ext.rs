@@ -18,7 +18,6 @@ pub struct StagesExt<'a> {
 impl FromFileList for StagesExt<'_> {
     const LIST_KEY: &'static str = "stages";
 
-    #[must_use]
     fn get_from_file_paths(&self) -> Vec<PathBuf> {
         self.stages
             .iter()

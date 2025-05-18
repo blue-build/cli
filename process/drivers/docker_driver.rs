@@ -466,7 +466,7 @@ fn build_tag_push_cmd(opts: &BuildTagPushOpts<'_>, first_image: &str) -> Command
 fn get_final_images(opts: &BuildTagPushOpts<'_>) -> Vec<String> {
     match &opts.image {
         ImageRef::Remote(image) => {
-            let images = if opts.tags.is_empty() {
+            if opts.tags.is_empty() {
                 let image = image.to_string();
                 string_vec![image]
             } else {
@@ -474,9 +474,7 @@ fn get_final_images(opts: &BuildTagPushOpts<'_>) -> Vec<String> {
                     .iter()
                     .map(|tag| format!("{}/{}:{tag}", image.resolve_registry(), image.repository()))
                     .collect()
-            };
-
-            images
+            }
         }
         ImageRef::LocalTar(archive_path) => {
             string_vec![archive_path.display().to_string()]
