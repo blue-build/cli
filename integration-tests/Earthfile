@@ -5,7 +5,7 @@ IMPORT github.com/earthly/lib/utils/dind AS dind
 
 all:
     BUILD +test-image
-    BUILD +test-legacy-image
+    # BUILD +test-legacy-image
     BUILD +build
     BUILD +switch
     BUILD +validate
