@@ -108,6 +108,11 @@ users.workspace = true
 # Top level features
 default = []
 
+v0_10_0 = [
+  "bootc"
+]
+bootc = ["blue-build-process-management/bootc"]
+
 [dev-dependencies]
 rusty-hook = "0.11"
 
