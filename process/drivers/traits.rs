@@ -17,22 +17,16 @@ use crate::drivers::{
 };
 
 use super::{
-    buildah_driver::BuildahDriver,
-    cosign_driver::CosignDriver,
-    docker_driver::DockerDriver,
-    github_driver::GithubDriver,
-    gitlab_driver::GitlabDriver,
-    local_driver::LocalDriver,
     opts::{
-        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, CreateContainerOpts, GenerateImageNameOpts,
-        GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts, RechunkOpts,
-        RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts,
-        VerifyOpts, VerifyType,
+        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, ContainerOpts, CopyOciDirOpts,
+        CreateContainerOpts, GenerateImageNameOpts, GenerateKeyPairOpts, GenerateTagsOpts,
+        GetMetadataOpts, PushOpts, RechunkOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts,
+        SignOpts, SignVerifyOpts, SwitchOpts, TagOpts, VerifyOpts, VerifyType, VolumeOpts,
     },
-    podman_driver::PodmanDriver,
-    sigstore_driver::SigstoreDriver,
-    skopeo_driver::SkopeoDriver,
-    types::{ContainerId, ImageMetadata, MountId},
+    types::{
+        BootDriverType, BuildDriverType, ContainerId, ImageMetadata, InspectDriverType, MountId,
+        RunDriverType, SigningDriverType,
+    },
 };
 
 trait PrivateDriver {}
@@ -46,18 +40,36 @@ macro_rules! impl_private_driver {
 }
 
 impl_private_driver!(
-    Driver,
-    DockerDriver,
-    PodmanDriver,
-    BuildahDriver,
-    GithubDriver,
-    GitlabDriver,
-    LocalDriver,
-    CosignDriver,
-    SkopeoDriver,
-    CiDriverType,
-    SigstoreDriver,
+    super::Driver,
+    super::docker_driver::DockerDriver,
+    super::podman_driver::PodmanDriver,
+    super::buildah_driver::BuildahDriver,
+    super::github_driver::GithubDriver,
+    super::gitlab_driver::GitlabDriver,
+    super::local_driver::LocalDriver,
+    super::cosign_driver::CosignDriver,
+    super::skopeo_driver::SkopeoDriver,
+    super::sigstore_driver::SigstoreDriver,
+    super::rpm_ostree_driver::RpmOstreeDriver,
+    super::rpm_ostree_driver::Status,
+    Option<BuildDriverType>,
+    Option<RunDriverType>,
+    Option<InspectDriverType>,
+    Option<SigningDriverType>,
+    Option<CiDriverType>,
+    Option<BootDriverType>,
 );
+
+#[cfg(feature = "bootc")]
+impl_private_driver!(
+    super::bootc_driver::BootcDriver,
+    super::bootc_driver::BootcStatus
+);
+
+#[allow(private_bounds)]
+pub trait DetermineDriver<T>: PrivateDriver {
+    fn determine_driver(&mut self) -> T;
+}
 
 /// Trait for retrieving version of a driver.
 #[allow(private_bounds)]
@@ -88,19 +100,19 @@ pub trait BuildDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if the build fails.
-    fn build(opts: &BuildOpts) -> Result<()>;
+    fn build(opts: BuildOpts) -> Result<()>;
 
     /// Runs the tag logic for the driver.
     ///
     /// # Errors
     /// Will error if the tagging fails.
-    fn tag(opts: &TagOpts) -> Result<()>;
+    fn tag(opts: TagOpts) -> Result<()>;
 
     /// Runs the push logic for the driver
     ///
     /// # Errors
     /// Will error if the push fails.
-    fn push(opts: &PushOpts) -> Result<()>;
+    fn push(opts: PushOpts) -> Result<()>;
 
     /// Runs the login logic for the driver.
     ///
@@ -112,17 +124,17 @@ pub trait BuildDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if the driver fails to prune.
-    fn prune(opts: &super::opts::PruneOpts) -> Result<()>;
+    fn prune(opts: super::opts::PruneOpts) -> Result<()>;
 
     /// Runs the logic for building, tagging, and pushing an image.
     ///
     /// # Errors
     /// Will error if building, tagging, or pusing fails.
-    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<Vec<String>> {
+    fn build_tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
         trace!("BuildDriver::build_tag_push({opts:#?})");
 
         let build_opts = BuildOpts::builder()
-            .image(&opts.image)
+            .image(opts.image)
             .containerfile(opts.containerfile.as_ref())
             .platform(opts.platform)
             .squash(opts.squash)
@@ -131,7 +143,7 @@ pub trait BuildDriver: PrivateDriver {
             .build();
 
         info!("Building image {}", opts.image);
-        Self::build(&build_opts)?;
+        Self::build(build_opts)?;
 
         let image_list: Vec<String> = match &opts.image {
             ImageRef::Remote(image) if !opts.tags.is_empty() => {
@@ -139,7 +151,7 @@ pub trait BuildDriver: PrivateDriver {
 
                 let mut image_list = Vec::with_capacity(opts.tags.len());
 
-                for tag in &opts.tags {
+                for tag in opts.tags {
                     debug!("Tagging {} with {tag}", &image);
                     let tagged_image = Reference::with_tag(
                         image.registry().into(),
@@ -152,7 +164,7 @@ pub trait BuildDriver: PrivateDriver {
                         .dest_image(&tagged_image)
                         .build();
 
-                    Self::tag(&tag_opts)?;
+                    Self::tag(tag_opts)?;
                     image_list.push(tagged_image.to_string());
 
                     if opts.push {
@@ -168,7 +180,7 @@ pub trait BuildDriver: PrivateDriver {
                                 .compression_type(opts.compression)
                                 .build();
 
-                            Self::push(&push_opts)
+                            Self::push(push_opts)
                         })?;
                     }
                 }
@@ -176,7 +188,7 @@ pub trait BuildDriver: PrivateDriver {
                 image_list
             }
             _ => {
-                string_vec![&opts.image]
+                string_vec![opts.image]
             }
         };
 
@@ -191,7 +203,7 @@ pub trait InspectDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if it is unable to get the labels.
-    fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata>;
+    fn get_metadata(opts: GetMetadataOpts) -> Result<ImageMetadata>;
 }
 
 /// Allows agnostic running of containers.
@@ -201,31 +213,31 @@ pub trait RunDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if there is an issue running the container.
-    fn run(opts: &RunOpts) -> Result<ExitStatus>;
+    fn run(opts: RunOpts) -> Result<ExitStatus>;
 
     /// Run a container to perform an action and capturing output.
     ///
     /// # Errors
     /// Will error if there is an issue running the container.
-    fn run_output(opts: &RunOpts) -> Result<Output>;
+    fn run_output(opts: RunOpts) -> Result<Output>;
 
     /// Creates container
     ///
     /// # Errors
     /// Will error if the container create command fails.
-    fn create_container(opts: &CreateContainerOpts) -> Result<ContainerId>;
+    fn create_container(opts: CreateContainerOpts) -> Result<ContainerId>;
 
     /// Removes a container
     ///
     /// # Errors
     /// Will error if the container remove command fails.
-    fn remove_container(opts: &RemoveContainerOpts) -> Result<()>;
+    fn remove_container(opts: RemoveContainerOpts) -> Result<()>;
 
     /// Removes an image
     ///
     /// # Errors
     /// Will error if the image remove command fails.
-    fn remove_image(opts: &RemoveImageOpts) -> Result<()>;
+    fn remove_image(opts: RemoveImageOpts) -> Result<()>;
 
     /// List all images in the local image registry.
     ///
@@ -240,23 +252,23 @@ pub(super) trait ContainerMountDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if the container mount command fails.
-    fn mount_container(opts: &super::opts::ContainerOpts) -> Result<MountId>;
+    fn mount_container(opts: ContainerOpts) -> Result<MountId>;
 
     /// Unmount the container
     ///
     /// # Errors
     /// Will error if the container unmount command fails.
-    fn unmount_container(opts: &super::opts::ContainerOpts) -> Result<()>;
+    fn unmount_container(opts: ContainerOpts) -> Result<()>;
 
     /// Remove a volume
     ///
     /// # Errors
     /// Will error if the volume remove command fails.
-    fn remove_volume(opts: &super::opts::VolumeOpts) -> Result<()>;
+    fn remove_volume(opts: VolumeOpts) -> Result<()>;
 }
 
 pub(super) trait OciCopy {
-    fn copy_oci_dir(opts: &super::opts::CopyOciDirOpts) -> Result<()>;
+    fn copy_oci_dir(opts: CopyOciDirOpts) -> Result<()>;
 }
 
 #[allow(private_bounds)]
@@ -267,7 +279,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
     ///
     /// # Errors
     /// Will error if the rechunk process fails.
-    fn rechunk(opts: &RechunkOpts) -> Result<Vec<String>> {
+    fn rechunk(opts: RechunkOpts) -> Result<Vec<String>> {
         let ostree_cache_id = &uuid::Uuid::new_v4().to_string();
         let raw_image =
             &Reference::try_from(format!("localhost/{ostree_cache_id}/raw-rechunk")).unwrap();
@@ -282,9 +294,9 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         Self::login()?;
 
         Self::build(
-            &BuildOpts::builder()
-                .image(raw_image)
-                .containerfile(&*opts.containerfile)
+            BuildOpts::builder()
+                .image(&ImageRef::from(raw_image))
+                .containerfile(opts.containerfile)
                 .platform(opts.platform)
                 .privileged(true)
                 .squash(true)
@@ -293,13 +305,13 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         )?;
 
         let container = &Self::create_container(
-            &CreateContainerOpts::builder()
+            CreateContainerOpts::builder()
                 .image(raw_image)
                 .privileged(true)
                 .build(),
         )?;
         let mount = &Self::mount_container(
-            &super::opts::ContainerOpts::builder()
+            super::opts::ContainerOpts::builder()
                 .container_id(container)
                 .privileged(true)
                 .build(),
@@ -322,7 +334,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         if opts.push {
             let oci_dir = &super::types::OciDir::try_from(temp_dir.path().join(ostree_cache_id))?;
 
-            for tag in &opts.tags {
+            for tag in opts.tags {
                 let tagged_image = Reference::with_tag(
                     full_image.registry().to_string(),
                     full_image.repository().to_string(),
@@ -333,7 +345,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                     debug!("Pushing image {tagged_image}");
 
                     Driver::copy_oci_dir(
-                        &super::opts::CopyOciDirOpts::builder()
+                        super::opts::CopyOciDirOpts::builder()
                             .oci_dir(oci_dir)
                             .registry(&tagged_image)
                             .privileged(true)
@@ -355,39 +367,39 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         mount: &MountId,
         container: &ContainerId,
         raw_image: &Reference,
-        opts: &RechunkOpts<'_>,
+        opts: RechunkOpts<'_>,
     ) -> Result<(), miette::Error> {
         let status = Self::run(
-            &RunOpts::builder()
+            RunOpts::builder()
                 .image(Self::RECHUNK_IMAGE)
                 .remove(true)
                 .user("0:0")
                 .privileged(true)
-                .volumes(crate::run_volumes! {
+                .volumes(&crate::run_volumes! {
                     mount => "/var/tree",
                 })
-                .env_vars(crate::run_envs! {
+                .env_vars(&crate::run_envs! {
                     "TREE" => "/var/tree",
                 })
-                .args(bon::vec!["/sources/rechunk/1_prune.sh"])
+                .args(&bon::vec!["/sources/rechunk/1_prune.sh"])
                 .build(),
         )?;
 
         if !status.success() {
             Self::unmount_container(
-                &super::opts::ContainerOpts::builder()
+                super::opts::ContainerOpts::builder()
                     .container_id(container)
                     .privileged(true)
                     .build(),
             )?;
             Self::remove_container(
-                &RemoveContainerOpts::builder()
+                RemoveContainerOpts::builder()
                     .container_id(container)
                     .privileged(true)
                     .build(),
             )?;
             Self::remove_image(
-                &RemoveImageOpts::builder()
+                RemoveImageOpts::builder()
                     .image(raw_image)
                     .privileged(true)
                     .build(),
@@ -407,40 +419,40 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         ostree_cache_id: &str,
         container: &ContainerId,
         raw_image: &Reference,
-        opts: &RechunkOpts<'_>,
+        opts: RechunkOpts<'_>,
     ) -> Result<()> {
         let status = Self::run(
-            &RunOpts::builder()
+            RunOpts::builder()
                 .image(Self::RECHUNK_IMAGE)
                 .remove(true)
                 .user("0:0")
                 .privileged(true)
-                .volumes(crate::run_volumes! {
+                .volumes(&crate::run_volumes! {
                     mount => "/var/tree",
                     ostree_cache_id => "/var/ostree",
                 })
-                .env_vars(crate::run_envs! {
+                .env_vars(&crate::run_envs! {
                     "TREE" => "/var/tree",
                     "REPO" => "/var/ostree/repo",
                     "RESET_TIMESTAMP" => "1",
                 })
-                .args(bon::vec!["/sources/rechunk/2_create.sh"])
+                .args(&bon::vec!["/sources/rechunk/2_create.sh"])
                 .build(),
         )?;
         Self::unmount_container(
-            &super::opts::ContainerOpts::builder()
+            super::opts::ContainerOpts::builder()
                 .container_id(container)
                 .privileged(true)
                 .build(),
         )?;
         Self::remove_container(
-            &RemoveContainerOpts::builder()
+            RemoveContainerOpts::builder()
                 .container_id(container)
                 .privileged(true)
                 .build(),
         )?;
         Self::remove_image(
-            &RemoveImageOpts::builder()
+            RemoveImageOpts::builder()
                 .image(raw_image)
                 .privileged(true)
                 .build(),
@@ -461,45 +473,51 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         ostree_cache_id: &str,
         temp_dir_str: &str,
         current_dir: &str,
-        opts: &RechunkOpts<'_>,
+        opts: RechunkOpts<'_>,
     ) -> Result<()> {
+        let out_ref = format!("oci:{ostree_cache_id}");
+        let labels = format!(
+            "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+            format_args!(
+                "{}={}",
+                blue_build_utils::constants::BUILD_ID_LABEL,
+                Driver::get_build_id()
+            ),
+            format_args!("org.opencontainers.image.title={}", &opts.name),
+            format_args!("org.opencontainers.image.description={}", &opts.description),
+            format_args!("org.opencontainers.image.source={}", &opts.repo),
+            format_args!("org.opencontainers.image.base.digest={}", &opts.base_digest),
+            format_args!("org.opencontainers.image.base.name={}", &opts.base_image),
+            "org.opencontainers.image.created=<timestamp>",
+            "io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md",
+        );
         let status = Self::run(
-        &RunOpts::builder()
-            .image(Self::RECHUNK_IMAGE)
-            .remove(true)
-            .user("0:0")
-            .privileged(true)
-            .volumes(crate::run_volumes! {
-                ostree_cache_id => "/var/ostree",
-                temp_dir_str => "/workspace",
-                current_dir => "/var/git"
-            })
-            .env_vars(crate::run_envs! {
-                "REPO" => "/var/ostree/repo",
-                "PREV_REF" => &*opts.image,
-                "OUT_NAME" => ostree_cache_id,
-                "CLEAR_PLAN" => if opts.clear_plan { "true" } else { "" },
-                "VERSION" => format!("{}", opts.version),
-                "OUT_REF" => format!("oci:{ostree_cache_id}"),
-                "GIT_DIR" => "/var/git",
-                "LABELS" => format!(
-                    "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
-                    format_args!("{}={}", blue_build_utils::constants::BUILD_ID_LABEL, Driver::get_build_id()),
-                    format_args!("org.opencontainers.image.title={}", &opts.name),
-                    format_args!("org.opencontainers.image.description={}", &opts.description),
-                    format_args!("org.opencontainers.image.source={}", &opts.repo),
-                    format_args!("org.opencontainers.image.base.digest={}", &opts.base_digest),
-                    format_args!("org.opencontainers.image.base.name={}", &opts.base_image),
-                    "org.opencontainers.image.created=<timestamp>",
-                    "io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md",
-                )
-            })
-            .args(bon::vec!["/sources/rechunk/3_chunk.sh"])
-            .build(),
+            RunOpts::builder()
+                .image(Self::RECHUNK_IMAGE)
+                .remove(true)
+                .user("0:0")
+                .privileged(true)
+                .volumes(&crate::run_volumes! {
+                    ostree_cache_id => "/var/ostree",
+                    temp_dir_str => "/workspace",
+                    current_dir => "/var/git"
+                })
+                .env_vars(&crate::run_envs! {
+                    "REPO" => "/var/ostree/repo",
+                    "PREV_REF" => opts.image,
+                    "OUT_NAME" => ostree_cache_id,
+                    "CLEAR_PLAN" => if opts.clear_plan { "true" } else { "" },
+                    "VERSION" => opts.version,
+                    "OUT_REF" => &out_ref,
+                    "GIT_DIR" => "/var/git",
+                    "LABELS" => &labels,
+                })
+                .args(&bon::vec!["/sources/rechunk/3_chunk.sh"])
+                .build(),
         )?;
 
         Self::remove_volume(
-            &super::opts::VolumeOpts::builder()
+            super::opts::VolumeOpts::builder()
                 .volume_id(ostree_cache_id)
                 .privileged(true)
                 .build(),
@@ -520,14 +538,14 @@ pub trait SigningDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if a key-pair couldn't be generated.
-    fn generate_key_pair(opts: &GenerateKeyPairOpts) -> Result<()>;
+    fn generate_key_pair(opts: GenerateKeyPairOpts) -> Result<()>;
 
     /// Checks the signing key files to ensure
     /// they match.
     ///
     /// # Errors
     /// Will error if the files cannot be verified.
-    fn check_signing_files(opts: &CheckKeyPairOpts) -> Result<()>;
+    fn check_signing_files(opts: CheckKeyPairOpts) -> Result<()>;
 
     /// Signs the image digest.
     ///
@@ -543,22 +561,23 @@ pub trait SigningDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if the image fails to be verified.
-    fn verify(opts: &VerifyOpts) -> Result<()>;
+    fn verify(opts: VerifyOpts) -> Result<()>;
 
     /// Sign an image given the image name and tag.
     ///
     /// # Errors
     /// Will error if the image fails to be signed.
-    fn sign_and_verify(opts: &SignVerifyOpts) -> Result<()> {
+    fn sign_and_verify(opts: SignVerifyOpts) -> Result<()> {
         trace!("sign_and_verify({opts:?})");
 
         let path = opts
             .dir
             .as_ref()
             .map_or_else(|| PathBuf::from("."), |d| d.to_path_buf());
+        let cosign_file_path = path.join(COSIGN_PUB_PATH);
 
         let image_digest = Driver::get_metadata(
-            &GetMetadataOpts::builder()
+            GetMetadataOpts::builder()
                 .image(opts.image)
                 .platform(opts.platform)
                 .build(),
@@ -571,29 +590,33 @@ pub trait SigningDriver: PrivateDriver {
         )
         .parse()
         .into_diagnostic()?;
+        let issuer = Driver::oidc_provider();
+        let identity = Driver::keyless_cert_identity();
 
-        let (sign_opts, verify_opts) = match (Driver::get_ci_driver(), get_private_key(&path)) {
+        let (sign_opts, verify_opts) = match (
+            Driver::get_ci_driver(),
+            get_private_key(&path),
+            &issuer,
+            &identity,
+        ) {
             // Cosign public/private key pair
-            (_, Ok(priv_key)) => (
+            (_, Ok(priv_key), _, _) => (
                 SignOpts::builder()
                     .image(&image_digest)
                     .dir(&path)
-                    .key(priv_key.to_string())
+                    .key(priv_key)
                     .build(),
                 VerifyOpts::builder()
                     .image(opts.image)
-                    .verify_type(VerifyType::File(path.join(COSIGN_PUB_PATH).into()))
+                    .verify_type(VerifyType::File(&cosign_file_path))
                     .build(),
             ),
             // Gitlab keyless
-            (CiDriverType::Github | CiDriverType::Gitlab, _) => (
+            (CiDriverType::Github | CiDriverType::Gitlab, _, Ok(issuer), Ok(identity)) => (
                 SignOpts::builder().dir(&path).image(&image_digest).build(),
                 VerifyOpts::builder()
                     .image(opts.image)
-                    .verify_type(VerifyType::Keyless {
-                        issuer: Driver::oidc_provider()?.into(),
-                        identity: Driver::keyless_cert_identity()?.into(),
-                    })
+                    .verify_type(VerifyType::Keyless { issuer, identity })
                     .build(),
             ),
             _ => bail!("Failed to get information for signing the image"),
@@ -603,7 +626,7 @@ pub trait SigningDriver: PrivateDriver {
 
         retry(retry_count, 5, || {
             Self::sign(&sign_opts)?;
-            Self::verify(&verify_opts)
+            Self::verify(verify_opts)
         })?;
 
         Ok(())
@@ -663,7 +686,7 @@ pub trait CiDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if the environment variables aren't set.
-    fn generate_tags(opts: &GenerateTagsOpts) -> Result<Vec<String>>;
+    fn generate_tags(opts: GenerateTagsOpts) -> Result<Vec<String>>;
 
     /// Generates the image name based on CI.
     ///
@@ -719,4 +742,37 @@ pub trait CiDriver: PrivateDriver {
     fn get_registry() -> Result<String>;
 
     fn default_ci_file_path() -> PathBuf;
+}
+
+#[allow(private_bounds)]
+pub trait BootDriver: PrivateDriver {
+    /// Get the status of the current booted image.
+    ///
+    /// # Errors
+    /// Will error if we fail to get the status.
+    fn status() -> Result<Box<dyn BootStatus>>;
+
+    /// Switch to a new image.
+    ///
+    /// # Errors
+    /// Will error if we fail to switch to a new image.
+    fn switch(opts: SwitchOpts) -> Result<()>;
+
+    /// Upgrade an image.
+    ///
+    /// # Errors
+    /// Will error if we fail to upgrade to a new image.
+    fn upgrade(opts: SwitchOpts) -> Result<()>;
+}
+
+#[allow(private_bounds)]
+pub trait BootStatus: PrivateDriver {
+    /// Checks to see if there's a transaction in progress.
+    fn transaction_in_progress(&self) -> bool;
+
+    /// Gets the booted image.
+    fn booted_image(&self) -> Option<ImageRef>;
+
+    /// Gets the staged image.
+    fn staged_image(&self) -> Option<ImageRef>;
 }
