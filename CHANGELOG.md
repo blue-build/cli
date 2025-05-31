@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.13] - 2025-05-31
+
+### Bug Fixes
+
+- Setup QEMU for tag builds
+- Pull akmods-extra only for bazzite (Fixes #441)
+- Parse Version from container and remove ostree commit
+
+### Miscellaneous Tasks
+
+- Bump docker/login-action
+- Add github-actions dependabot updates
+- Bump cosign to 2.5.0
+- Bump cosign to 2.5.0
+- Fix github actions dep reference (#440)
+- Use get_env_var
+- Clippy fixes
+- Disable legacy integration test
+- Remove feature flags
+- Add bootc lint
+
 ## [0.9.12] - 2025-05-09
 
 ### Bug Fixes
@@ -26,6 +47,7 @@ All notable changes to this project will be documented in this file.
 - Create separate test and build workflows
 - Add extra test recipes
 - Simplify opts using new ImageRef type
+- Release
 
 ## [0.9.11] - 2025-04-15
 
