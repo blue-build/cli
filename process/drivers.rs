@@ -14,13 +14,14 @@ use std::{
     time::Duration,
 };
 
+use blue_build_utils::semver::Version;
 use bon::{Builder, bon};
 use cached::proc_macro::cached;
 use clap::Args;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
-use miette::{IntoDiagnostic, Result, miette};
+use miette::{Result, miette};
 use oci_distribution::Reference;
 use opts::{
     BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, CreateContainerOpts, GenerateImageNameOpts,
@@ -216,6 +217,7 @@ impl Driver {
                 .build(),
         )
         .and_then(|inspection| {
+            trace!("{inspection:?}");
             inspection.get_version().ok_or_else(|| {
                 miette!(
                     "Failed to parse version from metadata for {}",
@@ -300,10 +302,10 @@ fn get_version_run_image(oci_ref: &Reference) -> Result<u64> {
     progress.finish_and_clear();
     Logger::multi_progress().remove(&progress);
 
-    String::from_utf8_lossy(&output.stdout)
+    Ok(String::from_utf8_lossy(&output.stdout)
         .trim()
-        .parse()
-        .into_diagnostic()
+        .parse::<Version>()?
+        .major)
 }
 
 macro_rules! impl_build_driver {

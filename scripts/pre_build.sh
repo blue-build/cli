@@ -3,7 +3,9 @@
 set -euo pipefail
 
 if ! command -v jq > /dev/null; then
-  rpm-ostree install jq
+  if command -v rpm-ostree > /dev/null; then
+    rpm-ostree install jq
+  else
+    dnf -y install jq
+  fi
 fi
-
-ostree container commit

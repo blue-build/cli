@@ -306,7 +306,7 @@ mod test {
     #[case(RECIPE, "/description", (109, 29))]
     #[case(RECIPE, "/image-version", (199, 6))]
     #[case(RECIPE, "/modules/4/source", (761, 5))]
-    #[case(RECIPE, "/modules/8/from", (1067, 11))]
+    #[case(RECIPE, "/modules/8/from", (1040, 11))]
     #[case(RECIPE_INVALID, "/image-version", (199, 6))]
     fn test_getspan(#[case] file: &str, #[case] path: &str, #[case] expected: (usize, usize)) {
         dbg!(path, expected);

@@ -66,7 +66,3 @@ else
   color_string "$(print_banner "Failed '${module}' Module")" "31"
   exit 1
 fi
-
-if command -v ostree > /dev/null; then
-  ostree container commit
-fi

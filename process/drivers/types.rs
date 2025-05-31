@@ -10,7 +10,7 @@ use blue_build_utils::{
     semver::Version,
 };
 use clap::ValueEnum;
-use log::trace;
+use log::{trace, warn};
 use oci_distribution::Reference;
 use serde::Deserialize;
 use serde_json::Value;
@@ -247,7 +247,11 @@ impl ImageMetadata {
             self.labels
                 .get(IMAGE_VERSION_LABEL)
                 .map(ToOwned::to_owned)
-                .and_then(|v| serde_json::from_value::<Version>(v).ok())?
+                .and_then(|v| {
+                    serde_json::from_value::<Version>(v)
+                        .inspect_err(|e| warn!("Failed to parse version:\n{e}"))
+                        .ok()
+                })?
                 .major,
         )
     }

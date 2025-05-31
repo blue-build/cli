@@ -38,7 +38,7 @@ modules:
     containerfiles:
       - labels
     snippets:
-      - RUN echo "This is a snippet" && ostree container commit
+      - RUN echo "This is a snippet"
 
   - type: copy
     from: alpine-test
