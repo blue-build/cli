@@ -5,5 +5,5 @@ set -euo pipefail
 rm -rf /tmp/* /var/*
 
 if command -v bootc > /dev/null; then
-  bootc lint
+  bootc container lint
 fi
