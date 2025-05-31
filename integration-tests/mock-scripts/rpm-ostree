@@ -3,11 +3,11 @@
 set -euo pipefail
 
 if [ "$1" = "rebase" ]; then
-  if [ "$2" = "ostree-unverified-image:oci-archive:$BB_TEST_LOCAL_IMAGE" ]; then
+  if [ "$2" = "ostree-unverified-image:containers-storage:$BB_TEST_LOCAL_IMAGE" ]; then
     echo "Rebased to local image $BB_TEST_LOCAL_IMAGE"
   else
-   echo "Failed to rebase"
-   exit 1
+    echo "Failed to rebase"
+    exit 1
   fi
 elif [ "$1" = "upgrade" ]; then
   echo "Performing upgrade for $BB_TEST_LOCAL_IMAGE"

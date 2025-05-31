@@ -36,7 +36,7 @@ use crate::{
     signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
 };
 
-use super::opts::{CreateContainerOpts, RemoveContainerOpts, RemoveImageOpts};
+use super::opts::{CreateContainerOpts, PruneOpts, RemoveContainerOpts, RemoveImageOpts};
 
 #[derive(Debug, Deserialize)]
 struct VerisonJsonClient {
@@ -192,7 +192,7 @@ impl DriverVersion for DockerDriver {
 }
 
 impl BuildDriver for DockerDriver {
-    fn build(opts: &BuildOpts) -> Result<()> {
+    fn build(opts: BuildOpts) -> Result<()> {
         trace!("DockerDriver::build({opts:#?})");
 
         let temp_dir = TempDir::new()
@@ -232,7 +232,7 @@ impl BuildDriver for DockerDriver {
                         repository = cache_to.repository(),
                     ),
                 ],
-                &*opts.containerfile,
+                opts.containerfile,
                 ".",
             );
             trace!("{c:?}");
@@ -249,7 +249,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn tag(opts: &TagOpts) -> Result<()> {
+    fn tag(opts: TagOpts) -> Result<()> {
         trace!("DockerDriver::tag({opts:#?})");
 
         let dest_image_str = opts.dest_image.to_string();
@@ -270,7 +270,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn push(opts: &PushOpts) -> Result<()> {
+    fn push(opts: PushOpts) -> Result<()> {
         trace!("DockerDriver::push({opts:#?})");
 
         let image_str = opts.image.to_string();
@@ -328,7 +328,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn prune(opts: &super::opts::PruneOpts) -> Result<()> {
+    fn prune(opts: PruneOpts) -> Result<()> {
         trace!("DockerDriver::prune({opts:?})");
 
         let (system, buildx) = std::thread::scope(
@@ -385,7 +385,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn build_tag_push(opts: &BuildTagPushOpts) -> Result<Vec<String>> {
+    fn build_tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
         trace!("DockerDriver::build_tag_push({opts:#?})");
 
         let temp_dir = TempDir::new()
@@ -420,7 +420,7 @@ impl BuildDriver for DockerDriver {
 }
 
 fn build_tag_push_cmd(
-    opts: &BuildTagPushOpts<'_>,
+    opts: BuildTagPushOpts<'_>,
     first_image: &str,
     temp_dir: &TempDir,
 ) -> Result<Command> {
@@ -461,7 +461,7 @@ fn build_tag_push_cmd(
             platform.to_string(),
         ],
         "-f",
-        &*opts.containerfile,
+        opts.containerfile,
         if let Some(cache_from) = opts.cache_from.as_ref() => [
             "--cache-from",
             format!(
@@ -479,7 +479,7 @@ fn build_tag_push_cmd(
     Ok(c)
 }
 
-fn get_final_images(opts: &BuildTagPushOpts<'_>) -> Vec<String> {
+fn get_final_images(opts: BuildTagPushOpts<'_>) -> Vec<String> {
     match &opts.image {
         ImageRef::Remote(image) => {
             if opts.tags.is_empty() {
@@ -495,11 +495,14 @@ fn get_final_images(opts: &BuildTagPushOpts<'_>) -> Vec<String> {
         ImageRef::LocalTar(archive_path) => {
             string_vec![archive_path.display().to_string()]
         }
+        ImageRef::Other(other) => {
+            string_vec![&**other]
+        }
     }
 }
 
 impl InspectDriver for DockerDriver {
-    fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+    fn get_metadata(opts: GetMetadataOpts) -> Result<ImageMetadata> {
         get_metadata_cache(opts)
     }
 }
@@ -510,7 +513,7 @@ impl InspectDriver for DockerDriver {
     convert = r#"{ format!("{}-{:?}", opts.image, opts.platform)}"#,
     sync_writes = "by_key"
 )]
-fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+fn get_metadata_cache(opts: GetMetadataOpts) -> Result<ImageMetadata> {
     trace!("DockerDriver::get_metadata({opts:#?})");
     let image_str = opts.image.to_string();
 
@@ -547,7 +550,7 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
 }
 
 impl RunDriver for DockerDriver {
-    fn run(opts: &RunOpts) -> Result<ExitStatus> {
+    fn run(opts: RunOpts) -> Result<ExitStatus> {
         trace!("DockerDriver::run({opts:#?})");
 
         let cid_path = TempDir::new().into_diagnostic()?;
@@ -557,7 +560,7 @@ impl RunDriver for DockerDriver {
         add_cid(&cid);
 
         let status = docker_run(opts, &cid_file)
-            .build_status(&*opts.image, "Running container")
+            .build_status(opts.image, "Running container")
             .into_diagnostic()?;
 
         remove_cid(&cid);
@@ -565,7 +568,7 @@ impl RunDriver for DockerDriver {
         Ok(status)
     }
 
-    fn run_output(opts: &RunOpts) -> Result<std::process::Output> {
+    fn run_output(opts: RunOpts) -> Result<std::process::Output> {
         trace!("DockerDriver::run({opts:#?})");
 
         let cid_path = TempDir::new().into_diagnostic()?;
@@ -581,7 +584,7 @@ impl RunDriver for DockerDriver {
         Ok(output)
     }
 
-    fn create_container(opts: &CreateContainerOpts) -> Result<super::types::ContainerId> {
+    fn create_container(opts: CreateContainerOpts) -> Result<super::types::ContainerId> {
         trace!("DockerDriver::create_container({opts:?})");
 
         let output = {
@@ -601,7 +604,7 @@ impl RunDriver for DockerDriver {
         ))
     }
 
-    fn remove_container(opts: &RemoveContainerOpts) -> Result<()> {
+    fn remove_container(opts: RemoveContainerOpts) -> Result<()> {
         trace!("DockerDriver::remove_container({opts:?})");
 
         let output = {
@@ -619,7 +622,7 @@ impl RunDriver for DockerDriver {
         Ok(())
     }
 
-    fn remove_image(opts: &RemoveImageOpts) -> Result<()> {
+    fn remove_image(opts: RemoveImageOpts) -> Result<()> {
         trace!("DockerDriver::remove_image({opts:?})");
 
         let output = {
@@ -675,7 +678,7 @@ impl RunDriver for DockerDriver {
     }
 }
 
-fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
+fn docker_run(opts: RunOpts, cid_file: &Path) -> Command {
     let command = cmd!(
         "docker",
         "run",
@@ -693,7 +696,7 @@ fn docker_run(opts: &RunOpts, cid_file: &Path) -> Command {
             "--env",
             format!("{key}={value}"),
         ],
-        &*opts.image,
+        opts.image,
         for arg in opts.args.iter() => &**arg,
     );
     trace!("{command:?}");

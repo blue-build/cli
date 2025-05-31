@@ -1,13 +1,14 @@
 use std::{
     collections::HashMap,
+    ops::Not,
     path::Path,
     process::{Command, ExitStatus},
     time::Duration,
 };
 
 use blue_build_utils::{
-    constants::SUDO_ASKPASS, credentials::Credentials, has_env_var, running_as_root,
-    secret::SecretArgs, semver::Version,
+    constants::USER, credentials::Credentials, get_env_var, secret::SecretArgs, semver::Version,
+    sudo_cmd,
 };
 use cached::proc_macro::cached;
 use colored::Colorize;
@@ -21,7 +22,10 @@ use tempfile::TempDir;
 
 use super::{
     ContainerMountDriver, RechunkDriver,
-    opts::{CreateContainerOpts, RemoveContainerOpts, RemoveImageOpts},
+    opts::{
+        ContainerOpts, CreateContainerOpts, PruneOpts, RemoveContainerOpts, RemoveImageOpts,
+        VolumeOpts,
+    },
     types::{ContainerId, MountId},
 };
 use crate::{
@@ -108,6 +112,42 @@ struct PodmanVersionJson {
 #[derive(Debug)]
 pub struct PodmanDriver;
 
+impl PodmanDriver {
+    /// Copy an image from the user container
+    /// store to the root container store for
+    /// booting off of.
+    ///
+    /// # Errors
+    /// Will error if the image can't be copied.
+    pub fn copy_image_to_root_store(image: &Reference) -> Result<()> {
+        let image = image.whole();
+        let status = {
+            let c = sudo_cmd!(
+                prompt = SUDO_PROMPT,
+                "podman",
+                "image",
+                "scp",
+                format!("{}@localhost::{image}", get_env_var(USER)?),
+                "root@localhost::"
+            );
+            trace!("{c:?}");
+            c
+        }
+        .build_status(&image, "Copying image to root container store")
+        // .status()
+        .into_diagnostic()?;
+
+        if status.success().not() {
+            bail!(
+                "Failed to copy image {} to root container store",
+                image.bold()
+            );
+        }
+
+        Ok(())
+    }
+}
+
 impl DriverVersion for PodmanDriver {
     // First podman version to use buildah v1.24
     // https://github.com/containers/podman/blob/main/RELEASE_NOTES.md#400
@@ -134,29 +174,17 @@ impl DriverVersion for PodmanDriver {
 }
 
 impl BuildDriver for PodmanDriver {
-    fn build(opts: &BuildOpts) -> Result<()> {
+    fn build(opts: BuildOpts) -> Result<()> {
         trace!("PodmanDriver::build({opts:#?})");
 
         let temp_dir = TempDir::new()
             .into_diagnostic()
             .wrap_err("Failed to create temporary directory for secrets")?;
 
-        let use_sudo = opts.privileged && !running_as_root();
-        let command = cmd!(
-            if use_sudo {
-                "sudo"
-            } else {
-                "podman"
-            },
-            if use_sudo && has_env_var(SUDO_ASKPASS) => [
-                "-A",
-                "-p",
-                SUDO_PROMPT,
-            ],
-            if use_sudo => [
-                "--preserve-env",
-                "podman",
-            ],
+        let command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
+            "podman",
             "build",
             if let Some(platform) = opts.platform => [
                 "--platform",
@@ -182,7 +210,7 @@ impl BuildDriver for PodmanDriver {
             if opts.host_network => "--net=host",
             format!("--layers={}", !opts.squash),
             "-f",
-            &*opts.containerfile,
+            opts.containerfile,
             "-t",
             opts.image.to_string(),
             for opts.secrets.args(&temp_dir)?,
@@ -203,24 +231,15 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
-    fn tag(opts: &TagOpts) -> Result<()> {
+    fn tag(opts: TagOpts) -> Result<()> {
         trace!("PodmanDriver::tag({opts:#?})");
 
         let dest_image_str = opts.dest_image.to_string();
 
-        let use_sudo = opts.privileged && !running_as_root();
-        let mut command = cmd!(
-            if use_sudo {
-                "sudo"
-            } else {
-                "podman"
-            },
-            if use_sudo && has_env_var(SUDO_ASKPASS) => [
-                "-A",
-                "-p",
-                SUDO_PROMPT,
-            ],
-            if use_sudo => "podman",
+        let mut command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
+            "podman",
             "tag",
             opts.src_image.to_string(),
             &dest_image_str
@@ -237,24 +256,15 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
-    fn push(opts: &PushOpts) -> Result<()> {
+    fn push(opts: PushOpts) -> Result<()> {
         trace!("PodmanDriver::push({opts:#?})");
 
         let image_str = opts.image.to_string();
 
-        let use_sudo = opts.privileged && !running_as_root();
-        let command = cmd!(
-            if use_sudo {
-                "sudo"
-            } else {
-                "podman"
-            },
-            if use_sudo && has_env_var(SUDO_ASKPASS) => [
-                "-A",
-                "-p",
-                SUDO_PROMPT,
-            ],
-            if use_sudo => "podman",
+        let command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
+            "podman",
             "push",
             format!(
                 "--compression-format={}",
@@ -312,7 +322,7 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
-    fn prune(opts: &super::opts::PruneOpts) -> Result<()> {
+    fn prune(opts: PruneOpts) -> Result<()> {
         trace!("PodmanDriver::prune({opts:?})");
 
         let status = {
@@ -339,7 +349,7 @@ impl BuildDriver for PodmanDriver {
 }
 
 impl InspectDriver for PodmanDriver {
-    fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+    fn get_metadata(opts: GetMetadataOpts) -> Result<ImageMetadata> {
         get_metadata_cache(opts)
     }
 }
@@ -350,7 +360,7 @@ impl InspectDriver for PodmanDriver {
     convert = r#"{ format!("{}-{:?}", opts.image, opts.platform)}"#,
     sync_writes = "by_key"
 )]
-fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+fn get_metadata_cache(opts: GetMetadataOpts) -> Result<ImageMetadata> {
     trace!("PodmanDriver::get_metadata({opts:#?})");
 
     let image_str = opts.image.to_string();
@@ -409,21 +419,12 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
 }
 
 impl ContainerMountDriver for PodmanDriver {
-    fn mount_container(opts: &super::opts::ContainerOpts) -> Result<MountId> {
-        let use_sudo = opts.privileged && !running_as_root();
+    fn mount_container(opts: ContainerOpts) -> Result<MountId> {
         let output = {
-            let c = cmd!(
-                if use_sudo {
-                    "sudo"
-                } else {
-                    "podman"
-                },
-                if use_sudo && has_env_var(SUDO_ASKPASS) => [
-                    "-A",
-                    "-p",
-                    SUDO_PROMPT,
-                ],
-                if use_sudo => "podman",
+            let c = sudo_cmd!(
+                prompt = SUDO_PROMPT,
+                sudo_check = opts.privileged,
+                "podman",
                 "mount",
                 opts.container_id,
             );
@@ -442,21 +443,12 @@ impl ContainerMountDriver for PodmanDriver {
         ))
     }
 
-    fn unmount_container(opts: &super::opts::ContainerOpts) -> Result<()> {
-        let use_sudo = opts.privileged && !running_as_root();
+    fn unmount_container(opts: ContainerOpts) -> Result<()> {
         let output = {
-            let c = cmd!(
-                if use_sudo {
-                    "sudo"
-                } else {
-                    "podman"
-                },
-                if use_sudo && has_env_var(SUDO_ASKPASS) => [
-                    "-A",
-                    "-p",
-                    SUDO_PROMPT,
-                ],
-                if use_sudo => "podman",
+            let c = sudo_cmd!(
+                prompt = SUDO_PROMPT,
+                sudo_check = opts.privileged,
+                "podman",
                 "unmount",
                 opts.container_id
             );
@@ -473,24 +465,15 @@ impl ContainerMountDriver for PodmanDriver {
         Ok(())
     }
 
-    fn remove_volume(opts: &super::opts::VolumeOpts) -> Result<()> {
-        let use_sudo = opts.privileged && !running_as_root();
+    fn remove_volume(opts: VolumeOpts) -> Result<()> {
         let output = {
-            let c = cmd!(
-                if use_sudo {
-                    "sudo"
-                } else {
-                    "podman"
-                },
-                if use_sudo && has_env_var(SUDO_ASKPASS) => [
-                    "-A",
-                    "-p",
-                    SUDO_PROMPT,
-                ],
-                if use_sudo => "podman",
+            let c = sudo_cmd!(
+                prompt = SUDO_PROMPT,
+                sudo_check = opts.privileged,
+                "podman",
                 "volume",
                 "rm",
-                &*opts.volume_id
+                opts.volume_id
             );
             trace!("{c:?}");
             c
@@ -509,7 +492,7 @@ impl ContainerMountDriver for PodmanDriver {
 impl RechunkDriver for PodmanDriver {}
 
 impl RunDriver for PodmanDriver {
-    fn run(opts: &RunOpts) -> Result<ExitStatus> {
+    fn run(opts: RunOpts) -> Result<ExitStatus> {
         trace!("PodmanDriver::run({opts:#?})");
 
         let cid_path = TempDir::new().into_diagnostic()?;
@@ -520,7 +503,7 @@ impl RunDriver for PodmanDriver {
         add_cid(&cid);
 
         let status = podman_run(opts, &cid_file)
-            .build_status(&*opts.image, "Running container")
+            .build_status(opts.image, "Running container")
             .into_diagnostic()?;
 
         remove_cid(&cid);
@@ -528,7 +511,7 @@ impl RunDriver for PodmanDriver {
         Ok(status)
     }
 
-    fn run_output(opts: &RunOpts) -> Result<std::process::Output> {
+    fn run_output(opts: RunOpts) -> Result<std::process::Output> {
         trace!("PodmanDriver::run_output({opts:#?})");
 
         let cid_path = TempDir::new().into_diagnostic()?;
@@ -545,23 +528,14 @@ impl RunDriver for PodmanDriver {
         Ok(output)
     }
 
-    fn create_container(opts: &CreateContainerOpts) -> Result<ContainerId> {
+    fn create_container(opts: CreateContainerOpts) -> Result<ContainerId> {
         trace!("PodmanDriver::create_container({opts:?})");
 
-        let use_sudo = opts.privileged && !running_as_root();
         let output = {
-            let c = cmd!(
-                if use_sudo {
-                    "sudo"
-                } else {
-                    "podman"
-                },
-                if use_sudo && has_env_var(SUDO_ASKPASS) => [
-                    "-A",
-                    "-p",
-                    SUDO_PROMPT,
-                ],
-                if use_sudo => "podman",
+            let c = sudo_cmd!(
+                prompt = SUDO_PROMPT,
+                sudo_check = opts.privileged,
+                "podman",
                 "create",
                 opts.image.to_string(),
                 "bash"
@@ -581,23 +555,14 @@ impl RunDriver for PodmanDriver {
         ))
     }
 
-    fn remove_container(opts: &RemoveContainerOpts) -> Result<()> {
+    fn remove_container(opts: RemoveContainerOpts) -> Result<()> {
         trace!("PodmanDriver::remove_container({opts:?})");
 
-        let use_sudo = opts.privileged && !running_as_root();
         let output = {
-            let c = cmd!(
-                if use_sudo {
-                    "sudo"
-                } else {
-                    "podman"
-                },
-                if use_sudo && has_env_var(SUDO_ASKPASS) => [
-                    "-A",
-                    "-p",
-                    SUDO_PROMPT,
-                ],
-                if use_sudo => "podman",
+            let c = sudo_cmd!(
+                prompt = SUDO_PROMPT,
+                sudo_check = opts.privileged,
+                "podman",
                 "rm",
                 opts.container_id,
             );
@@ -614,23 +579,14 @@ impl RunDriver for PodmanDriver {
         Ok(())
     }
 
-    fn remove_image(opts: &RemoveImageOpts) -> Result<()> {
+    fn remove_image(opts: RemoveImageOpts) -> Result<()> {
         trace!("PodmanDriver::remove_image({opts:?})");
 
-        let use_sudo = opts.privileged && !running_as_root();
         let output = {
-            let c = cmd!(
-                if use_sudo {
-                    "sudo"
-                } else {
-                    "podman"
-                },
-                if use_sudo && has_env_var(SUDO_ASKPASS) => [
-                    "-A",
-                    "-p",
-                    SUDO_PROMPT,
-                ],
-                if use_sudo => "podman",
+            let c = sudo_cmd!(
+                prompt = SUDO_PROMPT,
+                sudo_check = opts.privileged,
+                "podman",
                 "rmi",
                 opts.image.to_string()
             );
@@ -656,20 +612,11 @@ impl RunDriver for PodmanDriver {
 
         trace!("PodmanDriver::list_images({privileged})");
 
-        let use_sudo = privileged && !running_as_root();
         let output = {
-            let c = cmd!(
-                if use_sudo {
-                    "sudo"
-                } else {
-                    "podman"
-                },
-                if use_sudo && has_env_var(SUDO_ASKPASS) => [
-                    "-A",
-                    "-p",
-                    SUDO_PROMPT,
-                ],
-                if use_sudo => "podman",
+            let c = sudo_cmd!(
+                prompt = SUDO_PROMPT,
+                sudo_check = privileged,
+                "podman",
                 "images",
                 "--format",
                 "json"
@@ -698,20 +645,11 @@ impl RunDriver for PodmanDriver {
     }
 }
 
-fn podman_run(opts: &RunOpts, cid_file: &Path) -> Command {
-    let use_sudo = opts.privileged && !running_as_root();
-    let command = cmd!(
-        if use_sudo {
-            "sudo"
-        } else {
-            "podman"
-        },
-        if use_sudo && has_env_var(SUDO_ASKPASS) => [
-            "-A",
-            "-p",
-            SUDO_PROMPT,
-        ],
-        if use_sudo => "podman",
+fn podman_run(opts: RunOpts, cid_file: &Path) -> Command {
+    let command = sudo_cmd!(
+        prompt = SUDO_PROMPT,
+        sudo_check = opts.privileged,
+        "podman",
         "run",
         format!("--cidfile={}", cid_file.display()),
         if opts.privileged => [
@@ -729,7 +667,7 @@ fn podman_run(opts: &RunOpts, cid_file: &Path) -> Command {
             "--env",
             format!("{key}={value}"),
         ],
-        &*opts.image,
+        opts.image,
         for arg in opts.args.iter() => &**arg,
     );
     trace!("{command:?}");

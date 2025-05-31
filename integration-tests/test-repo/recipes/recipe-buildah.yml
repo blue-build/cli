@@ -2,7 +2,7 @@
 # yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
 name: cli/test-buildah
 description: This is my personal OS image.
-base-image: ghcr.io/ublue-os/silverblue-main
+base-image: quay.io/fedora/fedora-bootc
 image-version: latest
 stages:
   - from-file: stages.yml

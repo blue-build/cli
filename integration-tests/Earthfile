@@ -43,8 +43,8 @@ build-full:
 switch:
     FROM +test-base
 
-    RUN mkdir -p /etc/bluebuild && touch $BB_TEST_LOCAL_IMAGE
-    RUN --no-cache bluebuild -v switch recipes/recipe.yml
+    RUN --no-cache bluebuild -v switch --boot-driver rpm-ostree recipes/recipe.yml
+    RUN --no-cache bluebuild -v switch --boot-driver bootc recipes/recipe.yml
 
 validate:
     FROM +test-base
@@ -92,7 +92,7 @@ init:
 
 legacy-base:
     FROM ../+blue-build-cli --RELEASE=false
-    ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test-legacy.tar.gz
+    ENV BB_TEST_LOCAL_IMAGE=localhost/cli/test:latest
     ENV CLICOLOR_FORCE=1
 
     COPY ./mock-scripts/ /usr/bin/
@@ -103,13 +103,14 @@ legacy-base:
     DO ../+INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl" --TAGGED="true"
 
     DO +GEN_KEYPAIR
+    ENV USER=root
 
 test-base:
     FROM ../+blue-build-cli --RELEASE=false
     RUN git config --global user.email "you@example.com" && \
         git config --global user.name "Your Name"
 
-    ENV BB_TEST_LOCAL_IMAGE=/etc/bluebuild/cli_test.tar.gz
+    ENV BB_TEST_LOCAL_IMAGE=localhost/cli/test:latest
     ENV CLICOLOR_FORCE=1
 
     ARG MOCK="true"
@@ -121,6 +122,7 @@ test-base:
     COPY ./test-repo /test
 
     DO +GEN_KEYPAIR
+    ENV USER=root
 
 GEN_KEYPAIR:
     FUNCTION

@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use blue_build_utils::string_vec;
 use comlexr::cmd;
 use log::trace;
+use miette::bail;
 
 use super::{CiDriver, Driver, opts::GenerateTagsOpts};
 
@@ -15,14 +16,14 @@ impl CiDriver for LocalDriver {
     }
 
     fn keyless_cert_identity() -> miette::Result<String> {
-        unimplemented!()
+        bail!("Unimplemented for local")
     }
 
     fn oidc_provider() -> miette::Result<String> {
-        unimplemented!()
+        bail!("Unimplemented for local")
     }
 
-    fn generate_tags(opts: &GenerateTagsOpts) -> miette::Result<Vec<String>> {
+    fn generate_tags(opts: GenerateTagsOpts) -> miette::Result<Vec<String>> {
         trace!("LocalDriver::generate_tags({opts:?})");
         let os_version = Driver::get_os_version()
             .oci_ref(opts.oci_ref)

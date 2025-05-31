@@ -88,6 +88,7 @@ pub const OSTREE_IMAGE_SIGNED: &str = "ostree-image-signed";
 pub const OSTREE_UNVERIFIED_IMAGE: &str = "ostree-unverified-image";
 pub const SKOPEO_IMAGE: &str = "quay.io/skopeo/stable:latest";
 pub const TEMPLATE_REPO_URL: &str = "https://github.com/blue-build/template.git";
+pub const USER: &str = "USER";
 pub const UNKNOWN_SHELL: &str = "<unknown shell>";
 pub const UNKNOWN_VERSION: &str = "<unknown version>";
 pub const UNKNOWN_TERMINAL: &str = "<unknown terminal>";
@@ -110,3 +111,4 @@ pub const STAGE_SCHEMA: &str = concat!(JSON_SCHEMA, "/stage-v1.json");
 // Messages
 pub const BUG_REPORT_WARNING_MESSAGE: &str =
     "Please copy the above report and open an issue manually.";
+pub const SUDO_PROMPT: &str = "Bluebuild requires your password for sudo operation";

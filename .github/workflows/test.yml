@@ -207,8 +207,8 @@ jobs:
 
   arm64-build:
     timeout-minutes: 90
-    # runs-on: ubuntu-24.04-arm
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
+    # runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -218,8 +218,8 @@ jobs:
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@cc0becac701cf642c8f0a6613bbdaf5dc36b259e # v9
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+      # - name: Set up QEMU
+      #   uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
       - uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
 

@@ -518,8 +518,8 @@ impl InitCommand {
             .with_context(|| format!("Failed to delete old public file {COSIGN_PUB_PATH}"))?;
 
         Driver::generate_key_pair(
-            &GenerateKeyPairOpts::builder()
-                .maybe_dir(self.dir.as_ref())
+            GenerateKeyPairOpts::builder()
+                .maybe_dir(self.dir.as_deref())
                 .build(),
         )
     }

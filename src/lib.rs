@@ -4,4 +4,3 @@
 shadow_rs::shadow!(shadow);
 
 pub mod commands;
-pub mod rpm_ostree_status;

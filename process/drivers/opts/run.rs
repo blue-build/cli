@@ -1,26 +1,21 @@
-use std::borrow::Cow;
-
 use bon::Builder;
 use oci_distribution::Reference;
 
 use crate::drivers::types::ContainerId;
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct RunOpts<'scope> {
-    #[builder(into)]
-    pub image: Cow<'scope, str>,
+    pub image: &'scope str,
 
-    #[builder(default, into)]
-    pub args: Vec<Cow<'scope, str>>,
+    #[builder(default)]
+    pub args: &'scope [String],
 
-    #[builder(default, into)]
-    pub env_vars: Vec<RunOptsEnv<'scope>>,
+    #[builder(default)]
+    pub env_vars: &'scope [RunOptsEnv<'scope>],
 
-    #[builder(default, into)]
-    pub volumes: Vec<RunOptsVolume<'scope>>,
-
-    #[builder(into)]
-    pub user: Option<Cow<'scope, str>>,
+    #[builder(default)]
+    pub volumes: &'scope [RunOptsVolume<'scope>],
+    pub user: Option<&'scope str>,
 
     #[builder(default)]
     pub privileged: bool,
@@ -32,13 +27,10 @@ pub struct RunOpts<'scope> {
     pub remove: bool,
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct RunOptsVolume<'scope> {
-    #[builder(into)]
-    pub path_or_vol_name: Cow<'scope, str>,
-
-    #[builder(into)]
-    pub container_path: Cow<'scope, str>,
+    pub path_or_vol_name: &'scope str,
+    pub container_path: &'scope str,
 }
 
 #[macro_export]
@@ -55,13 +47,10 @@ macro_rules! run_volumes {
     };
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct RunOptsEnv<'scope> {
-    #[builder(into)]
-    pub key: Cow<'scope, str>,
-
-    #[builder(into)]
-    pub value: Cow<'scope, str>,
+    pub key: &'scope str,
+    pub value: &'scope str,
 }
 
 #[macro_export]
@@ -78,7 +67,7 @@ macro_rules! run_envs {
     };
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct CreateContainerOpts<'scope> {
     pub image: &'scope Reference,
 
@@ -86,7 +75,7 @@ pub struct CreateContainerOpts<'scope> {
     pub privileged: bool,
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct RemoveContainerOpts<'scope> {
     pub container_id: &'scope ContainerId,
 
@@ -94,7 +83,7 @@ pub struct RemoveContainerOpts<'scope> {
     pub privileged: bool,
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct RemoveImageOpts<'scope> {
     pub image: &'scope Reference,
 
