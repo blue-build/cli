@@ -11,17 +11,11 @@ pub mod bug_report;
 pub mod build;
 pub mod completions;
 pub mod generate;
-#[cfg(feature = "iso")]
 pub mod generate_iso;
-#[cfg(feature = "init")]
 pub mod init;
-#[cfg(feature = "login")]
 pub mod login;
-#[cfg(feature = "prune")]
 pub mod prune;
-#[cfg(feature = "switch")]
 pub mod switch;
-#[cfg(feature = "validate")]
 pub mod validate;
 
 pub trait BlueBuildCommand {
@@ -73,7 +67,6 @@ pub enum CommandArgs {
     Generate(generate::GenerateCommand),
 
     /// Generate an ISO for an image or recipe.
-    #[cfg(feature = "iso")]
     GenerateIso(generate_iso::GenerateIsoCommand),
 
     /// Switch your current OS onto the image
@@ -85,7 +78,6 @@ pub enum CommandArgs {
     ///
     /// NOTE: This can only be used if you have `rpm-ostree`
     /// installed. This image will not be signed.
-    #[cfg(feature = "switch")]
     #[command(
         visible_alias("update"),
         visible_alias("upgrade"),
@@ -94,24 +86,19 @@ pub enum CommandArgs {
     Switch(switch::SwitchCommand),
 
     /// Login to all services used for building.
-    #[cfg(feature = "login")]
     Login(login::LoginCommand),
 
     /// Create a new bluebuild project.
-    #[cfg(feature = "init")]
     New(init::NewCommand),
 
     /// Create a new bluebuild project.
-    #[cfg(feature = "init")]
     Init(init::InitCommand),
 
     /// Validate your recipe file and display
     /// errors to help fix problems.
-    #[cfg(feature = "validate")]
     Validate(Box<validate::ValidateCommand>),
 
     /// Clean up cache and images for build drivers.
-    #[cfg(feature = "prune")]
     Prune(prune::PruneCommand),
 
     /// Create a pre-populated GitHub issue with information about your configuration

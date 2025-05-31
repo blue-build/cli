@@ -19,9 +19,7 @@ use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Result};
 use oci_distribution::Reference;
 
-#[cfg(feature = "validate")]
-use crate::commands::validate::ValidateCommand;
-use crate::shadow;
+use crate::{commands::validate::ValidateCommand, shadow};
 
 use super::BlueBuildCommand;
 
@@ -103,7 +101,6 @@ impl GenerateCommand {
             }
         });
 
-        #[cfg(feature = "validate")]
         ValidateCommand::builder()
             .recipe(recipe_path.clone())
             .build()

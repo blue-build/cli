@@ -233,7 +233,6 @@ mod test {
     }
 
     #[test]
-    #[cfg(feature = "sigstore")]
     fn compatibility() {
         use crate::drivers::sigstore_driver::SigstoreDriver;
 

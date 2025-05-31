@@ -99,7 +99,6 @@ impl DetermineDriver<BuildDriverType> for Option<BuildDriverType> {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum SigningDriverType {
     Cosign,
-    #[cfg(feature = "sigstore")]
     Sigstore,
 }
 
@@ -107,18 +106,10 @@ impl DetermineDriver<SigningDriverType> for Option<SigningDriverType> {
     fn determine_driver(&mut self) -> SigningDriverType {
         trace!("SigningDriverType::determine_signing_driver()");
 
-        #[cfg(feature = "sigstore")]
-        {
-            *self.get_or_insert(
-                blue_build_utils::check_command_exists("cosign")
-                    .map_or(SigningDriverType::Sigstore, |()| SigningDriverType::Cosign),
-            )
-        }
-
-        #[cfg(not(feature = "sigstore"))]
-        {
-            SigningDriverType::Cosign
-        }
+        *self.get_or_insert(
+            blue_build_utils::check_command_exists("cosign")
+                .map_or(SigningDriverType::Sigstore, |()| SigningDriverType::Cosign),
+        )
     }
 }
 
@@ -272,49 +263,41 @@ impl AsRef<std::ffi::OsStr> for ContainerId {
     }
 }
 
-#[cfg(feature = "rechunk")]
 pub struct MountId(pub(super) String);
 
-#[cfg(feature = "rechunk")]
 impl std::fmt::Display for MountId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", &self.0)
     }
 }
 
-#[cfg(feature = "rechunk")]
 impl AsRef<std::ffi::OsStr> for MountId {
     fn as_ref(&self) -> &std::ffi::OsStr {
         self.0.as_ref()
     }
 }
 
-#[cfg(feature = "rechunk")]
 impl<'a> From<&'a MountId> for std::borrow::Cow<'a, str> {
     fn from(value: &'a MountId) -> Self {
         Self::Borrowed(&value.0)
     }
 }
 
-#[cfg(feature = "rechunk")]
 #[derive(Debug, Clone)]
 pub struct OciDir(String);
 
-#[cfg(feature = "rechunk")]
 impl std::fmt::Display for OciDir {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", &self.0)
     }
 }
 
-#[cfg(feature = "rechunk")]
 impl AsRef<std::ffi::OsStr> for OciDir {
     fn as_ref(&self) -> &std::ffi::OsStr {
         self.0.as_ref()
     }
 }
 
-#[cfg(feature = "rechunk")]
 impl TryFrom<std::path::PathBuf> for OciDir {
     type Error = miette::Report;
 

@@ -3,7 +3,6 @@ use clap::ValueEnum;
 pub use build::*;
 pub use ci::*;
 pub use inspect::*;
-#[cfg(feature = "rechunk")]
 pub use rechunk::*;
 pub use run::*;
 pub use signing::*;
@@ -11,7 +10,6 @@ pub use signing::*;
 mod build;
 mod ci;
 mod inspect;
-#[cfg(feature = "rechunk")]
 mod rechunk;
 mod run;
 mod signing;

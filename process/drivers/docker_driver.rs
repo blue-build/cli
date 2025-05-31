@@ -321,7 +321,6 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    #[cfg(feature = "prune")]
     fn prune(opts: &super::opts::PruneOpts) -> Result<()> {
         trace!("DockerDriver::prune({opts:?})");
 

@@ -21,38 +21,16 @@ fn main() {
     log::trace!("Parsed arguments: {args:#?}");
 
     signal_handler::init(|| match args.command {
-        // #[cfg(feature = "init")]
-        // CommandArgs::Init(mut command) => command.run(),
-
-        // #[cfg(feature = "init")]
-        // CommandArgs::New(mut command) => command.run(),
         CommandArgs::Build(mut command) => command.run(),
-
         CommandArgs::Generate(mut command) => command.run(),
-
-        #[cfg(feature = "switch")]
         CommandArgs::Switch(mut command) => command.run(),
-
-        #[cfg(feature = "login")]
         CommandArgs::Login(mut command) => command.run(),
-
-        #[cfg(feature = "init")]
         CommandArgs::New(mut command) => command.run(),
-
-        #[cfg(feature = "init")]
         CommandArgs::Init(mut command) => command.run(),
-
-        #[cfg(feature = "iso")]
         CommandArgs::GenerateIso(mut command) => command.run(),
-
-        #[cfg(feature = "validate")]
         CommandArgs::Validate(mut command) => command.run(),
-
-        #[cfg(feature = "prune")]
         CommandArgs::Prune(mut command) => command.run(),
-
         CommandArgs::BugReport(mut command) => command.run(),
-
         CommandArgs::Completions(mut command) => command.run(),
     });
 }

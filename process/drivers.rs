@@ -39,10 +39,9 @@ use crate::logging::Logger;
 pub use self::{
     buildah_driver::BuildahDriver, cosign_driver::CosignDriver, docker_driver::DockerDriver,
     github_driver::GithubDriver, gitlab_driver::GitlabDriver, local_driver::LocalDriver,
-    podman_driver::PodmanDriver, skopeo_driver::SkopeoDriver, traits::*,
+    podman_driver::PodmanDriver, sigstore_driver::SigstoreDriver, skopeo_driver::SkopeoDriver,
+    traits::*,
 };
-#[cfg(feature = "sigstore")]
-pub use sigstore_driver::SigstoreDriver;
 
 mod buildah_driver;
 mod cosign_driver;
@@ -53,7 +52,6 @@ mod gitlab_driver;
 mod local_driver;
 pub mod opts;
 mod podman_driver;
-#[cfg(feature = "sigstore")]
 mod sigstore_driver;
 mod skopeo_driver;
 mod traits;
@@ -335,7 +333,6 @@ impl BuildDriver for Driver {
         impl_build_driver!(login())
     }
 
-    #[cfg(feature = "prune")]
     fn prune(opts: &opts::PruneOpts) -> Result<()> {
         impl_build_driver!(prune(opts))
     }
@@ -349,8 +346,6 @@ macro_rules! impl_signing_driver {
     ($func:ident($($args:expr),*)) => {
         match Self::get_signing_driver() {
             SigningDriverType::Cosign => CosignDriver::$func($($args,)*),
-
-            #[cfg(feature = "sigstore")]
             SigningDriverType::Sigstore => SigstoreDriver::$func($($args,)*),
         }
     };
@@ -476,7 +471,6 @@ impl CiDriver for Driver {
     }
 }
 
-#[cfg(feature = "rechunk")]
 impl ContainerMountDriver for Driver {
     fn mount_container(opts: &opts::ContainerOpts) -> Result<types::MountId> {
         PodmanDriver::mount_container(opts)
@@ -491,14 +485,12 @@ impl ContainerMountDriver for Driver {
     }
 }
 
-#[cfg(feature = "rechunk")]
 impl OciCopy for Driver {
     fn copy_oci_dir(opts: &opts::CopyOciDirOpts) -> Result<()> {
         SkopeoDriver::copy_oci_dir(opts)
     }
 }
 
-#[cfg(feature = "rechunk")]
 impl RechunkDriver for Driver {
     fn rechunk(opts: &opts::RechunkOpts) -> Result<Vec<String>> {
         PodmanDriver::rechunk(opts)

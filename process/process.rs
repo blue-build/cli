@@ -6,7 +6,6 @@ pub mod drivers;
 pub mod logging;
 pub mod signal_handler;
 
-#[cfg(any(feature = "sigstore", feature = "validate"))]
 pub static ASYNC_RUNTIME: std::sync::LazyLock<tokio::runtime::Runtime> =
     std::sync::LazyLock::new(|| {
         tokio::runtime::Builder::new_multi_thread()

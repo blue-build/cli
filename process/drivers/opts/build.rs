@@ -54,7 +54,6 @@ pub struct PushOpts<'scope> {
 }
 
 #[derive(Debug, Clone, Builder)]
-#[cfg(feature = "prune")]
 pub struct PruneOpts {
     pub all: bool,
     pub volumes: bool,

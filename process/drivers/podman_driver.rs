@@ -19,6 +19,11 @@ use oci_distribution::Reference;
 use serde::Deserialize;
 use tempfile::TempDir;
 
+use super::{
+    ContainerMountDriver, RechunkDriver,
+    opts::{CreateContainerOpts, RemoveContainerOpts, RemoveImageOpts},
+    types::{ContainerId, MountId},
+};
 use crate::{
     drivers::{
         BuildDriver, DriverVersion, InspectDriver, RunDriver,
@@ -27,13 +32,6 @@ use crate::{
     },
     logging::{CommandLogging, Logger},
     signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
-};
-
-#[cfg(feature = "rechunk")]
-use super::{ContainerMountDriver, RechunkDriver, types::MountId};
-use super::{
-    opts::{CreateContainerOpts, RemoveContainerOpts, RemoveImageOpts},
-    types::ContainerId,
 };
 
 const SUDO_PROMPT: &str = "Password for %u required to run 'podman' as privileged";
@@ -305,7 +303,6 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
-    #[cfg(feature = "prune")]
     fn prune(opts: &super::opts::PruneOpts) -> Result<()> {
         trace!("PodmanDriver::prune({opts:?})");
 
@@ -402,7 +399,6 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
         .inspect(|metadata| trace!("{metadata:#?}"))
 }
 
-#[cfg(feature = "rechunk")]
 impl ContainerMountDriver for PodmanDriver {
     fn mount_container(opts: &super::opts::ContainerOpts) -> Result<MountId> {
         let use_sudo = opts.privileged && !running_as_root();
@@ -501,7 +497,6 @@ impl ContainerMountDriver for PodmanDriver {
     }
 }
 
-#[cfg(feature = "rechunk")]
 impl RechunkDriver for PodmanDriver {}
 
 impl RunDriver for PodmanDriver {

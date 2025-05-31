@@ -23,13 +23,7 @@ struct BuildahVersionJson {
 pub struct BuildahDriver;
 
 impl DriverVersion for BuildahDriver {
-    // RUN mounts for bind, cache, and tmpfs first supported in 1.24.0
-    // https://buildah.io/releases/#changes-for-v1240
-    #[cfg(not(feature = "prune"))]
-    const VERSION_REQ: &'static str = ">=1.24";
-
     // The prune command wasn't present until 1.29
-    #[cfg(feature = "prune")]
     const VERSION_REQ: &'static str = ">=1.29";
 
     fn version() -> Result<Version> {
@@ -194,7 +188,6 @@ impl BuildDriver for BuildahDriver {
         Ok(())
     }
 
-    #[cfg(feature = "prune")]
     fn prune(opts: &super::opts::PruneOpts) -> Result<()> {
         trace!("PodmanDriver::prune({opts:?})");
 

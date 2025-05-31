@@ -148,24 +148,12 @@ impl BlueBuildCommand for GenerateIsoCommand {
         };
 
         if let GenIsoSubcommand::Recipe { recipe } = &self.command {
-            #[cfg(feature = "multi-recipe")]
-            let mut build_command = {
-                BuildCommand::builder()
-                    .recipe(vec![recipe.clone()])
-                    .archive(image_out_dir.path())
-                    .maybe_tempdir(self.tempdir.clone())
-                    .build()
-            };
-            #[cfg(not(feature = "multi-recipe"))]
-            let mut build_command = {
-                BuildCommand::builder()
-                    .recipe(recipe.clone())
-                    .archive(image_out_dir.path())
-                    .maybe_tempdir(self.tempdir.clone())
-                    .build()
-            };
-
-            build_command.try_run()?;
+            BuildCommand::builder()
+                .recipe(vec![recipe.clone()])
+                .archive(image_out_dir.path())
+                .maybe_tempdir(self.tempdir.clone())
+                .build()
+                .try_run()?;
         }
 
         let iso_name = self.iso_name.as_ref().map_or("deploy.iso", String::as_str);

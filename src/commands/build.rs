@@ -27,6 +27,7 @@ use clap::Args;
 use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
+use rayon::prelude::*;
 use tempfile::TempDir;
 
 use crate::commands::generate::GenerateCommand;
@@ -38,15 +39,8 @@ use super::BlueBuildCommand;
 pub struct BuildCommand {
     /// The recipe file to build an image
     #[arg()]
-    #[cfg(feature = "multi-recipe")]
     #[builder(into)]
     recipe: Option<Vec<PathBuf>>,
-
-    /// The recipe file to build an image
-    #[arg()]
-    #[cfg(not(feature = "multi-recipe"))]
-    #[builder(into)]
-    recipe: Option<PathBuf>,
 
     /// Push the image with all the tags.
     ///
@@ -120,7 +114,6 @@ pub struct BuildCommand {
     /// NOTE: This must be run as root!
     #[arg(long, group = "archive_rechunk", env = blue_build_utils::constants::BB_BUILD_RECHUNK)]
     #[builder(default)]
-    #[cfg(feature = "rechunk")]
     rechunk: bool,
 
     /// Use a fresh rechunk plan, regardless of previous ref.
@@ -128,7 +121,6 @@ pub struct BuildCommand {
     /// NOTE: Only works with `--rechunk`.
     #[arg(long, env = blue_build_utils::constants::BB_BUILD_RECHUNK_CLEAR_PLAN)]
     #[builder(default)]
-    #[cfg(feature = "rechunk")]
     rechunk_clear_plan: bool,
 
     /// The location to temporarily store files
@@ -177,11 +169,7 @@ impl BlueBuildCommand for BuildCommand {
         } else {
             TempDir::new().into_diagnostic()?
         };
-
-        #[cfg(feature = "multi-recipe")]
-        {
-            use rayon::prelude::*;
-            let recipe_paths = self.recipe.clone().map_or_else(|| {
+        let recipe_paths = self.recipe.clone().map_or_else(|| {
                 let legacy_path = Path::new(CONFIG_PATH);
                 let recipe_path = Path::new(RECIPE_PATH);
                 if recipe_path.exists() && recipe_path.is_dir() {
@@ -197,50 +185,25 @@ impl BlueBuildCommand for BuildCommand {
                 recipes.into_iter().filter(|recipe| same.insert(recipe.clone())).collect()
             });
 
-            recipe_paths.par_iter().try_for_each(|recipe| {
-                GenerateCommand::builder()
-                    .output(tempdir.path().join(if recipe_paths.len() > 1 {
-                        blue_build_utils::generate_containerfile_path(recipe)?
-                    } else {
-                        PathBuf::from(CONTAINER_FILE)
-                    }))
-                    .platform(self.platform)
-                    .recipe(recipe)
-                    .drivers(self.drivers)
-                    .build()
-                    .try_run()
-            })?;
-
-            self.start(&recipe_paths, tempdir.path())
-        }
-
-        #[cfg(not(feature = "multi-recipe"))]
-        {
-            let recipe_path = self.recipe.clone().unwrap_or_else(|| {
-                let legacy_path = Path::new(CONFIG_PATH);
-                let recipe_path = Path::new(RECIPE_PATH);
-                if recipe_path.exists() && recipe_path.is_dir() {
-                    recipe_path.join(RECIPE_FILE)
-                } else {
-                    warn!("Use of {CONFIG_PATH} for recipes is deprecated, please move your recipe files into {RECIPE_PATH}");
-                    legacy_path.join(RECIPE_FILE)
-                }
-            });
-
+        recipe_paths.par_iter().try_for_each(|recipe| {
             GenerateCommand::builder()
-                .output(tempdir.path().join(CONTAINER_FILE))
-                .recipe(&recipe_path)
+                .output(tempdir.path().join(if recipe_paths.len() > 1 {
+                    blue_build_utils::generate_containerfile_path(recipe)?
+                } else {
+                    PathBuf::from(CONTAINER_FILE)
+                }))
+                .platform(self.platform)
+                .recipe(recipe)
                 .drivers(self.drivers)
                 .build()
-                .try_run()?;
+                .try_run()
+        })?;
 
-            self.start(&recipe_path, tempdir.path())
-        }
+        self.start(&recipe_paths, tempdir.path())
     }
 }
 
 impl BuildCommand {
-    #[cfg(feature = "multi-recipe")]
     fn start(&self, recipe_paths: &[PathBuf], temp_dir: &Path) -> Result<()> {
         use rayon::prelude::*;
 
@@ -274,24 +237,6 @@ impl BuildCommand {
         Ok(())
     }
 
-    #[cfg(not(feature = "multi-recipe"))]
-    fn start(&self, recipe_path: &Path, temp_dir: &Path) -> Result<()> {
-        trace!("BuildCommand::start()");
-
-        let images = self.build(recipe_path, &temp_dir.join(CONTAINER_FILE))?;
-        let color = gen_random_ansi_color();
-
-        info!(
-            "Finished building:\n{}",
-            images
-                .iter()
-                .map(|image| format!("\t- {}", color_str(image, color)))
-                .collect::<Vec<_>>()
-                .join("\n")
-        );
-        Ok(())
-    }
-
     fn build(&self, recipe_path: &Path, containerfile: &Path) -> Result<Vec<String>> {
         let recipe = Recipe::parse(recipe_path)?;
         let tags = Driver::generate_tags(
@@ -318,7 +263,15 @@ impl BuildCommand {
             cache_image
         });
 
-        let build_fn = || -> Result<Vec<String>> {
+        let images = if self.rechunk {
+            self.rechunk(
+                containerfile,
+                &recipe,
+                &tags,
+                &image_name,
+                cache_image.as_ref(),
+            )?
+        } else {
             Driver::build_tag_push(&self.archive.as_ref().map_or_else(
                 || {
                     BuildTagPushOpts::builder()
@@ -349,24 +302,8 @@ impl BuildCommand {
                         .maybe_cache_to(cache_image.as_ref())
                         .build()
                 },
-            ))
+            ))?
         };
-
-        #[cfg(feature = "rechunk")]
-        let images = if self.rechunk {
-            self.rechunk(
-                containerfile,
-                &recipe,
-                &tags,
-                &image_name,
-                cache_image.as_ref(),
-            )?
-        } else {
-            build_fn()?
-        };
-
-        #[cfg(not(feature = "rechunk"))]
-        let images = build_fn()?;
 
         if self.push && !self.no_sign {
             Driver::sign_and_verify(
@@ -382,7 +319,6 @@ impl BuildCommand {
         Ok(images)
     }
 
-    #[cfg(feature = "rechunk")]
     fn rechunk(
         &self,
         containerfile: &Path,

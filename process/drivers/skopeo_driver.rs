@@ -63,7 +63,6 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
     serde_json::from_slice(&output.stdout).into_diagnostic()
 }
 
-#[cfg(feature = "rechunk")]
 impl super::OciCopy for SkopeoDriver {
     fn copy_oci_dir(opts: &super::opts::CopyOciDirOpts) -> Result<()> {
         use crate::logging::CommandLogging;

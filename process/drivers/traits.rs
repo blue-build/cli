@@ -16,8 +16,6 @@ use crate::drivers::{
     types::{CiDriverType, ImageRef},
 };
 
-#[cfg(feature = "sigstore")]
-use super::sigstore_driver::SigstoreDriver;
 use super::{
     buildah_driver::BuildahDriver,
     cosign_driver::CosignDriver,
@@ -27,15 +25,15 @@ use super::{
     local_driver::LocalDriver,
     opts::{
         BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, CreateContainerOpts, GenerateImageNameOpts,
-        GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts, RemoveContainerOpts,
-        RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts, VerifyOpts, VerifyType,
+        GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts, RechunkOpts,
+        RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts, TagOpts,
+        VerifyOpts, VerifyType,
     },
     podman_driver::PodmanDriver,
+    sigstore_driver::SigstoreDriver,
     skopeo_driver::SkopeoDriver,
-    types::{ContainerId, ImageMetadata},
+    types::{ContainerId, ImageMetadata, MountId},
 };
-#[cfg(feature = "rechunk")]
-use super::{opts::RechunkOpts, types::MountId};
 
 trait PrivateDriver {}
 
@@ -58,10 +56,8 @@ impl_private_driver!(
     CosignDriver,
     SkopeoDriver,
     CiDriverType,
+    SigstoreDriver,
 );
-
-#[cfg(feature = "sigstore")]
-impl_private_driver!(SigstoreDriver);
 
 /// Trait for retrieving version of a driver.
 #[allow(private_bounds)]
@@ -116,7 +112,6 @@ pub trait BuildDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if the driver fails to prune.
-    #[cfg(feature = "prune")]
     fn prune(opts: &super::opts::PruneOpts) -> Result<()>;
 
     /// Runs the logic for building, tagging, and pushing an image.
@@ -240,7 +235,6 @@ pub trait RunDriver: PrivateDriver {
 }
 
 #[allow(private_bounds)]
-#[cfg(feature = "rechunk")]
 pub(super) trait ContainerMountDriver: PrivateDriver {
     /// Mounts the container
     ///
@@ -261,13 +255,11 @@ pub(super) trait ContainerMountDriver: PrivateDriver {
     fn remove_volume(opts: &super::opts::VolumeOpts) -> Result<()>;
 }
 
-#[cfg(feature = "rechunk")]
 pub(super) trait OciCopy {
     fn copy_oci_dir(opts: &super::opts::CopyOciDirOpts) -> Result<()>;
 }
 
 #[allow(private_bounds)]
-#[cfg(feature = "rechunk")]
 pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
     const RECHUNK_IMAGE: &str = "ghcr.io/hhd-dev/rechunk:v1.0.1";
 

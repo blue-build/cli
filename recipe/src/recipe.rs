@@ -101,14 +101,8 @@ impl Recipe<'_> {
 
         recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules, None)?;
 
-        #[cfg(feature = "stages")]
         if let Some(ref mut stages_ext) = recipe.stages_ext {
             stages_ext.stages = crate::Stage::get_stages(&stages_ext.stages, None)?;
-        }
-
-        #[cfg(not(feature = "stages"))]
-        {
-            recipe.stages_ext = None;
         }
 
         Ok(recipe)
