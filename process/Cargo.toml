@@ -49,3 +49,6 @@ blue-build-utils = { version = "=0.9.14", path = "../utils", features = ["test"]
 
 [lints]
 workspace = true
+
+[features]
+bootc = []

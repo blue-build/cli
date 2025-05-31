@@ -32,7 +32,7 @@ use super::{
     podman_driver::PodmanDriver,
     sigstore_driver::SigstoreDriver,
     skopeo_driver::SkopeoDriver,
-    types::{ContainerId, ImageMetadata, MountId},
+    types::{BootStatus, ContainerId, ImageMetadata, MountId},
 };
 
 trait PrivateDriver {}
@@ -719,4 +719,26 @@ pub trait CiDriver: PrivateDriver {
     fn get_registry() -> Result<String>;
 
     fn default_ci_file_path() -> PathBuf;
+}
+
+#[allow(private_bounds)]
+#[cfg(feature = "bootc")]
+pub trait BootDriver: PrivateDriver {
+    /// Get the status of the current booted image.
+    ///
+    /// # Errors
+    /// Will error if we fail to get the status.
+    fn status() -> Result<impl BootStatus>;
+
+    /// Switch to a new image.
+    ///
+    /// # Errors
+    /// Will error if we fail to switch to a new image.
+    fn switch() -> Result<()>;
+
+    /// Upgrade an image.
+    ///
+    /// # Errors
+    /// Will error if we fail to upgrade to a new image.
+    fn upgrade() -> Result<()>;
 }

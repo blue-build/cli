@@ -1,25 +1,67 @@
-use std::{borrow::Cow, path::Path};
+use std::path::Path;
 
 use comlexr::cmd;
 use log::trace;
 use miette::{IntoDiagnostic, Result, bail};
 use serde::Deserialize;
 
+use super::ImageRef;
+
+mod private {
+    pub trait Private {}
+}
+
+impl private::Private for RpmOstreeStatus {}
+impl private::Private for BootcStatus {}
+
+pub trait BootStatus: private::Private {
+    fn transaction_in_progress(&self) -> bool;
+    fn booted_image(&self) -> Option<ImageRef>;
+    fn staged_image(&self) -> Option<ImageRef>;
+    fn is_booted_on_archive(&self, archive_path: &Path) -> bool;
+    fn is_staged_on_archive(&self, archive_path: &Path) -> bool;
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct BootcStatus {
+    status: BootcStatusExt,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+struct BootcStatusExt {
+    staged: Option<BootcStatusImage>,
+    booted: BootcStatusImage,
+    rollback: Option<BootcStatusImage>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+struct BootcStatusImage {
+    image: BootcStatusImageInfo,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+struct BootcStatusImageInfo {
+    image: String,
+}
+
 #[derive(Debug, Clone, Deserialize)]
-pub struct RpmOstreeStatus<'a> {
-    deployments: Cow<'a, [RpmOstreeDeployments<'a>]>,
-    transactions: Option<Cow<'a, [Cow<'a, str>]>>,
+pub struct RpmOstreeStatus {
+    deployments: Vec<RpmOstreeDeployments>,
+    transactions: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-struct RpmOstreeDeployments<'a> {
-    container_image_reference: Cow<'a, str>,
+struct RpmOstreeDeployments {
+    container_image_reference: String,
     booted: bool,
     staged: bool,
 }
 
-impl RpmOstreeStatus<'_> {
+impl RpmOstreeStatus {
     /// Creates a status struct for `rpm-ostree`.
     ///
     /// # Errors
@@ -40,16 +82,16 @@ impl RpmOstreeStatus<'_> {
 
         serde_json::from_slice(&output.stdout).into_diagnostic()
     }
+}
 
+impl BootStatus for RpmOstreeStatus {
     /// Checks if there is a transaction in progress.
-    #[must_use]
-    pub fn transaction_in_progress(&self) -> bool {
+    fn transaction_in_progress(&self) -> bool {
         self.transactions.as_ref().is_some_and(|tr| !tr.is_empty())
     }
 
     /// Get the booted image's reference.
-    #[must_use]
-    pub fn booted_image(&self) -> Option<String> {
+    fn booted_image(&self) -> Option<ImageRef> {
         Some(
             self.deployments
                 .iter()
@@ -60,8 +102,7 @@ impl RpmOstreeStatus<'_> {
     }
 
     /// Get the booted image's reference.
-    #[must_use]
-    pub fn staged_image(&self) -> Option<String> {
+    fn staged_image(&self) -> Option<String> {
         Some(
             self.deployments
                 .iter()
@@ -71,29 +112,21 @@ impl RpmOstreeStatus<'_> {
         )
     }
 
-    #[must_use]
-    pub fn is_booted_on_archive<P>(&self, archive_path: P) -> bool
-    where
-        P: AsRef<Path>,
-    {
+    fn is_booted_on_archive(&self, archive_path: &Path) -> bool {
         self.booted_image().is_some_and(|deployment| {
             deployment
                 .split(':')
                 .next_back()
-                .is_some_and(|boot_ref| Path::new(boot_ref) == archive_path.as_ref())
+                .is_some_and(|boot_ref| Path::new(boot_ref) == archive_path)
         })
     }
 
-    #[must_use]
-    pub fn is_staged_on_archive<P>(&self, archive_path: P) -> bool
-    where
-        P: AsRef<Path>,
-    {
+    fn is_staged_on_archive(&self, archive_path: &Path) -> bool {
         self.staged_image().is_some_and(|deployment| {
             deployment
                 .split(':')
                 .next_back()
-                .is_some_and(|boot_ref| Path::new(boot_ref) == archive_path.as_ref())
+                .is_some_and(|boot_ref| Path::new(boot_ref) == archive_path)
         })
     }
 }
@@ -106,9 +139,11 @@ mod test {
         ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_IMAGE_SIGNED, OSTREE_UNVERIFIED_IMAGE,
     };
 
+    use crate::drivers::types::BootStatus;
+
     use super::{RpmOstreeDeployments, RpmOstreeStatus};
 
-    fn create_image_status<'a>() -> RpmOstreeStatus<'a> {
+    fn create_image_status() -> RpmOstreeStatus {
         RpmOstreeStatus {
             deployments: vec![
                 RpmOstreeDeployments {
@@ -133,7 +168,7 @@ mod test {
         }
     }
 
-    fn create_transaction_status<'a>() -> RpmOstreeStatus<'a> {
+    fn create_transaction_status() -> RpmOstreeStatus {
         RpmOstreeStatus {
             deployments: vec![
                 RpmOstreeDeployments {
@@ -158,7 +193,7 @@ mod test {
         }
     }
 
-    fn create_archive_status<'a>() -> RpmOstreeStatus<'a> {
+    fn create_archive_status() -> RpmOstreeStatus {
         RpmOstreeStatus {
             deployments: vec![
                 RpmOstreeDeployments {
@@ -179,7 +214,7 @@ mod test {
         }
     }
 
-    fn create_archive_staged_status<'a>() -> RpmOstreeStatus<'a> {
+    fn create_archive_staged_status() -> RpmOstreeStatus {
         RpmOstreeStatus {
             deployments: vec![
                 RpmOstreeDeployments {
@@ -235,22 +270,24 @@ mod test {
     #[test]
     fn test_is_booted_archive() {
         assert!(
-            !create_archive_status()
-                .is_booted_on_archive(Path::new(LOCAL_BUILD).join(format!("cli.{ARCHIVE_SUFFIX}")))
+            !create_archive_status().is_booted_on_archive(
+                &Path::new(LOCAL_BUILD).join(format!("cli.{ARCHIVE_SUFFIX}"))
+            )
         );
         assert!(create_archive_status().is_booted_on_archive(
-            Path::new(LOCAL_BUILD).join(format!("cli_test.{ARCHIVE_SUFFIX}"))
+            &Path::new(LOCAL_BUILD).join(format!("cli_test.{ARCHIVE_SUFFIX}"))
         ));
     }
 
     #[test]
     fn test_is_staged_archive() {
         assert!(
-            !create_archive_staged_status()
-                .is_staged_on_archive(Path::new(LOCAL_BUILD).join(format!("cli.{ARCHIVE_SUFFIX}")))
+            !create_archive_staged_status().is_staged_on_archive(
+                &Path::new(LOCAL_BUILD).join(format!("cli.{ARCHIVE_SUFFIX}"))
+            )
         );
         assert!(create_archive_staged_status().is_staged_on_archive(
-            Path::new(LOCAL_BUILD).join(format!("cli_test.{ARCHIVE_SUFFIX}"))
+            &Path::new(LOCAL_BUILD).join(format!("cli_test.{ARCHIVE_SUFFIX}"))
         ));
     }
 }
