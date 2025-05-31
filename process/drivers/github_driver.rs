@@ -36,7 +36,7 @@ impl CiDriver for GithubDriver {
         Ok(GITHUB_TOKEN_ISSUER_URL.to_string())
     }
 
-    fn generate_tags(opts: &GenerateTagsOpts) -> miette::Result<Vec<String>> {
+    fn generate_tags(opts: GenerateTagsOpts) -> miette::Result<Vec<String>> {
         const PR_EVENT: &str = "pull_request";
         let timestamp = blue_build_utils::get_tag_timestamp();
         let os_version = Driver::get_os_version()
@@ -142,8 +142,6 @@ impl CiDriver for GithubDriver {
 
 #[cfg(test)]
 mod test {
-    use std::borrow::Cow;
-
     use blue_build_utils::{
         constants::{
             GITHUB_EVENT_NAME, GITHUB_EVENT_PATH, GITHUB_REF_NAME, GITHUB_SHA, PR_EVENT_NUMBER,
@@ -286,7 +284,7 @@ mod test {
     )]
     fn generate_tags(
         #[case] setup: impl FnOnce(),
-        #[case] alt_tags: Option<Vec<Cow<'_, str>>>,
+        #[case] alt_tags: Option<Vec<String>>,
         #[case] mut expected: Vec<String>,
     ) {
         setup();
@@ -294,9 +292,9 @@ mod test {
         let oci_ref: Reference = "ghcr.io/ublue-os/silverblue-main".parse().unwrap();
 
         let mut tags = GithubDriver::generate_tags(
-            &GenerateTagsOpts::builder()
+            GenerateTagsOpts::builder()
                 .oci_ref(&oci_ref)
-                .maybe_alt_tags(alt_tags)
+                .maybe_alt_tags(alt_tags.as_deref())
                 .platform(Platform::LinuxAmd64)
                 .build(),
         )

@@ -7,20 +7,18 @@ use blue_build_process_management::{
             BuildTagPushOpts, CheckKeyPairOpts, CompressionType, GenerateImageNameOpts,
             GenerateTagsOpts, SignVerifyOpts,
         },
-        types::Platform,
+        types::{ImageRef, Platform},
     },
     logging::{color_str, gen_random_ansi_color},
 };
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{
-        ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, BB_SKIP_VALIDATION, CONFIG_PATH, CONTAINER_FILE,
-        RECIPE_FILE, RECIPE_PATH,
+        ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, BB_SKIP_VALIDATION, CONFIG_PATH, RECIPE_FILE,
+        RECIPE_PATH,
     },
-    cowstr,
     credentials::{Credentials, CredentialsArgs},
     string,
-    traits::CowCollecter,
 };
 use bon::Builder;
 use clap::Args;
@@ -163,7 +161,7 @@ impl BlueBuildCommand for BuildCommand {
 
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
-            Driver::check_signing_files(&CheckKeyPairOpts::builder().dir(Path::new(".")).build())?;
+            Driver::check_signing_files(CheckKeyPairOpts::builder().dir(Path::new(".")).build())?;
             Driver::login()?;
             Driver::signing_login()?;
         }
@@ -191,11 +189,11 @@ impl BlueBuildCommand for BuildCommand {
 
         recipe_paths.par_iter().try_for_each(|recipe| {
             GenerateCommand::builder()
-                .output(tempdir.path().join(if recipe_paths.len() > 1 {
-                    blue_build_utils::generate_containerfile_path(recipe)?
-                } else {
-                    PathBuf::from(CONTAINER_FILE)
-                }))
+                .output(
+                    tempdir
+                        .path()
+                        .join(blue_build_utils::generate_containerfile_path(recipe)?),
+                )
                 .skip_validation(self.skip_validation)
                 .maybe_platform(self.platform)
                 .recipe(recipe)
@@ -217,12 +215,10 @@ impl BuildCommand {
         let images = recipe_paths
             .par_iter()
             .try_fold(Vec::new, |mut images, recipe_path| -> Result<Vec<String>> {
-                let containerfile = temp_dir.join(if recipe_paths.len() > 1 {
-                    blue_build_utils::generate_containerfile_path(recipe_path)?
-                } else {
-                    PathBuf::from(CONTAINER_FILE)
-                });
-                images.extend(self.build(recipe_path, &containerfile)?);
+                images.extend(self.build(
+                    recipe_path,
+                    &temp_dir.join(blue_build_utils::generate_containerfile_path(recipe_path)?),
+                )?);
                 Ok(images)
             })
             .try_reduce(Vec::new, |mut init, image_names| {
@@ -245,9 +241,9 @@ impl BuildCommand {
     fn build(&self, recipe_path: &Path, containerfile: &Path) -> Result<Vec<String>> {
         let recipe = Recipe::parse(recipe_path)?;
         let tags = Driver::generate_tags(
-            &GenerateTagsOpts::builder()
+            GenerateTagsOpts::builder()
                 .oci_ref(&recipe.base_image_ref()?)
-                .maybe_alt_tags(recipe.alt_tags.as_ref().map(CowCollecter::collect_cow_vec))
+                .maybe_alt_tags(recipe.alt_tags.as_deref())
                 .maybe_platform(self.platform)
                 .build(),
         )?;
@@ -276,45 +272,44 @@ impl BuildCommand {
                 &image_name,
                 cache_image.as_ref(),
             )?
+        } else if let Some(archive_dir) = self.archive.as_ref() {
+            Driver::build_tag_push(
+                BuildTagPushOpts::builder()
+                    .containerfile(containerfile)
+                    .maybe_platform(self.platform)
+                    .image(&ImageRef::from(PathBuf::from(format!(
+                        "{}/{}.{ARCHIVE_SUFFIX}",
+                        archive_dir.to_string_lossy().trim_end_matches('/'),
+                        recipe.name.to_lowercase().replace('/', "_"),
+                    ))))
+                    .squash(self.squash)
+                    .maybe_cache_from(cache_image.as_ref())
+                    .maybe_cache_to(cache_image.as_ref())
+                    .secrets(&recipe.get_secrets())
+                    .build(),
+            )?
         } else {
-            Driver::build_tag_push(&self.archive.as_ref().map_or_else(
-                || {
-                    BuildTagPushOpts::builder()
-                        .image(&image)
-                        .containerfile(containerfile)
-                        .maybe_platform(self.platform)
-                        .tags(tags.collect_cow_vec())
-                        .push(self.push)
-                        .retry_push(self.retry_push)
-                        .retry_count(self.retry_count)
-                        .compression(self.compression_format)
-                        .squash(self.squash)
-                        .maybe_cache_from(cache_image.as_ref())
-                        .maybe_cache_to(cache_image.as_ref())
-                        .secrets(recipe.get_secrets())
-                        .build()
-                },
-                |archive_dir| {
-                    BuildTagPushOpts::builder()
-                        .containerfile(containerfile)
-                        .maybe_platform(self.platform)
-                        .image(PathBuf::from(format!(
-                            "{}/{}.{ARCHIVE_SUFFIX}",
-                            archive_dir.to_string_lossy().trim_end_matches('/'),
-                            recipe.name.to_lowercase().replace('/', "_"),
-                        )))
-                        .squash(self.squash)
-                        .maybe_cache_from(cache_image.as_ref())
-                        .maybe_cache_to(cache_image.as_ref())
-                        .secrets(recipe.get_secrets())
-                        .build()
-                },
-            ))?
+            Driver::build_tag_push(
+                BuildTagPushOpts::builder()
+                    .image(&ImageRef::from(&image))
+                    .containerfile(containerfile)
+                    .maybe_platform(self.platform)
+                    .tags(&tags)
+                    .push(self.push)
+                    .retry_push(self.retry_push)
+                    .retry_count(self.retry_count)
+                    .compression(self.compression_format)
+                    .squash(self.squash)
+                    .maybe_cache_from(cache_image.as_ref())
+                    .maybe_cache_to(cache_image.as_ref())
+                    .secrets(&recipe.get_secrets())
+                    .build(),
+            )?
         };
 
         if self.push && !self.no_sign {
             Driver::sign_and_verify(
-                &SignVerifyOpts::builder()
+                SignVerifyOpts::builder()
                     .image(&image)
                     .retry_push(self.retry_push)
                     .retry_count(self.retry_count)
@@ -342,13 +337,13 @@ impl BuildCommand {
             .parse()
             .into_diagnostic()?;
         Driver::rechunk(
-            &RechunkOpts::builder()
+            RechunkOpts::builder()
                 .image(image_name)
                 .containerfile(containerfile)
                 .maybe_platform(self.platform)
-                .tags(tags.collect_cow_vec())
+                .tags(tags)
                 .push(self.push)
-                .version(format!(
+                .version(&format!(
                     "{version}.<date>",
                     version = Driver::get_os_version()
                         .oci_ref(&recipe.base_image_ref()?)
@@ -359,23 +354,23 @@ impl BuildCommand {
                 .retry_count(self.retry_count)
                 .compression(self.compression_format)
                 .base_digest(
-                    Driver::get_metadata(
-                        &GetMetadataOpts::builder()
+                    &Driver::get_metadata(
+                        GetMetadataOpts::builder()
                             .image(&base_image)
                             .maybe_platform(self.platform)
                             .build(),
                     )?
                     .digest,
                 )
-                .repo(Driver::get_repo_url()?)
-                .name(&*recipe.name)
-                .description(&*recipe.description)
-                .base_image(format!("{}:{}", &recipe.base_image, &recipe.image_version))
+                .repo(&Driver::get_repo_url()?)
+                .name(&recipe.name)
+                .description(&recipe.description)
+                .base_image(&format!("{}:{}", &recipe.base_image, &recipe.image_version))
                 .maybe_tempdir(self.tempdir.as_deref())
                 .clear_plan(self.rechunk_clear_plan)
                 .maybe_cache_from(cache_image)
                 .maybe_cache_to(cache_image)
-                .secrets(recipe.get_secrets())
+                .secrets(&recipe.get_secrets())
                 .build(),
         )
     }
@@ -384,8 +379,8 @@ impl BuildCommand {
         let image_name = Driver::generate_image_name(
             GenerateImageNameOpts::builder()
                 .name(recipe.name.trim())
-                .maybe_registry(self.credentials.registry.as_ref().map(|r| cowstr!(r)))
-                .maybe_registry_namespace(self.registry_namespace.as_ref().map(|r| cowstr!(r)))
+                .maybe_registry(self.credentials.registry.as_deref())
+                .maybe_registry_namespace(self.registry_namespace.as_deref())
                 .build(),
         )?;
 
