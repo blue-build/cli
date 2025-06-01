@@ -44,7 +44,9 @@ impl CiDriver for GithubDriver {
             .platform(opts.platform)
             .call()
             .inspect(|v| trace!("os_version={v}"))?;
-        let ref_name = get_env_var(GITHUB_REF_NAME).inspect(|v| trace!("{GITHUB_REF_NAME}={v}"))?;
+        let ref_name = get_env_var(GITHUB_REF_NAME)
+            .inspect(|v| trace!("{GITHUB_REF_NAME}={v}"))?
+            .replace('/', "_");
         let short_sha = {
             let mut short_sha = get_env_var(GITHUB_SHA).inspect(|v| trace!("{GITHUB_SHA}={v}"))?;
             short_sha.truncate(7);
@@ -160,7 +162,8 @@ mod test {
     use super::GithubDriver;
 
     const COMMIT_SHA: &str = "1234567";
-    const BR_REF_NAME: &str = "test";
+    const BR_REF_NAME: &str = "feature/test";
+    const BR_REF_NAME_CLEAN: &str = "feature_test";
 
     fn setup_default_branch() {
         setup();
@@ -269,15 +272,15 @@ mod test {
     #[case::branch(
         setup_branch,
         None,
-        string_vec![format!("{COMMIT_SHA}-41"), "br-test-41"],
+        string_vec![format!("{COMMIT_SHA}-41"), format!("br-{BR_REF_NAME_CLEAN}-41")],
     )]
     #[case::branch_alt_tags(
         setup_branch,
         Some(bon::vec![TEST_TAG_1, TEST_TAG_2]),
         string_vec![
-            format!("br-{BR_REF_NAME}-{TEST_TAG_1}-41"),
+            format!("br-{BR_REF_NAME_CLEAN}-{TEST_TAG_1}-41"),
             format!("{COMMIT_SHA}-{TEST_TAG_1}-41"),
-            format!("br-{BR_REF_NAME}-{TEST_TAG_2}-41"),
+            format!("br-{BR_REF_NAME_CLEAN}-{TEST_TAG_2}-41"),
             format!("{COMMIT_SHA}-{TEST_TAG_2}-41"),
         ],
     )]
