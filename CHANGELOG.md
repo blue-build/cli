@@ -2,11 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.16] - 2025-06-01
+
+### Bug Fixes
+
+- Replace / in branch names with _ when generating tags
+
+### Miscellaneous Tasks
+
+- Disable cache for earthly setup
+
 ## [0.9.15] - 2025-05-31
 
 ### Bug Fixes
 
 - Remove /usr/etc in cleanup since it's not used by bootc
+
+### Miscellaneous Tasks
+
+- Release
 
 ## [0.9.14] - 2025-05-31
 
