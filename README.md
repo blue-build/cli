@@ -14,7 +14,7 @@ The `bluebuild` tool takes advantage of newer build features. Specifically bind,
 
 - Docker - v23 and above
 - Podman - v4 and above
-- Buildah - v1.24 and above
+- Buildah - v1.29 and above
 
 ## Installation
 
@@ -143,33 +143,11 @@ $ bluebuild # press <Tab>
 -h           --quiet      build        rebase       help
 ```
 
-Currently, bluebuild completions are available for `bash`, `zsh`, `fish`, `powershell`, and `elvish` shell environments. Please follow your shell's documentation for completion scripts.
+Currently, bluebuild completions are available for `bash`, `zsh`, `fish`, `powershell`, `nushell`, and `elvish` shell environments. Please follow your shell's documentation for completion scripts.
 
 #### Local Builds
 
-##### Rebase
-
-If you want to test your changes, you can do so by using the `rebase` command. This will create an image as a `.tar.gz` file, store it in `/etc/bluebuild`, an run `rpm-ostree rebase` on that newly built file.
-
-```bash
-sudo bluebuild rebase recipes/recipe.yml
-```
-
-You can initiate an immediate restart by adding the `--reboot/-r` option.
-
-##### Upgrade
-
-When you've rebased onto a local image archive, you can update your image for your recipe by running:
-
-```bash
-sudo bluebuild upgrade recipes/recipe.yml
-```
-
-The `--reboot` argument can be used with this command as well.
-
 ##### Switch
-
-> NOTE: This is an unstable feature and can only be used when installing from the `main` image or with the `switch` feature flag when compiling.
 
 With the switch command, you can build and boot an image locally using an `oci-archive` tarball. The `switch` command can be run as a normal user and will only ask for `sudo` permissions when moving the archive into `/etc/bluebuild`.
 
@@ -213,7 +191,7 @@ jobs:
     steps:
        # the build is fully handled by the reusable github action
       - name: Build Custom Image
-        uses: blue-build/github-action@v1.0.0
+        uses: blue-build/github-action@v1
         with:
           recipe: ${{ matrix.recipe }}
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
@@ -242,7 +220,7 @@ stages:
 build-image:
   stage: build
   image:
-    name: ghcr.io/blue-build/cli:main
+    name: ghcr.io/blue-build/cli
     entrypoint: [""]
   services:
     - docker:dind
