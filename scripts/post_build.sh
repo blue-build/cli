@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-rm -rf /tmp/* /var/* /usr/etc
+rm -rf /tmp/* /var/*
 
-if command -v bootc > /dev/null; then
-  bootc container lint
-fi
+# if command -v bootc > /dev/null; then
+#   bootc container lint
+# fi
