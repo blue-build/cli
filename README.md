@@ -111,7 +111,7 @@ Once you have the CLI tool installed, you can run the following to pull in your 
 bluebuild generate -o <CONTAINERFILE> <RECIPE_FILE>
 ```
 
-You can then use this with `podman` or `buildah` to build and publish your image. Further options can be viewed by running `bluebuild template --help`
+You can then use this with `docker`, `podman`, or `buildah` to build and publish your image. Further options can be viewed by running `bluebuild template --help`
 
 ### Building
 
@@ -121,7 +121,7 @@ If you don't care about the details of the template, you can run the `build` com
 bluebuild build ./recipes/recipe.yml
 ```
 
-This will template out the file and build with `buildah` or `podman`.
+This will template out the file and build with `docker`, `podman`, or `buildah`.
 
 ### Completions
 
