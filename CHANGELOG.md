@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.17] - 2025-06-02
+
+### Bug Fixes
+
+- Remove bootc check for now since it's causing problems
+
 ## [0.9.16] - 2025-06-01
 
 ### Bug Fixes
@@ -11,6 +17,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Disable cache for earthly setup
+- Release
 
 ## [0.9.15] - 2025-05-31
 
