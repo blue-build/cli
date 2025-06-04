@@ -6,6 +6,10 @@
 ARG CACHEBUST="{{ build_id }}"
       {%- endif %}
 
+      {%- for (key, value) in module.get_args() %}
+ARG {{ key }}="{{ value | replace('"', "\\\"") }}"
+      {%- endfor %}
+
       {%- if module.module_type.typ() == "containerfile" %}
         {%- include "modules/containerfile/containerfile.j2" %}
       {%- else if module.module_type.typ() == "copy" %}
@@ -47,6 +51,10 @@ RUN \
       {%- if module.no_cache %}
 ARG CACHEBUST="{{ build_id }}"
       {%- endif %}
+
+      {%- for (key, value) in module.get_args() %}
+ARG {{ key }}="{{ value | replace('"', "\\\"") }}"
+      {%- endfor %}
 
       {%- if module.module_type.typ() == "containerfile" %}
         {%- include "modules/containerfile/containerfile.j2" %}
