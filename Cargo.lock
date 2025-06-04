@@ -540,6 +540,7 @@ dependencies = [
  "chrono",
  "colored",
  "log",
+ "oci-distribution",
  "uuid",
 ]
 

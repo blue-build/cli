@@ -44,6 +44,35 @@ color_string() {
   fi
 }
 
+feature_enabled() {
+    # Ensure the function is called with exactly one argument
+    if [ "$#" -ne 1 ]; then
+        echo "Usage: feature_enabled <feature_name>" >&2
+        return 1
+    fi
+
+    local feature="$1"
+    local -a features
+
+    # Split BB_BUILD_FEATURES by commas and read into an array
+    IFS=,
+    read -r -a features <<< "$BB_BUILD_FEATURES"
+
+    # Loop through the array and check for a match
+    for f in "${features[@]}"; do
+        # Trim leading and trailing whitespace
+        local trimmed_f="${f## }"
+        trimmed_f="${trimmed_f%% }"
+
+        if [[ "$trimmed_f" == "$feature" ]]; then
+            return 0
+        fi
+    done
+
+    # Feature not found
+    return 1
+}
+
 # Parse OS version and export it
 export OS_VERSION="$(awk -F= '/^VERSION_ID=/ {gsub(/"/, "", $2); print $2}' /usr/lib/os-release)"
 export OS_ARCH="$(uname -m)"
