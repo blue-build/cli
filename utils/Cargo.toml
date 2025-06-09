@@ -18,7 +18,7 @@ docker_credential = "1"
 format_serde_error = "0.3"
 lenient_semver = "0.4"
 process_control = { version = "4", features = ["crossbeam-channel"] }
-which = "7"
+which = "8"
 
 cached.workspace = true
 chrono.workspace = true
