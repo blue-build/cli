@@ -33,7 +33,7 @@ use zeroize::Zeroizing;
 pub struct SigstoreDriver;
 
 impl SigningDriver for SigstoreDriver {
-    fn generate_key_pair(opts: &GenerateKeyPairOpts) -> miette::Result<()> {
+    fn generate_key_pair(opts: GenerateKeyPairOpts) -> miette::Result<()> {
         let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
         let priv_key_path = path.join(COSIGN_PRIV_PATH);
         let pub_key_path = path.join(COSIGN_PUB_PATH);
@@ -70,7 +70,7 @@ impl SigningDriver for SigstoreDriver {
         Ok(())
     }
 
-    fn check_signing_files(opts: &CheckKeyPairOpts) -> miette::Result<()> {
+    fn check_signing_files(opts: CheckKeyPairOpts) -> miette::Result<()> {
         trace!("SigstoreDriver::check_signing_files({opts:?})");
 
         let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
@@ -106,7 +106,7 @@ impl SigningDriver for SigstoreDriver {
     }
 
     fn sign(opts: &SignOpts) -> miette::Result<()> {
-        trace!("SigstoreDriver::sign({opts:?})");
+        trace!("SigstoreDriver::sign()");
 
         if opts.image.digest().is_none() {
             bail!(
@@ -176,7 +176,7 @@ impl SigningDriver for SigstoreDriver {
         Ok(())
     }
 
-    fn verify(opts: &VerifyOpts) -> miette::Result<()> {
+    fn verify(opts: VerifyOpts) -> miette::Result<()> {
         let mut client = ClientBuilder::default().build().into_diagnostic()?;
 
         let image_digest: OciReference = opts.image.to_string().parse().into_diagnostic()?;
@@ -253,9 +253,10 @@ mod test {
     fn generate_key_pair() {
         let tempdir = TempDir::new().unwrap();
 
-        let gen_opts = GenerateKeyPairOpts::builder().dir(tempdir.path()).build();
-
-        SigstoreDriver::generate_key_pair(&gen_opts).unwrap();
+        SigstoreDriver::generate_key_pair(
+            GenerateKeyPairOpts::builder().dir(tempdir.path()).build(),
+        )
+        .unwrap();
 
         eprintln!(
             "Private key:\n{}",
@@ -266,27 +267,27 @@ mod test {
             fs::read_to_string(tempdir.path().join(COSIGN_PUB_PATH)).unwrap()
         );
 
-        let check_opts = CheckKeyPairOpts::builder().dir(tempdir.path()).build();
-
-        SigstoreDriver::check_signing_files(&check_opts).unwrap();
+        SigstoreDriver::check_signing_files(
+            CheckKeyPairOpts::builder().dir(tempdir.path()).build(),
+        )
+        .unwrap();
     }
 
     #[test]
     fn check_key_pairs() {
         let path = Path::new("../test-files/keys");
 
-        let opts = CheckKeyPairOpts::builder().dir(path).build();
-
-        SigstoreDriver::check_signing_files(&opts).unwrap();
+        SigstoreDriver::check_signing_files(CheckKeyPairOpts::builder().dir(path).build()).unwrap();
     }
 
     #[test]
     fn compatibility() {
         let tempdir = TempDir::new().unwrap();
 
-        let gen_opts = GenerateKeyPairOpts::builder().dir(tempdir.path()).build();
-
-        SigstoreDriver::generate_key_pair(&gen_opts).unwrap();
+        SigstoreDriver::generate_key_pair(
+            GenerateKeyPairOpts::builder().dir(tempdir.path()).build(),
+        )
+        .unwrap();
 
         eprintln!(
             "Private key:\n{}",
@@ -297,8 +298,7 @@ mod test {
             fs::read_to_string(tempdir.path().join(COSIGN_PUB_PATH)).unwrap()
         );
 
-        let check_opts = CheckKeyPairOpts::builder().dir(tempdir.path()).build();
-
-        CosignDriver::check_signing_files(&check_opts).unwrap();
+        CosignDriver::check_signing_files(CheckKeyPairOpts::builder().dir(tempdir.path()).build())
+            .unwrap();
     }
 }

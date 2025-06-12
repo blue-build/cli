@@ -11,7 +11,7 @@ use crate::{drivers::types::Platform, logging::CommandLogging};
 
 use super::{
     BuildDriver, DriverVersion,
-    opts::{BuildOpts, PushOpts, TagOpts},
+    opts::{BuildOpts, PruneOpts, PushOpts, TagOpts},
 };
 
 #[derive(Debug, Deserialize)]
@@ -47,7 +47,7 @@ impl DriverVersion for BuildahDriver {
 }
 
 impl BuildDriver for BuildahDriver {
-    fn build(opts: &BuildOpts) -> Result<()> {
+    fn build(opts: BuildOpts) -> Result<()> {
         trace!("BuildahDriver::build({opts:#?})");
 
         let command = cmd!(
@@ -76,7 +76,7 @@ impl BuildDriver for BuildahDriver {
                 ),
             ],
             "-f",
-            &*opts.containerfile,
+            opts.containerfile,
             "-t",
             opts.image.to_string(),
         );
@@ -94,7 +94,7 @@ impl BuildDriver for BuildahDriver {
         Ok(())
     }
 
-    fn tag(opts: &TagOpts) -> Result<()> {
+    fn tag(opts: TagOpts) -> Result<()> {
         trace!("BuildahDriver::tag({opts:#?})");
 
         let dest_image_str = opts.dest_image.to_string();
@@ -115,7 +115,7 @@ impl BuildDriver for BuildahDriver {
         Ok(())
     }
 
-    fn push(opts: &PushOpts) -> Result<()> {
+    fn push(opts: PushOpts) -> Result<()> {
         trace!("BuildahDriver::push({opts:#?})");
 
         let image_str = opts.image.to_string();
@@ -188,7 +188,7 @@ impl BuildDriver for BuildahDriver {
         Ok(())
     }
 
-    fn prune(opts: &super::opts::PruneOpts) -> Result<()> {
+    fn prune(opts: PruneOpts) -> Result<()> {
         trace!("PodmanDriver::prune({opts:?})");
 
         let status = cmd!(

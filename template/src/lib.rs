@@ -8,28 +8,29 @@ use bon::Builder;
 use chrono::Utc;
 use colored::control::ShouldColorize;
 use log::{debug, error, trace, warn};
+use oci_distribution::Reference;
 use uuid::Uuid;
 
 pub use askama::Template;
 
 #[derive(Debug, Clone, Template, Builder)]
 #[template(path = "Containerfile.j2", escape = "none", whitespace = "minimize")]
-#[builder(on(Cow<'_, str>, into))]
 pub struct ContainerFileTemplate<'a> {
     #[builder(into)]
     recipe: &'a Recipe<'a>,
-
-    #[builder(into)]
-    recipe_path: Cow<'a, Path>,
+    recipe_path: &'a Path,
 
     #[builder(into)]
     build_id: Uuid,
     os_version: u64,
-    registry: Cow<'a, str>,
-    build_scripts_image: Cow<'a, str>,
-    repo: Cow<'a, str>,
-    base_digest: Cow<'a, str>,
+    registry: &'a str,
+    build_scripts_image: &'a Reference,
+    repo: &'a str,
+    base_digest: &'a str,
     nushell_version: Option<&'a MaybeVersion>,
+
+    #[builder(default)]
+    build_features: &'a [String],
 }
 
 impl ContainerFileTemplate<'_> {
@@ -45,6 +46,15 @@ impl ContainerFileTemplate<'_> {
             Some(MaybeVersion::None) | None => "default".to_string(),
             Some(MaybeVersion::Version(version)) => version.to_string(),
         }
+    }
+
+    #[must_use]
+    fn get_features(&self) -> String {
+        self.build_features
+            .iter()
+            .map(|feat| feat.trim())
+            .collect::<Vec<_>>()
+            .join(",")
     }
 }
 
