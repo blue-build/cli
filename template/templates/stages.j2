@@ -4,10 +4,12 @@
 {%- if self::files_dir_exists() %}
 FROM scratch AS stage-files
 COPY ./files /files
-
-{%~ else if self::config_dir_exists() %}
+{%- else if self::config_dir_exists() %}
 FROM scratch AS stage-config
 COPY ./config /config
+{%- else %}
+FROM scratch AS stage-files
+WORKDIR /files
 {% endif %}
 
 {%~ if self::modules_exists() %}
@@ -43,7 +45,6 @@ COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
 
 {%- include "modules/akmods/akmods.j2" %}
 
-{%- set files_dir_exists = self::files_dir_exists() %}
 {%~ if let Some(stages_ext) = recipe.stages_ext %}
   {%- for stage in stages_ext.stages %}
     {%- if let Some(stage) = stage.required_fields %}
@@ -64,10 +65,10 @@ RUN --mount=type=bind,from=stage-bins,src=/bins/,dst=/tmp/bins/ \
   --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/tmp/scripts/ \
   /tmp/scripts/setup.sh
 
-        {%- if files_dir_exists %}
-ARG CONFIG_DIRECTORY="/tmp/files"
-        {%- else %}
+        {%- if self::config_dir_exists() %}
 ARG CONFIG_DIRECTORY="/tmp/config"
+        {%- else %}
+ARG CONFIG_DIRECTORY="/tmp/files"
         {%- endif %}
 ARG MODULE_DIRECTORY="/tmp/modules"
 
