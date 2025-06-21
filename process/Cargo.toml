@@ -29,6 +29,7 @@ colored.workspace = true
 comlexr.workspace = true
 indicatif.workspace = true
 indexmap.workspace = true
+lazy-regex.workspace = true
 log.workspace = true
 miette.workspace = true
 nix = { workspace = true, features = ["signal"] }
@@ -44,8 +45,12 @@ users.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+pretty_assertions.workspace = true
 rstest.workspace = true
 blue-build-utils = { version = "=0.9.17", path = "../utils", features = ["test"]  }
 
 [lints]
 workspace = true
+
+[features]
+bootc = []

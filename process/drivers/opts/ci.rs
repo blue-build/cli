@@ -1,29 +1,22 @@
-use std::borrow::Cow;
-
 use bon::Builder;
 use oci_distribution::Reference;
 
 use crate::drivers::types::Platform;
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct GenerateTagsOpts<'scope> {
     pub oci_ref: &'scope Reference,
 
     #[builder(into)]
-    pub alt_tags: Option<Vec<Cow<'scope, str>>>,
+    pub alt_tags: Option<&'scope [String]>,
 
     #[builder(default)]
     pub platform: Platform,
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct GenerateImageNameOpts<'scope> {
-    #[builder(into)]
-    pub name: Cow<'scope, str>,
-
-    #[builder(into)]
-    pub registry: Option<Cow<'scope, str>>,
-
-    #[builder(into)]
-    pub registry_namespace: Option<Cow<'scope, str>>,
+    pub name: &'scope str,
+    pub registry: Option<&'scope str>,
+    pub registry_namespace: Option<&'scope str>,
 }

@@ -133,6 +133,19 @@ impl GenerateCommand {
         let base_image: Reference = format!("{}:{}", &recipe.base_image, &recipe.image_version)
             .parse()
             .into_diagnostic()?;
+        let base_digest = &Driver::get_metadata(
+            GetMetadataOpts::builder()
+                .image(&base_image)
+                .platform(self.platform)
+                .build(),
+        )?
+        .digest;
+        let build_scripts_image = &determine_scripts_tag(self.platform)?;
+        let repo = &Driver::get_repo_url()?;
+        let build_features = &[
+            #[cfg(feature = "bootc")]
+            "bootc".into(),
+        ];
 
         let template = ContainerFileTemplate::builder()
             .os_version(
@@ -144,19 +157,12 @@ impl GenerateCommand {
             .build_id(Driver::get_build_id())
             .recipe(&recipe)
             .recipe_path(recipe_path.as_path())
-            .registry(registry)
-            .repo(Driver::get_repo_url()?)
-            .build_scripts_image(determine_scripts_tag(self.platform)?.to_string())
-            .base_digest(
-                Driver::get_metadata(
-                    &GetMetadataOpts::builder()
-                        .image(&base_image)
-                        .platform(self.platform)
-                        .build(),
-                )?
-                .digest,
-            )
+            .registry(&registry)
+            .repo(repo)
+            .build_scripts_image(build_scripts_image)
+            .base_digest(base_digest)
             .maybe_nushell_version(recipe.nushell_version.as_ref())
+            .build_features(build_features)
             .build();
 
         let output_str = template.render().into_diagnostic()?;
@@ -188,7 +194,7 @@ fn determine_scripts_tag(platform: Platform) -> Result<Reference> {
         .parse()
         .into_diagnostic()
         .and_then(|image| {
-            Driver::get_metadata(&opts.clone().image(&image).build())
+            Driver::get_metadata(opts.clone().image(&image).build())
                 .inspect_err(|e| trace!("{e:?}"))
                 .map(|_| image)
         })
@@ -196,7 +202,7 @@ fn determine_scripts_tag(platform: Platform) -> Result<Reference> {
             let image: Reference = format!("{BUILD_SCRIPTS_IMAGE_REF}:{}", shadow::BRANCH)
                 .parse()
                 .into_diagnostic()?;
-            Driver::get_metadata(&opts.clone().image(&image).build())
+            Driver::get_metadata(opts.clone().image(&image).build())
                 .inspect_err(|e| trace!("{e:?}"))
                 .map(|_| image)
         })
@@ -204,7 +210,7 @@ fn determine_scripts_tag(platform: Platform) -> Result<Reference> {
             let image: Reference = format!("{BUILD_SCRIPTS_IMAGE_REF}:v{}", crate_version!())
                 .parse()
                 .into_diagnostic()?;
-            Driver::get_metadata(&opts.image(&image).build())
+            Driver::get_metadata(opts.image(&image).build())
                 .inspect_err(|e| trace!("{e:?}"))
                 .map(|_| image)
         })
