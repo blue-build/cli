@@ -134,7 +134,7 @@ cargo_bin := if env('CARGO_HOME', '') != '' {
 }
 
 # Run all integration tests
-integration-tests: test-docker-build test-arm64-build test-podman-build test-buildah-build test-generate-iso-image test-generate-iso-recipe
+integration-tests: test-docker-build test-empty-files-build test-arm64-build test-podman-build test-buildah-build test-generate-iso-image test-generate-iso-recipe
 
 # Run docker driver integration test
 test-docker-build: install-debug-all-features
@@ -147,6 +147,16 @@ test-docker-build: install-debug-all-features
     {{ should_push }} \
     -vv \
     recipes/recipe.yml recipes/recipe-gts.yml
+
+test-empty-files-build: install-debug-all-features
+  cd integration-tests/empty-files-repo \
+  && bluebuild build \
+    --retry-push \
+    -B docker \
+    -I docker \
+    -S sigstore \
+    {{ should_push }} \
+    -vv
 
 test-rechunk-build: install-debug-all-features
   cd integration-tests/test-repo \

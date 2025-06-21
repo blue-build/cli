@@ -127,6 +127,45 @@ jobs:
           COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
         run: just test-docker-build
 
+  empty-files-build:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Maximize build space
+        uses: ublue-os/remove-unwanted-software@cc0becac701cf642c8f0a6613bbdaf5dc36b259e # v9
+
+      - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+        with:
+          install: true
+
+      - uses: actions-rust-lang/setup-rust-toolchain@9d7e65c320fdb52dcd45ffaa68deb6c02c8754d9 # v1.12.0
+
+      # Setup repo and add caching
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with: 
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repo }}
+
+
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v1
+
+      - name: Run Build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_PR_EVENT_NUMBER: ${{ inputs.pr_event_number }}
+          COSIGN_PRIVATE_KEY: ${{ secrets.TEST_SIGNING_SECRET }}
+        run: just test-empty-files-build
+
   rechunk-build:
     timeout-minutes: 40
     runs-on: ubuntu-24.04
