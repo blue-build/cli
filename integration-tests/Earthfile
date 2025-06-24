@@ -123,6 +123,7 @@ legacy-base:
     DO ../+INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl" --TAGGED="true"
 
     DO +GEN_KEYPAIR
+    ENV USER=root
 
 test-base:
     FROM ../+blue-build-cli --RELEASE=false
@@ -141,6 +142,7 @@ test-base:
     COPY ./test-repo /test
 
     DO +GEN_KEYPAIR
+    ENV USER=root
 
 GEN_KEYPAIR:
     FUNCTION

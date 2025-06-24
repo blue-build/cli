@@ -21,7 +21,7 @@ use super::{
 pub struct CosignDriver;
 
 impl SigningDriver for CosignDriver {
-    fn generate_key_pair(opts: &GenerateKeyPairOpts) -> Result<()> {
+    fn generate_key_pair(opts: GenerateKeyPairOpts) -> Result<()> {
         let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
 
         let status = {
@@ -47,7 +47,7 @@ impl SigningDriver for CosignDriver {
         Ok(())
     }
 
-    fn check_signing_files(opts: &CheckKeyPairOpts) -> Result<()> {
+    fn check_signing_files(opts: CheckKeyPairOpts) -> Result<()> {
         let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
         let priv_key = get_private_key(path)?;
 
@@ -157,7 +157,7 @@ impl SigningDriver for CosignDriver {
         Ok(())
     }
 
-    fn verify(opts: &VerifyOpts) -> Result<()> {
+    fn verify(opts: VerifyOpts) -> Result<()> {
         let status = {
             let c = cmd!(
                 "cosign",
@@ -205,9 +205,8 @@ mod test {
     fn generate_key_pair() {
         let tempdir = TempDir::new().unwrap();
 
-        let gen_opts = GenerateKeyPairOpts::builder().dir(tempdir.path()).build();
-
-        CosignDriver::generate_key_pair(&gen_opts).unwrap();
+        CosignDriver::generate_key_pair(GenerateKeyPairOpts::builder().dir(tempdir.path()).build())
+            .unwrap();
 
         eprintln!(
             "Private key:\n{}",
@@ -218,18 +217,15 @@ mod test {
             fs::read_to_string(tempdir.path().join(COSIGN_PUB_PATH)).unwrap()
         );
 
-        let check_opts = CheckKeyPairOpts::builder().dir(tempdir.path()).build();
-
-        CosignDriver::check_signing_files(&check_opts).unwrap();
+        CosignDriver::check_signing_files(CheckKeyPairOpts::builder().dir(tempdir.path()).build())
+            .unwrap();
     }
 
     #[test]
     fn check_key_pairs() {
         let path = Path::new("../test-files/keys");
 
-        let opts = CheckKeyPairOpts::builder().dir(path).build();
-
-        CosignDriver::check_signing_files(&opts).unwrap();
+        CosignDriver::check_signing_files(CheckKeyPairOpts::builder().dir(path).build()).unwrap();
     }
 
     #[test]
@@ -238,9 +234,8 @@ mod test {
 
         let tempdir = TempDir::new().unwrap();
 
-        let gen_opts = GenerateKeyPairOpts::builder().dir(tempdir.path()).build();
-
-        CosignDriver::generate_key_pair(&gen_opts).unwrap();
+        CosignDriver::generate_key_pair(GenerateKeyPairOpts::builder().dir(tempdir.path()).build())
+            .unwrap();
 
         eprintln!(
             "Private key:\n{}",
@@ -251,8 +246,9 @@ mod test {
             fs::read_to_string(tempdir.path().join(COSIGN_PUB_PATH)).unwrap()
         );
 
-        let check_opts = CheckKeyPairOpts::builder().dir(tempdir.path()).build();
-
-        SigstoreDriver::check_signing_files(&check_opts).unwrap();
+        SigstoreDriver::check_signing_files(
+            CheckKeyPairOpts::builder().dir(tempdir.path()).build(),
+        )
+        .unwrap();
     }
 }

@@ -12,6 +12,7 @@ license.workspace = true
 askama = { version = "0.14", features = ["serde_json"] }
 blue-build-recipe = { version = "=0.9.17", path = "../recipe" }
 blue-build-utils = { version = "=0.9.17", path = "../utils" }
+oci-distribution.workspace = true
 
 chrono.workspace = true
 log.workspace = true

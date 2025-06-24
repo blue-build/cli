@@ -39,3 +39,43 @@ macro_rules! cowstr_vec {
         }
     };
 }
+
+#[macro_export]
+macro_rules! impl_de_fromstr {
+    ($($typ:ty),* $(,)?) => {
+        $(
+            impl TryFrom<&str> for $typ {
+                type Error = miette::Error;
+
+                fn try_from(value: &str) -> Result<Self, Self::Error> {
+                    value.parse()
+                }
+            }
+
+            impl TryFrom<&String> for $typ {
+                type Error = miette::Error;
+
+                fn try_from(value: &String) -> Result<Self, Self::Error> {
+                    Self::try_from(value.as_str())
+                }
+            }
+
+            impl TryFrom<String> for $typ {
+                type Error = miette::Error;
+
+                fn try_from(value: String) -> Result<Self, Self::Error> {
+                    Self::try_from(value.as_str())
+                }
+            }
+
+            impl<'de> serde::de::Deserialize<'de> for $typ {
+                fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+                where
+                    D: serde::Deserializer<'de>,
+                {
+                    Self::try_from(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+                }
+            }
+        )*
+    };
+}

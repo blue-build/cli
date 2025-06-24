@@ -9,13 +9,17 @@ use miette::{IntoDiagnostic, Result, bail};
 
 use crate::{drivers::types::Platform, logging::Logger};
 
-use super::{InspectDriver, opts::GetMetadataOpts, types::ImageMetadata};
+use super::{
+    InspectDriver,
+    opts::{CopyOciDirOpts, GetMetadataOpts},
+    types::ImageMetadata,
+};
 
 #[derive(Debug)]
 pub struct SkopeoDriver;
 
 impl InspectDriver for SkopeoDriver {
-    fn get_metadata(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+    fn get_metadata(opts: GetMetadataOpts) -> Result<ImageMetadata> {
         get_metadata_cache(opts)
     }
 }
@@ -26,7 +30,7 @@ impl InspectDriver for SkopeoDriver {
     convert = r#"{ format!("{}-{}", opts.image, opts.platform)}"#,
     sync_writes = "by_key"
 )]
-fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
+fn get_metadata_cache(opts: GetMetadataOpts) -> Result<ImageMetadata> {
     trace!("SkopeoDriver::get_metadata({opts:#?})");
 
     let image_str = opts.image.to_string();
@@ -64,7 +68,7 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
 }
 
 impl super::OciCopy for SkopeoDriver {
-    fn copy_oci_dir(opts: &super::opts::CopyOciDirOpts) -> Result<()> {
+    fn copy_oci_dir(opts: CopyOciDirOpts) -> Result<()> {
         use crate::logging::CommandLogging;
 
         let use_sudo = opts.privileged && !blue_build_utils::running_as_root();
