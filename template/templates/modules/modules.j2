@@ -33,6 +33,9 @@ RUN \
   --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/tmp/scripts/ \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
   --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
+        {%- for (key, value) in module.get_env() %}
+  {{ key }}="{{ value | replace('"', "\\\"") }}" \
+        {%- endfor %}
   /tmp/scripts/run_module.sh '{{ module.module_type.typ() }}' '{{ module|json|safe }}'
       {%- endif %}
     {%- endif %}
@@ -67,6 +70,9 @@ RUN \
   --mount=type=bind,from={{ module.get_module_image() }},src=/modules,dst=/tmp/modules,rw \
         {%- endif %}
   --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/tmp/scripts/ \
+        {%- for (key, value) in module.get_env() %}
+  {{ key }}="{{ value | replace('"', "\\\"") }}" \
+        {%- endfor %}
   /tmp/scripts/run_module.sh '{{ module.module_type.typ() }}' '{{ module|json|safe }}'
       {%- endif %}
     {%- endif %}
