@@ -2,11 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.18] - 2025-06-30
+
+### Bug Fixes
+
+- Upload-sarif comment formatting
+- Allow repos that don't have a files/ directory
+
+### Documentation
+
+- Update README.md to bring it up to current functionality
+- Add docker in list of builders
+
+### Features
+
+- Add the ability to set args for module calls
+
+### Miscellaneous Tasks
+
+- Run arm pre-build on arm runner
+- Update deps
+- Bump cosign
+
 ## [0.9.17] - 2025-06-02
 
 ### Bug Fixes
 
 - Remove bootc check for now since it's causing problems
+
+### Miscellaneous Tasks
+
+- Release
 
 ## [0.9.16] - 2025-06-01
 
