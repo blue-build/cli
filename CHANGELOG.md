@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.19] - 2025-07-08
+
+### Bug Fixes
+
+- Only set to config/ if files/ doesn't exist
+
 ## [0.9.18] - 2025-06-30
 
 ### Bug Fixes
@@ -23,6 +29,7 @@ All notable changes to this project will be documented in this file.
 - Run arm pre-build on arm runner
 - Update deps
 - Bump cosign
+- Release
 
 ## [0.9.17] - 2025-06-02
 
