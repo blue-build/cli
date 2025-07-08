@@ -8,7 +8,7 @@ FROM {{ recipe.base_image }}@{{ base_digest }} AS {{ main_stage }}
 ARG RECIPE={{ recipe_path.display() }}
 ARG IMAGE_REGISTRY={{ registry }}
 
-{%- if self::config_dir_exists() %}
+{%- if self::config_dir_exists() && !self::files_dir_exists() %}
 ARG CONFIG_DIRECTORY="/tmp/config"
 {%- else %}
 ARG CONFIG_DIRECTORY="/tmp/files"
