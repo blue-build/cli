@@ -14,8 +14,8 @@ use blue_build_process_management::{
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{
-        ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, CONFIG_PATH, CONTAINER_FILE, RECIPE_FILE,
-        RECIPE_PATH,
+        ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, BB_SKIP_VALIDATION, CONFIG_PATH, CONTAINER_FILE,
+        RECIPE_FILE, RECIPE_PATH,
     },
     cowstr,
     credentials::{Credentials, CredentialsArgs},
@@ -135,6 +135,11 @@ pub struct BuildCommand {
     #[arg(long, env = blue_build_utils::constants::BB_CACHE_LAYERS)]
     cache_layers: bool,
 
+    /// Skips validation of the recipe file.
+    #[arg(long, env = BB_SKIP_VALIDATION)]
+    #[builder(default)]
+    skip_validation: bool,
+
     #[clap(flatten)]
     #[builder(default)]
     credentials: CredentialsArgs,
@@ -192,6 +197,7 @@ impl BlueBuildCommand for BuildCommand {
                 } else {
                     PathBuf::from(CONTAINER_FILE)
                 }))
+                .skip_validation(self.skip_validation)
                 .platform(self.platform)
                 .recipe(recipe)
                 .drivers(self.drivers)
@@ -286,6 +292,7 @@ impl BuildCommand {
                         .squash(self.squash)
                         .maybe_cache_from(cache_image.as_ref())
                         .maybe_cache_to(cache_image.as_ref())
+                        .secrets(recipe.get_secrets())
                         .build()
                 },
                 |archive_dir| {
@@ -300,6 +307,7 @@ impl BuildCommand {
                         .squash(self.squash)
                         .maybe_cache_from(cache_image.as_ref())
                         .maybe_cache_to(cache_image.as_ref())
+                        .secrets(recipe.get_secrets())
                         .build()
                 },
             ))?
@@ -368,6 +376,7 @@ impl BuildCommand {
                 .clear_plan(self.rechunk_clear_plan)
                 .maybe_cache_from(cache_image)
                 .maybe_cache_to(cache_image)
+                .secrets(recipe.get_secrets())
                 .build(),
         )
     }

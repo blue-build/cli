@@ -1,5 +1,6 @@
 use std::{
     env,
+    ops::Not,
     path::{Path, PathBuf},
 };
 
@@ -9,7 +10,9 @@ use blue_build_process_management::drivers::{
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
-    constants::{BUILD_SCRIPTS_IMAGE_REF, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH},
+    constants::{
+        BB_SKIP_VALIDATION, BUILD_SCRIPTS_IMAGE_REF, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH,
+    },
     syntax_highlighting::{self, DefaultThemes},
 };
 use bon::Builder;
@@ -73,6 +76,11 @@ pub struct GenerateCommand {
     #[builder(default)]
     platform: Platform,
 
+    /// Skips validation of the recipe file.
+    #[arg(long, env = BB_SKIP_VALIDATION)]
+    #[builder(default)]
+    skip_validation: bool,
+
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,
@@ -101,10 +109,12 @@ impl GenerateCommand {
             }
         });
 
-        ValidateCommand::builder()
-            .recipe(recipe_path.clone())
-            .build()
-            .try_run()?;
+        if self.skip_validation.not() {
+            ValidateCommand::builder()
+                .recipe(recipe_path.clone())
+                .build()
+                .try_run()?;
+        }
 
         let registry = if let (Some(registry), Some(registry_namespace)) =
             (&self.registry, &self.registry_namespace)

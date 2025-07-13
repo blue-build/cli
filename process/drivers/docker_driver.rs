@@ -8,6 +8,7 @@ use blue_build_utils::{
     constants::{BLUE_BUILD, DOCKER_HOST, GITHUB_ACTIONS},
     credentials::Credentials,
     get_env_var,
+    secret::SecretArgs,
     semver::Version,
     string_vec,
 };
@@ -194,6 +195,10 @@ impl BuildDriver for DockerDriver {
     fn build(opts: &BuildOpts) -> Result<()> {
         trace!("DockerDriver::build({opts:#?})");
 
+        let temp_dir = TempDir::new()
+            .into_diagnostic()
+            .wrap_err("Failed to create temporary directory for secrets")?;
+
         if opts.squash {
             warn!("Squash is deprecated for docker so this build will not squash");
         }
@@ -209,6 +214,7 @@ impl BuildDriver for DockerDriver {
                 "-t",
                 opts.image.to_string(),
                 "-f",
+                for opts.secrets.args(&temp_dir)?,
                 if let Some(cache_from) = opts.cache_from.as_ref() => [
                     "--cache-from",
                     format!(
@@ -381,6 +387,10 @@ impl BuildDriver for DockerDriver {
     fn build_tag_push(opts: &BuildTagPushOpts) -> Result<Vec<String>> {
         trace!("DockerDriver::build_tag_push({opts:#?})");
 
+        let temp_dir = TempDir::new()
+            .into_diagnostic()
+            .wrap_err("Failed to create temporary directory for secrets")?;
+
         if opts.squash {
             warn!("Squash is deprecated for docker so this build will not squash");
         }
@@ -391,7 +401,7 @@ impl BuildDriver for DockerDriver {
 
         let first_image = final_images.first().unwrap();
 
-        let status = build_tag_push_cmd(opts, first_image)
+        let status = build_tag_push_cmd(opts, first_image, &temp_dir)?
             .build_status(first_image, "Building Image")
             .into_diagnostic()?;
 
@@ -408,13 +418,18 @@ impl BuildDriver for DockerDriver {
     }
 }
 
-fn build_tag_push_cmd(opts: &BuildTagPushOpts<'_>, first_image: &str) -> Command {
+fn build_tag_push_cmd(
+    opts: &BuildTagPushOpts<'_>,
+    first_image: &str,
+    temp_dir: &TempDir,
+) -> Result<Command> {
     let c = cmd!(
         "docker",
         "buildx",
         format!("--builder={BLUE_BUILD}"),
         "build",
         ".",
+        for opts.secrets.args(temp_dir)?,
         match &opts.image {
             ImageRef::Remote(_remote) if opts.push => [
                 "--output",
@@ -459,7 +474,7 @@ fn build_tag_push_cmd(opts: &BuildTagPushOpts<'_>, first_image: &str) -> Command
         ],
     );
     trace!("{c:?}");
-    c
+    Ok(c)
 }
 
 fn get_final_images(opts: &BuildTagPushOpts<'_>) -> Vec<String> {

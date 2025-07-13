@@ -128,6 +128,7 @@ pub trait BuildDriver: PrivateDriver {
             .squash(opts.squash)
             .maybe_cache_from(opts.cache_from)
             .maybe_cache_to(opts.cache_to)
+            .secrets(opts.secrets.clone())
             .build();
 
         info!("Building image {}", opts.image);
@@ -289,6 +290,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                 .privileged(true)
                 .squash(true)
                 .host_network(true)
+                .secrets(opts.secrets.clone())
                 .build(),
         )?;
 

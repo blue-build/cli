@@ -77,3 +77,41 @@ modules:
     from: fedora-test
     src: /test.txt
     dest: /
+
+  # Testing secrets
+  - type: script
+    secrets:
+      - type: env
+        name: TEST_SECRET
+    snippets:
+      - '[ "$TEST_SECRET" == "test123" ]'
+  - type: script
+    secrets:
+      - type: file
+        source: ./secrets/test-secret
+        destination: /tmp/test-secret
+    snippets:
+      - '[ "$(cat /tmp/test-secret)" == "321tset" ]'
+  - type: script
+    secrets:
+      - type: exec
+        command: cat
+        args:
+          - ./test_secret_file.txt
+        output:
+          type: env
+          name: TEST_SECRET
+    snippets:
+      - '[ "$TEST_SECRET" == "TEST_PASS" ]'
+  - type: script
+    secrets:
+      - type: exec
+        command: cat
+        args:
+          - ./test_secret_file.txt
+        output:
+          type: file
+          destination: /tmp/test-secret
+    snippets:
+      - '[ "$(cat /tmp/test-secret)" == "TEST_PASS" ]'
+

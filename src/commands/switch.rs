@@ -9,7 +9,10 @@ use blue_build_process_management::{
 };
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
-    constants::{ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_UNVERIFIED_IMAGE, SUDO_ASKPASS},
+    constants::{
+        ARCHIVE_SUFFIX, BB_SKIP_VALIDATION, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_UNVERIFIED_IMAGE,
+        SUDO_ASKPASS,
+    },
     has_env_var, running_as_root,
 };
 use bon::Builder;
@@ -41,6 +44,11 @@ pub struct SwitchCommand {
     #[arg(long)]
     tempdir: Option<PathBuf>,
 
+    /// Skips validation of the recipe file.
+    #[arg(long, env = BB_SKIP_VALIDATION)]
+    #[builder(default)]
+    skip_validation: bool,
+
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,
@@ -70,6 +78,7 @@ impl BlueBuildCommand for SwitchCommand {
             .recipe([self.recipe.clone()])
             .archive(tempdir.path())
             .maybe_tempdir(self.tempdir.clone())
+            .skip_validation(self.skip_validation)
             .build()
             .try_run()?;
 

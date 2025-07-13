@@ -1,7 +1,7 @@
 use std::{borrow::Cow, path::PathBuf};
 
 use blue_build_utils::{
-    constants::BLUE_BUILD_MODULE_IMAGE_REF, syntax_highlighting::highlight_ser,
+    constants::BLUE_BUILD_MODULE_IMAGE_REF, secret::Secret, syntax_highlighting::highlight_ser,
 };
 use bon::Builder;
 use colored::Colorize;
@@ -34,6 +34,10 @@ pub struct ModuleRequiredFields<'a> {
     #[builder(into)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<IndexMap<String, String>>,
+
+    #[builder(into, default)]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub secrets: Vec<Secret>,
 
     #[serde(flatten)]
     #[builder(default, into)]
