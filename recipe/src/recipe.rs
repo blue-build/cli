@@ -1,5 +1,6 @@
-use std::{borrow::Cow, fs, path::Path};
+use std::{borrow::Cow, collections::HashSet, fs, path::Path};
 
+use blue_build_utils::secret::Secret;
 use bon::Builder;
 use log::{debug, trace};
 use miette::{Context, IntoDiagnostic, Result};
@@ -134,5 +135,25 @@ impl Recipe<'_> {
             Some(MaybeVersion::None) | None => "latest-installer".to_string(),
             Some(MaybeVersion::Version(version)) => version.to_string(),
         }
+    }
+
+    #[must_use]
+    pub fn get_secrets(&self) -> HashSet<&Secret> {
+        self.modules_ext
+            .modules
+            .iter()
+            .filter_map(|module| Some(&module.required_fields.as_ref()?.secrets))
+            .flatten()
+            .chain(
+                self.stages_ext
+                    .as_ref()
+                    .map_or_else(Vec::new, |stage| stage.stages.iter().collect())
+                    .iter()
+                    .filter_map(|stage| Some(&stage.required_fields.as_ref()?.modules_ext.modules))
+                    .flatten()
+                    .filter_map(|module| Some(&module.required_fields.as_ref()?.secrets))
+                    .flatten(),
+            )
+            .collect()
     }
 }

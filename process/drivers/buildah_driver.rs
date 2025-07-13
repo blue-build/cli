@@ -1,11 +1,12 @@
 use std::{io::Write, process::Stdio};
 
-use blue_build_utils::{credentials::Credentials, semver::Version};
+use blue_build_utils::{credentials::Credentials, secret::SecretArgs, semver::Version};
 use colored::Colorize;
 use comlexr::cmd;
 use log::{debug, error, info, trace};
-use miette::{IntoDiagnostic, Result, bail, miette};
+use miette::{Context, IntoDiagnostic, Result, bail, miette};
 use serde::Deserialize;
+use tempfile::TempDir;
 
 use crate::{drivers::types::Platform, logging::CommandLogging};
 
@@ -50,9 +51,14 @@ impl BuildDriver for BuildahDriver {
     fn build(opts: &BuildOpts) -> Result<()> {
         trace!("BuildahDriver::build({opts:#?})");
 
+        let temp_dir = TempDir::new()
+            .into_diagnostic()
+            .wrap_err("Failed to create temporary directory for secrets")?;
+
         let command = cmd!(
             "buildah",
             "build",
+            for opts.secrets.args(&temp_dir)?,
             if !matches!(opts.platform, Platform::Native) => [
                 "--platform",
                 opts.platform.to_string(),

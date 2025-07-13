@@ -12,6 +12,9 @@ ARG CACHEBUST="{{ build_id }}"
         {%- include "modules/copy/copy.j2" %}
       {%- else %}
 RUN \
+        {%- for secret_mount in module.secrets.mounts() %}
+  {{ secret_mount }} \
+        {%- endfor %}
         {%- if self::files_dir_exists() %}
   --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,rw \
         {%- else if self::config_dir_exists() %}
@@ -33,6 +36,9 @@ RUN \
   --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/tmp/scripts/ \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
   --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
+        {%- for secret_var in module.secrets.envs() %}
+  {{ secret_var }} \
+        {%- endfor %}
         {%- for (key, value) in module.get_env() %}
   {{ key }}="{{ value | replace('"', "\\\"") }}" \
         {%- endfor %}
@@ -57,6 +63,9 @@ ARG CACHEBUST="{{ build_id }}"
         {%- include "modules/copy/copy.j2" %}
       {%- else %}
 RUN \
+        {%- for secret_mount in module.secrets.mounts() %}
+  {{ secret_mount }} \
+        {%- endfor %}
         {%- if self::files_dir_exists() %}
   --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,rw \
         {%- else if self::config_dir_exists() %}
@@ -70,6 +79,9 @@ RUN \
   --mount=type=bind,from={{ module.get_module_image() }},src=/modules,dst=/tmp/modules,rw \
         {%- endif %}
   --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/tmp/scripts/ \
+        {%- for secret_var in module.secrets.envs() %}
+  {{ secret_var }} \
+        {%- endfor %}
         {%- for (key, value) in module.get_env() %}
   {{ key }}="{{ value | replace('"', "\\\"") }}" \
         {%- endfor %}

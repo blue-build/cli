@@ -570,7 +570,10 @@ dependencies = [
  "serde_json",
  "serde_yml",
  "syntect",
+ "tempfile",
+ "uuid",
  "which 8.0.0",
+ "zeroize",
 ]
 
 [[package]]

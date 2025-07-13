@@ -7,14 +7,14 @@ use std::{
 
 use blue_build_utils::{
     constants::SUDO_ASKPASS, credentials::Credentials, has_env_var, running_as_root,
-    semver::Version,
+    secret::SecretArgs, semver::Version,
 };
 use cached::proc_macro::cached;
 use colored::Colorize;
 use comlexr::{cmd, pipe};
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace};
-use miette::{IntoDiagnostic, Report, Result, bail, miette};
+use miette::{Context, IntoDiagnostic, Report, Result, bail, miette};
 use oci_distribution::Reference;
 use serde::Deserialize;
 use tempfile::TempDir;
@@ -137,6 +137,10 @@ impl BuildDriver for PodmanDriver {
     fn build(opts: &BuildOpts) -> Result<()> {
         trace!("PodmanDriver::build({opts:#?})");
 
+        let temp_dir = TempDir::new()
+            .into_diagnostic()
+            .wrap_err("Failed to create temporary directory for secrets")?;
+
         let use_sudo = opts.privileged && !running_as_root();
         let command = cmd!(
             if use_sudo {
@@ -149,7 +153,10 @@ impl BuildDriver for PodmanDriver {
                 "-p",
                 SUDO_PROMPT,
             ],
-            if use_sudo => "podman",
+            if use_sudo => [
+                "--preserve-env",
+                "podman",
+            ],
             "build",
             if !matches!(opts.platform, Platform::Native) => [
                 "--platform",
@@ -178,6 +185,7 @@ impl BuildDriver for PodmanDriver {
             &*opts.containerfile,
             "-t",
             opts.image.to_string(),
+            for opts.secrets.args(&temp_dir)?,
             ".",
         );
 
@@ -409,11 +417,11 @@ impl ContainerMountDriver for PodmanDriver {
                 } else {
                     "podman"
                 },
-            if use_sudo && has_env_var(SUDO_ASKPASS) => [
-                "-A",
-                "-p",
-                SUDO_PROMPT,
-            ],
+                if use_sudo && has_env_var(SUDO_ASKPASS) => [
+                    "-A",
+                    "-p",
+                    SUDO_PROMPT,
+                ],
                 if use_sudo => "podman",
                 "mount",
                 opts.container_id,

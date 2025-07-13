@@ -20,6 +20,7 @@ lenient_semver = "0.4"
 process_control = { version = "4", features = ["crossbeam-channel"] }
 which = "8"
 
+bon.workspace = true
 cached.workspace = true
 chrono.workspace = true
 clap = { workspace = true, features = ["derive", "env"] }
@@ -32,7 +33,9 @@ serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 syntect.workspace = true
-bon.workspace = true
+tempfile.workspace = true
+uuid.workspace = true
+zeroize.workspace = true
 
 [build-dependencies]
 syntect.workspace = true

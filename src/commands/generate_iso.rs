@@ -4,7 +4,11 @@ use std::{
 };
 
 use blue_build_recipe::Recipe;
-use blue_build_utils::{constants::ARCHIVE_SUFFIX, string_vec, traits::CowCollecter};
+use blue_build_utils::{
+    constants::{ARCHIVE_SUFFIX, BB_SKIP_VALIDATION},
+    string_vec,
+    traits::CowCollecter,
+};
 use bon::Builder;
 use clap::{Args, Subcommand, ValueEnum};
 use miette::{Context, IntoDiagnostic, Result, bail};
@@ -98,6 +102,10 @@ pub enum GenIsoSubcommand {
         /// The path to the recipe file for your image.
         #[arg()]
         recipe: PathBuf,
+
+        /// Skips validation of the recipe file.
+        #[arg(long, env = BB_SKIP_VALIDATION)]
+        skip_validation: bool,
     },
 }
 
@@ -147,11 +155,16 @@ impl BlueBuildCommand for GenerateIsoCommand {
             env::current_dir().into_diagnostic()?
         };
 
-        if let GenIsoSubcommand::Recipe { recipe } = &self.command {
+        if let GenIsoSubcommand::Recipe {
+            recipe,
+            skip_validation,
+        } = &self.command
+        {
             BuildCommand::builder()
                 .recipe(vec![recipe.clone()])
                 .archive(image_out_dir.path())
                 .maybe_tempdir(self.tempdir.clone())
+                .skip_validation(*skip_validation)
                 .build()
                 .try_run()?;
         }
@@ -208,7 +221,10 @@ impl GenerateIsoCommand {
                     ),
                 ]);
             }
-            GenIsoSubcommand::Recipe { recipe } => {
+            GenIsoSubcommand::Recipe {
+                recipe,
+                skip_validation: _,
+            } => {
                 let recipe = Recipe::parse(recipe)?;
 
                 args.extend([

@@ -1,5 +1,7 @@
 export RUST_BACKTRACE := "1"
 export BB_CACHE_LAYERS := "true"
+export TEST_SECRET := "test123"
+# export BB_SKIP_VALIDATION := "true"
 
 set dotenv-load := true
 set positional-arguments := true
@@ -133,11 +135,15 @@ cargo_bin := if env('CARGO_HOME', '') != '' {
   x"$HOME/.cargo/bin"
 }
 
+generate-test-secret:
+  mkdir -p integration-tests/test-repo/secrets
+  echo "321tset" > integration-tests/test-repo/secrets/test-secret
+
 # Run all integration tests
-integration-tests: test-docker-build test-empty-files-build test-arm64-build test-podman-build test-buildah-build test-generate-iso-image test-generate-iso-recipe
+integration-tests: generate-test-secret test-docker-build test-empty-files-build test-arm64-build test-podman-build test-buildah-build test-generate-iso-image test-generate-iso-recipe
 
 # Run docker driver integration test
-test-docker-build: install-debug-all-features
+test-docker-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && bluebuild build \
     --retry-push \
@@ -148,7 +154,7 @@ test-docker-build: install-debug-all-features
     -vv \
     recipes/recipe.yml recipes/recipe-gts.yml
 
-test-empty-files-build: install-debug-all-features
+test-empty-files-build: generate-test-secret install-debug-all-features
   cd integration-tests/empty-files-repo \
   && bluebuild build \
     --retry-push \
@@ -158,7 +164,7 @@ test-empty-files-build: install-debug-all-features
     {{ should_push }} \
     -vv
 
-test-rechunk-build: install-debug-all-features
+test-rechunk-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && bluebuild build \
     {{ should_push }} \
@@ -166,7 +172,7 @@ test-rechunk-build: install-debug-all-features
     --rechunk \
     recipes/recipe-rechunk.yml
 
-test-fresh-rechunk-build: install-debug-all-features
+test-fresh-rechunk-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && bluebuild build \
     {{ should_push }} \
@@ -176,7 +182,7 @@ test-fresh-rechunk-build: install-debug-all-features
     recipes/recipe-rechunk.yml
 
 # Run arm integration test
-test-arm64-build: install-debug-all-features
+test-arm64-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && bluebuild build \
     --retry-push \
@@ -186,7 +192,7 @@ test-arm64-build: install-debug-all-features
     recipes/recipe-arm64.yml
 
 # Run docker driver external login integration test
-test-docker-build-external-login: install-debug-all-features
+test-docker-build-external-login: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && bluebuild build \
     --retry-push \
@@ -196,7 +202,7 @@ test-docker-build-external-login: install-debug-all-features
     recipes/recipe-docker-external.yml
 
 # Run podman driver integration test
-test-podman-build: install-debug-all-features
+test-podman-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && bluebuild build \
     --retry-push \
@@ -208,7 +214,7 @@ test-podman-build: install-debug-all-features
     recipes/recipe-podman.yml
 
 # Run buildah driver integration test
-test-buildah-build: install-debug-all-features
+test-buildah-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && bluebuild build \
     --retry-push \
@@ -220,14 +226,14 @@ test-buildah-build: install-debug-all-features
     recipes/recipe-buildah.yml
 
 # Run ISO generator for images
-test-generate-iso-image: install-debug-all-features
+test-generate-iso-image: generate-test-secret install-debug-all-features
   #!/usr/bin/env bash
   set -eu
   ISO_OUT=$(mktemp -d)
   bluebuild generate-iso -vv --output-dir "$ISO_OUT" image ghcr.io/blue-build/cli/test:40
 
 # Run ISO generator for images
-test-generate-iso-recipe: install-debug-all-features
+test-generate-iso-recipe: generate-test-secret install-debug-all-features
   #!/usr/bin/env bash
   set -eu
   ISO_OUT=$(mktemp -d)

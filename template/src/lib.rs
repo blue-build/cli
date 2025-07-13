@@ -1,8 +1,9 @@
 use std::{borrow::Cow, fs, path::Path, process};
 
 use blue_build_recipe::{MaybeVersion, Recipe};
-use blue_build_utils::constants::{
-    CONFIG_PATH, CONTAINER_FILE, CONTAINERFILES_PATH, COSIGN_PUB_PATH, FILES_PATH,
+use blue_build_utils::{
+    constants::{CONFIG_PATH, CONTAINER_FILE, CONTAINERFILES_PATH, COSIGN_PUB_PATH, FILES_PATH},
+    secret::SecretMounts,
 };
 use bon::Builder;
 use chrono::Utc;

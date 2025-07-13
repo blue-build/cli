@@ -2,6 +2,7 @@ pub mod command_output;
 pub mod constants;
 pub mod credentials;
 mod macros;
+pub mod secret;
 pub mod semver;
 pub mod syntax_highlighting;
 #[cfg(feature = "test")]
@@ -27,10 +28,14 @@ use comlexr::cmd;
 use format_serde_error::SerdeError;
 use log::{trace, warn};
 use miette::{Context, IntoDiagnostic, Result, miette};
+use uuid::Uuid;
 
 use crate::constants::CONTAINER_FILE;
 
 pub use command_output::*;
+
+/// UUID used to mark the current builds
+pub static BUILD_ID: std::sync::LazyLock<Uuid> = std::sync::LazyLock::new(Uuid::new_v4);
 
 /// Checks for the existance of a given command.
 ///

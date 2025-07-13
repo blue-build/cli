@@ -1,5 +1,6 @@
-use std::{borrow::Cow, path::Path};
+use std::{borrow::Cow, collections::HashSet, path::Path};
 
+use blue_build_utils::secret::Secret;
 use bon::Builder;
 use oci_distribution::Reference;
 
@@ -33,6 +34,9 @@ pub struct BuildOpts<'scope> {
 
     #[builder(into)]
     pub cache_to: Option<&'scope Reference>,
+
+    #[builder(default)]
+    pub secrets: HashSet<&'scope Secret>,
 }
 
 #[derive(Debug, Clone, Builder)]
@@ -110,4 +114,8 @@ pub struct BuildTagPushOpts<'scope> {
 
     /// Cache layers to the registry.
     pub cache_to: Option<&'scope Reference>,
+
+    /// Secrets to mount
+    #[builder(default)]
+    pub secrets: HashSet<&'scope Secret>,
 }

@@ -4,31 +4,11 @@ PROJECT blue-build/cli
 IMPORT github.com/earthly/lib/utils/dind AS dind
 
 all:
-    BUILD +test-image
-    # BUILD +test-legacy-image
     BUILD +build
     BUILD +switch
     BUILD +validate
-
-test-image:
-    FROM +build-template --src=template-containerfile
-    WORKDIR /tmp/test
-    COPY ./test-scripts/*.sh ./
-
-    DO +RUN_TESTS
-
-test-legacy-image:
-    FROM +build-template --src=template-legacy-containerfile
-    WORKDIR /tmp/test
-    COPY ./test-scripts/*.sh ./
-
-    DO +RUN_TESTS
-
-build-template:
-    ARG --required src
-    FROM DOCKERFILE \
-    -f +$src/test/Containerfile \
-    +$src/test/*
+    BUILD +template-containerfile
+    BUILD +template-legacy-containerfile
 
 template-containerfile:
     FROM +test-base

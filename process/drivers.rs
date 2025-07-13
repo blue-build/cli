@@ -14,7 +14,7 @@ use std::{
     time::Duration,
 };
 
-use blue_build_utils::semver::Version;
+use blue_build_utils::{BUILD_ID, semver::Version};
 use bon::{Builder, bon};
 use cached::proc_macro::cached;
 use clap::Args;
@@ -68,9 +68,6 @@ static SELECTED_SIGNING_DRIVER: std::sync::LazyLock<RwLock<Option<SigningDriverT
     std::sync::LazyLock::new(|| RwLock::new(None));
 static SELECTED_CI_DRIVER: std::sync::LazyLock<RwLock<Option<CiDriverType>>> =
     std::sync::LazyLock::new(|| RwLock::new(None));
-
-/// UUID used to mark the current builds
-static BUILD_ID: std::sync::LazyLock<Uuid> = std::sync::LazyLock::new(Uuid::new_v4);
 
 /// Args for selecting the various drivers to use for runtime.
 ///
