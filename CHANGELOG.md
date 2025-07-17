@@ -2,11 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.20] - 2025-07-17
+
+### Features
+
+- Add ability to mount secrets
+
+### Miscellaneous Tasks
+
+- Bump cosign to 2.5.3
+
 ## [0.9.19] - 2025-07-08
 
 ### Bug Fixes
 
 - Only set to config/ if files/ doesn't exist
+
+### Miscellaneous Tasks
+
+- Release
 
 ## [0.9.18] - 2025-06-30
 

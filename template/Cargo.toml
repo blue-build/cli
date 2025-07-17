@@ -10,8 +10,8 @@ license.workspace = true
 
 [dependencies]
 askama = { version = "0.14", features = ["serde_json"] }
-blue-build-recipe = { version = "=0.9.19", path = "../recipe" }
-blue-build-utils = { version = "=0.9.19", path = "../utils" }
+blue-build-recipe = { version = "=0.9.20", path = "../recipe" }
+blue-build-utils = { version = "=0.9.20", path = "../utils" }
 
 chrono.workspace = true
 log.workspace = true
