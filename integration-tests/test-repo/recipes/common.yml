@@ -12,20 +12,16 @@ modules:
       - example.sh
 
   - type: script
-    # Use this to pass schema check
-    source: ghcr.io/blue-build/modules/script
     snippets:
       - '[ -z "$TEST_ARG" ]'
+
   - type: script
-    # Use this to pass schema check
-    source: ghcr.io/blue-build/modules/script
     env:
       TEST_ARG: "test"
     snippets:
       - '[ "$TEST_ARG" = "test" ]'
+
   - type: script
-    # Use this to pass schema check
-    source: ghcr.io/blue-build/modules/script
     snippets:
       - '[ -z "$TEST_ARG" ]'
 
@@ -83,33 +79,61 @@ modules:
     secrets:
       - type: env
         name: TEST_SECRET
+        mount:
+          type: env
+          name: TEST_SECRET
     snippets:
       - '[ "$TEST_SECRET" == "test123" ]'
+
+  - type: script
+    secrets:
+      - type: env
+        name: TEST_SECRET
+        mount:
+          type: file
+          destination: /tmp/test-secret
+    snippets:
+      - '[ "$(cat /tmp/test-secret)" == "test123" ]'
+
   - type: script
     secrets:
       - type: file
         source: ./secrets/test-secret
-        destination: /tmp/test-secret
+        mount:
+          type: file
+          destination: /tmp/test-secret
     snippets:
       - '[ "$(cat /tmp/test-secret)" == "321tset" ]'
+
+  - type: script
+    secrets:
+      - type: file
+        source: ./secrets/test-secret
+        mount:
+          type: env
+          name: TEST_SECRET
+    snippets:
+      - '[ "$TEST_SECRET" == "321tset" ]'
+
   - type: script
     secrets:
       - type: exec
         command: cat
         args:
           - ./test_secret_file.txt
-        output:
+        mount:
           type: env
           name: TEST_SECRET
     snippets:
       - '[ "$TEST_SECRET" == "TEST_PASS" ]'
+
   - type: script
     secrets:
       - type: exec
         command: cat
         args:
           - ./test_secret_file.txt
-        output:
+        mount:
           type: file
           destination: /tmp/test-secret
     snippets:

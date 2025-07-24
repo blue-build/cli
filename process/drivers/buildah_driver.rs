@@ -59,6 +59,7 @@ impl BuildDriver for BuildahDriver {
             "buildah",
             "build",
             for opts.secrets.args(&temp_dir)?,
+            if opts.secrets.ssh() => "--ssh",
             if !matches!(opts.platform, Platform::Native) => [
                 "--platform",
                 opts.platform.to_string(),
