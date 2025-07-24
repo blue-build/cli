@@ -186,6 +186,7 @@ impl BuildDriver for PodmanDriver {
             "-t",
             opts.image.to_string(),
             for opts.secrets.args(&temp_dir)?,
+            if opts.secrets.ssh() => "--ssh",
             ".",
         );
 

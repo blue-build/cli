@@ -23,12 +23,9 @@ mod private {
 #[serde(tag = "type")]
 pub enum Secret {
     #[serde(rename = "env")]
-    Env { name: String },
+    Env { name: String, mount: SecretMount },
     #[serde(rename = "file")]
-    File {
-        source: PathBuf,
-        destination: PathBuf,
-    },
+    File { source: PathBuf, mount: SecretMount },
     #[serde(rename = "exec")]
     Exec(SecretExec),
     #[serde(rename = "ssh")]
@@ -46,20 +43,32 @@ impl Secret {
         let hash = self.get_hash();
         let prefix = format!("--mount=type=secret,id={hash}");
         match self {
-            Self::Env { name: _ }
-            | Self::Exec(SecretExec {
-                command: _,
-                args: _,
-                output: SecretExecOutput::Env { name: _ },
-            }) => format!("{prefix},dst=/tmp/secrets/{hash}"),
-            Self::File {
-                source: _,
-                destination,
+            Self::Env {
+                name: _,
+                mount: SecretMount::Env { name: _ },
             }
             | Self::Exec(SecretExec {
                 command: _,
                 args: _,
-                output: SecretExecOutput::File { destination },
+                mount: SecretMount::Env { name: _ },
+            })
+            | Self::File {
+                source: _,
+                mount: SecretMount::Env { name: _ },
+            } => format!("{prefix},dst=/tmp/secrets/{hash}"),
+
+            Self::Env {
+                name: _,
+                mount: SecretMount::File { destination },
+            }
+            | Self::File {
+                source: _,
+                mount: SecretMount::File { destination },
+            }
+            | Self::Exec(SecretExec {
+                command: _,
+                args: _,
+                mount: SecretMount::File { destination },
             }) => format!("{prefix},dst={}", destination.display()),
             Self::Ssh => string!("--ssh"),
         }
@@ -69,11 +78,18 @@ impl Secret {
     pub fn env(&self) -> Option<String> {
         let hash = self.get_hash();
         match self {
-            Self::Env { name }
+            Self::Env {
+                name: _,
+                mount: SecretMount::Env { name },
+            }
+            | Self::File {
+                source: _,
+                mount: SecretMount::Env { name },
+            }
             | Self::Exec(SecretExec {
                 command: _,
                 args: _,
-                output: SecretExecOutput::Env { name },
+                mount: SecretMount::Env { name },
             }) => Some(format!(r#"{name}="$(cat /tmp/secrets/{hash})""#)),
             _ => None,
         }
@@ -117,30 +133,27 @@ pub trait SecretArgs: private::Private {
     /// # Errors
     /// Will error if an exec based secret fails to run.
     fn args(&self, temp_dir: &TempDir) -> Result<Vec<String>>;
+
+    /// Checks to see if ssh is a required secret.
+    fn ssh(&self) -> bool;
 }
 
 impl<H: std::hash::BuildHasher> SecretArgs for HashSet<&Secret, H> {
     fn args(&self, temp_dir: &TempDir) -> Result<Vec<String>> {
-        self.iter()
-            .map(|secret| {
+        Ok(self
+            .iter()
+            .map(|&secret| {
                 Ok(match secret {
-                    Secret::Env { name } => {
-                        format!(
-                            "--secret=id={},type=env,src={}",
-                            secret.get_hash(),
-                            name.trim()
-                        )
-                    }
-                    Secret::File {
-                        source,
-                        destination: _,
-                    } => {
-                        format!(
-                            "--secret=id={},type=file,src={}",
-                            secret.get_hash(),
-                            source.display()
-                        )
-                    }
+                    Secret::Env { name, mount: _ } => Some(format!(
+                        "--secret=id={},type=env,src={}",
+                        secret.get_hash(),
+                        name.trim()
+                    )),
+                    Secret::File { source, mount: _ } => Some(format!(
+                        "--secret=id={},type=file,src={}",
+                        secret.get_hash(),
+                        source.display()
+                    )),
                     Secret::Exec(exec) => {
                         let result = exec.exec()?;
                         let hash = secret.get_hash();
@@ -148,12 +161,19 @@ impl<H: std::hash::BuildHasher> SecretArgs for HashSet<&Secret, H> {
                         fs::write(&secret_path, result.value())
                             .into_diagnostic()
                             .wrap_err("Failed to write secret to temp file")?;
-                        format!("--secret=id={hash},src={}", secret_path.display())
+                        Some(format!("--secret=id={hash},src={}", secret_path.display()))
                     }
-                    Secret::Ssh => string!("--ssh"),
+                    Secret::Ssh => None,
                 })
             })
-            .collect()
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .flatten()
+            .collect())
+    }
+
+    fn ssh(&self) -> bool {
+        self.contains(&Secret::Ssh)
     }
 }
 
@@ -161,7 +181,7 @@ impl<H: std::hash::BuildHasher> SecretArgs for HashSet<&Secret, H> {
 pub struct SecretExec {
     pub command: String,
     pub args: Vec<String>,
-    pub output: SecretExecOutput,
+    pub mount: SecretMount,
 }
 
 impl SecretExec {
@@ -188,7 +208,7 @@ impl SecretExec {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(tag = "type")]
-pub enum SecretExecOutput {
+pub enum SecretMount {
     #[serde(rename = "env")]
     Env { name: String },
     #[serde(rename = "file")]

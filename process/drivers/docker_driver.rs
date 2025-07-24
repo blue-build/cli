@@ -215,6 +215,7 @@ impl BuildDriver for DockerDriver {
                 opts.image.to_string(),
                 "-f",
                 for opts.secrets.args(&temp_dir)?,
+                if opts.secrets.ssh() => "--ssh",
                 if let Some(cache_from) = opts.cache_from.as_ref() => [
                     "--cache-from",
                     format!(
@@ -430,6 +431,7 @@ fn build_tag_push_cmd(
         "build",
         ".",
         for opts.secrets.args(temp_dir)?,
+        if opts.secrets.ssh() => "--ssh",
         match &opts.image {
             ImageRef::Remote(_remote) if opts.push => [
                 "--output",
