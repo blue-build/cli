@@ -114,6 +114,5 @@ pub struct SignVerifyOpts<'scope> {
     #[builder(default = 1)]
     pub retry_count: u8,
 
-    #[builder(default)]
-    pub platform: Platform,
+    pub platform: Option<Platform>,
 }

@@ -188,9 +188,9 @@ impl Driver {
     pub fn get_os_version(
         /// The OCI image reference.
         oci_ref: &Reference,
+
         /// The platform of the image to pull the version info from.
-        #[builder(default)]
-        platform: Platform,
+        platform: Option<Platform>,
     ) -> Result<u64> {
         trace!("Driver::get_os_version({oci_ref:#?})");
 
@@ -208,7 +208,7 @@ impl Driver {
         let os_version = Self::get_metadata(
             &GetMetadataOpts::builder()
                 .image(oci_ref)
-                .platform(platform)
+                .maybe_platform(platform)
                 .build(),
         )
         .and_then(|inspection| {

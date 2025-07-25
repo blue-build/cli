@@ -124,7 +124,7 @@ pub trait BuildDriver: PrivateDriver {
         let build_opts = BuildOpts::builder()
             .image(&opts.image)
             .containerfile(opts.containerfile.as_ref())
-            .platform(opts.platform)
+            .maybe_platform(opts.platform)
             .squash(opts.squash)
             .maybe_cache_from(opts.cache_from)
             .maybe_cache_to(opts.cache_to)
@@ -286,7 +286,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
             &BuildOpts::builder()
                 .image(raw_image)
                 .containerfile(&*opts.containerfile)
-                .platform(opts.platform)
+                .maybe_platform(opts.platform)
                 .privileged(true)
                 .squash(true)
                 .host_network(true)
@@ -562,7 +562,7 @@ pub trait SigningDriver: PrivateDriver {
         let image_digest = Driver::get_metadata(
             &GetMetadataOpts::builder()
                 .image(opts.image)
-                .platform(opts.platform)
+                .maybe_platform(opts.platform)
                 .build(),
         )?
         .digest;

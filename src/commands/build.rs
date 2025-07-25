@@ -57,9 +57,8 @@ pub struct BuildCommand {
     /// than your hardware will require installing
     /// qemu. Build times will be much greater when
     /// building for a non-native architecture.
-    #[arg(long, default_value = "native")]
-    #[builder(default)]
-    platform: Platform,
+    #[arg(long)]
+    platform: Option<Platform>,
 
     /// The compression format the images
     /// will be pushed in.
@@ -198,7 +197,7 @@ impl BlueBuildCommand for BuildCommand {
                     PathBuf::from(CONTAINER_FILE)
                 }))
                 .skip_validation(self.skip_validation)
-                .platform(self.platform)
+                .maybe_platform(self.platform)
                 .recipe(recipe)
                 .drivers(self.drivers)
                 .build()
@@ -249,7 +248,7 @@ impl BuildCommand {
             &GenerateTagsOpts::builder()
                 .oci_ref(&recipe.base_image_ref()?)
                 .maybe_alt_tags(recipe.alt_tags.as_ref().map(CowCollecter::collect_cow_vec))
-                .platform(self.platform)
+                .maybe_platform(self.platform)
                 .build(),
         )?;
         let image_name = self.image_name(&recipe)?;
@@ -283,7 +282,7 @@ impl BuildCommand {
                     BuildTagPushOpts::builder()
                         .image(&image)
                         .containerfile(containerfile)
-                        .platform(self.platform)
+                        .maybe_platform(self.platform)
                         .tags(tags.collect_cow_vec())
                         .push(self.push)
                         .retry_push(self.retry_push)
@@ -298,7 +297,7 @@ impl BuildCommand {
                 |archive_dir| {
                     BuildTagPushOpts::builder()
                         .containerfile(containerfile)
-                        .platform(self.platform)
+                        .maybe_platform(self.platform)
                         .image(PathBuf::from(format!(
                             "{}/{}.{ARCHIVE_SUFFIX}",
                             archive_dir.to_string_lossy().trim_end_matches('/'),
@@ -319,7 +318,7 @@ impl BuildCommand {
                     .image(&image)
                     .retry_push(self.retry_push)
                     .retry_count(self.retry_count)
-                    .platform(self.platform)
+                    .maybe_platform(self.platform)
                     .build(),
             )?;
         }
@@ -346,14 +345,14 @@ impl BuildCommand {
             &RechunkOpts::builder()
                 .image(image_name)
                 .containerfile(containerfile)
-                .platform(self.platform)
+                .maybe_platform(self.platform)
                 .tags(tags.collect_cow_vec())
                 .push(self.push)
                 .version(format!(
                     "{version}.<date>",
                     version = Driver::get_os_version()
                         .oci_ref(&recipe.base_image_ref()?)
-                        .platform(self.platform)
+                        .maybe_platform(self.platform)
                         .call()?,
                 ))
                 .retry_push(self.retry_push)
@@ -363,7 +362,7 @@ impl BuildCommand {
                     Driver::get_metadata(
                         &GetMetadataOpts::builder()
                             .image(&base_image)
-                            .platform(self.platform)
+                            .maybe_platform(self.platform)
                             .build(),
                     )?
                     .digest,

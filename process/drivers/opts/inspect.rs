@@ -9,6 +9,5 @@ pub struct GetMetadataOpts<'scope> {
     #[builder(into)]
     pub image: &'scope Reference,
 
-    #[builder(default)]
-    pub platform: Platform,
+    pub platform: Option<Platform>,
 }

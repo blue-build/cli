@@ -12,8 +12,7 @@ pub struct GenerateTagsOpts<'scope> {
     #[builder(into)]
     pub alt_tags: Option<Vec<Cow<'scope, str>>>,
 
-    #[builder(default)]
-    pub platform: Platform,
+    pub platform: Option<Platform>,
 }
 
 #[derive(Debug, Clone, Builder)]
