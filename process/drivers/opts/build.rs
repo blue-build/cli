@@ -20,8 +20,7 @@ pub struct BuildOpts<'scope> {
     #[builder(into)]
     pub containerfile: Cow<'scope, Path>,
 
-    #[builder(default)]
-    pub platform: Platform,
+    pub platform: Option<Platform>,
 
     #[builder(default)]
     pub host_network: bool,
@@ -102,8 +101,7 @@ pub struct BuildTagPushOpts<'scope> {
     pub squash: bool,
 
     /// The platform to build the image on.
-    #[builder(default)]
-    pub platform: Platform,
+    pub platform: Option<Platform>,
 
     /// Runs the build with elevated privileges
     #[builder(default)]

@@ -16,8 +16,7 @@ pub struct RechunkOpts<'scope> {
     #[builder(into)]
     pub containerfile: Cow<'scope, Path>,
 
-    #[builder(default)]
-    pub platform: Platform,
+    pub platform: Option<Platform>,
     pub version: Cow<'scope, str>,
     pub name: Cow<'scope, str>,
     pub description: Cow<'scope, str>,

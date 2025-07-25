@@ -73,8 +73,7 @@ pub struct GenerateCommand {
     /// Inspect the image for a specific platform
     /// when retrieving the version.
     #[arg(long, default_value = "native")]
-    #[builder(default)]
-    platform: Platform,
+    platform: Option<Platform>,
 
     /// Skips validation of the recipe file.
     #[arg(long, env = BB_SKIP_VALIDATION)]
@@ -148,7 +147,7 @@ impl GenerateCommand {
             .os_version(
                 Driver::get_os_version()
                     .oci_ref(&recipe.base_image_ref()?)
-                    .platform(self.platform)
+                    .maybe_platform(self.platform)
                     .call()?,
             )
             .build_id(Driver::get_build_id())
@@ -161,7 +160,7 @@ impl GenerateCommand {
                 Driver::get_metadata(
                     &GetMetadataOpts::builder()
                         .image(&base_image)
-                        .platform(self.platform)
+                        .maybe_platform(self.platform)
                         .build(),
                 )?
                 .digest,
@@ -186,14 +185,14 @@ impl GenerateCommand {
 
 #[cached(
     result = true,
-    key = "Platform",
+    key = "Option<Platform>",
     convert = r#"{ platform }"#,
     sync_writes = "by_key"
 )]
-fn determine_scripts_tag(platform: Platform) -> Result<Reference> {
+fn determine_scripts_tag(platform: Option<Platform>) -> Result<Reference> {
     trace!("determine_scripts_tag({platform:?})");
 
-    let opts = GetMetadataOpts::builder().platform(platform);
+    let opts = GetMetadataOpts::builder().maybe_platform(platform);
     format!("{BUILD_SCRIPTS_IMAGE_REF}:{}", shadow::COMMIT_HASH)
         .parse()
         .into_diagnostic()

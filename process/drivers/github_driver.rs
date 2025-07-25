@@ -41,7 +41,7 @@ impl CiDriver for GithubDriver {
         let timestamp = blue_build_utils::get_tag_timestamp();
         let os_version = Driver::get_os_version()
             .oci_ref(opts.oci_ref)
-            .platform(opts.platform)
+            .maybe_platform(opts.platform)
             .call()
             .inspect(|v| trace!("os_version={v}"))?;
         let ref_name = get_env_var(GITHUB_REF_NAME)

@@ -28,7 +28,7 @@ use crate::{
     drivers::{
         BuildDriver, DriverVersion, InspectDriver, RunDriver,
         opts::{BuildOpts, GetMetadataOpts, PushOpts, RunOpts, RunOptsEnv, RunOptsVolume, TagOpts},
-        types::{ImageMetadata, Platform},
+        types::ImageMetadata,
     },
     logging::{CommandLogging, Logger},
     signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
@@ -158,9 +158,9 @@ impl BuildDriver for PodmanDriver {
                 "podman",
             ],
             "build",
-            if !matches!(opts.platform, Platform::Native) => [
+            if let Some(platform) = opts.platform => [
                 "--platform",
-                opts.platform.to_string(),
+                platform.to_string(),
             ],
             if let Some(cache_from) = opts.cache_from.as_ref() => [
                 "--cache-from",
@@ -347,7 +347,7 @@ impl InspectDriver for PodmanDriver {
 #[cached(
     result = true,
     key = "String",
-    convert = r#"{ format!("{}-{}", opts.image, opts.platform)}"#,
+    convert = r#"{ format!("{}-{:?}", opts.image, opts.platform)}"#,
     sync_writes = "by_key"
 )]
 fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
@@ -369,9 +369,9 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
         let c = cmd!(
             "podman",
             "pull",
-            if !matches!(opts.platform, Platform::Native) => [
+            if let Some(platform) = opts.platform => [
                 "--platform",
-                opts.platform.to_string(),
+                platform.to_string(),
             ],
             &image_str,
         );

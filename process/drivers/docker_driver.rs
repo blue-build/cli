@@ -30,7 +30,7 @@ use crate::{
             RunOptsVolume, TagOpts,
         },
         traits::{BuildDriver, DriverVersion, InspectDriver, RunDriver},
-        types::{ContainerId, ImageMetadata, ImageRef, Platform},
+        types::{ContainerId, ImageMetadata, ImageRef},
     },
     logging::CommandLogging,
     signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
@@ -207,9 +207,9 @@ impl BuildDriver for DockerDriver {
             let c = cmd!(
                 "docker",
                 "build",
-                if !matches!(opts.platform, Platform::Native) => [
+                if let Some(platform) = opts.platform => [
                     "--platform",
-                    opts.platform.to_string(),
+                    platform.to_string(),
                 ],
                 "-t",
                 opts.image.to_string(),
@@ -456,9 +456,9 @@ fn build_tag_push_cmd(
                 }).collect()
             }),
         "--pull",
-        if !matches!(opts.platform, Platform::Native) => [
+        if let Some(platform) = opts.platform => [
             "--platform",
-            opts.platform.to_string(),
+            platform.to_string(),
         ],
         "-f",
         &*opts.containerfile,
@@ -507,7 +507,7 @@ impl InspectDriver for DockerDriver {
 #[cached(
     result = true,
     key = "String",
-    convert = r#"{ format!("{}-{}", opts.image, opts.platform)}"#,
+    convert = r#"{ format!("{}-{:?}", opts.image, opts.platform)}"#,
     sync_writes = "by_key"
 )]
 fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {

@@ -23,7 +23,7 @@ impl InspectDriver for SkopeoDriver {
 #[cached(
     result = true,
     key = "String",
-    convert = r#"{ format!("{}-{}", opts.image, opts.platform)}"#,
+    convert = r#"{ format!("{}-{:?}", opts.image, opts.platform)}"#,
     sync_writes = "by_key"
 )]
 fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
@@ -40,9 +40,13 @@ fn get_metadata_cache(opts: &GetMetadataOpts) -> Result<ImageMetadata> {
 
     let mut command = cmd!(
         "skopeo",
-        if !matches!(opts.platform, Platform::Native) => [
+        if let Some(platform) = opts.platform => [
             "--override-arch",
-            opts.platform.arch(),
+            platform.arch(),
+        ],
+        if let Some(variant) = opts.platform.as_ref().and_then(Platform::variant) => [
+            "--override-variant",
+            variant,
         ],
         "inspect",
         format!("docker://{image_str}"),

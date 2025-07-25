@@ -49,7 +49,7 @@ impl CiDriver for GitlabDriver {
         const MR_EVENT: &str = "merge_request_event";
         let os_version = Driver::get_os_version()
             .oci_ref(opts.oci_ref)
-            .platform(opts.platform)
+            .maybe_platform(opts.platform)
             .call()?;
         let timestamp = blue_build_utils::get_tag_timestamp();
         let short_sha =

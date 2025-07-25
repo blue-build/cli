@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use miette::{Report, bail};
 use serde::Deserialize;
 
-use crate::drivers::types::{ImageMetadata, Platform};
+use crate::drivers::types::{ImageMetadata, Platform, PlatformInfo};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Metadata {
@@ -48,10 +48,10 @@ pub struct Config {
     labels: HashMap<String, serde_json::Value>,
 }
 
-impl TryFrom<(Metadata, Platform)> for ImageMetadata {
+impl TryFrom<(Metadata, Option<Platform>)> for ImageMetadata {
     type Error = Report;
 
-    fn try_from((metadata, platform): (Metadata, Platform)) -> Result<Self, Self::Error> {
+    fn try_from((metadata, platform): (Metadata, Option<Platform>)) -> Result<Self, Self::Error> {
         match metadata.image {
             MetadataImage::Single(image) => Ok(Self {
                 labels: image.config.labels,
@@ -59,7 +59,10 @@ impl TryFrom<(Metadata, Platform)> for ImageMetadata {
             }),
             MetadataImage::Multi(mut platforms) => {
                 let Some(image) = platforms.remove(&platform.to_string()) else {
-                    bail!("Image information does not exist for {platform}");
+                    bail!(
+                        "Image information does not exist for {}",
+                        platform.to_string()
+                    );
                 };
                 let Some(manifest) = metadata
                     .manifest
@@ -67,7 +70,7 @@ impl TryFrom<(Metadata, Platform)> for ImageMetadata {
                     .into_iter()
                     .find(|manifest| manifest.platform.architecture == platform.arch())
                 else {
-                    bail!("Manifest does not exist for {platform}");
+                    bail!("Manifest does not exist for {}", platform.to_string());
                 };
                 Ok(Self {
                     labels: image.config.labels,

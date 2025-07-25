@@ -8,7 +8,7 @@ use miette::{Context, IntoDiagnostic, Result, bail, miette};
 use serde::Deserialize;
 use tempfile::TempDir;
 
-use crate::{drivers::types::Platform, logging::CommandLogging};
+use crate::logging::CommandLogging;
 
 use super::{
     BuildDriver, DriverVersion,
@@ -60,9 +60,9 @@ impl BuildDriver for BuildahDriver {
             "build",
             for opts.secrets.args(&temp_dir)?,
             if opts.secrets.ssh() => "--ssh",
-            if !matches!(opts.platform, Platform::Native) => [
+            if let Some(platform) = opts.platform => [
                 "--platform",
-                opts.platform.to_string(),
+                platform.to_string(),
             ],
             "--pull=true",
             format!("--layers={}", !opts.squash),
