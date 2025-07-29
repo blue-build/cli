@@ -115,7 +115,7 @@ release *args:
 
   VERSION=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "blue-build") .version')
   echo "Pushing tag: v${VERSION}"
-  git tag "v${VERSION}"
+  git tag -m "v${VERSION}" "v${VERSION}"
   git push origin "v${VERSION}"
   gh release create --generate-notes --latest "v${VERSION}"
 
