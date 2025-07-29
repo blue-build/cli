@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.21] - 2025-07-29
+
+### Bug Fixes
+
+- [**breaking**] Allow specifying mount type for secrets
+- Set default-flatpaks module to v1
+
+### Features
+
+- Add all linux platforms
+
+### Miscellaneous Tasks
+
+- Don't skip validation
+- Typo
+
 ## [0.9.20] - 2025-07-17
 
 ### Features
@@ -11,6 +27,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Bump cosign to 2.5.3
+- Release
 
 ## [0.9.19] - 2025-07-08
 
