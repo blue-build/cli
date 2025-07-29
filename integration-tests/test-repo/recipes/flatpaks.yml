@@ -1,6 +1,6 @@
 ---
 # yaml-language-server: $schema=https://schema.blue-build.org/module-v1.json
-type: default-flatpaks
+type: default-flatpaks@v1
 notify: true
 system:
   repo-url: https://dl.flathub.org/repo/flathub.flatpakrepo
