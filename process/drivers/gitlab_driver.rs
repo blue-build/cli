@@ -45,7 +45,7 @@ impl CiDriver for GitlabDriver {
         ))
     }
 
-    fn generate_tags(opts: &GenerateTagsOpts) -> miette::Result<Vec<String>> {
+    fn generate_tags(opts: GenerateTagsOpts) -> miette::Result<Vec<String>> {
         const MR_EVENT: &str = "merge_request_event";
         let os_version = Driver::get_os_version()
             .oci_ref(opts.oci_ref)
@@ -151,8 +151,6 @@ impl CiDriver for GitlabDriver {
 
 #[cfg(test)]
 mod test {
-    use std::borrow::Cow;
-
     use blue_build_utils::{
         constants::{
             CI_COMMIT_REF_NAME, CI_COMMIT_SHORT_SHA, CI_DEFAULT_BRANCH, CI_MERGE_REQUEST_IID,
@@ -293,7 +291,7 @@ mod test {
     )]
     fn generate_tags(
         #[case] setup: impl FnOnce(),
-        #[case] alt_tags: Option<Vec<Cow<'_, str>>>,
+        #[case] alt_tags: Option<Vec<String>>,
         #[case] mut expected: Vec<String>,
     ) {
         setup();
@@ -301,9 +299,9 @@ mod test {
         let oci_ref: Reference = "ghcr.io/ublue-os/silverblue-main".parse().unwrap();
 
         let mut tags = GitlabDriver::generate_tags(
-            &GenerateTagsOpts::builder()
+            GenerateTagsOpts::builder()
                 .oci_ref(&oci_ref)
-                .maybe_alt_tags(alt_tags)
+                .maybe_alt_tags(alt_tags.as_deref())
                 .platform(crate::drivers::types::Platform::LinuxAmd64)
                 .build(),
         )

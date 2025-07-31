@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashSet, path::Path};
+use std::path::Path;
 
 use blue_build_utils::secret::Secret;
 use bon::Builder;
@@ -9,16 +9,14 @@ use crate::drivers::types::{ImageRef, Platform};
 use super::CompressionType;
 
 /// Options for building
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct BuildOpts<'scope> {
-    #[builder(into)]
-    pub image: ImageRef<'scope>,
+    pub image: &'scope ImageRef<'scope>,
 
     #[builder(default)]
     pub squash: bool,
 
-    #[builder(into)]
-    pub containerfile: Cow<'scope, Path>,
+    pub containerfile: &'scope Path,
 
     pub platform: Option<Platform>,
 
@@ -27,18 +25,14 @@ pub struct BuildOpts<'scope> {
 
     #[builder(default)]
     pub privileged: bool,
-
-    #[builder(into)]
     pub cache_from: Option<&'scope Reference>,
-
-    #[builder(into)]
     pub cache_to: Option<&'scope Reference>,
 
     #[builder(default)]
-    pub secrets: HashSet<&'scope Secret>,
+    pub secrets: &'scope [&'scope Secret],
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct TagOpts<'scope> {
     pub src_image: &'scope Reference,
     pub dest_image: &'scope Reference,
@@ -47,7 +41,7 @@ pub struct TagOpts<'scope> {
     pub privileged: bool,
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct PushOpts<'scope> {
     pub image: &'scope Reference,
     pub compression_type: Option<CompressionType>,
@@ -56,7 +50,7 @@ pub struct PushOpts<'scope> {
     pub privileged: bool,
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct PruneOpts {
     pub all: bool,
     pub volumes: bool,
@@ -64,19 +58,17 @@ pub struct PruneOpts {
 
 /// Options for building, tagging, and pusing images.
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct BuildTagPushOpts<'scope> {
     /// The base image name.
-    #[builder(into)]
-    pub image: ImageRef<'scope>,
+    pub image: &'scope ImageRef<'scope>,
 
     /// The path to the Containerfile to build.
-    #[builder(into)]
-    pub containerfile: Cow<'scope, Path>,
+    pub containerfile: &'scope Path,
 
     /// The list of tags for the image being built.
-    #[builder(default, into)]
-    pub tags: Vec<Cow<'scope, str>>,
+    #[builder(default)]
+    pub tags: &'scope [String],
 
     /// Enable pushing the image.
     #[builder(default)]
@@ -115,5 +107,5 @@ pub struct BuildTagPushOpts<'scope> {
 
     /// Secrets to mount
     #[builder(default)]
-    pub secrets: HashSet<&'scope Secret>,
+    pub secrets: &'scope [&'scope Secret],
 }

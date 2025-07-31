@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashSet, path::Path};
+use std::path::Path;
 
 use blue_build_utils::secret::Secret;
 use bon::Builder;
@@ -8,25 +8,22 @@ use crate::drivers::types::{ContainerId, OciDir, Platform};
 
 use super::CompressionType;
 
-#[derive(Debug, Clone, Builder)]
-#[builder(on(Cow<'_, str>, into))]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct RechunkOpts<'scope> {
-    pub image: Cow<'scope, str>,
-
-    #[builder(into)]
-    pub containerfile: Cow<'scope, Path>,
+    pub image: &'scope str,
+    pub containerfile: &'scope Path,
 
     pub platform: Option<Platform>,
-    pub version: Cow<'scope, str>,
-    pub name: Cow<'scope, str>,
-    pub description: Cow<'scope, str>,
-    pub base_digest: Cow<'scope, str>,
-    pub base_image: Cow<'scope, str>,
-    pub repo: Cow<'scope, str>,
+    pub version: &'scope str,
+    pub name: &'scope str,
+    pub description: &'scope str,
+    pub base_digest: &'scope str,
+    pub base_image: &'scope str,
+    pub repo: &'scope str,
 
     /// The list of tags for the image being built.
-    #[builder(default, into)]
-    pub tags: Vec<Cow<'scope, str>>,
+    #[builder(default)]
+    pub tags: &'scope [String],
 
     /// Enable pushing the image.
     #[builder(default)]
@@ -57,10 +54,10 @@ pub struct RechunkOpts<'scope> {
     pub cache_to: Option<&'scope Reference>,
 
     #[builder(default)]
-    pub secrets: HashSet<&'scope Secret>,
+    pub secrets: &'scope [&'scope Secret],
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct ContainerOpts<'scope> {
     pub container_id: &'scope ContainerId,
 
@@ -68,16 +65,15 @@ pub struct ContainerOpts<'scope> {
     pub privileged: bool,
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct VolumeOpts<'scope> {
-    #[builder(into)]
-    pub volume_id: Cow<'scope, str>,
+    pub volume_id: &'scope str,
 
     #[builder(default)]
     pub privileged: bool,
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct CopyOciDirOpts<'scope> {
     pub oci_dir: &'scope OciDir,
     pub registry: &'scope Reference,

@@ -22,7 +22,7 @@ impl CiDriver for LocalDriver {
         unimplemented!()
     }
 
-    fn generate_tags(opts: &GenerateTagsOpts) -> miette::Result<Vec<String>> {
+    fn generate_tags(opts: GenerateTagsOpts) -> miette::Result<Vec<String>> {
         trace!("LocalDriver::generate_tags({opts:?})");
         let os_version = Driver::get_os_version()
             .oci_ref(opts.oci_ref)
