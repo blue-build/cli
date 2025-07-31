@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.22] - 2025-07-31
+
+### Bug Fixes
+
+- Remove default value of native for platform arg
+
+### Miscellaneous Tasks
+
+- Adjust release command
+
 ## [0.9.21] - 2025-07-29
 
 ### Bug Fixes
@@ -17,6 +27,7 @@ All notable changes to this project will be documented in this file.
 
 - Don't skip validation
 - Typo
+- Release
 
 ## [0.9.20] - 2025-07-17
 
