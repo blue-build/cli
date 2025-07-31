@@ -72,7 +72,7 @@ pub struct GenerateCommand {
 
     /// Inspect the image for a specific platform
     /// when retrieving the version.
-    #[arg(long, default_value = "native")]
+    #[arg(long)]
     platform: Option<Platform>,
 
     /// Skips validation of the recipe file.
