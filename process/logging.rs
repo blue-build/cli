@@ -439,9 +439,8 @@ where
     // Split the reference by colon to separate the tag or digest
     let mut parts = text.split(':');
 
-    let path = match parts.next() {
-        None => return text.to_string(),
-        Some(path) => path,
+    let Some(path) = parts.next() else {
+        return text.to_string();
     };
     let tag = parts.next();
 

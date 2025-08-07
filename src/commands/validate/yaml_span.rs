@@ -88,15 +88,12 @@ where
         let mut stream_start = false;
         let mut document_start = false;
 
-        let key = match self.path.next() {
-            None => {
-                let (_, marker) = self
-                    .events
-                    .find(|(e, _)| matches!(e, Event::StreamStart))
-                    .unwrap();
-                return Ok((marker.index(), 1).into());
-            }
-            Some(key) => key,
+        let Some(key) = self.path.next() else {
+            let (_, marker) = self
+                .events
+                .find(|(e, _)| matches!(e, Event::StreamStart))
+                .unwrap();
+            return Ok((marker.index(), 1).into());
         };
 
         Ok(loop {
