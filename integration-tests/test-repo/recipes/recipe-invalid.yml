@@ -2,7 +2,7 @@
 # yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
 name: cli/test-invalid
 description: 10
-base-image: ghcr.io/ublue-os/silverblue-main
+base-image: quay.io/fedora/fedora-bootc
 image-version:
   - 40
   - 39

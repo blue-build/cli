@@ -1,0 +1,41 @@
+#!/bin/bash
+
+set -euo pipefail
+
+if [ "$1" = "switch" ]; then
+  if [[ "$2" == "--transport=containers-storage" && "$3" == "$BB_TEST_LOCAL_IMAGE" ]]; then
+    echo "Rebased to local image $BB_TEST_LOCAL_IMAGE"
+  else
+    echo "Failed to rebase"
+    exit 1
+  fi
+elif [ "$1" = "upgrade" ]; then
+  echo "Performing upgrade for $BB_TEST_LOCAL_IMAGE"
+elif [ "$1" = "status" ]; then
+  cat <<EOF
+{
+  "status": {
+    "staged": null,
+    "booted": {
+      "image": {
+        "image": {
+          "image": "ghcr.io/blue-build/cli/test",
+          "transport": "registry"
+        }
+      }
+    },
+    "rollback": {
+      "image": {
+        "image": {
+          "image": "ghcr.io/blue-build/cli/test",
+          "transport": "registry"
+        }
+      }
+    }
+  }
+}
+EOF
+else
+  echo "Arg $1 is not recognized"
+  exit 1
+fi

@@ -73,7 +73,7 @@ impl BlueBuildCommand for PruneCommand {
         }
 
         Driver::prune(
-            &PruneOpts::builder()
+            PruneOpts::builder()
                 .all(self.all)
                 .volumes(self.volumes)
                 .build(),

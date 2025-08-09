@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     fs,
     path::{Path, PathBuf},
 };
@@ -12,6 +11,7 @@ use zeroize::{Zeroize, Zeroizing};
 
 use crate::drivers::types::Platform;
 
+#[derive(Debug)]
 pub enum PrivateKey {
     Env(String),
     Path(PathBuf),
@@ -56,53 +56,42 @@ impl PrivateKeyContents<String> for PrivateKey {
     }
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct GenerateKeyPairOpts<'scope> {
-    #[builder(into)]
-    pub dir: Option<Cow<'scope, Path>>,
+    pub dir: Option<&'scope Path>,
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct CheckKeyPairOpts<'scope> {
-    #[builder(into)]
-    pub dir: Option<Cow<'scope, Path>>,
+    pub dir: Option<&'scope Path>,
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct SignOpts<'scope> {
-    #[builder(into)]
     pub image: &'scope Reference,
-
-    #[builder(into)]
-    pub key: Option<Cow<'scope, str>>,
-
-    #[builder(into)]
-    pub dir: Option<Cow<'scope, Path>>,
+    pub key: Option<&'scope PrivateKey>,
+    pub dir: Option<&'scope Path>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum VerifyType<'scope> {
-    File(Cow<'scope, Path>),
+    File(&'scope Path),
     Keyless {
-        issuer: Cow<'scope, str>,
-        identity: Cow<'scope, str>,
+        issuer: &'scope str,
+        identity: &'scope str,
     },
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct VerifyOpts<'scope> {
-    #[builder(into)]
     pub image: &'scope Reference,
     pub verify_type: VerifyType<'scope>,
 }
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Clone, Copy, Builder)]
 pub struct SignVerifyOpts<'scope> {
-    #[builder(into)]
     pub image: &'scope Reference,
-
-    #[builder(into)]
-    pub dir: Option<Cow<'scope, Path>>,
+    pub dir: Option<&'scope Path>,
 
     /// Enable retry logic for pushing.
     #[builder(default)]

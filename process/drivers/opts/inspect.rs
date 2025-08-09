@@ -3,7 +3,7 @@ use oci_distribution::Reference;
 
 use crate::drivers::types::Platform;
 
-#[derive(Debug, Clone, Builder, Hash)]
+#[derive(Debug, Clone, Copy, Builder, Hash)]
 #[builder(derive(Clone))]
 pub struct GetMetadataOpts<'scope> {
     #[builder(into)]

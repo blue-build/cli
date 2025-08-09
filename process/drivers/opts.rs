@@ -1,5 +1,6 @@
 use clap::ValueEnum;
 
+pub use boot::*;
 pub use build::*;
 pub use ci::*;
 pub use inspect::*;
@@ -7,6 +8,7 @@ pub use rechunk::*;
 pub use run::*;
 pub use signing::*;
 
+mod boot;
 mod build;
 mod ci;
 mod inspect;

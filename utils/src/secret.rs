@@ -1,5 +1,4 @@
 use std::{
-    collections::HashSet,
     fs,
     hash::{DefaultHasher, Hash, Hasher},
     ops::Not,
@@ -121,7 +120,7 @@ impl SecretMounts for Vec<Secret> {
     }
 }
 
-impl<H: std::hash::BuildHasher> private::Private for HashSet<&Secret, H> {}
+impl private::Private for &[&Secret] {}
 
 #[allow(private_bounds)]
 pub trait SecretArgs: private::Private {
@@ -138,7 +137,7 @@ pub trait SecretArgs: private::Private {
     fn ssh(&self) -> bool;
 }
 
-impl<H: std::hash::BuildHasher> SecretArgs for HashSet<&Secret, H> {
+impl SecretArgs for &[&Secret] {
     fn args(&self, temp_dir: &TempDir) -> Result<Vec<String>> {
         Ok(self
             .iter()
@@ -173,7 +172,7 @@ impl<H: std::hash::BuildHasher> SecretArgs for HashSet<&Secret, H> {
     }
 
     fn ssh(&self) -> bool {
-        self.contains(&Secret::Ssh)
+        self.contains(&&Secret::Ssh)
     }
 }
 

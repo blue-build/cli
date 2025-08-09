@@ -138,7 +138,7 @@ impl Recipe<'_> {
     }
 
     #[must_use]
-    pub fn get_secrets(&self) -> HashSet<&Secret> {
+    pub fn get_secrets(&self) -> Vec<&Secret> {
         self.modules_ext
             .modules
             .iter()
@@ -154,6 +154,8 @@ impl Recipe<'_> {
                     .filter_map(|module| Some(&module.required_fields.as_ref()?.secrets))
                     .flatten(),
             )
+            .collect::<HashSet<_>>()
+            .into_iter()
             .collect()
     }
 }

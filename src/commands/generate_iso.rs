@@ -7,7 +7,6 @@ use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{ARCHIVE_SUFFIX, BB_SKIP_VALIDATION},
     string_vec,
-    traits::CowCollecter,
 };
 use bon::Builder;
 use clap::{Args, Subcommand, ValueEnum};
@@ -189,8 +188,10 @@ impl GenerateIsoCommand {
             format!("SECURE_BOOT_KEY_URL={}", self.secure_boot_url),
             format!("ENROLLMENT_PASSWORD={}", self.enrollment_password),
         ];
+        let image_out_dir = &image_out_dir.display().to_string();
+        let output_dir = &output_dir.display().to_string();
         let mut vols = run_volumes![
-            output_dir.display().to_string() => "/build-container-installer/build",
+            output_dir => "/build-container-installer/build",
             "dnf-cache" => "/cache/dnf/",
         ];
 
@@ -239,8 +240,8 @@ impl GenerateIsoCommand {
                             .call()?,
                     ),
                 ]);
-                vols.extend(run_volumes![
-                    image_out_dir.display().to_string() => "/img_src/",
+                vols.extend(&run_volumes![
+                    image_out_dir => "/img_src/",
                 ]);
             }
         }
@@ -250,11 +251,11 @@ impl GenerateIsoCommand {
             .image("ghcr.io/jasonn3/build-container-installer")
             .privileged(true)
             .remove(true)
-            .args(args.collect_cow_vec())
-            .volumes(vols)
+            .args(&args)
+            .volumes(&vols)
             .build();
 
-        let status = Driver::run(&opts)?;
+        let status = Driver::run(opts)?;
 
         if !status.success() {
             bail!("Failed to create ISO");

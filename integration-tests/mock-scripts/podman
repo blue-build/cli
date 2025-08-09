@@ -13,6 +13,10 @@ main() {
     echo "Exporting image to a tarball (JK JUST A MOCK!)"
     echo "${tarpath}"
     touch $tarpath
+  elif [[ "$1" == "image" && "$2" == "scp" ]]; then
+    echo "Copying image $3 to $4"
+  elif [[ "$1" == "rmi" && "$2" == "$BB_TEST_LOCAL_IMAGE" ]]; then
+    echo "Removing image $2"
   else
     echo 'Running podman'
   fi
