@@ -65,38 +65,6 @@ jobs:
         run: |
           earthly --ci --push -P +prebuild
 
-  build-scripts:
-    timeout-minutes: 60
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          fetch-tags: true
-
-      - uses: dtolnay/rust-toolchain@38b70195107dddab2c7bbd522bcf763bac00963b # stable
-      - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
-        with:
-          use-cache: false
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
-      - name: Run build
-        id: build
-        run: |
-          LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
-          CARGO_PACKAGE_VERSION="v$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "blue-build") .version')"
-          LATEST=$(test "$CARGO_PACKAGE_VERSION" = "$LATEST_TAG" && echo true || echo false)
-          earthly --ci --push +build-scripts-all --TAGGED="true" --LATEST="$LATEST"
-
   build-images:
     permissions:
       packages: write

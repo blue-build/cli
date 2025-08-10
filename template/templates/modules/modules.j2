@@ -33,7 +33,7 @@ RUN \
         {%- if module.module_type.typ() == "akmods" %}
   --mount=type=bind,from=stage-akmods-{{ module.generate_akmods_info(os_version).stage_name }},src=/rpms,dst=/tmp/rpms,rw \
         {%- endif %}
-  --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/tmp/scripts/ \
+  --mount=type=bind,src={{ build_scripts_dir.display() }},dst=/tmp/scripts/ \
   --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
   --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
         {%- for secret_var in module.secrets.envs() %}
@@ -78,7 +78,7 @@ RUN \
         {%- else %}
   --mount=type=bind,from={{ module.get_module_image() }},src=/modules,dst=/tmp/modules,rw \
         {%- endif %}
-  --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/tmp/scripts/ \
+  --mount=type=bind,src={{ build_scripts_dir.display() }},dst=/tmp/scripts/ \
         {%- for secret_var in module.secrets.envs() %}
   {{ secret_var }} \
         {%- endfor %}

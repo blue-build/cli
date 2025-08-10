@@ -40,12 +40,12 @@ RUN --mount=type=bind,from={{ blue_build_utils::constants::NUSHELL_IMAGE }}:{{ g
   && cp -r /tmp/nu/* /usr/libexec/bluebuild/nu/
 {%- endif %}
 
-RUN --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/scripts/ \
+RUN --mount=type=bind,src={{ build_scripts_dir.display() }},dst=/scripts/ \
   /scripts/pre_build.sh
 
 {% call modules::main_modules_run(recipe.modules_ext, os_version) %}
 
-RUN --mount=type=bind,from={{ build_scripts_image }},src=/scripts/,dst=/scripts/ \
+RUN --mount=type=bind,src={{ build_scripts_dir.display() }},dst=/scripts/ \
   /scripts/post_build.sh
 
 # Labels are added last since they cause cache misses with buildah

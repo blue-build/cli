@@ -9,7 +9,6 @@ use bon::Builder;
 use chrono::Utc;
 use colored::control::ShouldColorize;
 use log::{debug, error, trace, warn};
-use oci_distribution::Reference;
 use uuid::Uuid;
 
 pub use askama::Template;
@@ -25,7 +24,7 @@ pub struct ContainerFileTemplate<'a> {
     build_id: Uuid,
     os_version: u64,
     registry: &'a str,
-    build_scripts_image: &'a Reference,
+    build_scripts_dir: &'a Path,
     repo: &'a str,
     base_digest: &'a str,
     nushell_version: Option<&'a MaybeVersion>,

@@ -1,3 +1,4 @@
 /Containerfile
 /Containerfile.*
+/.bluebuild*
 /secrets

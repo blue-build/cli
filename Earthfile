@@ -12,7 +12,7 @@ all:
     WAIT
         BUILD --platform=linux/amd64 --platform=linux/arm64 +prebuild
     END
-    BUILD +build
+    BUILD +build-images-all
     BUILD ./integration-tests+all
 
 run-checks:
@@ -21,9 +21,6 @@ run-checks:
 
 build-images-all:
     BUILD --platform=linux/amd64 --platform=linux/arm64 +build-images
-
-build-scripts-all:
-    BUILD --platform=linux/amd64 --platform=linux/arm64 +build-scripts
 
 build-images:
     BUILD +blue-build-cli
@@ -109,31 +106,21 @@ common:
         rustup update
 
     WORKDIR /app
-    COPY --keep-ts --dir src/ template/ recipe/ utils/ process/ /app
-    COPY --keep-ts Cargo.* /app
-    COPY --keep-ts *.md /app
-    COPY --keep-ts LICENSE /app
-    COPY --keep-ts build.rs /app
-    COPY --keep-ts --dir .git/ /app
-    RUN touch build.rs
+    COPY --keep-ts --dir \
+        build.rs \
+        LICENSE \
+        *.md \
+        Cargo.* \
+        src/ \
+        template/ \
+        recipe/ \
+        utils/ \
+        process/ \
+        scripts/ \
+        .git/ \
+        /app
 
     DO rust+INIT --keep_fingerprints=true
-
-build-scripts:
-    ARG BASE_IMAGE="alpine"
-    FROM $BASE_IMAGE
-
-    COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
-    LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
-    LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
-
-    COPY --dir scripts/ /
-    FOR script IN "$(ls /scripts | grep -e '.*\.sh$')"
-        RUN echo "Making ${script} executable" && \
-        chmod +x "scripts/${script}"
-    END
-
-    DO --pass-args +SAVE_IMAGE --IMAGE="$IMAGE/build-scripts"
 
 blue-build-cli-prebuild:
     ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
