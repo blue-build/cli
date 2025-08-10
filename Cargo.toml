@@ -107,6 +107,7 @@ tempfile.workspace = true
 tokio.workspace = true
 bon.workspace = true
 users.workspace = true
+rust-embed = { version = "8.7.2", features = ["debug-embed", "compression", "deterministic-timestamps"] }
 
 [features]
 # Top level features

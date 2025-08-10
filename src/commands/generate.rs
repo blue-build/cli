@@ -1,5 +1,4 @@
 use std::{
-    env,
     ops::Not,
     path::{Path, PathBuf},
 };
@@ -10,19 +9,16 @@ use blue_build_process_management::drivers::{
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
-    constants::{
-        BB_SKIP_VALIDATION, BUILD_SCRIPTS_IMAGE_REF, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH,
-    },
+    constants::{BB_SKIP_VALIDATION, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH},
     syntax_highlighting::{self, DefaultThemes},
 };
 use bon::Builder;
-use cached::proc_macro::cached;
-use clap::{Args, crate_version};
+use clap::Args;
 use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Result};
 use oci_distribution::Reference;
 
-use crate::{commands::validate::ValidateCommand, shadow};
+use crate::commands::validate::ValidateCommand;
 
 use super::BlueBuildCommand;
 
@@ -79,6 +75,10 @@ pub struct GenerateCommand {
     #[arg(long, env = BB_SKIP_VALIDATION)]
     #[builder(default)]
     skip_validation: bool,
+
+    #[clap(skip)]
+    #[builder(into)]
+    build_scripts_dir: Option<PathBuf>,
 
     #[clap(flatten)]
     #[builder(default)]
@@ -149,12 +149,15 @@ impl GenerateCommand {
                 .build(),
         )?
         .digest;
-        let build_scripts_image = &determine_scripts_tag(self.platform)?;
         let repo = &Driver::get_repo_url()?;
         let build_features = &[
             #[cfg(feature = "bootc")]
             "bootc".into(),
         ];
+        let build_scripts_dir = self
+            .build_scripts_dir
+            .as_deref()
+            .unwrap_or_else(|| Path::new(".bluebuild-scripts"));
 
         let template = ContainerFileTemplate::builder()
             .os_version(
@@ -168,7 +171,7 @@ impl GenerateCommand {
             .recipe_path(recipe_path.as_path())
             .registry(&registry)
             .repo(repo)
-            .build_scripts_image(build_scripts_image)
+            .build_scripts_dir(build_scripts_dir)
             .base_digest(base_digest)
             .maybe_nushell_version(recipe.nushell_version.as_ref())
             .build_features(build_features)
@@ -187,41 +190,4 @@ impl GenerateCommand {
 
         Ok(())
     }
-}
-
-#[cached(
-    result = true,
-    key = "Option<Platform>",
-    convert = r#"{ platform }"#,
-    sync_writes = "by_key"
-)]
-fn determine_scripts_tag(platform: Option<Platform>) -> Result<Reference> {
-    trace!("determine_scripts_tag({platform:?})");
-
-    let opts = GetMetadataOpts::builder().maybe_platform(platform);
-    format!("{BUILD_SCRIPTS_IMAGE_REF}:{}", shadow::COMMIT_HASH)
-        .parse()
-        .into_diagnostic()
-        .and_then(|image| {
-            Driver::get_metadata(opts.clone().image(&image).build())
-                .inspect_err(|e| trace!("{e:?}"))
-                .map(|_| image)
-        })
-        .or_else(|_| {
-            let image: Reference = format!("{BUILD_SCRIPTS_IMAGE_REF}:{}", shadow::BRANCH)
-                .parse()
-                .into_diagnostic()?;
-            Driver::get_metadata(opts.clone().image(&image).build())
-                .inspect_err(|e| trace!("{e:?}"))
-                .map(|_| image)
-        })
-        .or_else(|_| {
-            let image: Reference = format!("{BUILD_SCRIPTS_IMAGE_REF}:v{}", crate_version!())
-                .parse()
-                .into_diagnostic()?;
-            Driver::get_metadata(opts.image(&image).build())
-                .inspect_err(|e| trace!("{e:?}"))
-                .map(|_| image)
-        })
-        .inspect(|image| debug!("Using build scripts image: {image}"))
 }
