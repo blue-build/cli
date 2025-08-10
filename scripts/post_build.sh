@@ -15,7 +15,7 @@ if [[ -n "${optdirs[*]}" ]]; then
         lib_opt_dir="${optfix_dir}/${opt}"
         mv -v "${optdir}" "${lib_opt_dir}"
         echo "linking ${optdir} => ${lib_opt_dir}"
-        echo "L  ${optdir}  -  -  -  -  ${lib_opt_dir}" | tee "/usr/lib/tmpfiles.d/bluebuild-optfix-${opt}.conf"
+        echo "L+?  ${optdir}  -  -  -  -  ${lib_opt_dir}" | tee "/usr/lib/tmpfiles.d/bluebuild-optfix-${opt}.conf"
     done
 fi
 
