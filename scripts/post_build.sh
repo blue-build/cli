@@ -4,7 +4,8 @@ set -euo pipefail
 . /scripts/exports.sh
 
 shopt -s nullglob
-optdirs=(/opt/*)
+# needs nullglob, so that this array is empty if /opt is empty
+optdirs=(/opt/*) # returns a list of directories in /opt
 if [[ -n "${optdirs[*]}" ]]; then
     optfix_dir="/usr/lib/bluebuild-optfix"
     mkdir -pv "${optfix_dir}"
@@ -14,7 +15,7 @@ if [[ -n "${optdirs[*]}" ]]; then
         lib_opt_dir="${optfix_dir}/${opt}"
         mv -v "${optdir}" "${lib_opt_dir}"
         echo "linking ${optdir} => ${lib_opt_dir}"
-        echo "L  ${optdir}  -  -  -  -  ${lib_opt_dir}" | tee "/usr/lib/tmpfiles.d/${opt}-bluebuild.conf"
+        echo "L  ${optdir}  -  -  -  -  ${lib_opt_dir}" | tee "/usr/lib/tmpfiles.d/bluebuild-optfix-${opt}.conf"
     done
 fi
 
