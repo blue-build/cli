@@ -8,6 +8,8 @@ use std::{
     os::unix::fs::PermissionsExt,
 };
 
+use blue_build_process_management::drivers::types::BuildDriverType;
+use blue_build_template::BuildEngine;
 use blue_build_utils::constants::{BLUE_BUILD_SCRIPTS_DIR_IGNORE, GITIGNORE_PATH};
 use miette::{Context, IntoDiagnostic, Result, miette};
 use rust_embed::Embed;
@@ -16,6 +18,19 @@ use tempfile::TempDir;
 pub mod commands;
 
 shadow_rs::shadow!(shadow);
+
+pub(crate) trait DriverTemplate {
+    fn build_engine(&self) -> BuildEngine;
+}
+
+impl DriverTemplate for BuildDriverType {
+    fn build_engine(&self) -> BuildEngine {
+        match self {
+            Self::Buildah | Self::Podman => BuildEngine::Oci,
+            Self::Docker => BuildEngine::Docker,
+        }
+    }
+}
 
 #[derive(Embed)]
 #[folder = "scripts/"]

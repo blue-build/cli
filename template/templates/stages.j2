@@ -62,7 +62,7 @@ COPY --from={{ blue_build_utils::constants::NUSHELL_IMAGE }}:{{ get_nu_version()
 
 # Add compatibility for modules
 RUN --mount=type=bind,from=stage-bins,src=/bins/,dst=/tmp/bins/ \
-  --mount=type=bind,src={{ build_scripts_dir.display() }},dst=/tmp/scripts/ \
+  {{ scripts_mount("/tmp/scripts/") }} \
   /tmp/scripts/setup.sh
 
         {%- if self::config_dir_exists() %}

@@ -18,7 +18,7 @@ use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Result};
 use oci_distribution::Reference;
 
-use crate::commands::validate::ValidateCommand;
+use crate::{DriverTemplate, commands::validate::ValidateCommand};
 
 use super::BlueBuildCommand;
 
@@ -175,6 +175,7 @@ impl GenerateCommand {
             .base_digest(base_digest)
             .maybe_nushell_version(recipe.nushell_version.as_ref())
             .build_features(build_features)
+            .build_engine(Driver::get_build_driver().build_engine())
             .build();
 
         let output_str = template.render().into_diagnostic()?;

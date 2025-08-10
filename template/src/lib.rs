@@ -13,6 +13,12 @@ use uuid::Uuid;
 
 pub use askama::Template;
 
+#[derive(Debug, Clone, Copy)]
+pub enum BuildEngine {
+    Oci,
+    Docker,
+}
+
 #[derive(Debug, Clone, Template, Builder)]
 #[template(path = "Containerfile.j2", escape = "none", whitespace = "minimize")]
 pub struct ContainerFileTemplate<'a> {
@@ -31,6 +37,7 @@ pub struct ContainerFileTemplate<'a> {
 
     #[builder(default)]
     build_features: &'a [String],
+    build_engine: BuildEngine,
 }
 
 impl ContainerFileTemplate<'_> {
@@ -55,6 +62,17 @@ impl ContainerFileTemplate<'_> {
             .map(|feat| feat.trim())
             .collect::<Vec<_>>()
             .join(",")
+    }
+
+    fn scripts_mount(&self, dest: &str) -> String {
+        format!(
+            "--mount=type=bind,src={},dst={dest},{}",
+            self.build_scripts_dir.display(),
+            match self.build_engine {
+                BuildEngine::Oci => "Z",
+                BuildEngine::Docker => "ro",
+            }
+        )
     }
 }
 
