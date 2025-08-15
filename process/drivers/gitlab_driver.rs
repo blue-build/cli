@@ -157,6 +157,7 @@ mod test {
             CI_PIPELINE_SOURCE, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CI_SERVER_HOST,
             CI_SERVER_PROTOCOL,
         },
+        platform::Platform,
         string_vec,
         test_utils::set_env_var,
     };
@@ -302,7 +303,7 @@ mod test {
             GenerateTagsOpts::builder()
                 .oci_ref(&oci_ref)
                 .maybe_alt_tags(alt_tags.as_deref())
-                .platform(crate::drivers::types::Platform::LinuxAmd64)
+                .platform(Platform::LinuxAmd64)
                 .build(),
         )
         .unwrap();

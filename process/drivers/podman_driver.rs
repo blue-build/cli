@@ -31,7 +31,10 @@ use super::{
 use crate::{
     drivers::{
         BuildDriver, DriverVersion, InspectDriver, RunDriver,
-        opts::{BuildOpts, GetMetadataOpts, PushOpts, RunOpts, RunOptsEnv, RunOptsVolume, TagOpts},
+        opts::{
+            BuildOpts, GetMetadataOpts, ManifestCreateOpts, ManifestPushOpts, PushOpts, RunOpts,
+            RunOptsEnv, RunOptsVolume, TagOpts,
+        },
         types::ImageMetadata,
     },
     logging::{CommandLogging, Logger},
@@ -342,6 +345,50 @@ impl BuildDriver for PodmanDriver {
 
         if !status.success() {
             bail!("Failed to prune podman");
+        }
+
+        Ok(())
+    }
+
+    fn manifest_create(opts: ManifestCreateOpts) -> Result<()> {
+        let status = {
+            let c = cmd!(
+                "podman",
+                "manifest",
+                "create",
+                opts.final_image.to_string(),
+                for image in opts.image_list => image.to_string(),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
+        }
+
+        Ok(())
+    }
+
+    fn manifest_push(opts: ManifestPushOpts) -> Result<()> {
+        let status = {
+            let c = cmd!(
+                "podman",
+                "manifest",
+                "push",
+                opts.final_image.to_string(),
+                format!("docker://{}", opts.final_image),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
         }
 
         Ok(())

@@ -9,8 +9,6 @@ use miette::{IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use zeroize::{Zeroize, Zeroizing};
 
-use crate::drivers::types::Platform;
-
 #[derive(Debug)]
 pub enum PrivateKey {
     Env(String),
@@ -102,6 +100,4 @@ pub struct SignVerifyOpts<'scope> {
     /// Defaults to 1.
     #[builder(default = 1)]
     pub retry_count: u8,
-
-    pub platform: Option<Platform>,
 }

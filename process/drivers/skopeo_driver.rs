@@ -1,5 +1,6 @@
 use std::{process::Stdio, time::Duration};
 
+use blue_build_utils::platform::Platform;
 use cached::proc_macro::cached;
 use colored::Colorize;
 use comlexr::cmd;
@@ -7,7 +8,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, trace};
 use miette::{IntoDiagnostic, Result, bail};
 
-use crate::{drivers::types::Platform, logging::Logger};
+use crate::logging::Logger;
 
 use super::{
     InspectDriver,

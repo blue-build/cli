@@ -8,12 +8,14 @@ use blue_build_utils::{constants::COSIGN_PUB_PATH, retry, semver::Version, strin
 use log::{debug, info, trace};
 use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
+use rayon::prelude::*;
 use semver::VersionReq;
 
 use crate::drivers::{
     Driver,
     functions::get_private_key,
-    types::{CiDriverType, ImageRef},
+    opts::{ManifestCreateOpts, ManifestPushOpts},
+    types::{CiDriverType, ImageRef, OciDir},
 };
 
 use super::{
@@ -126,6 +128,18 @@ pub trait BuildDriver: PrivateDriver {
     /// Will error if the driver fails to prune.
     fn prune(opts: super::opts::PruneOpts) -> Result<()>;
 
+    /// Create a manifest containing all the built images.
+    ///
+    /// # Errors
+    /// Will error if the driver fails to create a manifest.
+    fn manifest_create(opts: ManifestCreateOpts) -> Result<()>;
+
+    /// Pushes a manifest containing all the built images.
+    ///
+    /// # Errors
+    /// Will error if the driver fails to push a manifest.
+    fn manifest_push(opts: ManifestPushOpts) -> Result<()>;
+
     /// Runs the logic for building, tagging, and pushing an image.
     ///
     /// # Errors
@@ -133,18 +147,38 @@ pub trait BuildDriver: PrivateDriver {
     fn build_tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
         trace!("BuildDriver::build_tag_push({opts:#?})");
 
-        let build_opts = BuildOpts::builder()
-            .image(opts.image)
-            .containerfile(opts.containerfile.as_ref())
-            .maybe_platform(opts.platform)
-            .squash(opts.squash)
-            .maybe_cache_from(opts.cache_from)
-            .maybe_cache_to(opts.cache_to)
-            .secrets(opts.secrets)
-            .build();
+        let build_opts = if opts.platform.is_empty() {
+            vec![
+                BuildOpts::builder()
+                    .image(opts.image)
+                    .containerfile(opts.containerfile.as_ref())
+                    .squash(opts.squash)
+                    .maybe_cache_from(opts.cache_from)
+                    .maybe_cache_to(opts.cache_to)
+                    .secrets(opts.secrets)
+                    .build(),
+            ]
+        } else {
+            opts.platform
+                .iter()
+                .map(|&platform| {
+                    BuildOpts::builder()
+                        .image(opts.image)
+                        .containerfile(opts.containerfile.as_ref())
+                        .squash(opts.squash)
+                        .maybe_cache_from(opts.cache_from)
+                        .maybe_cache_to(opts.cache_to)
+                        .secrets(opts.secrets)
+                        .platform(platform)
+                        .build()
+                })
+                .collect()
+        };
 
-        info!("Building image {}", opts.image);
-        Self::build(build_opts)?;
+        build_opts.par_iter().try_for_each(|&build_opts| {
+            info!("Building image {}", opts.image);
+            Self::build(build_opts)
+        })?;
 
         let image_list: Vec<String> = match &opts.image {
             ImageRef::Remote(image) if !opts.tags.is_empty() => {
@@ -294,17 +328,43 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
 
         Self::login()?;
 
-        Self::build(
-            BuildOpts::builder()
-                .image(&ImageRef::from(raw_image))
-                .containerfile(opts.containerfile)
-                .maybe_platform(opts.platform)
-                .privileged(true)
-                .squash(true)
-                .host_network(true)
-                .secrets(opts.secrets)
-                .build(),
-        )?;
+        let image = ImageRef::from(raw_image);
+        let platform_images = opts
+            .platform
+            .iter()
+            .map(|&platform| (ImageRef::from(platform.tagged_image(raw_image)), platform))
+            .collect::<Vec<_>>();
+        let build_opts = if opts.platform.is_empty() {
+            vec![
+                BuildOpts::builder()
+                    .image(&image)
+                    .containerfile(opts.containerfile)
+                    .privileged(true)
+                    .squash(true)
+                    .host_network(true)
+                    .secrets(opts.secrets)
+                    .build(),
+            ]
+        } else {
+            platform_images
+                .iter()
+                .map(|(image, platform)| {
+                    BuildOpts::builder()
+                        .image(image)
+                        .containerfile(opts.containerfile)
+                        .platform(*platform)
+                        .privileged(true)
+                        .squash(true)
+                        .host_network(true)
+                        .secrets(opts.secrets)
+                        .build()
+                })
+                .collect()
+        };
+
+        build_opts
+            .par_iter()
+            .try_for_each(|&build_opts| Self::build(build_opts))?;
 
         let container = &Self::create_container(
             CreateContainerOpts::builder()
@@ -313,7 +373,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                 .build(),
         )?;
         let mount = &Self::mount_container(
-            super::opts::ContainerOpts::builder()
+            ContainerOpts::builder()
                 .container_id(container)
                 .privileged(true)
                 .build(),
@@ -334,7 +394,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         let mut image_list = Vec::with_capacity(opts.tags.len());
 
         if opts.push {
-            let oci_dir = &super::types::OciDir::try_from(temp_dir.path().join(ostree_cache_id))?;
+            let oci_dir = &OciDir::try_from(temp_dir.path().join(ostree_cache_id))?;
 
             for tag in opts.tags {
                 let tagged_image = Reference::with_tag(
@@ -347,7 +407,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                     debug!("Pushing image {tagged_image}");
 
                     Driver::copy_oci_dir(
-                        super::opts::CopyOciDirOpts::builder()
+                        CopyOciDirOpts::builder()
                             .oci_dir(oci_dir)
                             .registry(&tagged_image)
                             .privileged(true)
@@ -578,13 +638,8 @@ pub trait SigningDriver: PrivateDriver {
             .map_or_else(|| PathBuf::from("."), |d| d.to_path_buf());
         let cosign_file_path = path.join(COSIGN_PUB_PATH);
 
-        let image_digest = Driver::get_metadata(
-            GetMetadataOpts::builder()
-                .image(opts.image)
-                .maybe_platform(opts.platform)
-                .build(),
-        )?
-        .digest;
+        let image_digest =
+            Driver::get_metadata(GetMetadataOpts::builder().image(opts.image).build())?.digest;
         let image_digest: Reference = format!(
             "{}/{}@{image_digest}",
             opts.image.resolve_registry(),

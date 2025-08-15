@@ -4,12 +4,13 @@ use std::{
 };
 
 use blue_build_process_management::drivers::{
-    CiDriver, Driver, DriverArgs, InspectDriver, opts::GetMetadataOpts, types::Platform,
+    CiDriver, Driver, DriverArgs, InspectDriver, opts::GetMetadataOpts,
 };
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
     constants::{BB_SKIP_VALIDATION, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH},
+    platform::Platform,
     syntax_highlighting::{self, DefaultThemes},
 };
 use bon::Builder;

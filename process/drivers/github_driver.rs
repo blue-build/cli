@@ -146,6 +146,7 @@ mod test {
         constants::{
             GITHUB_EVENT_NAME, GITHUB_EVENT_PATH, GITHUB_REF_NAME, GITHUB_SHA, PR_EVENT_NUMBER,
         },
+        platform::Platform,
         string_vec,
         test_utils::set_env_var,
     };
@@ -153,7 +154,7 @@ mod test {
     use rstest::rstest;
 
     use crate::{
-        drivers::{CiDriver, opts::GenerateTagsOpts, types::Platform},
+        drivers::{CiDriver, opts::GenerateTagsOpts},
         test::{TEST_TAG_1, TEST_TAG_2, TIMESTAMP},
     };
 

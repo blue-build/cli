@@ -14,7 +14,7 @@ use std::{
     time::Duration,
 };
 
-use blue_build_utils::{BUILD_ID, semver::Version};
+use blue_build_utils::{BUILD_ID, platform::Platform, semver::Version};
 use bon::{Builder, bon};
 use cached::proc_macro::cached;
 use clap::Args;
@@ -30,12 +30,15 @@ use opts::{
     RunOpts, SignOpts, SwitchOpts, TagOpts, VerifyOpts, VolumeOpts,
 };
 use types::{
-    BootDriverType, BuildDriverType, CiDriverType, ImageMetadata, InspectDriverType, Platform,
-    RunDriverType, SigningDriverType,
+    BootDriverType, BuildDriverType, CiDriverType, ImageMetadata, InspectDriverType, RunDriverType,
+    SigningDriverType,
 };
 use uuid::Uuid;
 
-use crate::logging::Logger;
+use crate::{
+    drivers::opts::{ManifestCreateOpts, ManifestPushOpts},
+    logging::Logger,
+};
 
 pub use self::{
     buildah_driver::BuildahDriver, cosign_driver::CosignDriver, docker_driver::DockerDriver,
@@ -350,6 +353,14 @@ impl BuildDriver for Driver {
 
     fn prune(opts: PruneOpts) -> Result<()> {
         impl_build_driver!(prune(opts))
+    }
+
+    fn manifest_create(opts: ManifestCreateOpts) -> Result<()> {
+        impl_build_driver!(manifest_create(opts))
+    }
+
+    fn manifest_push(opts: ManifestPushOpts) -> Result<()> {
+        impl_build_driver!(manifest_push(opts))
     }
 
     fn build_tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {

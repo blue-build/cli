@@ -1,10 +1,10 @@
 use std::path::Path;
 
-use blue_build_utils::secret::Secret;
+use blue_build_utils::{platform::Platform, secret::Secret};
 use bon::Builder;
 use oci_distribution::Reference;
 
-use crate::drivers::types::{ImageRef, Platform};
+use crate::drivers::types::ImageRef;
 
 use super::CompressionType;
 
@@ -56,6 +56,22 @@ pub struct PruneOpts {
     pub volumes: bool,
 }
 
+#[derive(Debug, Clone, Copy, Builder)]
+pub struct ManifestCreateOpts<'scope> {
+    /// The final image name.
+    pub final_image: &'scope Reference,
+
+    /// The list of images to roll up under the manifest.
+    #[builder(default)]
+    pub image_list: &'scope [Reference],
+}
+
+#[derive(Debug, Clone, Copy, Builder)]
+pub struct ManifestPushOpts<'scope> {
+    /// The final image to push.
+    pub final_image: &'scope Reference,
+}
+
 /// Options for building, tagging, and pusing images.
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Copy, Builder)]
@@ -93,7 +109,8 @@ pub struct BuildTagPushOpts<'scope> {
     pub squash: bool,
 
     /// The platform to build the image on.
-    pub platform: Option<Platform>,
+    #[builder(default)]
+    pub platform: &'scope [Platform],
 
     /// Runs the build with elevated privileges
     #[builder(default)]
