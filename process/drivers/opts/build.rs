@@ -1,15 +1,18 @@
 use std::path::Path;
 
-use blue_build_utils::secret::Secret;
+use blue_build_utils::{
+    container::{ImageRef, Tag},
+    platform::Platform,
+    secret::Secret,
+};
 use bon::Builder;
 use oci_distribution::Reference;
-
-use crate::drivers::types::{ImageRef, Platform};
 
 use super::CompressionType;
 
 /// Options for building
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct BuildOpts<'scope> {
     pub image: &'scope ImageRef<'scope>,
 
@@ -33,6 +36,7 @@ pub struct BuildOpts<'scope> {
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct TagOpts<'scope> {
     pub src_image: &'scope Reference,
     pub dest_image: &'scope Reference,
@@ -42,6 +46,7 @@ pub struct TagOpts<'scope> {
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct PushOpts<'scope> {
     pub image: &'scope Reference,
     pub compression_type: Option<CompressionType>,
@@ -51,14 +56,34 @@ pub struct PushOpts<'scope> {
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct PruneOpts {
     pub all: bool,
     pub volumes: bool,
 }
 
+#[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
+pub struct ManifestCreateOpts<'scope> {
+    /// The final image name.
+    pub final_image: &'scope Reference,
+
+    /// The list of images to roll up under the manifest.
+    #[builder(default)]
+    pub image_list: &'scope [Reference],
+}
+
+#[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
+pub struct ManifestPushOpts<'scope> {
+    /// The final image to push.
+    pub final_image: &'scope Reference,
+}
+
 /// Options for building, tagging, and pusing images.
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct BuildTagPushOpts<'scope> {
     /// The base image name.
     pub image: &'scope ImageRef<'scope>,
@@ -68,7 +93,7 @@ pub struct BuildTagPushOpts<'scope> {
 
     /// The list of tags for the image being built.
     #[builder(default)]
-    pub tags: &'scope [String],
+    pub tags: &'scope [Tag],
 
     /// Enable pushing the image.
     #[builder(default)]
@@ -93,7 +118,8 @@ pub struct BuildTagPushOpts<'scope> {
     pub squash: bool,
 
     /// The platform to build the image on.
-    pub platform: Option<Platform>,
+    #[builder(default)]
+    pub platform: &'scope [Platform],
 
     /// Runs the build with elevated privileges
     #[builder(default)]

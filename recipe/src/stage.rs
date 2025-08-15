@@ -1,4 +1,4 @@
-use std::{borrow::Cow, path::PathBuf};
+use std::path::PathBuf;
 
 use blue_build_utils::syntax_highlighting::highlight_ser;
 use bon::Builder;
@@ -10,19 +10,18 @@ use crate::{Module, ModuleExt, StagesExt, base_recipe_path};
 
 /// Contains the required fields for a stage.
 #[derive(Serialize, Deserialize, Debug, Clone, Builder)]
-pub struct StageRequiredFields<'a> {
+#[builder(on(String, into))]
+pub struct StageRequiredFields {
     /// The name of the stage.
     ///
     /// This can then be referenced in the `copy`
     /// module using the `from:` property.
-    #[builder(into)]
-    pub name: Cow<'a, str>,
+    pub name: String,
 
     /// The base image of the stage.
     ///
     /// This is set directly in a `FROM` instruction.
-    #[builder(into)]
-    pub from: Cow<'a, str>,
+    pub from: String,
 
     /// The shell to use in the stage.
     #[builder(into)]
@@ -31,7 +30,7 @@ pub struct StageRequiredFields<'a> {
 
     /// The modules extension for the stage
     #[serde(flatten)]
-    pub modules_ext: ModuleExt<'a>,
+    pub modules_ext: ModuleExt,
 }
 
 /// Corresponds to a stage in a Containerfile
@@ -39,10 +38,10 @@ pub struct StageRequiredFields<'a> {
 /// A stage has its own list of modules to run which
 /// allows the user to reuse the modules thats provided to the main build.
 #[derive(Serialize, Deserialize, Debug, Clone, Builder)]
-pub struct Stage<'a> {
+pub struct Stage {
     /// The requied fields for a stage.
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub required_fields: Option<StageRequiredFields<'a>>,
+    pub required_fields: Option<StageRequiredFields>,
 
     /// A reference to another recipe file containing
     /// one or more stages.
@@ -83,10 +82,10 @@ pub struct Stage<'a> {
     /// ```
     #[builder(into)]
     #[serde(rename = "from-file", skip_serializing_if = "Option::is_none")]
-    pub from_file: Option<Cow<'a, str>>,
+    pub from_file: Option<String>,
 }
 
-impl Stage<'_> {
+impl Stage {
     /// Get's any child stages.
     ///
     /// # Errors
@@ -100,15 +99,15 @@ impl Stage<'_> {
         for stage in stages {
             found_stages.extend(
                 match stage {
-                    Stage {
+                    Self {
                         required_fields: Some(_),
                         from_file: None,
                     } => vec![stage.clone()],
-                    Stage {
+                    Self {
                         required_fields: None,
                         from_file: Some(file_name),
                     } => {
-                        let file_name = PathBuf::from(&**file_name);
+                        let file_name = PathBuf::from(file_name);
                         if traversed_files.contains(&file_name) {
                             bail!(
                                 "{} File {} has already been parsed:\n{traversed_files:?}",
@@ -122,7 +121,7 @@ impl Stage<'_> {
                         Self::get_stages(&StagesExt::try_from(&file_name)?.stages, Some(tf))?
                     }
                     _ => {
-                        let from_example = Stage::builder().from_file("path/to/stage.yml").build();
+                        let from_example = Self::builder().from_file("path/to/stage.yml").build();
                         let stage_example = Self::example();
 
                         bail!(
@@ -148,7 +147,7 @@ impl Stage<'_> {
 
     #[must_use]
     pub fn example() -> Self {
-        Stage::builder()
+        Self::builder()
             .required_fields(
                 StageRequiredFields::builder()
                     .name("stage-name")

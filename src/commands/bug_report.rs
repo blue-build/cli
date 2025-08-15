@@ -123,7 +123,7 @@ impl BugReportCommand {
         Ok(())
     }
 
-    fn get_recipe(&self) -> Option<Recipe<'_>> {
+    fn get_recipe(&self) -> Option<Recipe> {
         let recipe_path = self.recipe_path.clone().unwrap_or_else(|| {
             get_config_file("recipe", "Enter path to recipe file").unwrap_or_else(|_| {
                 trace!("Failed to get recipe");

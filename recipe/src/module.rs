@@ -1,4 +1,4 @@
-use std::{borrow::Cow, path::PathBuf};
+use std::path::PathBuf;
 
 use blue_build_utils::{
     constants::BLUE_BUILD_MODULE_IMAGE_REF, secret::Secret, syntax_highlighting::highlight_ser,
@@ -18,14 +18,14 @@ mod type_ver;
 pub use type_ver::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Builder)]
-pub struct ModuleRequiredFields<'a> {
+pub struct ModuleRequiredFields {
     #[builder(into)]
     #[serde(rename = "type")]
-    pub module_type: ModuleTypeVersion<'a>,
+    pub module_type: ModuleTypeVersion,
 
     #[builder(into)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub source: Option<Cow<'a, str>>,
+    pub source: Option<String>,
 
     #[builder(default)]
     #[serde(rename = "no-cache", default, skip_serializing_if = "is_false")]
@@ -49,9 +49,9 @@ const fn is_false(b: &bool) -> bool {
     !*b
 }
 
-impl<'a> ModuleRequiredFields<'a> {
+impl ModuleRequiredFields {
     #[must_use]
-    pub fn get_module_type_list(&'a self, typ: &str, list_key: &str) -> Option<Vec<String>> {
+    pub fn get_module_type_list(&self, typ: &str, list_key: &str) -> Option<Vec<String>> {
         if self.module_type.typ() == typ {
             Some(
                 self.config
@@ -67,17 +67,17 @@ impl<'a> ModuleRequiredFields<'a> {
     }
 
     #[must_use]
-    pub fn get_containerfile_list(&'a self) -> Option<Vec<String>> {
+    pub fn get_containerfile_list(&self) -> Option<Vec<String>> {
         self.get_module_type_list("containerfile", "containerfiles")
     }
 
     #[must_use]
-    pub fn get_containerfile_snippets(&'a self) -> Option<Vec<String>> {
+    pub fn get_containerfile_snippets(&self) -> Option<Vec<String>> {
         self.get_module_type_list("containerfile", "snippets")
     }
 
     #[must_use]
-    pub fn get_copy_args(&'a self) -> Option<(Option<&'a str>, &'a str, &'a str)> {
+    pub fn get_copy_args(&self) -> Option<(Option<&str>, &str, &str)> {
         Some((
             self.config.get("from").and_then(|from| from.as_str()),
             self.config.get("src")?.as_str()?,
@@ -95,7 +95,7 @@ impl<'a> ModuleRequiredFields<'a> {
     }
 
     #[must_use]
-    pub fn get_non_local_source(&'a self) -> Option<&'a str> {
+    pub fn get_non_local_source(&self) -> Option<&str> {
         let source = self.source.as_deref()?;
 
         if source == "local" {
@@ -122,7 +122,7 @@ impl<'a> ModuleRequiredFields<'a> {
     }
 
     #[must_use]
-    pub fn generate_akmods_info(&'a self, os_version: &u64) -> AkmodsInfo {
+    pub fn generate_akmods_info(&self, os_version: &u64) -> AkmodsInfo {
         #[derive(Debug, Default, Copy, Clone)]
         enum NvidiaAkmods {
             #[default]
@@ -215,16 +215,16 @@ impl<'a> ModuleRequiredFields<'a> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Builder, Default)]
-pub struct Module<'a> {
+pub struct Module {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub required_fields: Option<ModuleRequiredFields<'a>>,
+    pub required_fields: Option<ModuleRequiredFields>,
 
     #[builder(into)]
     #[serde(rename = "from-file", skip_serializing_if = "Option::is_none")]
-    pub from_file: Option<Cow<'a, str>>,
+    pub from_file: Option<String>,
 }
 
-impl Module<'_> {
+impl Module {
     /// Get's any child modules.
     ///
     /// # Errors
@@ -241,11 +241,11 @@ impl Module<'_> {
         for module in modules {
             found_modules.extend(
                 match &module {
-                    Module {
+                    Self {
                         required_fields: Some(_),
                         from_file: None,
                     } => vec![module.clone()],
-                    Module {
+                    Self {
                         required_fields: None,
                         from_file: Some(file_name),
                     } => {

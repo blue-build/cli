@@ -1,29 +1,32 @@
 use std::path::Path;
 
-use blue_build_utils::secret::Secret;
+use blue_build_utils::{
+    container::{ContainerId, OciDir, Tag},
+    platform::Platform,
+    secret::Secret,
+};
 use bon::Builder;
 use oci_distribution::Reference;
-
-use crate::drivers::types::{ContainerId, OciDir, Platform};
 
 use super::CompressionType;
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct RechunkOpts<'scope> {
-    pub image: &'scope str,
+    pub image: &'scope Reference,
     pub containerfile: &'scope Path,
 
-    pub platform: Option<Platform>,
+    pub platform: &'scope [Platform],
     pub version: &'scope str,
     pub name: &'scope str,
     pub description: &'scope str,
     pub base_digest: &'scope str,
-    pub base_image: &'scope str,
+    pub base_image: &'scope Reference,
     pub repo: &'scope str,
 
     /// The list of tags for the image being built.
     #[builder(default)]
-    pub tags: &'scope [String],
+    pub tags: &'scope [Tag],
 
     /// Enable pushing the image.
     #[builder(default)]
@@ -58,6 +61,7 @@ pub struct RechunkOpts<'scope> {
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct ContainerOpts<'scope> {
     pub container_id: &'scope ContainerId,
 
@@ -66,6 +70,7 @@ pub struct ContainerOpts<'scope> {
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct VolumeOpts<'scope> {
     pub volume_id: &'scope str,
 
@@ -74,6 +79,7 @@ pub struct VolumeOpts<'scope> {
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct CopyOciDirOpts<'scope> {
     pub oci_dir: &'scope OciDir,
     pub registry: &'scope Reference,

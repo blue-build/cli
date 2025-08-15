@@ -1,7 +1,8 @@
+use blue_build_utils::container::ImageRef;
 use image_ref::DeploymentImageRef;
 use serde::Deserialize;
 
-use crate::drivers::{BootStatus, types::ImageRef};
+use crate::drivers::BootStatus;
 
 mod image_ref;
 
@@ -56,11 +57,14 @@ struct Deployment {
 
 #[cfg(test)]
 mod test {
-    use blue_build_utils::constants::{
-        ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_IMAGE_SIGNED, OSTREE_UNVERIFIED_IMAGE,
+    use blue_build_utils::{
+        constants::{
+            ARCHIVE_SUFFIX, LOCAL_BUILD, OCI_ARCHIVE, OSTREE_IMAGE_SIGNED, OSTREE_UNVERIFIED_IMAGE,
+        },
+        container::ImageRef,
     };
 
-    use crate::drivers::{BootStatus, types::ImageRef};
+    use crate::drivers::BootStatus;
 
     use super::{Deployment, Status};
 

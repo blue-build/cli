@@ -1,14 +1,12 @@
-use std::borrow::Cow;
-
 use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Debug, Clone)]
-pub struct ModuleTypeVersion<'scope> {
-    typ: Cow<'scope, str>,
-    version: Option<Cow<'scope, str>>,
+pub struct ModuleTypeVersion {
+    typ: String,
+    version: Option<String>,
 }
 
-impl ModuleTypeVersion<'_> {
+impl ModuleTypeVersion {
     #[must_use]
     pub fn typ(&self) -> &str {
         self.typ.as_ref()
@@ -20,7 +18,7 @@ impl ModuleTypeVersion<'_> {
     }
 }
 
-impl std::fmt::Display for ModuleTypeVersion<'_> {
+impl std::fmt::Display for ModuleTypeVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.version.as_deref() {
             Some(version) => {
@@ -33,39 +31,29 @@ impl std::fmt::Display for ModuleTypeVersion<'_> {
     }
 }
 
-impl<'scope> From<&'scope str> for ModuleTypeVersion<'scope> {
-    fn from(s: &'scope str) -> Self {
+impl From<&str> for ModuleTypeVersion {
+    fn from(s: &str) -> Self {
         if let Some((typ, version)) = s.split_once('@') {
             Self {
-                typ: Cow::Borrowed(typ),
-                version: Some(Cow::Borrowed(version)),
+                typ: typ.into(),
+                version: Some(version.into()),
             }
         } else {
             Self {
-                typ: Cow::Borrowed(s),
+                typ: s.into(),
                 version: None,
             }
         }
     }
 }
 
-impl From<String> for ModuleTypeVersion<'_> {
+impl From<String> for ModuleTypeVersion {
     fn from(s: String) -> Self {
-        if let Some((typ, version)) = s.split_once('@') {
-            Self {
-                typ: Cow::Owned(typ.to_owned()),
-                version: Some(Cow::Owned(version.to_owned())),
-            }
-        } else {
-            Self {
-                typ: Cow::Owned(s),
-                version: None,
-            }
-        }
+        Self::from(s.as_str())
     }
 }
 
-impl Serialize for ModuleTypeVersion<'_> {
+impl Serialize for ModuleTypeVersion {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -74,7 +62,7 @@ impl Serialize for ModuleTypeVersion<'_> {
     }
 }
 
-impl<'de> Deserialize<'de> for ModuleTypeVersion<'_> {
+impl<'de> Deserialize<'de> for ModuleTypeVersion {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

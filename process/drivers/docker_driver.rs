@@ -6,6 +6,7 @@ use std::{
 
 use blue_build_utils::{
     constants::{BLUE_BUILD, DOCKER_HOST, GITHUB_ACTIONS},
+    container::{ContainerId, ImageRef},
     credentials::Credentials,
     get_env_var,
     secret::SecretArgs,
@@ -26,11 +27,11 @@ mod metadata;
 use crate::{
     drivers::{
         opts::{
-            BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, RunOptsEnv,
-            RunOptsVolume, TagOpts,
+            BuildOpts, BuildTagPushOpts, GetMetadataOpts, ManifestCreateOpts, ManifestPushOpts,
+            PushOpts, RunOpts, RunOptsEnv, RunOptsVolume, TagOpts,
         },
         traits::{BuildDriver, DriverVersion, InspectDriver, RunDriver},
-        types::{ContainerId, ImageMetadata, ImageRef},
+        types::ImageMetadata,
     },
     logging::CommandLogging,
     signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
@@ -385,6 +386,44 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
+    fn manifest_create(opts: ManifestCreateOpts) -> Result<()> {
+        let status = {
+            let c = cmd!(
+                "docker",
+                "manifest",
+                "create",
+                opts.final_image.to_string(),
+                for image in opts.image_list => image.to_string(),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
+        }
+
+        Ok(())
+    }
+
+    fn manifest_push(opts: ManifestPushOpts) -> Result<()> {
+        let status = {
+            let c = cmd!("docker", "manifest", "push", opts.final_image.to_string());
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
+        }
+
+        Ok(())
+    }
+
     fn build_tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
         trace!("DockerDriver::build_tag_push({opts:#?})");
 
@@ -440,7 +479,9 @@ fn build_tag_push_cmd(
                     opts.compression
                 ),
             ],
-            ImageRef::Remote(_remote) if get_env_var(GITHUB_ACTIONS).is_err() => "--load",
+            ImageRef::Remote(_remote)
+                if get_env_var(GITHUB_ACTIONS).is_err()
+                && opts.platform.len() <= 1 => "--load",
             ImageRef::LocalTar(archive_path) => [
                 "--output",
                 format!("type=oci,dest={}", archive_path.display()),
@@ -456,7 +497,7 @@ fn build_tag_push_cmd(
                 }).collect()
             }),
         "--pull",
-        if let Some(platform) = opts.platform => [
+        for platform in opts.platform => [
             "--platform",
             platform.to_string(),
         ],
@@ -503,50 +544,54 @@ fn get_final_images(opts: BuildTagPushOpts<'_>) -> Vec<String> {
 
 impl InspectDriver for DockerDriver {
     fn get_metadata(opts: GetMetadataOpts) -> Result<ImageMetadata> {
-        get_metadata_cache(opts)
+        #[cached(
+            result = true,
+            key = "String",
+            convert = r#"{ format!("{}-{:?}", opts.image, opts.platform)}"#,
+            sync_writes = "by_key"
+        )]
+        fn inner(opts: GetMetadataOpts) -> Result<ImageMetadata> {
+            trace!("DockerDriver::get_metadata({opts:#?})");
+            let image_str = opts.image.to_string();
+
+            DockerDriver::setup()?;
+
+            let output = {
+                let c = cmd!(
+                    "docker",
+                    "buildx",
+                    format!("--builder={BLUE_BUILD}"),
+                    "imagetools",
+                    "inspect",
+                    "--format",
+                    "{{json .}}",
+                    &image_str,
+                );
+                trace!("{c:?}");
+                c
+            }
+            .output()
+            .into_diagnostic()?;
+
+            if output.status.success() {
+                info!("Successfully inspected image {}!", image_str.bold().green());
+            } else {
+                bail!("Failed to inspect image {}", image_str.bold().red())
+            }
+
+            serde_json::from_slice::<metadata::Metadata>(&output.stdout)
+                .into_diagnostic()
+                .inspect(|metadata| trace!("{metadata:#?}"))
+                .and_then(|metadata| ImageMetadata::try_from((metadata, opts.platform)))
+                .inspect(|metadata| trace!("{metadata:#?}"))
+        }
+
+        if opts.no_cache {
+            inner_prime_cache(opts)
+        } else {
+            inner(opts)
+        }
     }
-}
-
-#[cached(
-    result = true,
-    key = "String",
-    convert = r#"{ format!("{}-{:?}", opts.image, opts.platform)}"#,
-    sync_writes = "by_key"
-)]
-fn get_metadata_cache(opts: GetMetadataOpts) -> Result<ImageMetadata> {
-    trace!("DockerDriver::get_metadata({opts:#?})");
-    let image_str = opts.image.to_string();
-
-    DockerDriver::setup()?;
-
-    let output = {
-        let c = cmd!(
-            "docker",
-            "buildx",
-            format!("--builder={BLUE_BUILD}"),
-            "imagetools",
-            "inspect",
-            "--format",
-            "{{json .}}",
-            &image_str,
-        );
-        trace!("{c:?}");
-        c
-    }
-    .output()
-    .into_diagnostic()?;
-
-    if output.status.success() {
-        info!("Successfully inspected image {}!", image_str.bold().green());
-    } else {
-        bail!("Failed to inspect image {}", image_str.bold().red())
-    }
-
-    serde_json::from_slice::<metadata::Metadata>(&output.stdout)
-        .into_diagnostic()
-        .inspect(|metadata| trace!("{metadata:#?}"))
-        .and_then(|metadata| ImageMetadata::try_from((metadata, opts.platform)))
-        .inspect(|metadata| trace!("{metadata:#?}"))
 }
 
 impl RunDriver for DockerDriver {
@@ -584,7 +629,7 @@ impl RunDriver for DockerDriver {
         Ok(output)
     }
 
-    fn create_container(opts: CreateContainerOpts) -> Result<super::types::ContainerId> {
+    fn create_container(opts: CreateContainerOpts) -> Result<ContainerId> {
         trace!("DockerDriver::create_container({opts:?})");
 
         let output = {

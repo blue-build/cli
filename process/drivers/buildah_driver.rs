@@ -8,7 +8,10 @@ use miette::{Context, IntoDiagnostic, Result, bail, miette};
 use serde::Deserialize;
 use tempfile::TempDir;
 
-use crate::logging::CommandLogging;
+use crate::{
+    drivers::opts::{ManifestCreateOpts, ManifestPushOpts},
+    logging::CommandLogging,
+};
 
 use super::{
     BuildDriver, DriverVersion,
@@ -209,6 +212,50 @@ impl BuildDriver for BuildahDriver {
 
         if !status.success() {
             bail!("Failed to prune buildah");
+        }
+
+        Ok(())
+    }
+
+    fn manifest_create(opts: ManifestCreateOpts) -> Result<()> {
+        let status = {
+            let c = cmd!(
+                "buildah",
+                "manifest",
+                "create",
+                opts.final_image.to_string(),
+                for image in opts.image_list => image.to_string(),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
+        }
+
+        Ok(())
+    }
+
+    fn manifest_push(opts: ManifestPushOpts) -> Result<()> {
+        let status = {
+            let c = cmd!(
+                "buildah",
+                "manifest",
+                "push",
+                opts.final_image.to_string(),
+                format!("docker://{}", opts.final_image),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
         }
 
         Ok(())

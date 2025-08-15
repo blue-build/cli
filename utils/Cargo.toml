@@ -25,9 +25,11 @@ cached.workspace = true
 chrono.workspace = true
 clap = { workspace = true, features = ["derive", "env"] }
 comlexr.workspace = true
+lazy-regex.workspace = true
 log.workspace = true
 miette.workspace = true
 nix = { workspace = true, features = ["user"] }
+oci-distribution.workspace = true
 semver = { workspace = true, features = ["serde"] }
 serde.workspace = true
 serde_json.workspace = true

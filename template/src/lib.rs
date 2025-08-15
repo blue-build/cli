@@ -23,7 +23,7 @@ pub enum BuildEngine {
 #[template(path = "Containerfile.j2", escape = "none", whitespace = "minimize")]
 pub struct ContainerFileTemplate<'a> {
     #[builder(into)]
-    recipe: &'a Recipe<'a>,
+    recipe: &'a Recipe,
     recipe_path: &'a Path,
 
     #[builder(into)]

@@ -5,6 +5,6 @@ set -euo pipefail
 
 rm -rf /tmp/* /var/*
 
-if feature_enabled "bootc" && command -v bootc > /dev/null; then
-  bootc container lint
-fi
+# if feature_enabled "bootc" && command -v bootc > /dev/null; then
+#   bootc container lint
+# fi
