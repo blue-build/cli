@@ -1,7 +1,7 @@
 export RUST_BACKTRACE := "1"
 export BB_CACHE_LAYERS := "true"
 export TEST_SECRET := "test123"
-# export BB_SKIP_VALIDATION := "true"
+export BB_SKIP_VALIDATION := "true"
 
 set dotenv-load := true
 set positional-arguments := true

@@ -5,12 +5,12 @@ use std::{
 
 use blue_build_process_management::{
     drivers::{
-        BuildDriver, CiDriver, Driver, DriverArgs, SigningDriver,
+        BuildDriver, CiDriver, Driver, DriverArgs, InspectDriver, RechunkDriver, SigningDriver,
         opts::{
             BuildTagPushOpts, CheckKeyPairOpts, CompressionType, GenerateImageNameOpts,
-            GenerateTagsOpts, SignVerifyOpts,
+            GenerateTagsOpts, GetMetadataOpts, RechunkOpts, SignVerifyOpts,
         },
-        types::{ImageRef, Platform},
+        types::ImageRef,
     },
     logging::{color_str, gen_random_ansi_color},
 };
@@ -21,6 +21,7 @@ use blue_build_utils::{
         RECIPE_PATH,
     },
     credentials::{Credentials, CredentialsArgs},
+    platform::Platform,
     string,
 };
 use bon::Builder;
@@ -52,14 +53,18 @@ pub struct BuildCommand {
     #[builder(default)]
     push: bool,
 
-    /// Build for a specific platform.
+    /// Build for specific platforms.
+    ///
+    /// This will override any platform setting in
+    /// the recipes you're building.
     ///
     /// NOTE: Building for a different architecture
     /// than your hardware will require installing
     /// qemu. Build times will be much greater when
     /// building for a non-native architecture.
     #[arg(long)]
-    platform: Option<Platform>,
+    #[builder(default)]
+    platform: Vec<Platform>,
 
     /// The compression format the images
     /// will be pushed in.
@@ -208,7 +213,7 @@ impl BlueBuildCommand for BuildCommand {
                         .join(blue_build_utils::generate_containerfile_path(recipe)?),
                 )
                 .skip_validation(self.skip_validation)
-                .maybe_platform(self.platform)
+                .maybe_platform(self.platform.first().copied())
                 .build_scripts_dir(build_scripts_dir)
                 .recipe(recipe)
                 .drivers(self.drivers)
@@ -222,9 +227,10 @@ impl BlueBuildCommand for BuildCommand {
 
 impl BuildCommand {
     fn start(&self, recipe_paths: &[PathBuf], temp_dir: &Path) -> Result<()> {
-        use rayon::prelude::*;
-
-        trace!("BuildCommand::build_image()");
+        trace!(
+            "BuildCommand::start({recipe_paths:?}, {})",
+            temp_dir.display()
+        );
 
         let images = recipe_paths
             .par_iter()
@@ -253,12 +259,18 @@ impl BuildCommand {
     }
 
     fn build(&self, recipe_path: &Path, containerfile: &Path) -> Result<Vec<String>> {
+        trace!(
+            "BuildCommand::build({}, {})",
+            recipe_path.display(),
+            containerfile.display()
+        );
+
         let recipe = Recipe::parse(recipe_path)?;
         let tags = Driver::generate_tags(
             GenerateTagsOpts::builder()
                 .oci_ref(&recipe.base_image_ref()?)
                 .maybe_alt_tags(recipe.alt_tags.as_deref())
-                .maybe_platform(self.platform)
+                .maybe_platform(self.platform.first().copied())
                 .build(),
         )?;
         let image_name = self.image_name(&recipe)?;
@@ -277,6 +289,13 @@ impl BuildCommand {
             debug!("Using {cache_image} for caching layers");
             cache_image
         });
+        let platforms = if self.platform.is_empty()
+            && let Some(platforms) = &recipe.platforms
+        {
+            platforms
+        } else {
+            &self.platform
+        };
 
         let images = if self.rechunk {
             self.rechunk(
@@ -285,12 +304,13 @@ impl BuildCommand {
                 &tags,
                 &image_name,
                 cache_image.as_ref(),
+                platforms,
             )?
         } else if let Some(archive_dir) = self.archive.as_ref() {
             Driver::build_tag_push(
                 BuildTagPushOpts::builder()
                     .containerfile(containerfile)
-                    .maybe_platform(self.platform)
+                    .platform(platforms)
                     .image(&ImageRef::from(PathBuf::from(format!(
                         "{}/{}.{ARCHIVE_SUFFIX}",
                         archive_dir.to_string_lossy().trim_end_matches('/'),
@@ -307,7 +327,7 @@ impl BuildCommand {
                 BuildTagPushOpts::builder()
                     .image(&ImageRef::from(&image))
                     .containerfile(containerfile)
-                    .maybe_platform(self.platform)
+                    .platform(platforms)
                     .tags(&tags)
                     .push(self.push)
                     .retry_push(self.retry_push)
@@ -327,7 +347,6 @@ impl BuildCommand {
                     .image(&image)
                     .retry_push(self.retry_push)
                     .retry_count(self.retry_count)
-                    .maybe_platform(self.platform)
                     .build(),
             )?;
         }
@@ -342,11 +361,13 @@ impl BuildCommand {
         tags: &[String],
         image_name: &str,
         cache_image: Option<&Reference>,
+        platforms: &[Platform],
     ) -> Result<Vec<String>, miette::Error> {
-        use blue_build_process_management::drivers::{
-            InspectDriver, RechunkDriver,
-            opts::{GetMetadataOpts, RechunkOpts},
-        };
+        trace!(
+            "BuildCommand::rechunk({}, {recipe:?}, {tags:?}, {image_name}, {cache_image:?}, {platforms:?})",
+            containerfile.display()
+        );
+
         let base_image: Reference = format!("{}:{}", &recipe.base_image, &recipe.image_version)
             .parse()
             .into_diagnostic()?;
@@ -354,14 +375,14 @@ impl BuildCommand {
             RechunkOpts::builder()
                 .image(image_name)
                 .containerfile(containerfile)
-                .maybe_platform(self.platform)
+                .platform(platforms)
                 .tags(tags)
                 .push(self.push)
                 .version(&format!(
                     "{version}.<date>",
                     version = Driver::get_os_version()
                         .oci_ref(&recipe.base_image_ref()?)
-                        .maybe_platform(self.platform)
+                        .maybe_platform(self.platform.first().copied())
                         .call()?,
                 ))
                 .retry_push(self.retry_push)
@@ -371,7 +392,7 @@ impl BuildCommand {
                     &Driver::get_metadata(
                         GetMetadataOpts::builder()
                             .image(&base_image)
-                            .maybe_platform(self.platform)
+                            .maybe_platform(self.platform.first().copied())
                             .build(),
                     )?
                     .digest,
@@ -390,6 +411,8 @@ impl BuildCommand {
     }
 
     fn image_name(&self, recipe: &Recipe) -> Result<String> {
+        trace!("BuildCommand::image_name({recipe:?})");
+
         let image_name = Driver::generate_image_name(
             GenerateImageNameOpts::builder()
                 .name(recipe.name.trim())

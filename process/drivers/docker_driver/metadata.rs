@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
+use blue_build_utils::platform::{Platform, PlatformInfo};
 use miette::{Report, bail};
 use serde::Deserialize;
 
-use crate::drivers::types::{ImageMetadata, Platform, PlatformInfo};
+use crate::drivers::types::ImageMetadata;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Metadata {

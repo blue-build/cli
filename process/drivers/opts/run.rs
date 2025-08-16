@@ -1,3 +1,4 @@
+use blue_build_utils::platform::Platform;
 use bon::Builder;
 use oci_distribution::Reference;
 
@@ -25,6 +26,7 @@ pub struct RunOpts<'scope> {
 
     #[builder(default)]
     pub remove: bool,
+    pub platform: Option<Platform>,
 }
 
 #[derive(Debug, Clone, Copy, Builder)]

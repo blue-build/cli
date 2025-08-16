@@ -26,8 +26,8 @@ mod metadata;
 use crate::{
     drivers::{
         opts::{
-            BuildOpts, BuildTagPushOpts, GetMetadataOpts, PushOpts, RunOpts, RunOptsEnv,
-            RunOptsVolume, TagOpts,
+            BuildOpts, BuildTagPushOpts, GetMetadataOpts, ManifestCreateOpts, ManifestPushOpts,
+            PushOpts, RunOpts, RunOptsEnv, RunOptsVolume, TagOpts,
         },
         traits::{BuildDriver, DriverVersion, InspectDriver, RunDriver},
         types::{ContainerId, ImageMetadata, ImageRef},
@@ -385,6 +385,44 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
+    fn manifest_create(opts: ManifestCreateOpts) -> Result<()> {
+        let status = {
+            let c = cmd!(
+                "docker",
+                "manifest",
+                "create",
+                opts.final_image.to_string(),
+                for image in opts.image_list => image.to_string(),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
+        }
+
+        Ok(())
+    }
+
+    fn manifest_push(opts: ManifestPushOpts) -> Result<()> {
+        let status = {
+            let c = cmd!("docker", "manifest", "push", opts.final_image.to_string());
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
+        }
+
+        Ok(())
+    }
+
     fn build_tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
         trace!("DockerDriver::build_tag_push({opts:#?})");
 
@@ -440,7 +478,9 @@ fn build_tag_push_cmd(
                     opts.compression
                 ),
             ],
-            ImageRef::Remote(_remote) if get_env_var(GITHUB_ACTIONS).is_err() => "--load",
+            ImageRef::Remote(_remote)
+                if get_env_var(GITHUB_ACTIONS).is_err()
+                && opts.platform.len() <= 1 => "--load",
             ImageRef::LocalTar(archive_path) => [
                 "--output",
                 format!("type=oci,dest={}", archive_path.display()),
@@ -456,7 +496,7 @@ fn build_tag_push_cmd(
                 }).collect()
             }),
         "--pull",
-        if let Some(platform) = opts.platform => [
+        for platform in opts.platform => [
             "--platform",
             platform.to_string(),
         ],

@@ -1,10 +1,10 @@
 use std::path::Path;
 
-use blue_build_utils::secret::Secret;
+use blue_build_utils::{platform::Platform, secret::Secret};
 use bon::Builder;
 use oci_distribution::Reference;
 
-use crate::drivers::types::{ContainerId, OciDir, Platform};
+use crate::drivers::types::{ContainerId, OciDir};
 
 use super::CompressionType;
 
@@ -13,7 +13,7 @@ pub struct RechunkOpts<'scope> {
     pub image: &'scope str,
     pub containerfile: &'scope Path,
 
-    pub platform: Option<Platform>,
+    pub platform: &'scope [Platform],
     pub version: &'scope str,
     pub name: &'scope str,
     pub description: &'scope str,

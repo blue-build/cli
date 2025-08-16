@@ -1,5 +1,10 @@
-use blue_build_utils::string;
+use std::str::FromStr;
+
+use crate::string;
 use clap::ValueEnum;
+use miette::bail;
+use oci_distribution::Reference;
+use serde::{Deserialize, Serialize};
 
 mod private {
     pub trait Private {}
@@ -87,6 +92,16 @@ impl Platform {
             _ => None,
         }
     }
+
+    /// Get a tag friendly version of the platform.
+    #[must_use]
+    pub fn tagged_image(&self, image: &Reference) -> Reference {
+        Reference::with_tag(
+            image.registry().to_string(),
+            image.repository().to_string(),
+            format!("{}_{self}", image.tag().unwrap_or("latest")).replace('/', "_"),
+        )
+    }
 }
 
 impl std::fmt::Display for Platform {
@@ -116,6 +131,51 @@ impl std::fmt::Display for Platform {
     }
 }
 
+impl FromStr for Platform {
+    type Err = miette::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "linux/amd64" => Self::LinuxAmd64,
+            "linux/amd64/v2" => Self::LinuxAmd64V2,
+            "linux/arm64" => Self::LinuxArm64,
+            "linux/arm" => Self::LinuxArm,
+            "linux/arm/v6" => Self::LinuxArmV6,
+            "linux/arm/v7" => Self::LinuxArmV7,
+            "linux/386" => Self::Linux386,
+            "linux/loong64" => Self::LinuxLoong64,
+            "linux/mips" => Self::LinuxMips,
+            "linux/mipsle" => Self::LinuxMipsle,
+            "linux/mips64" => Self::LinuxMips64,
+            "linux/mips64le" => Self::LinuxMips64le,
+            "linux/ppc64" => Self::LinuxPpc64,
+            "linux/ppc64le" => Self::LinuxPpc64le,
+            "linux/riscv64" => Self::LinuxRiscv64,
+            "linux/s390x" => Self::LinuxS390x,
+            platform => bail!("Platform {platform} unsupported"),
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for Platform {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        value.parse().map_err(serde::de::Error::custom)
+    }
+}
+
+impl Serialize for Platform {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
 impl private::Private for Option<Platform> {}
 
 pub trait PlatformInfo: private::Private {
@@ -123,6 +183,8 @@ pub trait PlatformInfo: private::Private {
     ///
     /// If `None`, then the native architecture will be used.
     fn to_string(&self) -> String;
+
+    fn default(&self) -> Platform;
 
     /// The string representation of the architecture.
     ///
@@ -139,6 +201,17 @@ impl PlatformInfo for Option<Platform> {
                 arch => unimplemented!("Arch {arch} is unsupported"),
             },
             |platform| format!("{platform}"),
+        )
+    }
+
+    fn default(&self) -> Platform {
+        self.map_or_else(
+            || match std::env::consts::ARCH {
+                "x86_64" => Platform::LinuxAmd64,
+                "aarch64" => Platform::LinuxArm64,
+                arch => unimplemented!("Arch {arch} is unsupported"),
+            },
+            |platform| platform,
         )
     }
 
