@@ -123,23 +123,62 @@ common:
     DO rust+INIT --keep_fingerprints=true
 
 blue-build-cli-prebuild:
-    ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox"
+    # ARG BASE_IMAGE="quay.io/fedora/fedora-bootc:42"
+    ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox:42"
     FROM "$BASE_IMAGE"
 
-    RUN dnf -y install dnf-plugins-core \
-        && dnf config-manager addrepo \
+    RUN dnf5 -y update \
+        && dnf5 -y reinstall shadow-utils \
+        && dnf5 -y install dnf5-plugins \
+        && dnf5 config-manager addrepo \
             --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo \
-        && dnf install --refresh -y docker-ce docker-ce-cli containerd.io \
+        && dnf5 -y install --refresh \
+            docker-ce docker-ce-cli containerd.io \
             docker-buildx-plugin docker-compose-plugin \
-            buildah podman skopeo dumb-init git
+            buildah podman skopeo dumb-init git fuse-overlayfs \
+        && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
-    ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+    RUN useradd bluebuild \
+        && echo bluebuild:10000:5000 > /etc/subuid \
+        && echo bluebuild:10000:5000 > /etc/subgid
 
+    RUN curl -fSL \
+            https://raw.githubusercontent.com/containers/image_build/refs/heads/main/podman/containers.conf \
+            -o /etc/containers/containers.conf \
+        && mkdir -p /home/bluebuild/.config/containers \
+        && curl -fSL \
+            https://raw.githubusercontent.com/containers/image_build/refs/heads/main/podman/podman-containers.conf \
+            -o /home/bluebuild/.config/containers/containers.conf \
+        && chown -R bluebuild:bluebuild /home/bluebuild \
+        && chmod 644 /etc/containers/containers.conf \
+        && sed -e 's|^#mount_program|mount_program|g' \
+           -e '/additionalimage.*/a "/var/lib/shared",' \
+           -e 's|^mountopt[[:space:]]*=.*$|mountopt = "nodev,fsync=0"|g' \
+           /usr/share/containers/storage.conf \
+           > /etc/containers/storage.conf \
+        && mkdir -p \
+            /var/lib/shared/overlay-images \
+            /var/lib/shared/overlay-layers \
+            /var/lib/shared/vfs-images \
+            /var/lib/shared/vfs-layers \
+        && touch /var/lib/shared/overlay-images/images.lock \
+        && touch /var/lib/shared/overlay-layers/layers.lock \
+        && touch /var/lib/shared/vfs-images/images.lock \
+        && touch /var/lib/shared/vfs-layers/layers.lock
+
+    ENV _CONTAINERS_USERNS_CONFIGURED=""
+    # COPY podman.json /etc/containers/networks/
+
+    COPY +cosign/cosign /usr/bin/cosign
     COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
+
     LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
     LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
-    COPY +cosign/cosign /usr/bin/cosign
+    VOLUME /var/lib/containers
+    VOLUME /home/podman/.local/share/containers
+
+    ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
     ARG EARTHLY_GIT_HASH
     ARG TARGETARCH
@@ -163,8 +202,10 @@ blue-build-cli:
         DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-gnu" --RELEASE=$RELEASE
     END
 
-    RUN mkdir -p /bluebuild
     WORKDIR /bluebuild
+
+    USER bluebuild
+
     CMD ["bluebuild"]
 
     DO --pass-args +SAVE_IMAGE
@@ -244,7 +285,7 @@ digest:
     ARG --required BASE_IMAGE
     RUN skopeo inspect "docker://$BASE_IMAGE" | jq -r '.Digest' > /base-image-digest
     SAVE ARTIFACT /base-image-digest
-    
+
 version:
     FROM rust
 
