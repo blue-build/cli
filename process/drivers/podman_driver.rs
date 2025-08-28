@@ -7,7 +7,12 @@ use std::{
 };
 
 use blue_build_utils::{
-    constants::USER, credentials::Credentials, get_env_var, secret::SecretArgs, semver::Version,
+    constants::USER,
+    container::{ContainerId, MountId},
+    credentials::Credentials,
+    get_env_var,
+    secret::SecretArgs,
+    semver::Version,
     sudo_cmd,
 };
 use cached::proc_macro::cached;
@@ -26,12 +31,14 @@ use super::{
         ContainerOpts, CreateContainerOpts, PruneOpts, RemoveContainerOpts, RemoveImageOpts,
         VolumeOpts,
     },
-    types::{ContainerId, MountId},
 };
 use crate::{
     drivers::{
         BuildDriver, DriverVersion, InspectDriver, RunDriver,
-        opts::{BuildOpts, GetMetadataOpts, PushOpts, RunOpts, RunOptsEnv, RunOptsVolume, TagOpts},
+        opts::{
+            BuildOpts, GetMetadataOpts, ManifestCreateOpts, ManifestPushOpts, PushOpts, RunOpts,
+            RunOptsEnv, RunOptsVolume, TagOpts,
+        },
         types::ImageMetadata,
     },
     logging::{CommandLogging, Logger},
@@ -346,76 +353,124 @@ impl BuildDriver for PodmanDriver {
 
         Ok(())
     }
+
+    fn manifest_create(opts: ManifestCreateOpts) -> Result<()> {
+        let status = {
+            let c = cmd!(
+                "podman",
+                "manifest",
+                "create",
+                opts.final_image.to_string(),
+                for image in opts.image_list => image.to_string(),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
+        }
+
+        Ok(())
+    }
+
+    fn manifest_push(opts: ManifestPushOpts) -> Result<()> {
+        let status = {
+            let c = cmd!(
+                "podman",
+                "manifest",
+                "push",
+                opts.final_image.to_string(),
+                format!("docker://{}", opts.final_image),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
+        }
+
+        Ok(())
+    }
 }
 
 impl InspectDriver for PodmanDriver {
     fn get_metadata(opts: GetMetadataOpts) -> Result<ImageMetadata> {
-        get_metadata_cache(opts)
+        #[cached(
+            result = true,
+            key = "String",
+            convert = r#"{ format!("{}-{:?}", opts.image, opts.platform)}"#,
+            sync_writes = "by_key"
+        )]
+        fn inner(opts: GetMetadataOpts) -> Result<ImageMetadata> {
+            trace!("PodmanDriver::get_metadata({opts:#?})");
+
+            let image_str = opts.image.to_string();
+
+            let progress = Logger::multi_progress().add(
+                ProgressBar::new_spinner()
+                    .with_style(ProgressStyle::default_spinner())
+                    .with_message(format!(
+                        "Inspecting metadata for {}, pulling image...",
+                        image_str.bold()
+                    )),
+            );
+            progress.enable_steady_tick(Duration::from_millis(100));
+
+            let output = {
+                let c = cmd!(
+                    "podman",
+                    "pull",
+                    if let Some(platform) = opts.platform => [
+                        "--platform",
+                        platform.to_string(),
+                    ],
+                    &image_str,
+                );
+                trace!("{c:?}");
+                c
+            }
+            .output()
+            .into_diagnostic()?;
+
+            if !output.status.success() {
+                bail!("Failed to pull {} for inspection!", image_str.bold().red());
+            }
+
+            let output = {
+                let c = cmd!("podman", "image", "inspect", "--format=json", &image_str);
+                trace!("{c:?}");
+                c
+            }
+            .output()
+            .into_diagnostic()?;
+
+            progress.finish_and_clear();
+            Logger::multi_progress().remove(&progress);
+
+            if output.status.success() {
+                debug!("Successfully inspected image {}!", image_str.bold().green());
+            } else {
+                bail!("Failed to inspect image {}", image_str.bold().red());
+            }
+            serde_json::from_slice::<Vec<PodmanImageMetadata>>(&output.stdout)
+                .into_diagnostic()
+                .inspect(|metadata| trace!("{metadata:#?}"))
+                .and_then(TryFrom::try_from)
+                .inspect(|metadata| trace!("{metadata:#?}"))
+        }
+
+        if opts.no_cache {
+            inner_no_cache(opts)
+        } else {
+            inner(opts)
+        }
     }
-}
-
-#[cached(
-    result = true,
-    key = "String",
-    convert = r#"{ format!("{}-{:?}", opts.image, opts.platform)}"#,
-    sync_writes = "by_key"
-)]
-fn get_metadata_cache(opts: GetMetadataOpts) -> Result<ImageMetadata> {
-    trace!("PodmanDriver::get_metadata({opts:#?})");
-
-    let image_str = opts.image.to_string();
-
-    let progress = Logger::multi_progress().add(
-        ProgressBar::new_spinner()
-            .with_style(ProgressStyle::default_spinner())
-            .with_message(format!(
-                "Inspecting metadata for {}, pulling image...",
-                image_str.bold()
-            )),
-    );
-    progress.enable_steady_tick(Duration::from_millis(100));
-
-    let output = {
-        let c = cmd!(
-            "podman",
-            "pull",
-            if let Some(platform) = opts.platform => [
-                "--platform",
-                platform.to_string(),
-            ],
-            &image_str,
-        );
-        trace!("{c:?}");
-        c
-    }
-    .output()
-    .into_diagnostic()?;
-
-    if !output.status.success() {
-        bail!("Failed to pull {} for inspection!", image_str.bold().red());
-    }
-
-    let output = {
-        let c = cmd!("podman", "image", "inspect", "--format=json", &image_str);
-        trace!("{c:?}");
-        c
-    }
-    .output()
-    .into_diagnostic()?;
-
-    progress.finish_and_clear();
-    Logger::multi_progress().remove(&progress);
-
-    if output.status.success() {
-        debug!("Successfully inspected image {}!", image_str.bold().green());
-    } else {
-        bail!("Failed to inspect image {}", image_str.bold().red());
-    }
-    serde_json::from_slice::<Vec<PodmanImageMetadata>>(&output.stdout)
-        .into_diagnostic()
-        .inspect(|metadata| trace!("{metadata:#?}"))
-        .and_then(TryFrom::try_from)
-        .inspect(|metadata| trace!("{metadata:#?}"))
 }
 
 impl ContainerMountDriver for PodmanDriver {
