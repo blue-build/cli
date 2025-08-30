@@ -167,7 +167,7 @@ blue-build-cli-prebuild:
         && touch /var/lib/shared/vfs-layers/layers.lock
 
     ENV _CONTAINERS_USERNS_CONFIGURED=""
-    # COPY podman.json /etc/containers/networks/
+    COPY podman.json /etc/containers/networks/
 
     COPY +cosign/cosign /usr/bin/cosign
     COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
@@ -176,7 +176,9 @@ blue-build-cli-prebuild:
     LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
     VOLUME /var/lib/containers
-    VOLUME /home/podman/.local/share/containers
+    # VOLUME /home/bluebuild/.local/share/containers
+
+    RUN chown -R bluebuild:bluebuild /home/bluebuild
 
     ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
@@ -196,15 +198,11 @@ blue-build-cli:
         FROM +blue-build-cli-prebuild
     END
 
-    IF [ "$TARGETARCH" = "arm64" ]
-        DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-gnu" --RELEASE=$RELEASE
-    ELSE
-        DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-gnu" --RELEASE=$RELEASE
-    END
+    DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="$(uname -m)-unknown-linux-gnu" --RELEASE=$RELEASE
 
     WORKDIR /bluebuild
 
-    USER bluebuild
+    # USER bluebuild
 
     CMD ["bluebuild"]
 
@@ -244,11 +242,7 @@ blue-build-cli-distrobox:
     ARG TARGETARCH
     FROM "$IMAGE:$EARTHLY_GIT_HASH-distrobox-prebuild-$TARGETARCH"
 
-    IF [ "$TARGETARCH" = "arm64" ]
-        DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="aarch64-unknown-linux-musl"
-    ELSE
-        DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="x86_64-unknown-linux-musl"
-    END
+    DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="$(uname -m)-unknown-linux-musl"
 
     DO --pass-args +SAVE_IMAGE --SUFFIX="-distrobox"
 

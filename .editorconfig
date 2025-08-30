@@ -9,3 +9,6 @@ trim_trailing_whitespace = true
 
 [*.j2]
 indent_size = 2
+
+[justfile]
+indent_size = 2
