@@ -135,7 +135,7 @@ blue-build-cli-prebuild:
         && dnf5 -y install --refresh \
             docker-ce docker-ce-cli containerd.io \
             docker-buildx-plugin docker-compose-plugin \
-            buildah podman skopeo dumb-init git fuse-overlayfs \
+            buildah podman skopeo dumb-init git fuse-overlayfs containers-common \
         && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
     RUN useradd bluebuild \
@@ -167,7 +167,9 @@ blue-build-cli-prebuild:
         && touch /var/lib/shared/vfs-layers/layers.lock
 
     ENV _CONTAINERS_USERNS_CONFIGURED=""
-    COPY podman.json /etc/containers/networks/
+    COPY image_files/podman.json /etc/containers/networks/
+    COPY image_files/entrypoint.sh /entrypoint.sh
+    RUN chmod +x /entrypoint.sh
 
     COPY +cosign/cosign /usr/bin/cosign
     COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
@@ -176,11 +178,11 @@ blue-build-cli-prebuild:
     LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
     VOLUME /var/lib/containers
-    # VOLUME /home/bluebuild/.local/share/containers
+    VOLUME /home/bluebuild/.local/share/containers
 
     RUN chown -R bluebuild:bluebuild /home/bluebuild
 
-    ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+    ENTRYPOINT ["/entrypoint.sh"]
 
     ARG EARTHLY_GIT_HASH
     ARG TARGETARCH
@@ -201,10 +203,6 @@ blue-build-cli:
     DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="$(uname -m)-unknown-linux-gnu" --RELEASE=$RELEASE
 
     WORKDIR /bluebuild
-
-    # USER bluebuild
-
-    CMD ["bluebuild"]
 
     DO --pass-args +SAVE_IMAGE
 
