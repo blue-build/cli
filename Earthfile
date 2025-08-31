@@ -122,6 +122,13 @@ common:
 
     DO rust+INIT --keep_fingerprints=true
 
+blue-build-cli-containerfile-prebuild:
+    FROM DOCKERFILE -f ./image_files/Containerfile ./image_files/
+
+    ARG EARTHLY_GIT_HASH
+    ARG TARGETARCH
+    SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
+
 blue-build-cli-prebuild:
     # ARG BASE_IMAGE="quay.io/fedora/fedora-bootc:42"
     ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox:42"
@@ -138,25 +145,40 @@ blue-build-cli-prebuild:
             buildah podman skopeo dumb-init git fuse-overlayfs containers-common \
         && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
-    RUN useradd bluebuild \
-        && echo bluebuild:10000:5000 > /etc/subuid \
-        && echo bluebuild:10000:5000 > /etc/subgid
+    # RUN useradd bluebuild \
+    #     && echo bluebuild:10000:5000 > /etc/subuid \
+    #     && echo bluebuild:10000:5000 > /etc/subgid
 
-    RUN curl -fSL \
-            https://raw.githubusercontent.com/containers/image_build/refs/heads/main/podman/containers.conf \
-            -o /etc/containers/containers.conf \
-        && mkdir -p /home/bluebuild/.config/containers \
-        && curl -fSL \
-            https://raw.githubusercontent.com/containers/image_build/refs/heads/main/podman/podman-containers.conf \
-            -o /home/bluebuild/.config/containers/containers.conf \
-        && chown -R bluebuild:bluebuild /home/bluebuild \
-        && chmod 644 /etc/containers/containers.conf \
-        && sed -e 's|^#mount_program|mount_program|g' \
+    # COPY image_files/podman.json /etc/containers/networks/
+    COPY image_files/containers.conf /etc/containers/
+    # COPY image_files/podman-containers.conf /home/bluebuild/.config/containers/containers.conf
+    COPY image_files/entrypoint.sh /entrypoint.sh
+
+    # RUN mkdir -p /home/bluebuild/.local/share/containers \
+    #     && chown bluebuild:bluebuild -R /home/bluebuild \
+    RUN chmod 644 /etc/containers/containers.conf \
+        && chmod +x /entrypoint.sh
+
+    RUN sed -e 's|^#mount_program|mount_program|g' \
            -e '/additionalimage.*/a "/var/lib/shared",' \
            -e 's|^mountopt[[:space:]]*=.*$|mountopt = "nodev,fsync=0"|g' \
            /usr/share/containers/storage.conf \
-           > /etc/containers/storage.conf \
-        && mkdir -p \
+           > /etc/containers/storage.conf
+
+    # Setup internal Podman to pass subscriptions down from host to internal container
+    RUN printf '/run/secrets/etc-pki-entitlement:/run/secrets/etc-pki-entitlement\n/run/secrets/rhsm:/run/secrets/rhsm\n' \
+        > /etc/containers/mounts.conf
+
+    COPY +cosign/cosign /usr/bin/cosign
+    COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
+
+    LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
+    LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
+
+    VOLUME /var/lib/containers
+    # VOLUME /home/bluebuild/.local/share/containers
+
+    RUN mkdir -p \
             /var/lib/shared/overlay-images \
             /var/lib/shared/overlay-layers \
             /var/lib/shared/vfs-images \
@@ -167,20 +189,7 @@ blue-build-cli-prebuild:
         && touch /var/lib/shared/vfs-layers/layers.lock
 
     ENV _CONTAINERS_USERNS_CONFIGURED=""
-    COPY image_files/podman.json /etc/containers/networks/
-    COPY image_files/entrypoint.sh /entrypoint.sh
-    RUN chmod +x /entrypoint.sh
-
-    COPY +cosign/cosign /usr/bin/cosign
-    COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
-
-    LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
-    LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
-
-    VOLUME /var/lib/containers
-    VOLUME /home/bluebuild/.local/share/containers
-
-    RUN chown -R bluebuild:bluebuild /home/bluebuild
+    ENV BUILDAH_ISOLATION="chroot"
 
     ENTRYPOINT ["/entrypoint.sh"]
 

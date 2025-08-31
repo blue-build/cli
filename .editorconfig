@@ -12,3 +12,6 @@ indent_size = 2
 
 [justfile]
 indent_size = 2
+
+[*.{yml,yaml}]
+indent_size = 2

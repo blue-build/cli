@@ -135,6 +135,8 @@ cargo_bin := if env('CARGO_HOME', '') != '' {
   x"$HOME/.cargo/bin"
 }
 
+git_sha := `git rev-parse HEAD`
+
 generate-test-secret:
   mkdir -p integration-tests/test-repo/secrets
   echo "321tset" > integration-tests/test-repo/secrets/test-secret
@@ -240,25 +242,24 @@ test-generate-iso-recipe: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo
   bluebuild generate-iso -vv --output-dir "$ISO_OUT" recipe recipes/recipe.yml
 
-test-container-podman-build: generate-test-secret
-  #!/usr/bin/env bash
-  set -eu
+# Build a local cli image
+build-local-cli-image:
   earthly --ci --output -P +blue-build-cli --RELEASE='false'
-  git_sha=$(git rev-parse HEAD)
-  cd integration-tests/test-repo
-  docker run -it --privileged --rm \
-    -v ./:/bluebuild \
-    "ghcr.io/blue-build/cli:${git_sha}" \
-    bluebuild build -B podman -vv
 
-test-container-podman-rechunk: generate-test-secret
-  #!/usr/bin/env bash
-  set -eu
-  earthly --ci --output -P +blue-build-cli --RELEASE='false'
-  git_sha=$(git rev-parse HEAD)
-  cd integration-tests/test-repo
+# Run a command in the cli container
+exec-cli-container +args: build-local-cli-image
   docker run -it --privileged --rm \
-    -v ./:/bluebuild \
-    "ghcr.io/blue-build/cli:${git_sha}" \
-    bluebuild build -B podman -vv \
-    --rechunk recipes/recipe-rechunk.yml
+    -v ./integration-tests/test-repo:/bluebuild \
+    ghcr.io/blue-build/cli:{{ git_sha }} \
+    {{ args }}
+
+# Run a cli container using the podman build driver
+test-container-podman-build: \
+  generate-test-secret \
+  (exec-cli-container "bluebuild" "build" "-B" "podman" "-vv")
+
+# Run a cli container using the podman build driver with rechunk
+test-container-podman-rechunk: \
+  generate-test-secret \
+  (exec-cli-container "bluebuild" "build" "-B" \
+    "podman" "-vv" "--rechunk" "recipes/recipe-rechunk.yml")
