@@ -135,8 +135,6 @@ cargo_bin := if env('CARGO_HOME', '') != '' {
   x"$HOME/.cargo/bin"
 }
 
-git_sha := `git rev-parse HEAD`
-
 generate-test-secret:
   mkdir -p integration-tests/test-repo/secrets
   echo "321tset" > integration-tests/test-repo/secrets/test-secret
@@ -246,9 +244,12 @@ test-generate-iso-recipe: generate-test-secret install-debug-all-features
 build-local-cli-image:
   earthly --ci --output -P +blue-build-cli --RELEASE='false'
 
+git_sha := `git rev-parse HEAD`
+tty_arg := `[ -t 0 ] && echo "t" || echo ""`
+
 # Run a command in the cli container
 exec-cli-container +args: build-local-cli-image
-  docker run -it --privileged --rm \
+  docker run -i{{ tty_arg }} --privileged --rm \
     -v ./integration-tests/test-repo:/bluebuild \
     ghcr.io/blue-build/cli:{{ git_sha }} \
     {{ args }}
