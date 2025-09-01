@@ -139,3 +139,4 @@ modules:
     snippets:
       - '[ "$(cat /tmp/test-secret)" == "TEST_PASS" ]'
 
+  - type: initramfs

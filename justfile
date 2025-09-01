@@ -241,8 +241,16 @@ test-generate-iso-recipe: generate-test-secret install-debug-all-features
   bluebuild generate-iso -vv --output-dir "$ISO_OUT" recipe recipes/recipe.yml
 
 # Build a local cli image
-build-local-cli-image:
-  earthly --ci --output -P +blue-build-cli --RELEASE='false'
+build-local-cli-image release="false":
+  earthly --ci --output -P +blue-build-cli --RELEASE="{{ release }}"
+
+# Build a local distrobox image
+build-local-cli-distrobox-image release="false":
+  earthly --ci --output -P +blue-build-cli-distrobox --RELEASE="{{ release }}"
+
+# Build a local intsaller image
+build-local-cli-installer-image release="false":
+  earthly --ci --output -P +installer --RELEASE="{{ release }}"
 
 git_sha := `git rev-parse HEAD`
 tty_arg := `[ -t 0 ] && echo "t" || echo ""`
