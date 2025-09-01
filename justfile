@@ -251,13 +251,14 @@ tty_arg := `[ -t 0 ] && echo "t" || echo ""`
 exec-cli-container +args: build-local-cli-image
   docker run -i{{ tty_arg }} --privileged --rm \
     -v ./integration-tests/test-repo:/bluebuild \
+    -e TEST_SECRET="$TEST_SECRET" \
     ghcr.io/blue-build/cli:{{ git_sha }} \
     {{ args }}
 
 # Run a cli container using the podman build driver
 test-container-podman-build: \
   generate-test-secret \
-  (exec-cli-container "bluebuild" "build" "-B" "podman" "-vv")
+  (exec-cli-container "bluebuild" "build" "-B" "podman" "--squash" "-vv")
 
 # Run a cli container using the podman build driver with rechunk
 test-container-podman-rechunk: \

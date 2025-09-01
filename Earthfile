@@ -122,15 +122,7 @@ common:
 
     DO rust+INIT --keep_fingerprints=true
 
-blue-build-cli-containerfile-prebuild:
-    FROM DOCKERFILE -f ./image_files/Containerfile ./image_files/
-
-    ARG EARTHLY_GIT_HASH
-    ARG TARGETARCH
-    SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
-
 blue-build-cli-prebuild:
-    # ARG BASE_IMAGE="quay.io/fedora/fedora-bootc:42"
     ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox:42"
     FROM "$BASE_IMAGE"
 
@@ -142,28 +134,21 @@ blue-build-cli-prebuild:
         && dnf5 -y install --refresh \
             docker-ce docker-ce-cli containerd.io \
             docker-buildx-plugin docker-compose-plugin \
-            buildah podman skopeo dumb-init git fuse-overlayfs containers-common \
+            buildah podman skopeo dumb-init git fuse-overlayfs \
+            containers-common rpm-ostree bootc \
         && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
-    # RUN useradd bluebuild \
-    #     && echo bluebuild:10000:5000 > /etc/subuid \
-    #     && echo bluebuild:10000:5000 > /etc/subgid
-
-    # COPY image_files/podman.json /etc/containers/networks/
     COPY image_files/containers.conf /etc/containers/
-    # COPY image_files/podman-containers.conf /home/bluebuild/.config/containers/containers.conf
     COPY image_files/entrypoint.sh /entrypoint.sh
 
-    # RUN mkdir -p /home/bluebuild/.local/share/containers \
-    #     && chown bluebuild:bluebuild -R /home/bluebuild \
     RUN chmod 644 /etc/containers/containers.conf \
         && chmod +x /entrypoint.sh
 
     RUN sed -e 's|^#mount_program|mount_program|g' \
-           -e '/additionalimage.*/a "/var/lib/shared",' \
-           -e 's|^mountopt[[:space:]]*=.*$|mountopt = "nodev,fsync=0"|g' \
-           /usr/share/containers/storage.conf \
-           > /etc/containers/storage.conf
+        -e '/additionalimage.*/a "/var/lib/shared",' \
+        -e 's|^mountopt[[:space:]]*=.*$|mountopt = "nodev,fsync=0"|g' \
+        /usr/share/containers/storage.conf \
+        > /etc/containers/storage.conf
 
     # Setup internal Podman to pass subscriptions down from host to internal container
     RUN printf '/run/secrets/etc-pki-entitlement:/run/secrets/etc-pki-entitlement\n/run/secrets/rhsm:/run/secrets/rhsm\n' \
@@ -176,7 +161,6 @@ blue-build-cli-prebuild:
     LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
     VOLUME /var/lib/containers
-    # VOLUME /home/bluebuild/.local/share/containers
 
     RUN mkdir -p \
             /var/lib/shared/overlay-images \
