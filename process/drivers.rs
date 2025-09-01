@@ -14,7 +14,13 @@ use std::{
     time::Duration,
 };
 
-use blue_build_utils::{BUILD_ID, semver::Version};
+use blue_build_utils::{
+    BUILD_ID,
+    constants::{
+        BB_BOOT_DRIVER, BB_BUILD_DRIVER, BB_INSPECT_DRIVER, BB_RUN_DRIVER, BB_SIGNING_DRIVER,
+    },
+    semver::Version,
+};
 use bon::{Builder, bon};
 use cached::proc_macro::cached;
 use clap::Args;
@@ -87,25 +93,25 @@ static SELECTED_BOOT_DRIVER: LazyLock<RwLock<Option<BootDriverType>>> =
 pub struct DriverArgs {
     /// Select which driver to use to build
     /// your image.
-    #[arg(short = 'B', long)]
+    #[arg(short = 'B', long, env = BB_BUILD_DRIVER)]
     build_driver: Option<BuildDriverType>,
 
     /// Select which driver to use to inspect
     /// images.
-    #[arg(short = 'I', long)]
+    #[arg(short = 'I', long, env = BB_INSPECT_DRIVER)]
     inspect_driver: Option<InspectDriverType>,
 
     /// Select which driver to use to sign
     /// images.
-    #[arg(short = 'S', long)]
+    #[arg(short = 'S', long, env = BB_SIGNING_DRIVER)]
     signing_driver: Option<SigningDriverType>,
 
     /// Select which driver to use to run
     /// containers.
-    #[arg(short = 'R', long)]
+    #[arg(short = 'R', long, env = BB_RUN_DRIVER)]
     run_driver: Option<RunDriverType>,
 
-    #[arg(short = 'T', long)]
+    #[arg(short = 'T', long, env = BB_BOOT_DRIVER)]
     boot_driver: Option<BootDriverType>,
 }
 

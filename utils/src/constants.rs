@@ -20,14 +20,24 @@ pub const IMAGE_VERSION_LABEL: &str = "org.opencontainers.image.version";
 
 // BlueBuild vars
 pub const BB_CACHE_LAYERS: &str = "BB_CACHE_LAYERS";
+pub const BB_BOOT_DRIVER: &str = "BB_BOOT_DRIVER";
+pub const BB_BUILD_ARCHIVE: &str = "BB_BUILD_ARCHIVE";
+pub const BB_BUILD_DRIVER: &str = "BB_BUILD_DRIVER";
+pub const BB_BUILD_NO_SIGN: &str = "BB_BUILD_NO_SIGN";
+pub const BB_BUILD_PUSH: &str = "BB_BUILD_PUSH";
+pub const BB_BUILD_RETRY_PUSH: &str = "BB_BUILD_RETRY_PUSH";
+pub const BB_BUILD_RETRY_COUNT: &str = "BB_BUILD_RETRY_COUNT";
+pub const BB_BUILD_RECHUNK: &str = "BB_BUILD_RECHUNK";
+pub const BB_BUILD_RECHUNK_CLEAR_PLAN: &str = "BB_BUILD_RECHUNK_CLEAR_PLAN";
+pub const BB_INSPECT_DRIVER: &str = "BB_INSPECT_DRIVER";
 pub const BB_PASSWORD: &str = "BB_PASSWORD";
 pub const BB_PRIVATE_KEY: &str = "BB_PRIVATE_KEY";
 pub const BB_REGISTRY: &str = "BB_REGISTRY";
 pub const BB_REGISTRY_NAMESPACE: &str = "BB_REGISTRY_NAMESPACE";
+pub const BB_RUN_DRIVER: &str = "BB_RUN_DRIVER";
+pub const BB_SIGNING_DRIVER: &str = "BB_SIGNING_DRIVER";
 pub const BB_SKIP_VALIDATION: &str = "BB_SKIP_VALIDATION";
 pub const BB_USERNAME: &str = "BB_USERNAME";
-pub const BB_BUILD_RECHUNK: &str = "BB_BUILD_RECHUNK";
-pub const BB_BUILD_RECHUNK_CLEAR_PLAN: &str = "BB_BUILD_RECHUNK_CLEAR_PLAN";
 
 // Docker vars
 pub const DOCKER_HOST: &str = "DOCKER_HOST";
