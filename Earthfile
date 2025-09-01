@@ -23,8 +23,8 @@ build-images-all:
     BUILD --platform=linux/amd64 --platform=linux/arm64 +build-images
 
 build-images:
-    BUILD +blue-build-cli --RELEASE="true"
-    BUILD +blue-build-cli-distrobox --RELEASE="true"
+    BUILD +blue-build-cli
+    BUILD +blue-build-cli-distrobox
     BUILD +installer
 
 prebuild:
@@ -42,6 +42,7 @@ lint:
 test:
     FROM +common
     COPY --dir test-files/ integration-tests/ /app
+    COPY +cosign/cosign /usr/bin/cosign
 
     DO rust+CARGO --args="test --workspace"
     DO rust+CARGO --args="test --workspace --all-features"
@@ -72,7 +73,7 @@ EACH_FEAT:
 install:
     FROM +common
     ARG --required BUILD_TARGET
-    ARG RELEASE
+    ARG --required RELEASE
 
     IF [ "$RELEASE" = "true" ]
         DO rust+CROSS --target="$BUILD_TARGET" --output="$BUILD_TARGET/release/[^\./]+"
@@ -85,7 +86,7 @@ install:
 install-all-features:
     FROM +common
     ARG --required BUILD_TARGET
-    ARG RELEASE
+    ARG --required RELEASE
 
     IF [ "$RELEASE" = "true" ]
         DO rust+CROSS --args="build --all-features --release" --target="$BUILD_TARGET" --output="$BUILD_TARGET/release/[^\./]+"
@@ -122,12 +123,20 @@ common:
     DO rust+INIT --keep_fingerprints=true
 
 blue-build-cli-prebuild:
-    ARG BASE_IMAGE="docker:28.3.3-dind-alpine3.22"
+    ARG BASE_IMAGE="registry.fedoraproject.org/fedora-toolbox:42"
     FROM "$BASE_IMAGE"
 
-    RUN apk update && apk upgrade --no-cache && apk add --no-cache --upgrade \
-        git dumb-init buildah podman skopeo fuse-overlayfs curl \
-        openssh-client-default which bash cosign ostree
+    RUN dnf5 -y update \
+        && dnf5 -y reinstall shadow-utils \
+        && dnf5 -y install dnf5-plugins \
+        && dnf5 config-manager addrepo \
+            --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo \
+        && dnf5 -y install --refresh \
+            docker-ce docker-ce-cli containerd.io \
+            docker-buildx-plugin docker-compose-plugin \
+            buildah podman skopeo dumb-init git fuse-overlayfs \
+            containers-common rpm-ostree bootc \
+        && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
     COPY image_files/containers.conf /etc/containers/
     COPY image_files/entrypoint.sh /entrypoint.sh
@@ -145,6 +154,7 @@ blue-build-cli-prebuild:
     RUN printf '/run/secrets/etc-pki-entitlement:/run/secrets/etc-pki-entitlement\n/run/secrets/rhsm:/run/secrets/rhsm\n' \
         > /etc/containers/mounts.conf
 
+    COPY +cosign/cosign /usr/bin/cosign
     COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
 
     LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
@@ -173,7 +183,7 @@ blue-build-cli-prebuild:
 
 blue-build-cli:
     FROM alpine
-    ARG RELEASE
+    ARG RELEASE="true"
     ARG TARGETARCH
 
     IF [ "$RELEASE" = "true" ]
@@ -183,7 +193,7 @@ blue-build-cli:
         FROM +blue-build-cli-prebuild
     END
 
-    DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="$(uname -m)-unknown-linux-musl" --RELEASE=$RELEASE
+    DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="$(uname -m)-unknown-linux-gnu" --RELEASE=$RELEASE
 
     WORKDIR /bluebuild
 
@@ -204,7 +214,7 @@ blue-build-cli-distrobox-prebuild:
         less libcap ncurses ncurses-terminfo net-tools \
         pigz rsync shadow sudo tcpdump tree tzdata unzip \
         util-linux util-linux-misc vulkan-loader wget \
-        xauth xz zip procps cosign
+        xauth xz zip procps
 
     ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
@@ -212,21 +222,16 @@ blue-build-cli-distrobox-prebuild:
     LABEL org.opencontainers.image.base.name="$BASE_IMAGE"
     LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
+    COPY +cosign/cosign /usr/bin/cosign
+
     ARG EARTHLY_GIT_HASH
     ARG TARGETARCH
     SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-distrobox-prebuild-$TARGETARCH"
 
 blue-build-cli-distrobox:
-    FROM alpine
-    ARG RELEASE
+    ARG EARTHLY_GIT_HASH
     ARG TARGETARCH
-
-    IF [ "$RELEASE" = "true" ]
-        ARG EARTHLY_GIT_HASH
-        FROM "$IMAGE:$EARTHLY_GIT_HASH-distrobox-prebuild-$TARGETARCH"
-    ELSE
-        FROM +blue-build-cli-distrobox-prebuild
-    END
+    FROM "$IMAGE:$EARTHLY_GIT_HASH-distrobox-prebuild-$TARGETARCH"
 
     DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="$(uname -m)-unknown-linux-musl"
 
@@ -241,7 +246,11 @@ installer:
     LABEL org.opencontainers.image.base.digest="$(cat /base-image-digest)"
 
     ARG TARGETARCH
-    DO +INSTALL --OUT_DIR="/out/" --BUILD_TARGET="$(uname -m)-unknown-linux-musl"
+    IF [ "$TARGETARCH" = "arm64" ]
+        DO +INSTALL --OUT_DIR="/out/" --BUILD_TARGET="aarch64-unknown-linux-musl"
+    ELSE
+        DO +INSTALL --OUT_DIR="/out/" --BUILD_TARGET="x86_64-unknown-linux-musl"
+    END
 
     COPY install.sh /install.sh
 
@@ -249,6 +258,10 @@ installer:
 
     DO --pass-args +SAVE_IMAGE --SUFFIX="-installer"
     SAVE ARTIFACT /out/bluebuild
+
+cosign:
+    FROM ghcr.io/sigstore/cosign/cosign:v2.5.3
+    SAVE ARTIFACT /ko-app/cosign
 
 digest:
     FROM alpine
@@ -276,13 +289,12 @@ INSTALL:
     FUNCTION
     ARG --required BUILD_TARGET
     ARG --required OUT_DIR
-    ARG BIN="bluebuild"
-    ARG RELEASE="false"
+    ARG RELEASE="true"
 
     IF [ "$TAGGED" = "true" ]
-        COPY --platform=native (+install/$BIN --BUILD_TARGET=$BUILD_TARGET --RELEASE=$RELEASE) $OUT_DIR
+        COPY --platform=native (+install/bluebuild --BUILD_TARGET=$BUILD_TARGET --RELEASE=$RELEASE) $OUT_DIR
     ELSE
-        COPY --platform=native (+install-all-features/$BIN --BUILD_TARGET=$BUILD_TARGET --RELEASE=$RELEASE) $OUT_DIR
+        COPY --platform=native (+install-all-features/bluebuild --BUILD_TARGET=$BUILD_TARGET --RELEASE=$RELEASE) $OUT_DIR
     END
 
 SAVE_IMAGE:
