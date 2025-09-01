@@ -17,9 +17,10 @@ use blue_build_process_management::{
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{
-        ARCHIVE_SUFFIX, BB_BUILD_ARCHIVE, BB_BUILD_NO_SIGN, BB_BUILD_PUSH, BB_BUILD_RECHUNK,
-        BB_BUILD_RECHUNK_CLEAR_PLAN, BB_BUILD_RETRY_COUNT, BB_BUILD_RETRY_PUSH, BB_CACHE_LAYERS,
-        BB_REGISTRY_NAMESPACE, BB_SKIP_VALIDATION, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH,
+        ARCHIVE_SUFFIX, BB_BUILD_ARCHIVE, BB_BUILD_NO_SIGN, BB_BUILD_PLATFORM, BB_BUILD_PUSH,
+        BB_BUILD_RECHUNK, BB_BUILD_RECHUNK_CLEAR_PLAN, BB_BUILD_RETRY_COUNT, BB_BUILD_RETRY_PUSH,
+        BB_BUILD_SQUASH, BB_CACHE_LAYERS, BB_REGISTRY_NAMESPACE, BB_SKIP_VALIDATION, BB_TEMPDIR,
+        CONFIG_PATH, RECIPE_FILE, RECIPE_PATH,
     },
     credentials::{Credentials, CredentialsArgs},
     string,
@@ -59,7 +60,7 @@ pub struct BuildCommand {
     /// than your hardware will require installing
     /// qemu. Build times will be much greater when
     /// building for a non-native architecture.
-    #[arg(long)]
+    #[arg(long, env = BB_BUILD_PLATFORM)]
     platform: Option<Platform>,
 
     /// The compression format the images
@@ -102,7 +103,7 @@ pub struct BuildCommand {
     ///
     /// NOTE: Squash has a performance benefit for
     /// podman and buildah when running inside a container.
-    #[arg(short, long)]
+    #[arg(short, long, env = BB_BUILD_SQUASH)]
     #[builder(default)]
     squash: bool,
 
@@ -126,7 +127,7 @@ pub struct BuildCommand {
 
     /// The location to temporarily store files
     /// while building. If unset, it will use `/tmp`.
-    #[arg(long)]
+    #[arg(long, env = BB_TEMPDIR)]
     tempdir: Option<PathBuf>,
 
     /// Automatically cache build layers to the registry.
