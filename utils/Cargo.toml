@@ -30,6 +30,7 @@ log.workspace = true
 miette.workspace = true
 nix = { workspace = true, features = ["user"] }
 oci-distribution.workspace = true
+reqwest.workspace = true
 semver = { workspace = true, features = ["serde"] }
 serde.workspace = true
 serde_json.workspace = true

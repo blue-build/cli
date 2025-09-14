@@ -577,6 +577,7 @@ dependencies = [
  "nix",
  "oci-distribution",
  "process_control",
+ "reqwest",
  "rstest",
  "semver",
  "serde",

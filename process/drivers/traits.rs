@@ -690,13 +690,11 @@ pub trait SigningDriver: PrivateDriver {
                     .build(),
             )?
             .digest;
-            let image_digest: Reference = format!(
-                "{}/{}@{image_digest}",
-                opts.image.resolve_registry(),
-                opts.image.repository(),
-            )
-            .parse()
-            .into_diagnostic()?;
+            let image_digest = Reference::with_digest(
+                opts.image.resolve_registry().to_owned(),
+                opts.image.repository().to_owned(),
+                image_digest,
+            );
             let issuer = Driver::oidc_provider();
             let identity = Driver::keyless_cert_identity();
             let priv_key = get_private_key(&path);
