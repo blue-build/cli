@@ -681,11 +681,11 @@ pub trait SigningDriver: PrivateDriver {
             .map_or_else(|| PathBuf::from("."), |d| d.to_path_buf());
         let cosign_file_path = path.join(COSIGN_PUB_PATH);
 
-        opts.platforms.par_iter().try_for_each(|platform| {
+        opts.platforms.par_iter().try_for_each(|&platform| {
             let image_digest = Driver::get_metadata(
                 GetMetadataOpts::builder()
                     .image(opts.image)
-                    .platform(*platform)
+                    .platform(platform)
                     .no_cache(true)
                     .build(),
             )?
@@ -711,7 +711,7 @@ pub trait SigningDriver: PrivateDriver {
                             .key(priv_key)
                             .build(),
                         VerifyOpts::builder()
-                            .image(opts.image)
+                            .image(&image_digest)
                             .verify_type(VerifyType::File(&cosign_file_path))
                             .build(),
                     ),
@@ -719,7 +719,7 @@ pub trait SigningDriver: PrivateDriver {
                     (CiDriverType::Github | CiDriverType::Gitlab, _, Ok(issuer), Ok(identity)) => (
                         SignOpts::builder().dir(&path).image(&image_digest).build(),
                         VerifyOpts::builder()
-                            .image(opts.image)
+                            .image(&image_digest)
                             .verify_type(VerifyType::Keyless { issuer, identity })
                             .build(),
                     ),
