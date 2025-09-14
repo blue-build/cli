@@ -17,8 +17,10 @@ use blue_build_process_management::{
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{
-        ARCHIVE_SUFFIX, BB_REGISTRY_NAMESPACE, BB_SKIP_VALIDATION, CONFIG_PATH, RECIPE_FILE,
-        RECIPE_PATH,
+        ARCHIVE_SUFFIX, BB_BUILD_ARCHIVE, BB_BUILD_NO_SIGN, BB_BUILD_PLATFORM, BB_BUILD_PUSH,
+        BB_BUILD_RECHUNK, BB_BUILD_RECHUNK_CLEAR_PLAN, BB_BUILD_RETRY_COUNT, BB_BUILD_RETRY_PUSH,
+        BB_BUILD_SQUASH, BB_CACHE_LAYERS, BB_REGISTRY_NAMESPACE, BB_SKIP_VALIDATION, BB_TEMPDIR,
+        CONFIG_PATH, RECIPE_FILE, RECIPE_PATH,
     },
     container::{ImageRef, Tag},
     credentials::{Credentials, CredentialsArgs},
@@ -49,7 +51,7 @@ pub struct BuildCommand {
     /// Requires `--registry`,
     /// `--username`, and `--password` if not
     /// building in CI.
-    #[arg(short, long, group = "archive_push")]
+    #[arg(short, long, group = "archive_push", env = BB_BUILD_PUSH)]
     #[builder(default)]
     push: bool,
 
@@ -62,8 +64,8 @@ pub struct BuildCommand {
     /// than your hardware will require installing
     /// qemu. Build times will be much greater when
     /// building for a non-native architecture.
-    #[arg(long)]
     #[builder(default)]
+    #[arg(long, env = BB_BUILD_PLATFORM)]
     platform: Vec<Platform>,
 
     /// The compression format the images
@@ -73,18 +75,18 @@ pub struct BuildCommand {
     compression_format: CompressionType,
 
     /// Enable retrying to push the image.
-    #[arg(short, long)]
+    #[arg(short, long, env = BB_BUILD_RETRY_PUSH)]
     #[builder(default)]
     retry_push: bool,
 
     /// The number of times to retry pushing the image.
-    #[arg(long, default_value_t = 1)]
+    #[arg(long, default_value_t = 1, env = BB_BUILD_RETRY_COUNT)]
     #[builder(default)]
     retry_count: u8,
 
     /// Archives the built image into a tarfile
     /// in the specified directory.
-    #[arg(short, long, group = "archive_rechunk", group = "archive_push")]
+    #[arg(short, long, group = "archive_rechunk", group = "archive_push", env = BB_BUILD_ARCHIVE)]
     #[builder(into)]
     archive: Option<PathBuf>,
 
@@ -95,7 +97,7 @@ pub struct BuildCommand {
     registry_namespace: Option<String>,
 
     /// Do not sign the image on push.
-    #[arg(long)]
+    #[arg(long, env = BB_BUILD_NO_SIGN)]
     #[builder(default)]
     no_sign: bool,
 
@@ -106,7 +108,7 @@ pub struct BuildCommand {
     ///
     /// NOTE: Squash has a performance benefit for
     /// podman and buildah when running inside a container.
-    #[arg(short, long)]
+    #[arg(short, long, env = BB_BUILD_SQUASH)]
     #[builder(default)]
     squash: bool,
 
@@ -117,27 +119,27 @@ pub struct BuildCommand {
     /// and take up more space during build-time.
     ///
     /// NOTE: This must be run as root!
-    #[arg(long, group = "archive_rechunk", env = blue_build_utils::constants::BB_BUILD_RECHUNK)]
+    #[arg(long, group = "archive_rechunk", env = BB_BUILD_RECHUNK)]
     #[builder(default)]
     rechunk: bool,
 
     /// Use a fresh rechunk plan, regardless of previous ref.
     ///
     /// NOTE: Only works with `--rechunk`.
-    #[arg(long, env = blue_build_utils::constants::BB_BUILD_RECHUNK_CLEAR_PLAN)]
+    #[arg(long, env = BB_BUILD_RECHUNK_CLEAR_PLAN)]
     #[builder(default)]
     rechunk_clear_plan: bool,
 
     /// The location to temporarily store files
     /// while building. If unset, it will use `/tmp`.
-    #[arg(long)]
+    #[arg(long, env = BB_TEMPDIR)]
     tempdir: Option<PathBuf>,
 
     /// Automatically cache build layers to the registry.
     ///
     /// NOTE: Only works when using --push
     #[builder(default)]
-    #[arg(long, env = blue_build_utils::constants::BB_CACHE_LAYERS)]
+    #[arg(long, env = BB_CACHE_LAYERS)]
     cache_layers: bool,
 
     /// Skips validation of the recipe file.
