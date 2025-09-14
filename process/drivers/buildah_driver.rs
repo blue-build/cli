@@ -3,7 +3,7 @@ use std::{io::Write, process::Stdio};
 use blue_build_utils::{credentials::Credentials, secret::SecretArgs, semver::Version};
 use colored::Colorize;
 use comlexr::cmd;
-use log::{debug, error, info, trace};
+use log::{debug, error, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Result, bail, miette};
 use serde::Deserialize;
 use tempfile::TempDir;
@@ -218,6 +218,21 @@ impl BuildDriver for BuildahDriver {
     }
 
     fn manifest_create(opts: ManifestCreateOpts) -> Result<()> {
+        let output = {
+            let c = cmd!("buildah", "manifest", "rm", opts.final_image.to_string());
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if output.status.success() {
+            warn!(
+                "Existing image manifest {} exists, removing...",
+                opts.final_image
+            );
+        }
+
         let status = {
             let c = cmd!(
                 "buildah",

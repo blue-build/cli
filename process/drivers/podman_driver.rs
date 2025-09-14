@@ -19,7 +19,7 @@ use cached::proc_macro::cached;
 use colored::Colorize;
 use comlexr::{cmd, pipe};
 use indicatif::{ProgressBar, ProgressStyle};
-use log::{debug, error, info, trace};
+use log::{debug, error, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Report, Result, bail, miette};
 use oci_distribution::Reference;
 use serde::Deserialize;
@@ -355,6 +355,21 @@ impl BuildDriver for PodmanDriver {
     }
 
     fn manifest_create(opts: ManifestCreateOpts) -> Result<()> {
+        let output = {
+            let c = cmd!("podman", "manifest", "rm", opts.final_image.to_string());
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if output.status.success() {
+            warn!(
+                "Existing image manifest {} exists, removing...",
+                opts.final_image
+            );
+        }
+
         let status = {
             let c = cmd!(
                 "podman",

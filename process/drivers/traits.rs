@@ -181,26 +181,25 @@ pub trait BuildDriver: PrivateDriver {
             .try_for_each(|&build_opts| -> Result<()> {
                 info!("Building image {}", opts.image);
 
-                let tagged_image = build_opts.image;
                 Self::build(build_opts)?;
 
-                if let ImageRef::Remote(tagged_image) = tagged_image
-                    && opts.push
-                {
-                    let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
+                // if let ImageRef::Remote(tagged_image) = tagged_image
+                //     && opts.push
+                // {
+                //     let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
 
-                    // Push images with retries (1s delay between retries)
-                    blue_build_utils::retry(retry_count, 5, || {
-                        debug!("Pushing image {tagged_image}");
+                //     // Push images with retries (1s delay between retries)
+                //     blue_build_utils::retry(retry_count, 5, || {
+                //         debug!("Pushing image {tagged_image}");
 
-                        Self::push(
-                            PushOpts::builder()
-                                .image(tagged_image)
-                                .compression_type(opts.compression)
-                                .build(),
-                        )
-                    })?;
-                }
+                //         Self::push(
+                //             PushOpts::builder()
+                //                 .image(tagged_image)
+                //                 .compression_type(opts.compression)
+                //                 .build(),
+                //         )
+                //     })?;
+                // }
 
                 Ok(())
             })?;

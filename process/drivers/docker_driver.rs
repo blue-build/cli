@@ -387,6 +387,21 @@ impl BuildDriver for DockerDriver {
     }
 
     fn manifest_create(opts: ManifestCreateOpts) -> Result<()> {
+        let output = {
+            let c = cmd!("docker", "manifest", "rm", opts.final_image.to_string());
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if output.status.success() {
+            warn!(
+                "Existing image manifest {} exists, removing...",
+                opts.final_image
+            );
+        }
+
         let status = {
             let c = cmd!(
                 "docker",
