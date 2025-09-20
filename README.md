@@ -1,3 +1,5 @@
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/blue-build/cli/badge)](https://scorecard.dev/viewer/?uri=github.com/blue-build/cli)
+
 <div align="center">
   <center>
     <img src="https://github.com/blue-build/.github/assets/60004820/337323ed-70e4-4025-8c73-e8fe0c183c7c" alt="BlueBuild. A minimal logo with a blue-billed duck holding a golden wrench in its beak." style="max-height: 300px;" />
