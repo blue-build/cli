@@ -226,7 +226,7 @@ test-buildah-build: generate-test-secret install-debug-all-features
     recipes/recipe-buildah.yml
 
 # Run the multi-platform builds
-test-multiplatform: test-multiplatform-docker test-multiplatform-podman test-multiplatform-buildah
+test-multiplatform: test-multiplatform-docker test-multiplatform-podman test-multiplatform-buildah test-multiplatform-rechunk
 
 test-multiplatform-docker: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
@@ -257,6 +257,16 @@ test-multiplatform-buildah: generate-test-secret install-debug-all-features
     {{ should_push }} \
     -vv \
     recipes/recipe-multiplatform-buildah.yml
+
+test-multiplatform-rechunk: generate-test-secret install-debug-all-features
+  cd integration-tests/test-repo \
+  && bluebuild build \
+    --retry-push \
+    --rechunk \
+    -S sigstore \
+    {{ should_push }} \
+    -vv \
+    recipes/recipe-multiplatform-rechunk.yml
 
 # Run ISO generator for images
 test-generate-iso-image: generate-test-secret install-debug-all-features

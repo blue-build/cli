@@ -110,10 +110,8 @@ impl<'scope> ImageRef<'scope> {
 
     #[must_use]
     pub fn with_platform(&'scope self, platform: Platform) -> Self {
-        if let Self::Remote(remote) = &self
-            && let Some(tagged) = platform.tagged_image(remote)
-        {
-            Self::Remote(Cow::Owned(tagged))
+        if let Self::Remote(remote) = &self {
+            Self::Remote(Cow::Owned(platform.tagged_image(remote)))
         } else if let Self::LocalTar(path) = &self
             && let Some(tagged) = platform.tagged_path(path)
         {

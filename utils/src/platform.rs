@@ -93,12 +93,12 @@ impl Platform {
 
     /// Get a tag friendly version of the platform.
     #[must_use]
-    pub fn tagged_image(&self, image: &Reference) -> Option<Reference> {
-        Some(Reference::with_tag(
+    pub fn tagged_image(&self, image: &Reference) -> Reference {
+        Reference::with_tag(
             image.registry().to_string(),
             image.repository().to_string(),
-            format!("{}_{self}", image.tag()?).replace('/', "_"),
-        ))
+            format!("{}_{self}", image.tag().unwrap_or("latest")).replace('/', "_"),
+        )
     }
 
     /// Get a tagged path.

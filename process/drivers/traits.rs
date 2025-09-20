@@ -179,27 +179,27 @@ pub trait BuildDriver: PrivateDriver {
         build_opts
             .par_iter()
             .try_for_each(|&build_opts| -> Result<()> {
-                info!("Building image {}", opts.image);
+                info!("Building image {}", build_opts.image);
 
                 Self::build(build_opts)?;
 
-                // if let ImageRef::Remote(tagged_image) = tagged_image
-                //     && opts.push
-                // {
-                //     let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
+                if let ImageRef::Remote(tagged_image) = build_opts.image
+                    && opts.push
+                {
+                    let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
 
-                //     // Push images with retries (1s delay between retries)
-                //     blue_build_utils::retry(retry_count, 5, || {
-                //         debug!("Pushing image {tagged_image}");
+                    // Push images with retries (1s delay between retries)
+                    blue_build_utils::retry(retry_count, 5, || {
+                        debug!("Pushing image {tagged_image}");
 
-                //         Self::push(
-                //             PushOpts::builder()
-                //                 .image(tagged_image)
-                //                 .compression_type(opts.compression)
-                //                 .build(),
-                //         )
-                //     })?;
-                // }
+                        Self::push(
+                            PushOpts::builder()
+                                .image(tagged_image)
+                                .compression_type(opts.compression)
+                                .build(),
+                        )
+                    })?;
+                }
 
                 Ok(())
             })?;
@@ -211,8 +211,8 @@ pub trait BuildDriver: PrivateDriver {
                 let mut image_list = Vec::with_capacity(opts.tags.len());
                 let platform_images = opts
                     .platform
-                    .par_iter()
-                    .filter_map(|&platform| platform.tagged_image(image))
+                    .iter()
+                    .map(|&platform| platform.tagged_image(image))
                     .collect::<Vec<_>>();
 
                 for tag in opts.tags {
@@ -355,18 +355,27 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
     /// # Errors
     /// Will error if the rechunk process fails.
     fn rechunk(opts: RechunkOpts) -> Result<Vec<String>> {
-        assert!(opts.platform.len() <= 1);
+        assert!(
+            opts.platform.is_empty().not(),
+            "Must have at least one platform defined!"
+        );
 
+        let temp_dir = if let Some(dir) = opts.tempdir {
+            &tempfile::TempDir::new_in(dir).into_diagnostic()?
+        } else {
+            &tempfile::TempDir::new().into_diagnostic()?
+        };
         let ostree_cache_id = &uuid::Uuid::new_v4().to_string();
         let raw_image =
             &Reference::try_from(format!("localhost/{ostree_cache_id}/raw-rechunk")).unwrap();
         let current_dir = &std::env::current_dir().into_diagnostic()?;
         let current_dir = &*current_dir.to_string_lossy();
-        let full_image = Reference::try_from(opts.tags.first().map_or_else(
-            || opts.image.to_string(),
-            |tag| format!("{}:{tag}", opts.image),
-        ))
-        .into_diagnostic()?;
+        let main_tag = opts.tags.first().cloned().unwrap_or_default();
+        let final_image = Reference::with_tag(
+            opts.image.resolve_registry().into(),
+            opts.image.repository().into(),
+            main_tag.as_str().into(),
+        );
 
         Self::login()?;
 
@@ -374,64 +383,48 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         let platform_images = opts
             .platform
             .iter()
-            .map(|&platform| (ImageRef::from(opts.image), platform))
+            .map(|&platform| (image.with_platform(platform), platform))
             .collect::<Vec<_>>();
-        let build_opts = if opts.platform.is_empty() {
-            vec![
+        let build_opts = platform_images
+            .iter()
+            .map(|(image, platform)| {
                 BuildOpts::builder()
-                    .image(&image)
+                    .image(image)
                     .containerfile(opts.containerfile)
+                    .platform(*platform)
                     .privileged(true)
                     .squash(true)
                     .host_network(true)
                     .secrets(opts.secrets)
+                    .build()
+            })
+            .collect::<Vec<_>>();
+
+        build_opts.par_iter().try_for_each(|&build_opts| {
+            let ImageRef::Remote(image) = build_opts.image else {
+                bail!("Cannot build for {}", build_opts.image);
+            };
+            Self::build(build_opts)?;
+            let container = &Self::create_container(
+                CreateContainerOpts::builder()
+                    .image(raw_image)
+                    .privileged(true)
                     .build(),
-            ]
-        } else {
-            platform_images
-                .iter()
-                .map(|(image, platform)| {
-                    BuildOpts::builder()
-                        .image(image)
-                        .containerfile(opts.containerfile)
-                        .platform(*platform)
-                        .privileged(true)
-                        .squash(true)
-                        .host_network(true)
-                        .secrets(opts.secrets)
-                        .build()
-                })
-                .collect()
-        };
+            )?;
+            let mount = &Self::mount_container(
+                ContainerOpts::builder()
+                    .container_id(container)
+                    .privileged(true)
+                    .build(),
+            )?;
 
-        build_opts
-            .par_iter()
-            .try_for_each(|&build_opts| Self::build(build_opts))?;
+            Self::prune_image(mount, container, image, opts)?;
+            Self::create_ostree_commit(mount, ostree_cache_id, container, image, opts)?;
 
-        let container = &Self::create_container(
-            CreateContainerOpts::builder()
-                .image(raw_image)
-                .privileged(true)
-                .build(),
-        )?;
-        let mount = &Self::mount_container(
-            ContainerOpts::builder()
-                .container_id(container)
-                .privileged(true)
-                .build(),
-        )?;
+            let temp_dir_str = &*temp_dir.path().to_string_lossy();
 
-        Self::prune_image(mount, container, raw_image, opts)?;
-        Self::create_ostree_commit(mount, ostree_cache_id, container, raw_image, opts)?;
-
-        let temp_dir = if let Some(dir) = opts.tempdir {
-            tempfile::TempDir::new_in(dir).into_diagnostic()?
-        } else {
-            tempfile::TempDir::new().into_diagnostic()?
-        };
-        let temp_dir_str = &*temp_dir.path().to_string_lossy();
-
-        Self::rechunk_image(ostree_cache_id, temp_dir_str, current_dir, opts)?;
+            Self::rechunk_image(ostree_cache_id, temp_dir_str, current_dir, opts)
+        })?;
 
         let mut image_list = Vec::with_capacity(opts.tags.len());
 
@@ -440,8 +433,8 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
 
             for tag in opts.tags {
                 let tagged_image = Reference::with_tag(
-                    full_image.registry().to_string(),
-                    full_image.repository().to_string(),
+                    final_image.registry().to_string(),
+                    final_image.repository().to_string(),
                     tag.to_string(),
                 );
 
