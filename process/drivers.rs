@@ -41,7 +41,7 @@ use types::{
 };
 use uuid::Uuid;
 
-use crate::logging::Logger;
+use crate::{drivers::oci_client::OciClientDriver, logging::Logger};
 
 pub use self::{
     buildah_driver::BuildahDriver, cosign_driver::CosignDriver, docker_driver::DockerDriver,
@@ -62,6 +62,7 @@ mod functions;
 mod github_driver;
 mod gitlab_driver;
 mod local_driver;
+mod oci_client;
 pub mod opts;
 mod podman_driver;
 mod rpm_ostree_driver;
@@ -175,13 +176,17 @@ impl Driver {
     pub fn init(mut args: DriverArgs) {
         trace!("Driver::init()");
 
+        if args.inspect_driver.is_some() {
+            warn!("Setting the inspect driver is deprecated.");
+        }
+
         impl_driver_init! {
             INIT;
             args.build_driver => SELECTED_BUILD_DRIVER;
-            args.inspect_driver => SELECTED_INSPECT_DRIVER;
             args.run_driver => SELECTED_RUN_DRIVER;
             args.signing_driver => SELECTED_SIGNING_DRIVER;
             args.boot_driver => SELECTED_BOOT_DRIVER;
+            default => SELECTED_INSPECT_DRIVER;
             default => SELECTED_CI_DRIVER;
         }
     }
@@ -394,19 +399,9 @@ impl SigningDriver for Driver {
     }
 }
 
-macro_rules! impl_inspect_driver {
-    ($func:ident($($args:expr),*)) => {
-        match Self::get_inspect_driver() {
-            InspectDriverType::Skopeo => SkopeoDriver::$func($($args,)*),
-            InspectDriverType::Podman => PodmanDriver::$func($($args,)*),
-            InspectDriverType::Docker => DockerDriver::$func($($args,)*),
-        }
-    };
-}
-
 impl InspectDriver for Driver {
     fn get_metadata(opts: GetMetadataOpts) -> Result<ImageMetadata> {
-        impl_inspect_driver!(get_metadata(opts))
+        OciClientDriver::get_metadata(opts)
     }
 }
 

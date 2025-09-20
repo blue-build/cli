@@ -52,6 +52,7 @@ impl_private_driver!(
     super::sigstore_driver::SigstoreDriver,
     super::rpm_ostree_driver::RpmOstreeDriver,
     super::rpm_ostree_driver::Status,
+    super::oci_client::OciClientDriver,
     Option<BuildDriverType>,
     Option<RunDriverType>,
     Option<InspectDriverType>,

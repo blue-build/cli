@@ -10,8 +10,10 @@ use crate::drivers::{
     podman_driver::PodmanDriver,
 };
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Default, Debug, Clone, Copy, ValueEnum)]
 pub enum InspectDriverType {
+    #[default]
+    OciClient,
     Skopeo,
     Podman,
     Docker,
@@ -19,22 +21,7 @@ pub enum InspectDriverType {
 
 impl DetermineDriver<InspectDriverType> for Option<InspectDriverType> {
     fn determine_driver(&mut self) -> InspectDriverType {
-        *self.get_or_insert(
-            match (
-                blue_build_utils::check_command_exists("skopeo"),
-                blue_build_utils::check_command_exists("docker"),
-                blue_build_utils::check_command_exists("podman"),
-            ) {
-                (Ok(_skopeo), _, _) => InspectDriverType::Skopeo,
-                (_, Ok(_docker), _) => InspectDriverType::Docker,
-                (_, _, Ok(_podman)) => InspectDriverType::Podman,
-                _ => panic!(
-                    "{}{}",
-                    "Could not determine inspection strategy. ",
-                    "You need either skopeo, docker, or podman",
-                ),
-            },
-        )
+        InspectDriverType::default()
     }
 }
 
