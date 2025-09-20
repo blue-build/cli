@@ -19,6 +19,8 @@ use blue_build_utils::{
     constants::{
         BB_BOOT_DRIVER, BB_BUILD_DRIVER, BB_INSPECT_DRIVER, BB_RUN_DRIVER, BB_SIGNING_DRIVER,
     },
+    container::{ContainerId, MountId, Tag},
+    platform::Platform,
     semver::Version,
 };
 use bon::{Builder, bon};
@@ -36,12 +38,15 @@ use opts::{
     RunOpts, SignOpts, SwitchOpts, TagOpts, VerifyOpts, VolumeOpts,
 };
 use types::{
-    BootDriverType, BuildDriverType, CiDriverType, ImageMetadata, InspectDriverType, Platform,
-    RunDriverType, SigningDriverType,
+    BootDriverType, BuildDriverType, CiDriverType, ImageMetadata, InspectDriverType, RunDriverType,
+    SigningDriverType,
 };
 use uuid::Uuid;
 
-use crate::logging::Logger;
+use crate::{
+    drivers::opts::{ManifestCreateOpts, ManifestPushOpts},
+    logging::Logger,
+};
 
 pub use self::{
     buildah_driver::BuildahDriver, cosign_driver::CosignDriver, docker_driver::DockerDriver,
@@ -358,6 +363,14 @@ impl BuildDriver for Driver {
         impl_build_driver!(prune(opts))
     }
 
+    fn manifest_create(opts: ManifestCreateOpts) -> Result<()> {
+        impl_build_driver!(manifest_create(opts))
+    }
+
+    fn manifest_push(opts: ManifestPushOpts) -> Result<()> {
+        impl_build_driver!(manifest_push(opts))
+    }
+
     fn build_tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
         impl_build_driver!(build_tag_push(opts))
     }
@@ -428,7 +441,7 @@ impl RunDriver for Driver {
         impl_run_driver!(run_output(opts))
     }
 
-    fn create_container(opts: CreateContainerOpts) -> Result<types::ContainerId> {
+    fn create_container(opts: CreateContainerOpts) -> Result<ContainerId> {
         impl_run_driver!(create_container(opts))
     }
 
@@ -468,7 +481,7 @@ impl CiDriver for Driver {
         impl_ci_driver!(oidc_provider())
     }
 
-    fn generate_tags(opts: GenerateTagsOpts) -> Result<Vec<String>> {
+    fn generate_tags(opts: GenerateTagsOpts) -> Result<Vec<Tag>> {
         impl_ci_driver!(generate_tags(opts))
     }
 
@@ -493,7 +506,7 @@ impl CiDriver for Driver {
 }
 
 impl ContainerMountDriver for Driver {
-    fn mount_container(opts: ContainerOpts) -> Result<types::MountId> {
+    fn mount_container(opts: ContainerOpts) -> Result<MountId> {
         PodmanDriver::mount_container(opts)
     }
 

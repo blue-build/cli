@@ -20,6 +20,7 @@ if [ -f /etc/os-release ]; then
     apk add --no-cache bash curl coreutils wget grep jq
   elif [ "$ID" = "ubuntu" ] || [ "$ID" = "debian" ]; then
     echo "Setting up Ubuntu based image to run BlueBuild modules"
+    export DEBIAN_FRONTEND=noninteractive
     apt-get update
     apt-get install -y bash curl coreutils wget jq
   elif [ "$ID" = "fedora" ]; then

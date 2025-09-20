@@ -3,12 +3,15 @@ use std::{io::Write, process::Stdio};
 use blue_build_utils::{credentials::Credentials, secret::SecretArgs, semver::Version};
 use colored::Colorize;
 use comlexr::cmd;
-use log::{debug, error, info, trace};
+use log::{debug, error, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Result, bail, miette};
 use serde::Deserialize;
 use tempfile::TempDir;
 
-use crate::logging::CommandLogging;
+use crate::{
+    drivers::opts::{ManifestCreateOpts, ManifestPushOpts},
+    logging::CommandLogging,
+};
 
 use super::{
     BuildDriver, DriverVersion,
@@ -209,6 +212,65 @@ impl BuildDriver for BuildahDriver {
 
         if !status.success() {
             bail!("Failed to prune buildah");
+        }
+
+        Ok(())
+    }
+
+    fn manifest_create(opts: ManifestCreateOpts) -> Result<()> {
+        let output = {
+            let c = cmd!("buildah", "manifest", "rm", opts.final_image.to_string());
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if output.status.success() {
+            warn!(
+                "Existing image manifest {} exists, removing...",
+                opts.final_image
+            );
+        }
+
+        let status = {
+            let c = cmd!(
+                "buildah",
+                "manifest",
+                "create",
+                opts.final_image.to_string(),
+                for image in opts.image_list => image.to_string(),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
+        }
+
+        Ok(())
+    }
+
+    fn manifest_push(opts: ManifestPushOpts) -> Result<()> {
+        let status = {
+            let c = cmd!(
+                "buildah",
+                "manifest",
+                "push",
+                opts.final_image.to_string(),
+                format!("docker://{}", opts.final_image),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
         }
 
         Ok(())
