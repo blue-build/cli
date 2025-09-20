@@ -458,7 +458,7 @@ dependencies = [
  "jsonschema",
  "log",
  "miette",
- "oci-distribution",
+ "oci-client 0.15.0",
  "open",
  "os_info",
  "rayon",
@@ -503,7 +503,7 @@ dependencies = [
  "miette",
  "nix",
  "nu-ansi-term",
- "oci-distribution",
+ "oci-client 0.15.0",
  "os_pipe",
  "pretty_assertions",
  "rand 0.9.2",
@@ -531,7 +531,7 @@ dependencies = [
  "indexmap 2.10.0",
  "log",
  "miette",
- "oci-distribution",
+ "oci-client 0.15.0",
  "reqwest",
  "serde",
  "serde_json",
@@ -549,7 +549,7 @@ dependencies = [
  "chrono",
  "colored",
  "log",
- "oci-distribution",
+ "oci-client 0.15.0",
  "uuid",
 ]
 
@@ -903,7 +903,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
 dependencies = [
  "lazy_static",
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1496,7 +1496,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "778e2ac28f6c47af28e4907f13ffd1e1ddbd400980a9abd7c8df189bf578a5ad"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -2661,7 +2661,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.53.3",
 ]
 
 [[package]]
@@ -3127,7 +3127,7 @@ dependencies = [
  "http-auth",
  "jwt",
  "lazy_static",
- "oci-spec",
+ "oci-spec 0.7.1",
  "olpc-cjson",
  "regex",
  "reqwest",
@@ -3141,10 +3141,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "oci-distribution"
-version = "0.11.0"
+name = "oci-client"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b95a2c51531af0cb93761f66094044ca6ea879320bccd35ab747ff3fcab3f422"
+checksum = "9b74df13319e08bc386d333d3dc289c774c88cc543cae31f5347db07b5ec2172"
 dependencies = [
  "bytes",
  "chrono",
@@ -3153,13 +3153,14 @@ dependencies = [
  "http-auth",
  "jwt",
  "lazy_static",
+ "oci-spec 0.8.2",
  "olpc-cjson",
  "regex",
  "reqwest",
  "serde",
  "serde_json",
  "sha2",
- "thiserror 1.0.69",
+ "thiserror 2.0.16",
  "tokio",
  "tracing",
  "unicase",
@@ -3176,8 +3177,25 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "strum",
- "strum_macros",
+ "strum 0.26.3",
+ "strum_macros 0.26.4",
+ "thiserror 2.0.16",
+]
+
+[[package]]
+name = "oci-spec"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2078e2f6be932a4de9aca90a375a45590809dfb5a08d93ab1ee217107aceeb67"
+dependencies = [
+ "const_format",
+ "derive_builder",
+ "getset",
+ "regex",
+ "serde",
+ "serde_json",
+ "strum 0.27.2",
+ "strum_macros 0.27.2",
  "thiserror 2.0.16",
 ]
 
@@ -3806,7 +3824,7 @@ dependencies = [
  "once_cell",
  "socket2 0.5.10",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4242,7 +4260,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.4.15",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4255,7 +4273,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.9.4",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -4688,7 +4706,7 @@ dependencies = [
  "hex",
  "json-syntax",
  "lazy_static",
- "oci-client",
+ "oci-client 0.14.0",
  "olpc-cjson",
  "openidconnect",
  "p256",
@@ -4863,6 +4881,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
 
 [[package]]
+name = "strum"
+version = "0.27.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
+
+[[package]]
 name = "strum_macros"
 version = "0.26.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4872,6 +4896,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustversion",
+ "syn 2.0.106",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.27.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
  "syn 2.0.106",
 ]
 
@@ -4976,7 +5012,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix 1.0.8",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -5787,7 +5823,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
