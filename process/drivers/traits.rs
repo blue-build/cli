@@ -52,6 +52,7 @@ impl_private_driver!(
     super::sigstore_driver::SigstoreDriver,
     super::rpm_ostree_driver::RpmOstreeDriver,
     super::rpm_ostree_driver::Status,
+    super::oci_client::OciClientDriver,
     Option<BuildDriverType>,
     Option<RunDriverType>,
     Option<InspectDriverType>,
@@ -578,20 +579,13 @@ pub trait SigningDriver: PrivateDriver {
             .map_or_else(|| PathBuf::from("."), |d| d.to_path_buf());
         let cosign_file_path = path.join(COSIGN_PUB_PATH);
 
-        let image_digest = Driver::get_metadata(
-            GetMetadataOpts::builder()
-                .image(opts.image)
-                .maybe_platform(opts.platform)
-                .build(),
-        )?
-        .digest;
-        let image_digest: Reference = format!(
-            "{}/{}@{image_digest}",
-            opts.image.resolve_registry(),
-            opts.image.repository(),
-        )
-        .parse()
-        .into_diagnostic()?;
+        let image_digest =
+            Driver::get_metadata(GetMetadataOpts::builder().image(opts.image).build())?;
+        let image_digest = Reference::with_digest(
+            opts.image.resolve_registry().into(),
+            opts.image.repository().into(),
+            image_digest.digest().into(),
+        );
         let issuer = Driver::oidc_provider();
         let identity = Driver::keyless_cert_identity();
         let priv_key = get_private_key(&path);

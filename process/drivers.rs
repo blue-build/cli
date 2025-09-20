@@ -27,7 +27,7 @@ use clap::Args;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
-use miette::{Result, miette};
+use miette::{Context, Result};
 use oci_distribution::Reference;
 use opts::{
     BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, ContainerOpts, CopyOciDirOpts,
@@ -36,12 +36,12 @@ use opts::{
     RunOpts, SignOpts, SwitchOpts, TagOpts, VerifyOpts, VolumeOpts,
 };
 use types::{
-    BootDriverType, BuildDriverType, CiDriverType, ImageMetadata, InspectDriverType, Platform,
-    RunDriverType, SigningDriverType,
+    BootDriverType, BuildDriverType, CiDriverType, ImageMetadata, InspectDriverType, RunDriverType,
+    SigningDriverType,
 };
 use uuid::Uuid;
 
-use crate::logging::Logger;
+use crate::{drivers::oci_client::OciClientDriver, logging::Logger};
 
 pub use self::{
     buildah_driver::BuildahDriver, cosign_driver::CosignDriver, docker_driver::DockerDriver,
@@ -62,6 +62,7 @@ mod functions;
 mod github_driver;
 mod gitlab_driver;
 mod local_driver;
+mod oci_client;
 pub mod opts;
 mod podman_driver;
 mod rpm_ostree_driver;
@@ -175,13 +176,17 @@ impl Driver {
     pub fn init(mut args: DriverArgs) {
         trace!("Driver::init()");
 
+        if args.inspect_driver.is_some() {
+            warn!("Setting the inspect driver is deprecated.");
+        }
+
         impl_driver_init! {
             INIT;
             args.build_driver => SELECTED_BUILD_DRIVER;
-            args.inspect_driver => SELECTED_INSPECT_DRIVER;
             args.run_driver => SELECTED_RUN_DRIVER;
             args.signing_driver => SELECTED_SIGNING_DRIVER;
             args.boot_driver => SELECTED_BOOT_DRIVER;
+            default => SELECTED_INSPECT_DRIVER;
             default => SELECTED_CI_DRIVER;
         }
     }
@@ -208,9 +213,6 @@ impl Driver {
     pub fn get_os_version(
         /// The OCI image reference.
         oci_ref: &Reference,
-
-        /// The platform of the image to pull the version info from.
-        platform: Option<Platform>,
     ) -> Result<u64> {
         trace!("Driver::get_os_version({oci_ref:#?})");
 
@@ -225,27 +227,22 @@ impl Driver {
 
         info!("Retrieving OS version from {oci_ref}");
 
-        let os_version = Self::get_metadata(
-            GetMetadataOpts::builder()
-                .image(oci_ref)
-                .maybe_platform(platform)
-                .build(),
-        )
-        .and_then(|inspection| {
-            trace!("{inspection:?}");
-            inspection.get_version().ok_or_else(|| {
-                miette!(
-                    "Failed to parse version from metadata for {}",
-                    oci_ref.to_string().bold()
-                )
+        let os_version = Self::get_metadata(GetMetadataOpts::builder().image(oci_ref).build())
+            .and_then(|inspection| {
+                trace!("{inspection:?}");
+                inspection.get_version().wrap_err_with(|| {
+                    format!(
+                        "Failed to parse version from metadata for {}",
+                        oci_ref.to_string().bold()
+                    )
+                })
             })
-        })
-        .or_else(|err| {
-            warn!("Unable to get version via image inspection due to error:\n{err:?}");
-            get_version_run_image(oci_ref)
-        })?;
+            .or_else(|err| {
+                warn!("Unable to get version via image inspection due to error:\n{err:?}");
+                get_version_run_image(oci_ref)
+            })?;
         trace!("os_version: {os_version}");
-        Ok(os_version)
+        Ok(os_version.major)
     }
 
     pub fn get_build_driver() -> BuildDriverType {
@@ -279,7 +276,7 @@ impl Driver {
     convert = r#"{ oci_ref.to_string() }"#,
     sync_writes = "by_key"
 )]
-fn get_version_run_image(oci_ref: &Reference) -> Result<u64> {
+fn get_version_run_image(oci_ref: &Reference) -> Result<Version> {
     warn!(concat!(
         "Pulling and running the image to retrieve the version. ",
         "This will take a while..."
@@ -321,10 +318,7 @@ fn get_version_run_image(oci_ref: &Reference) -> Result<u64> {
     progress.finish_and_clear();
     Logger::multi_progress().remove(&progress);
 
-    Ok(String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .parse::<Version>()?
-        .major)
+    String::from_utf8_lossy(&output.stdout).trim().parse()
 }
 
 macro_rules! impl_build_driver {
@@ -394,19 +388,9 @@ impl SigningDriver for Driver {
     }
 }
 
-macro_rules! impl_inspect_driver {
-    ($func:ident($($args:expr),*)) => {
-        match Self::get_inspect_driver() {
-            InspectDriverType::Skopeo => SkopeoDriver::$func($($args,)*),
-            InspectDriverType::Podman => PodmanDriver::$func($($args,)*),
-            InspectDriverType::Docker => DockerDriver::$func($($args,)*),
-        }
-    };
-}
-
 impl InspectDriver for Driver {
     fn get_metadata(opts: GetMetadataOpts) -> Result<ImageMetadata> {
-        impl_inspect_driver!(get_metadata(opts))
+        OciClientDriver::get_metadata(opts)
     }
 }
 

@@ -148,7 +148,6 @@ test-docker-build: generate-test-secret install-debug-all-features
   && bluebuild build \
     --retry-push \
     -B docker \
-    -I docker \
     -S sigstore \
     {{ should_push }} \
     -vv \
@@ -159,7 +158,6 @@ test-empty-files-build: generate-test-secret install-debug-all-features
   && bluebuild build \
     --retry-push \
     -B docker \
-    -I docker \
     -S sigstore \
     {{ should_push }} \
     -vv
@@ -207,7 +205,6 @@ test-podman-build: generate-test-secret install-debug-all-features
   && bluebuild build \
     --retry-push \
     -B podman \
-    -I podman \
     -S sigstore \
     {{ should_push }} \
     -vv \
@@ -219,7 +216,6 @@ test-buildah-build: generate-test-secret install-debug-all-features
   && bluebuild build \
     --retry-push \
     -B buildah \
-    -I podman \
     -S sigstore \
     {{ should_push }} \
     -vv \

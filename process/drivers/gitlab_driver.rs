@@ -47,10 +47,7 @@ impl CiDriver for GitlabDriver {
 
     fn generate_tags(opts: GenerateTagsOpts) -> miette::Result<Vec<String>> {
         const MR_EVENT: &str = "merge_request_event";
-        let os_version = Driver::get_os_version()
-            .oci_ref(opts.oci_ref)
-            .maybe_platform(opts.platform)
-            .call()?;
+        let os_version = Driver::get_os_version().oci_ref(opts.oci_ref).call()?;
         let timestamp = blue_build_utils::get_tag_timestamp();
         let short_sha =
             get_env_var(CI_COMMIT_SHORT_SHA).inspect(|v| trace!("{CI_COMMIT_SHORT_SHA}={v}"))?;
