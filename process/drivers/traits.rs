@@ -367,8 +367,9 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
             &tempfile::TempDir::new().into_diagnostic()?
         };
         let ostree_cache_id = &uuid::Uuid::new_v4().to_string();
-        let raw_image =
-            &Reference::try_from(format!("localhost/{ostree_cache_id}/raw-rechunk")).unwrap();
+        let image = &ImageRef::from(
+            Reference::try_from(format!("localhost/{ostree_cache_id}/raw-rechunk")).unwrap(),
+        );
         let current_dir = &std::env::current_dir().into_diagnostic()?;
         let current_dir = &*current_dir.to_string_lossy();
         let main_tag = opts.tags.first().cloned().unwrap_or_default();
@@ -380,7 +381,6 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
 
         Self::login()?;
 
-        let image = ImageRef::from(raw_image);
         let platform_images = opts
             .platform
             .iter()
@@ -408,7 +408,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
             Self::build(build_opts)?;
             let container = &Self::create_container(
                 CreateContainerOpts::builder()
-                    .image(raw_image)
+                    .image(image)
                     .privileged(true)
                     .build(),
             )?;
@@ -464,7 +464,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
     fn prune_image(
         mount: &MountId,
         container: &ContainerId,
-        raw_image: &Reference,
+        image: &Reference,
         opts: RechunkOpts<'_>,
     ) -> Result<(), miette::Error> {
         let status = Self::run(
@@ -498,7 +498,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
             )?;
             Self::remove_image(
                 RemoveImageOpts::builder()
-                    .image(raw_image)
+                    .image(image)
                     .privileged(true)
                     .build(),
             )?;
@@ -516,7 +516,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         mount: &MountId,
         ostree_cache_id: &str,
         container: &ContainerId,
-        raw_image: &Reference,
+        image: &Reference,
         opts: RechunkOpts<'_>,
     ) -> Result<()> {
         let status = Self::run(
@@ -551,7 +551,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         )?;
         Self::remove_image(
             RemoveImageOpts::builder()
-                .image(raw_image)
+                .image(image)
                 .privileged(true)
                 .build(),
         )?;
