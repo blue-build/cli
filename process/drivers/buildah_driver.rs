@@ -69,22 +69,28 @@ impl BuildDriver for BuildahDriver {
             ],
             "--pull=true",
             format!("--layers={}", !opts.squash),
-            if let Some(cache_from) = opts.cache_from.as_ref() => [
-                "--cache-from",
-                format!(
-                    "{}/{}",
-                    cache_from.registry(),
-                    cache_from.repository()
-                ),
-            ],
-            if let Some(cache_to) = opts.cache_to.as_ref() => [
-                "--cache-to",
-                format!(
-                    "{}/{}",
-                    cache_to.registry(),
-                    cache_to.repository()
-                ),
-            ],
+            match opts.cache_from.as_ref() {
+                Some(cache_from) if !opts.squash => [
+                    "--cache-from",
+                    format!(
+                        "{}/{}",
+                        cache_from.registry(),
+                        cache_from.repository()
+                    ),
+                ],
+                _ => [],
+            },
+            match opts.cache_from.as_ref() {
+                Some(cache_to) if !opts.squash => [
+                    "--cache-to",
+                    format!(
+                        "{}/{}",
+                        cache_to.registry(),
+                        cache_to.repository()
+                    ),
+                ],
+                _ => [],
+            },
             "-f",
             opts.containerfile,
             "-t",
