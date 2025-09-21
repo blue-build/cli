@@ -1,4 +1,13 @@
 {%- if let Some((from_img, src, dest)) = module.get_copy_args() %}
-COPY{% if let Some(from_img) = from_img %} --from={{ from_img }}{% endif %} {{ src }} {{ dest }}
+COPY
+  {%-
+    if let Some(from_img) = from_img
+  %} --from={{ from_img }}{%
+    endif
+  %}
+  {%- match build_engine %}
+    {%- when BuildEngine::Docker %} --link
+    {%- else %}
+  {%- endmatch %} {{ src }} {{ dest }}
 {%- endif %}
 
