@@ -98,25 +98,25 @@ pub struct DriverArgs {
     /// Select which driver to use to build
     /// your image.
     #[arg(short = 'B', long, env = BB_BUILD_DRIVER)]
-    build_driver: Option<BuildDriverType>,
+    pub build_driver: Option<BuildDriverType>,
 
     /// Select which driver to use to inspect
     /// images.
     #[arg(short = 'I', long, env = BB_INSPECT_DRIVER)]
-    inspect_driver: Option<InspectDriverType>,
+    pub inspect_driver: Option<InspectDriverType>,
 
     /// Select which driver to use to sign
     /// images.
     #[arg(short = 'S', long, env = BB_SIGNING_DRIVER)]
-    signing_driver: Option<SigningDriverType>,
+    pub signing_driver: Option<SigningDriverType>,
 
     /// Select which driver to use to run
     /// containers.
     #[arg(short = 'R', long, env = BB_RUN_DRIVER)]
-    run_driver: Option<RunDriverType>,
+    pub run_driver: Option<RunDriverType>,
 
     #[arg(short = 'T', long, env = BB_BOOT_DRIVER)]
-    boot_driver: Option<BootDriverType>,
+    pub boot_driver: Option<BootDriverType>,
 }
 
 macro_rules! impl_driver_type {

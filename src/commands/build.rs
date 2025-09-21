@@ -11,6 +11,7 @@ use blue_build_process_management::{
             BuildTagPushOpts, CheckKeyPairOpts, CompressionType, GenerateImageNameOpts,
             GenerateTagsOpts, GetMetadataOpts, RechunkOpts, SignVerifyOpts,
         },
+        types::{BuildDriverType, RunDriverType},
     },
     logging::{color_str, gen_random_ansi_color},
 };
@@ -161,7 +162,16 @@ impl BlueBuildCommand for BuildCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
-        Driver::init(self.drivers);
+        Driver::init(if self.rechunk {
+            DriverArgs::builder()
+                .build_driver(BuildDriverType::Podman)
+                .run_driver(RunDriverType::Podman)
+                .maybe_boot_driver(self.drivers.boot_driver)
+                .maybe_signing_driver(self.drivers.signing_driver)
+                .build()
+        } else {
+            self.drivers
+        });
 
         Credentials::init(self.credentials.clone());
 
