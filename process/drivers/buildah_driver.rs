@@ -260,6 +260,7 @@ impl BuildDriver for BuildahDriver {
                 "buildah",
                 "manifest",
                 "push",
+                "--all",
                 opts.final_image.to_string(),
                 format!("docker://{}", opts.final_image),
             );

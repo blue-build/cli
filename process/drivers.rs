@@ -79,8 +79,6 @@ pub mod types;
 static INIT: AtomicBool = AtomicBool::new(false);
 static SELECTED_BUILD_DRIVER: LazyLock<RwLock<Option<BuildDriverType>>> =
     LazyLock::new(|| RwLock::new(None));
-static SELECTED_INSPECT_DRIVER: LazyLock<RwLock<Option<InspectDriverType>>> =
-    LazyLock::new(|| RwLock::new(None));
 static SELECTED_RUN_DRIVER: LazyLock<RwLock<Option<RunDriverType>>> =
     LazyLock::new(|| RwLock::new(None));
 static SELECTED_SIGNING_DRIVER: LazyLock<RwLock<Option<SigningDriverType>>> =
@@ -191,7 +189,6 @@ impl Driver {
             args.run_driver => SELECTED_RUN_DRIVER;
             args.signing_driver => SELECTED_SIGNING_DRIVER;
             args.boot_driver => SELECTED_BOOT_DRIVER;
-            default => SELECTED_INSPECT_DRIVER;
             default => SELECTED_CI_DRIVER;
         }
     }
@@ -252,10 +249,6 @@ impl Driver {
 
     pub fn get_build_driver() -> BuildDriverType {
         impl_driver_type!(SELECTED_BUILD_DRIVER)
-    }
-
-    pub fn get_inspect_driver() -> InspectDriverType {
-        impl_driver_type!(SELECTED_INSPECT_DRIVER)
     }
 
     pub fn get_signing_driver() -> SigningDriverType {
