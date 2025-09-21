@@ -13,7 +13,7 @@ use blue_build_utils::{
     semver::Version,
     string_vec,
 };
-use cached::proc_macro::{cached, once};
+use cached::proc_macro::once;
 use colored::Colorize;
 use comlexr::{cmd, pipe};
 use log::{debug, info, trace, warn};
@@ -22,16 +22,13 @@ use oci_distribution::Reference;
 use serde::Deserialize;
 use tempfile::TempDir;
 
-mod metadata;
-
 use crate::{
     drivers::{
         opts::{
-            BuildOpts, BuildTagPushOpts, GetMetadataOpts, ManifestCreateOpts, ManifestPushOpts,
-            PushOpts, RunOpts, RunOptsEnv, RunOptsVolume, TagOpts,
+            BuildOpts, BuildTagPushOpts, ManifestCreateOpts, ManifestPushOpts, PushOpts, RunOpts,
+            RunOptsEnv, RunOptsVolume, TagOpts,
         },
-        traits::{BuildDriver, DriverVersion, InspectDriver, RunDriver},
-        types::ImageMetadata,
+        traits::{BuildDriver, DriverVersion, RunDriver},
     },
     logging::CommandLogging,
     signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
@@ -553,58 +550,6 @@ fn get_final_images(opts: BuildTagPushOpts<'_>) -> Vec<String> {
         }
         ImageRef::Other(other) => {
             string_vec![&**other]
-        }
-    }
-}
-
-impl InspectDriver for DockerDriver {
-    fn get_metadata(opts: GetMetadataOpts) -> Result<ImageMetadata> {
-        #[cached(
-            result = true,
-            key = "String",
-            convert = r#"{ format!("{}-{:?}", opts.image, opts.platform)}"#,
-            sync_writes = "by_key"
-        )]
-        fn inner(opts: GetMetadataOpts) -> Result<ImageMetadata> {
-            trace!("DockerDriver::get_metadata({opts:#?})");
-            let image_str = opts.image.to_string();
-
-            DockerDriver::setup()?;
-
-            let output = {
-                let c = cmd!(
-                    "docker",
-                    "buildx",
-                    format!("--builder={BLUE_BUILD}"),
-                    "imagetools",
-                    "inspect",
-                    "--format",
-                    "{{json .}}",
-                    &image_str,
-                );
-                trace!("{c:?}");
-                c
-            }
-            .output()
-            .into_diagnostic()?;
-
-            if output.status.success() {
-                info!("Successfully inspected image {}!", image_str.bold().green());
-            } else {
-                bail!("Failed to inspect image {}", image_str.bold().red())
-            }
-
-            serde_json::from_slice::<metadata::Metadata>(&output.stdout)
-                .into_diagnostic()
-                .inspect(|metadata| trace!("{metadata:#?}"))
-                .and_then(|metadata| ImageMetadata::try_from((metadata, opts.platform)))
-                .inspect(|metadata| trace!("{metadata:#?}"))
-        }
-
-        if opts.no_cache {
-            inner_prime_cache(opts)
-        } else {
-            inner(opts)
         }
     }
 }

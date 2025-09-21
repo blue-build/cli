@@ -62,6 +62,7 @@ impl_private_driver!(
     super::sigstore_driver::SigstoreDriver,
     super::rpm_ostree_driver::RpmOstreeDriver,
     super::rpm_ostree_driver::Status,
+    super::oci_client::OciClientDriver,
     Option<BuildDriverType>,
     Option<RunDriverType>,
     Option<InspectDriverType>,
@@ -674,58 +675,56 @@ pub trait SigningDriver: PrivateDriver {
             .map_or_else(|| PathBuf::from("."), |d| d.to_path_buf());
         let cosign_file_path = path.join(COSIGN_PUB_PATH);
 
-        opts.platforms.par_iter().try_for_each(|&platform| {
-            let image_digest = Driver::get_metadata(
-                GetMetadataOpts::builder()
-                    .image(opts.image)
-                    .platform(platform)
-                    .no_cache(true)
-                    .build(),
-            )?
-            .digest;
-            let image_digest = Reference::with_digest(
-                opts.image.resolve_registry().to_owned(),
-                opts.image.repository().to_owned(),
-                image_digest,
-            );
-            let issuer = Driver::oidc_provider();
-            let identity = Driver::keyless_cert_identity();
-            let priv_key = get_private_key(&path);
+        // opts.platforms.par_iter().try_for_each(|&platform| {
+        let image_digest = Driver::get_metadata(
+            GetMetadataOpts::builder()
+                .image(opts.image)
+                .no_cache(true)
+                .build(),
+        )?;
+        let image_digest = Reference::with_digest(
+            opts.image.resolve_registry().into(),
+            opts.image.repository().into(),
+            image_digest.digest().into(),
+        );
+        let issuer = Driver::oidc_provider();
+        let identity = Driver::keyless_cert_identity();
+        let priv_key = get_private_key(&path);
 
-            let (sign_opts, verify_opts) =
-                match (Driver::get_ci_driver(), &priv_key, &issuer, &identity) {
-                    // Cosign public/private key pair
-                    (_, Ok(priv_key), _, _) => (
-                        SignOpts::builder()
-                            .image(&image_digest)
-                            .dir(&path)
-                            .key(priv_key)
-                            .build(),
-                        VerifyOpts::builder()
-                            .image(&image_digest)
-                            .verify_type(VerifyType::File(&cosign_file_path))
-                            .build(),
-                    ),
-                    // Gitlab keyless
-                    (CiDriverType::Github | CiDriverType::Gitlab, _, Ok(issuer), Ok(identity)) => (
-                        SignOpts::builder().dir(&path).image(&image_digest).build(),
-                        VerifyOpts::builder()
-                            .image(&image_digest)
-                            .verify_type(VerifyType::Keyless { issuer, identity })
-                            .build(),
-                    ),
-                    _ => bail!("Failed to get information for signing the image"),
-                };
+        let (sign_opts, verify_opts) =
+            match (Driver::get_ci_driver(), &priv_key, &issuer, &identity) {
+                // Cosign public/private key pair
+                (_, Ok(priv_key), _, _) => (
+                    SignOpts::builder()
+                        .image(&image_digest)
+                        .dir(&path)
+                        .key(priv_key)
+                        .build(),
+                    VerifyOpts::builder()
+                        .image(&image_digest)
+                        .verify_type(VerifyType::File(&cosign_file_path))
+                        .build(),
+                ),
+                // Gitlab keyless
+                (CiDriverType::Github | CiDriverType::Gitlab, _, Ok(issuer), Ok(identity)) => (
+                    SignOpts::builder().dir(&path).image(&image_digest).build(),
+                    VerifyOpts::builder()
+                        .image(&image_digest)
+                        .verify_type(VerifyType::Keyless { issuer, identity })
+                        .build(),
+                ),
+                _ => bail!("Failed to get information for signing the image"),
+            };
 
-            let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
+        let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
 
-            retry(retry_count, 5, || {
-                Self::sign(sign_opts)?;
-                Self::verify(verify_opts)
-            })?;
+        retry(retry_count, 5, || {
+            Self::sign(sign_opts)?;
+            Self::verify(verify_opts)
+        })?;
 
-            Ok(())
-        })
+        Ok(())
+        // })
     }
 
     /// Runs the login logic for the signing driver.

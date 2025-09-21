@@ -1,9 +1,7 @@
 use std::{
-    collections::HashMap,
     ops::Not,
     path::Path,
     process::{Command, ExitStatus},
-    time::Duration,
 };
 
 use blue_build_utils::{
@@ -15,12 +13,10 @@ use blue_build_utils::{
     semver::Version,
     sudo_cmd,
 };
-use cached::proc_macro::cached;
 use colored::Colorize;
 use comlexr::{cmd, pipe};
-use indicatif::{ProgressBar, ProgressStyle};
 use log::{debug, error, info, trace, warn};
-use miette::{Context, IntoDiagnostic, Report, Result, bail, miette};
+use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
 use serde::Deserialize;
 use tempfile::TempDir;
@@ -34,75 +30,17 @@ use super::{
 };
 use crate::{
     drivers::{
-        BuildDriver, DriverVersion, InspectDriver, RunDriver,
+        BuildDriver, DriverVersion, RunDriver,
         opts::{
-            BuildOpts, GetMetadataOpts, ManifestCreateOpts, ManifestPushOpts, PushOpts, RunOpts,
-            RunOptsEnv, RunOptsVolume, TagOpts,
+            BuildOpts, ManifestCreateOpts, ManifestPushOpts, PushOpts, RunOpts, RunOptsEnv,
+            RunOptsVolume, TagOpts,
         },
-        types::ImageMetadata,
     },
-    logging::{CommandLogging, Logger},
+    logging::CommandLogging,
     signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
 };
 
 const SUDO_PROMPT: &str = "Password for %u required to run 'podman' as privileged";
-
-#[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
-struct PodmanImageMetadata {
-    labels: HashMap<String, serde_json::Value>,
-    repo_digests: Vec<String>,
-}
-
-impl TryFrom<Vec<PodmanImageMetadata>> for ImageMetadata {
-    type Error = Report;
-
-    fn try_from(mut value: Vec<PodmanImageMetadata>) -> std::result::Result<Self, Self::Error> {
-        if value.is_empty() {
-            bail!("Podman inspection must have at least one metadata entry:\n{value:?}");
-        }
-
-        let mut value = value.swap_remove(0);
-        if value.repo_digests.is_empty() {
-            bail!("Podman Metadata requires at least 1 digest:\n{value:#?}");
-        }
-
-        let index = value
-            .repo_digests
-            .iter()
-            .enumerate()
-            .find(|(_, repo_digest)| verify_image(repo_digest))
-            .map(|(index, _)| index)
-            .ok_or_else(|| {
-                miette!(
-                    "No repo digest could be verified:\n{:?}",
-                    &value.repo_digests
-                )
-            })?;
-
-        let digest: Reference = value
-            .repo_digests
-            .swap_remove(index)
-            .parse()
-            .into_diagnostic()?;
-        let digest = digest
-            .digest()
-            .ok_or_else(|| miette!("Unable to read digest from {digest}"))?
-            .to_string();
-
-        Ok(Self {
-            labels: value.labels,
-            digest,
-        })
-    }
-}
-
-fn verify_image(repo_digest: &str) -> bool {
-    let mut command = cmd!("podman", "pull", repo_digest);
-    trace!("{command:?}");
-
-    command.output().is_ok_and(|out| out.status.success())
-}
 
 #[derive(Debug, Deserialize)]
 struct PodmanVersionJsonClient {
@@ -411,80 +349,6 @@ impl BuildDriver for PodmanDriver {
         }
 
         Ok(())
-    }
-}
-
-impl InspectDriver for PodmanDriver {
-    fn get_metadata(opts: GetMetadataOpts) -> Result<ImageMetadata> {
-        #[cached(
-            result = true,
-            key = "String",
-            convert = r#"{ format!("{}-{:?}", opts.image, opts.platform)}"#,
-            sync_writes = "by_key"
-        )]
-        fn inner(opts: GetMetadataOpts) -> Result<ImageMetadata> {
-            trace!("PodmanDriver::get_metadata({opts:#?})");
-
-            let image_str = opts.image.to_string();
-
-            let progress = Logger::multi_progress().add(
-                ProgressBar::new_spinner()
-                    .with_style(ProgressStyle::default_spinner())
-                    .with_message(format!(
-                        "Inspecting metadata for {}, pulling image...",
-                        image_str.bold()
-                    )),
-            );
-            progress.enable_steady_tick(Duration::from_millis(100));
-
-            let output = {
-                let c = cmd!(
-                    "podman",
-                    "pull",
-                    if let Some(platform) = opts.platform => [
-                        "--platform",
-                        platform.to_string(),
-                    ],
-                    &image_str,
-                );
-                trace!("{c:?}");
-                c
-            }
-            .output()
-            .into_diagnostic()?;
-
-            if !output.status.success() {
-                bail!("Failed to pull {} for inspection!", image_str.bold().red());
-            }
-
-            let output = {
-                let c = cmd!("podman", "image", "inspect", "--format=json", &image_str);
-                trace!("{c:?}");
-                c
-            }
-            .output()
-            .into_diagnostic()?;
-
-            progress.finish_and_clear();
-            Logger::multi_progress().remove(&progress);
-
-            if output.status.success() {
-                debug!("Successfully inspected image {}!", image_str.bold().green());
-            } else {
-                bail!("Failed to inspect image {}", image_str.bold().red());
-            }
-            serde_json::from_slice::<Vec<PodmanImageMetadata>>(&output.stdout)
-                .into_diagnostic()
-                .inspect(|metadata| trace!("{metadata:#?}"))
-                .and_then(TryFrom::try_from)
-                .inspect(|metadata| trace!("{metadata:#?}"))
-        }
-
-        if opts.no_cache {
-            inner_no_cache(opts)
-        } else {
-            inner(opts)
-        }
     }
 }
 

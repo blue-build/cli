@@ -25,10 +25,7 @@ impl CiDriver for LocalDriver {
 
     fn generate_tags(opts: GenerateTagsOpts) -> Result<Vec<Tag>> {
         trace!("LocalDriver::generate_tags({opts:?})");
-        let os_version = Driver::get_os_version()
-            .oci_ref(opts.oci_ref)
-            .maybe_platform(opts.platform)
-            .call()?;
+        let os_version = Driver::get_os_version().oci_ref(opts.oci_ref).call()?;
         let timestamp = blue_build_utils::get_tag_timestamp();
         let short_sha = commit_sha();
 

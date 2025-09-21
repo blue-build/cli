@@ -1,30 +1,48 @@
-use std::collections::HashMap;
-
 use blue_build_utils::{constants::IMAGE_VERSION_LABEL, semver::Version};
-use log::warn;
+use bon::Builder;
+use miette::{Context, Result, miette};
+use oci_distribution::{config::Config, manifest::OciManifest};
 use serde::Deserialize;
-use serde_json::Value;
 
 #[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
+pub struct ImageConfig {
+    config: Config,
+}
+
+#[derive(Debug, Clone, Builder)]
 pub struct ImageMetadata {
-    pub labels: HashMap<String, Value>,
-    pub digest: String,
+    manifest: OciManifest,
+    digest: String,
+    config: ImageConfig,
 }
 
 impl ImageMetadata {
     #[must_use]
-    pub fn get_version(&self) -> Option<u64> {
-        Some(
-            self.labels
-                .get(IMAGE_VERSION_LABEL)
-                .map(ToOwned::to_owned)
-                .and_then(|v| {
-                    serde_json::from_value::<Version>(v)
-                        .inspect_err(|e| warn!("Failed to parse version:\n{e}"))
-                        .ok()
-                })?
-                .major,
-        )
+    pub fn digest(&self) -> &str {
+        &self.digest
+    }
+
+    #[must_use]
+    pub const fn manifest(&self) -> &OciManifest {
+        &self.manifest
+    }
+
+    /// Get the version from the label if possible.
+    ///
+    /// # Errors
+    /// Will error if labels don't exist, the version label
+    /// doen't exist, or the version cannot be parsed.
+    pub fn get_version(&self) -> Result<Version> {
+        self.config
+            .config
+            .labels
+            .as_ref()
+            .ok_or_else(|| miette!("No labels found"))?
+            .get(IMAGE_VERSION_LABEL)
+            .ok_or_else(|| miette!("No version label found"))
+            .and_then(|v| {
+                v.parse::<Version>()
+                    .wrap_err_with(|| format!("Failed to parse version {v}"))
+            })
     }
 }

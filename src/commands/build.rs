@@ -390,6 +390,9 @@ impl BuildCommand {
         let base_image: Reference = format!("{}:{}", &recipe.base_image, &recipe.image_version)
             .parse()
             .into_diagnostic()?;
+        let base_digest =
+            &Driver::get_metadata(GetMetadataOpts::builder().image(&base_image).build())?;
+        let base_digest = base_digest.digest();
         Driver::rechunk(
             RechunkOpts::builder()
                 .image(image_name)
@@ -401,21 +404,12 @@ impl BuildCommand {
                     "{version}.<date>",
                     version = Driver::get_os_version()
                         .oci_ref(&recipe.base_image_ref()?)
-                        .maybe_platform(self.platform.first().copied())
                         .call()?,
                 ))
                 .retry_push(self.retry_push)
                 .retry_count(self.retry_count)
                 .compression(self.compression_format)
-                .base_digest(
-                    &Driver::get_metadata(
-                        GetMetadataOpts::builder()
-                            .image(&base_image)
-                            .maybe_platform(self.platform.first().copied())
-                            .build(),
-                    )?
-                    .digest,
-                )
+                .base_digest(base_digest)
                 .repo(&Driver::get_repo_url()?)
                 .name(&recipe.name)
                 .description(&recipe.description)
