@@ -10,12 +10,12 @@ use serde::{Deserialize, Serialize};
 use crate::{FromFileList, Module, Stage, base_recipe_path};
 
 #[derive(Default, Serialize, Clone, Deserialize, Debug, Builder)]
-pub struct StagesExt<'a> {
+pub struct StagesExt {
     #[builder(default)]
-    pub stages: Vec<Stage<'a>>,
+    pub stages: Vec<Stage>,
 }
 
-impl FromFileList for StagesExt<'_> {
+impl FromFileList for StagesExt {
     const LIST_KEY: &'static str = "stages";
 
     fn get_from_file_paths(&self) -> Vec<PathBuf> {
@@ -38,7 +38,7 @@ impl FromFileList for StagesExt<'_> {
     }
 }
 
-impl TryFrom<&PathBuf> for StagesExt<'_> {
+impl TryFrom<&PathBuf> for StagesExt {
     type Error = Report;
 
     fn try_from(value: &PathBuf) -> Result<Self> {
@@ -46,7 +46,7 @@ impl TryFrom<&PathBuf> for StagesExt<'_> {
     }
 }
 
-impl TryFrom<&Path> for StagesExt<'_> {
+impl TryFrom<&Path> for StagesExt {
     type Error = Report;
 
     fn try_from(file_name: &Path) -> Result<Self> {
