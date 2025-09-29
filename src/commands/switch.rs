@@ -1,19 +1,19 @@
-use std::path::PathBuf;
+use std::{env, path::PathBuf};
 
 use blue_build_process_management::drivers::{
     BootDriver, BuildDriver, CiDriver, Driver, DriverArgs, PodmanDriver, RunDriver,
     opts::{BuildOpts, GenerateImageNameOpts, RemoveImageOpts, SwitchOpts},
-    types::ImageRef,
+    types::{BuildDriverType, ImageRef, RunDriverType},
 };
 use blue_build_recipe::Recipe;
 use blue_build_utils::constants::BB_SKIP_VALIDATION;
 use bon::Builder;
 use clap::Args;
 use log::trace;
-use miette::{IntoDiagnostic, Result, bail};
+use miette::{Context, IntoDiagnostic, Result, bail};
 use tempfile::TempDir;
 
-use crate::commands::generate::GenerateCommand;
+use crate::{BuildScripts, commands::generate::GenerateCommand};
 
 use super::BlueBuildCommand;
 
@@ -48,7 +48,14 @@ impl BlueBuildCommand for SwitchCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("SwitchCommand::try_run()");
 
-        Driver::init(self.drivers);
+        Driver::init(
+            DriverArgs::builder()
+                .build_driver(BuildDriverType::Podman)
+                .run_driver(RunDriverType::Podman)
+                .maybe_boot_driver(self.drivers.boot_driver)
+                .maybe_signing_driver(self.drivers.signing_driver)
+                .build(),
+        );
 
         let status = Driver::status()?;
 
@@ -70,13 +77,24 @@ impl BlueBuildCommand for SwitchCommand {
         let containerfile = tempdir
             .path()
             .join(blue_build_utils::generate_containerfile_path(&self.recipe)?);
+        let build_scripts_dir = BuildScripts::extract_mount_dir()?;
+        let build_scripts_dir = build_scripts_dir
+            .path()
+            .strip_prefix(
+                env::current_dir()
+                    .into_diagnostic()
+                    .wrap_err("Failed to get current_dir")?,
+            )
+            .into_diagnostic()
+            .wrap_err("Failed to strip path prefix for build scripts dir")?;
 
         GenerateCommand::builder()
             .output(&containerfile)
             .recipe(&self.recipe)
+            .build_scripts_dir(build_scripts_dir)
             .build()
             .try_run()?;
-        PodmanDriver::build(
+        Driver::build(
             BuildOpts::builder()
                 .image(&ImageRef::from(&image_name))
                 .containerfile(&containerfile)
