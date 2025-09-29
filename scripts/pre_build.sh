@@ -15,8 +15,8 @@ optfix_dir="/usr/lib/bluebuild-optfix"
 echo "Preparing system for optfix..."
 mkdir -pv "${optfix_dir}"
 
-if [ -d /opt ]; then
-    if  ls -A /opt/* 2>/dev/null ; then
+if [ -d /opt ] || [ -h /opt ]; then
+    if  ls -A /opt/* 2>/dev/null; then
         echo "Moving all /opt/* into ${optfix_dir}"
         mv -v /opt/* "${optfix_dir}"
     fi

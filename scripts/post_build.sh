@@ -19,7 +19,7 @@ if [[ -n "${optdirs[*]}" ]]; then
     done
 fi
 
-rm -rf /tmp/* /var/*
+rm -rf /tmp/* /var/* /opt
 ln -fs /var/opt /opt
 
 if feature_enabled "bootc" && command -v bootc >/dev/null; then
