@@ -19,7 +19,8 @@ if [[ -n "${optdirs[*]}" ]]; then
     done
 fi
 
-rm -rf /tmp/* /var/* rm /opt
+rm -rf /tmp/* /var/*
+ln -fs /var/opt /opt
 
 if feature_enabled "bootc" && command -v bootc >/dev/null; then
   bootc container lint
