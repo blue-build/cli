@@ -10,7 +10,7 @@ if ! command -v jq > /dev/null; then
   fi
 fi
 
-optfix_dir="/usr/lib/bluebuild-optfix"
+optfix_dir="/usr/lib/opt"
 
 echo "Preparing system for optfix..."
 mkdir -pv "${optfix_dir}"

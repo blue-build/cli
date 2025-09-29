@@ -5,7 +5,7 @@ set -euo pipefail
 
 shopt -s nullglob
 
-optfix_dir="/usr/lib/bluebuild-optfix"
+optfix_dir="/usr/lib/opt"
 # needs nullglob, so that this array is empty if /opt is empty
 optdirs=("${optfix_dir}"/*) # returns a list of directories in /opt
 if [[ -n "${optdirs[*]}" ]]; then
@@ -15,7 +15,7 @@ if [[ -n "${optdirs[*]}" ]]; then
         lib_opt_dir="${optfix_dir}/${opt}"
         link_opt_dir="/opt/${opt}"
         echo "Linking ${link_opt_dir} => ${lib_opt_dir}"
-        echo "L+?  \"${link_opt_dir}\"  -  -  -  -  \"${lib_opt_dir}\"" | tee "/usr/lib/tmpfiles.d/bluebuild-optfix-${opt}.conf"
+        echo "L+?  \"${link_opt_dir}\"  -  -  -  -  \"${lib_opt_dir}\"" | tee "/usr/lib/tmpfiles.d/99-bluebuild-optfix-${opt}.conf"
     done
 fi
 
