@@ -10,8 +10,8 @@ license.workspace = true
 
 [dependencies]
 askama = { version = "0.14", features = ["serde_json"] }
-blue-build-recipe = { version = "=0.9.22", path = "../recipe" }
-blue-build-utils = { version = "=0.9.22", path = "../utils" }
+blue-build-recipe = { version = "=0.9.23", path = "../recipe" }
+blue-build-utils = { version = "=0.9.23", path = "../utils" }
 oci-distribution.workspace = true
 
 chrono.workspace = true
