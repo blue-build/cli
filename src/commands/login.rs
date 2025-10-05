@@ -1,7 +1,10 @@
 use std::io::{self, Read};
 
 use blue_build_process_management::drivers::{BuildDriver, Driver, DriverArgs, SigningDriver};
-use blue_build_utils::credentials::{Credentials, CredentialsArgs};
+use blue_build_utils::{
+    credentials::{Credentials, CredentialsArgs},
+    secret::SecretValue,
+};
 use clap::Args;
 use miette::{IntoDiagnostic, Result, bail};
 use requestty::questions;
@@ -45,8 +48,8 @@ impl BlueBuildCommand for LoginCommand {
                 .build(),
         );
 
-        Driver::login()?;
-        Driver::signing_login()?;
+        Driver::login(&self.server)?;
+        Driver::signing_login(&self.server)?;
 
         Ok(())
     }
@@ -75,15 +78,15 @@ impl LoginCommand {
         })
     }
 
-    fn get_password(&self) -> Result<String> {
+    fn get_password(&self) -> Result<SecretValue> {
         Ok(if let Some(ref password) = self.password {
-            password.clone()
+            password.clone().into()
         } else if self.password_stdin {
             let mut password = String::new();
             io::stdin()
                 .read_to_string(&mut password)
                 .into_diagnostic()?;
-            password
+            password.into()
         } else {
             let questions = questions! [ inline
                 Password {
@@ -98,6 +101,7 @@ impl LoginCommand {
                 .as_string()
                 .unwrap()
                 .to_string()
+                .into()
         })
     }
 }

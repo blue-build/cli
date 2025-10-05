@@ -224,25 +224,20 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
-    fn login() -> Result<()> {
+    fn login(server: &str) -> Result<()> {
         trace!("PodmanDriver::login()");
 
-        if let Some(Credentials {
-            registry,
-            username,
-            password,
-        }) = Credentials::get()
-        {
+        if let Some(Credentials::Basic { username, password }) = Credentials::get(server) {
             let output = pipe!(
-                stdin = password;
+                stdin = password.value();
                 {
                     let c = cmd!(
                         "podman",
                         "login",
                         "-u",
-                        username,
+                        &username,
                         "--password-stdin",
-                        registry,
+                        server,
                     );
                     trace!("{c:?}");
                     c
@@ -255,7 +250,7 @@ impl BuildDriver for PodmanDriver {
                 let err_out = String::from_utf8_lossy(&output.stderr);
                 bail!("Failed to login for podman:\n{}", err_out.trim());
             }
-            debug!("Logged into {registry}");
+            debug!("Logged into {server}");
         }
         Ok(())
     }

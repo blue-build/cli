@@ -1,3 +1,4 @@
+use blue_build_utils::credentials::Credentials;
 use cached::proc_macro::cached;
 use log::trace;
 use miette::{IntoDiagnostic, Result};
@@ -17,13 +18,19 @@ impl InspectDriver for OciClientDriver {
         #[cached(result = true, key = "String", convert = r"{image.to_string()}")]
         fn inner(image: &Reference) -> Result<ImageMetadata> {
             let client = oci_distribution::Client::new(ClientConfig::default());
-            let auth = &RegistryAuth::Anonymous;
+            let auth = match Credentials::get(image.registry()) {
+                Some(Credentials::Basic { username, password }) => {
+                    RegistryAuth::Basic(username, password.value().into())
+                }
+                Some(Credentials::Token(token)) => RegistryAuth::Bearer(token.value().into()),
+                None => RegistryAuth::Anonymous,
+            };
 
             let (manifest, digest) = ASYNC_RUNTIME
-                .block_on(client.pull_manifest(image, auth))
+                .block_on(client.pull_manifest(image, &auth))
                 .into_diagnostic()?;
             let (image_manifest, _image_digest) = ASYNC_RUNTIME
-                .block_on(client.pull_image_manifest(image, auth))
+                .block_on(client.pull_image_manifest(image, &auth))
                 .into_diagnostic()?;
             let config = {
                 let mut c: Vec<u8> = vec![];
