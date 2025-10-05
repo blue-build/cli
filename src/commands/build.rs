@@ -173,8 +173,6 @@ impl BlueBuildCommand for BuildCommand {
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
             Driver::check_signing_files(CheckKeyPairOpts::builder().dir(Path::new(".")).build())?;
-            Driver::login()?;
-            Driver::signing_login()?;
         }
 
         let tempdir = if let Some(ref dir) = self.tempdir {
@@ -273,6 +271,11 @@ impl BuildCommand {
             debug!("Using {cache_image} for caching layers");
             cache_image
         });
+
+        if self.push {
+            Driver::login(image.registry())?;
+            Driver::signing_login(image.registry())?;
+        }
 
         let images = if self.rechunk {
             self.rechunk(

@@ -527,6 +527,7 @@ version = "0.9.23"
 dependencies = [
  "blue-build-utils",
  "bon",
+ "cached 0.55.1",
  "colored",
  "indexmap 2.10.0",
  "log",

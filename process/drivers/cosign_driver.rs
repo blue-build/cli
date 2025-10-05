@@ -88,25 +88,20 @@ impl SigningDriver for CosignDriver {
         }
     }
 
-    fn signing_login() -> Result<()> {
+    fn signing_login(server: &str) -> Result<()> {
         trace!("CosignDriver::signing_login()");
 
-        if let Some(Credentials {
-            registry,
-            username,
-            password,
-        }) = Credentials::get()
-        {
+        if let Some(Credentials::Basic { username, password }) = Credentials::get(server) {
             let output = pipe!(
-                stdin = password;
+                stdin = password.value();
                 {
                     let c = cmd!(
                         "cosign",
                         "login",
                         "-u",
-                        username,
+                        &username,
                         "--password-stdin",
-                        registry,
+                        server,
                     );
                     trace!("{c:?}");
                     c
@@ -119,7 +114,7 @@ impl SigningDriver for CosignDriver {
                 let err_out = String::from_utf8_lossy(&output.stderr);
                 bail!("Failed to login for cosign:\n{}", err_out.trim());
             }
-            debug!("Logged into {registry}");
+            debug!("Logged into {server}");
         }
         Ok(())
     }

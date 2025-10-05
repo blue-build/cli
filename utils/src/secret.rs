@@ -214,7 +214,7 @@ pub enum SecretMount {
     File { destination: PathBuf },
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct SecretValue(Zeroizing<String>);
 
 macro_rules! impl_secret_value {
@@ -236,6 +236,12 @@ impl SecretValue {
     #[must_use]
     pub fn value(&self) -> &str {
         &self.0
+    }
+
+    /// Checks if the value is empty
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }
 
