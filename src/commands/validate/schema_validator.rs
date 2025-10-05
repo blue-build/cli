@@ -53,7 +53,12 @@ impl SchemaValidator {
             let schema: Value = {
                 #[cfg(not(test))]
                 {
-                    reqwest::get(url).await?.json().await?
+                    reqwest::get(url)
+                        .await
+                        .map_err(|e| SchemaValidateBuilderError::Reqwest(url.into(), e))?
+                        .json()
+                        .await
+                        .map_err(|e| SchemaValidateBuilderError::Reqwest(url.into(), e))?
                 }
                 #[cfg(test)]
                 {
@@ -70,7 +75,8 @@ impl SchemaValidator {
                     }
                 })
                 .await
-                .expect("Should join blocking thread")?,
+                .expect("Should join blocking thread")
+                .map_err(|e| SchemaValidateBuilderError::JsonSchemaBuild(url.into(), e))?,
             );
 
             Ok(Self {
