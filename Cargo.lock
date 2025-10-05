@@ -453,6 +453,7 @@ dependencies = [
  "colored",
  "comlexr",
  "fuzzy-matcher",
+ "git2",
  "indexmap 2.10.0",
  "indicatif",
  "jsonschema",
@@ -4618,9 +4619,9 @@ dependencies = [
 
 [[package]]
 name = "shadow-rs"
-version = "1.2.1"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f0b6af233ae5461c3c6b30db79190ec5fbbef048ebbd5f2cbb3043464168e00"
+checksum = "72d18183cef626bce22836103349c7050d73db799be0171386b80947d157ae32"
 dependencies = [
  "const_format",
  "git2",
