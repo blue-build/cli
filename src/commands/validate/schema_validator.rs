@@ -340,10 +340,14 @@ async fn cache_retrieve(uri: &Uri<String>) -> miette::Result<Value> {
             "https" => uri.to_string(),
             scheme => miette::bail!("Unknown scheme {scheme}"),
         };
+        let client = reqwest::Client::new();
 
         log::debug!("Retrieving schema from {}", uri.bold().italic());
         tokio::spawn(blue_build_utils::retry_async(3, 2, async move || {
-            let response = reqwest::get(&*uri)
+            let response = client
+                .get(&*uri)
+                .timeout(std::time::Duration::from_secs(10))
+                .send()
                 .await
                 .into_diagnostic()
                 .with_context(|| format!("Failed to retrieve schema from {uri}"))?;
