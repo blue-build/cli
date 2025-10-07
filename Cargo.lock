@@ -453,6 +453,7 @@ dependencies = [
  "colored",
  "comlexr",
  "fuzzy-matcher",
+ "git2",
  "indexmap 2.11.4",
  "indicatif",
  "jsonschema",
