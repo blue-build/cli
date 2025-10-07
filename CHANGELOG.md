@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.24] - 2025-10-07
+
+### Bug Fixes
+
+- Move build script logic to generate command
+- Find the correct credentials for inspecting
+- Add timeout of 10 seconds for retrieving schema files
+
+### Miscellaneous Tasks
+
+- Bump cosign to 2.6.1
+- Add extra error context for schema validator
+- Allow vendoring libgit2 (#562)
+
 ## [0.9.23] - 2025-10-02
 
 ### Bug Fixes
@@ -33,6 +47,7 @@ All notable changes to this project will be documented in this file.
 - Create scorecard.yml
 - Add scorecard badge
 - Use /usr/lib/opt for optfix to match dnf and rpm-ostree modules
+- Release
 
 ## [0.9.22] - 2025-07-31
 

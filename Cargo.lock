@@ -438,7 +438,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build"
-version = "0.9.23"
+version = "0.9.24"
 dependencies = [
  "blue-build-process-management",
  "blue-build-recipe",
@@ -485,7 +485,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-process-management"
-version = "0.9.23"
+version = "0.9.24"
 dependencies = [
  "anyhow",
  "blue-build-utils",
@@ -524,7 +524,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-recipe"
-version = "0.9.23"
+version = "0.9.24"
 dependencies = [
  "blue-build-utils",
  "bon",
@@ -542,7 +542,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-template"
-version = "0.9.23"
+version = "0.9.24"
 dependencies = [
  "askama",
  "blue-build-recipe",
@@ -557,7 +557,7 @@ dependencies = [
 
 [[package]]
 name = "blue-build-utils"
-version = "0.9.23"
+version = "0.9.24"
 dependencies = [
  "atty",
  "base64 0.22.1",
