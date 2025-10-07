@@ -1,4 +1,7 @@
-use std::sync::{LazyLock, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{LazyLock, Mutex},
+};
 
 use bon::Builder;
 use clap::Args;
@@ -10,95 +13,22 @@ use crate::{
         BB_PASSWORD, BB_REGISTRY, BB_USERNAME, CI_REGISTRY, CI_REGISTRY_PASSWORD, CI_REGISTRY_USER,
         GITHUB_ACTIONS, GITHUB_ACTOR, GITHUB_TOKEN,
     },
-    get_env_var, string,
+    get_env_var,
+    secret::SecretValue,
+    string,
 };
 
-static INIT: LazyLock<Mutex<bool>> = LazyLock::new(|| Mutex::new(false));
-
-/// Stored user creds.
-///
-/// This is a special handoff static ref that is consumed
-/// by the `ENV_CREDENTIALS` static ref. This can be set
-/// at the beginning of a command for future calls for
-/// creds to source from.
-static INIT_CREDS: Mutex<CredentialsArgs> = Mutex::new(CredentialsArgs {
-    username: None,
-    password: None,
-    registry: None,
-});
-
-/// Stores the global env credentials.
-///
-/// This on load will determine the credentials based off of
-/// `USER_CREDS` and env vars from CI systems. Once this is called
-/// the value is stored and cannot change.
-///
-/// If you have user
-/// provided credentials, make sure you update `USER_CREDS`
-/// before trying to access this reference.
-static ENV_CREDENTIALS: LazyLock<Option<Credentials>> = LazyLock::new(|| {
-    let (username, password, registry) = {
-        INIT_CREDS.lock().map_or((None, None, None), |mut creds| {
-            (
-                creds.username.take(),
-                creds.password.take(),
-                creds.registry.take(),
-            )
-        })
-    };
-
-    let registry = match (
-        registry,
-        get_env_var(CI_REGISTRY).ok(),
-        get_env_var(GITHUB_ACTIONS).ok(),
-    ) {
-        (Some(registry), _, _) | (_, Some(registry), _) if !registry.is_empty() => registry,
-        (_, _, Some(_)) => string!("ghcr.io"),
-        _ => return None,
-    };
-    trace!("Registry: {registry:?}");
-
-    let (username, password) = match (
-        (username, password),
-        docker_credential::get_credential(&registry).ok(),
-        docker_credential::get_podman_credential(&registry).ok(),
-        (
-            get_env_var(CI_REGISTRY_USER).ok(),
-            get_env_var(CI_REGISTRY_PASSWORD).ok(),
-        ),
-        (
-            get_env_var(GITHUB_ACTOR).ok(),
-            get_env_var(GITHUB_TOKEN).ok(),
-        ),
-    ) {
-        ((Some(username), Some(password)), _, _, _, _)
-        | (_, Some(DockerCredential::UsernamePassword(username, password)), _, _, _)
-        | (_, _, Some(DockerCredential::UsernamePassword(username, password)), _, _)
-        | (_, _, _, (Some(username), Some(password)), _)
-        | (_, _, _, _, (Some(username), Some(password)))
-            if !username.is_empty() && !password.is_empty() =>
-        {
-            (username, password)
-        }
-        _ => return None,
-    };
-    trace!("Username: {username}");
-
-    Some(
-        Credentials::builder()
-            .registry(registry)
-            .username(username)
-            .password(password)
-            .build(),
-    )
-});
+static CREDS: LazyLock<Mutex<HashMap<String, Credentials>>> =
+    LazyLock::new(|| Mutex::new(HashMap::default()));
 
 /// The credentials for logging into image registries.
-#[derive(Debug, Default, Clone, Builder)]
-pub struct Credentials {
-    pub registry: String,
-    pub username: String,
-    pub password: String,
+#[derive(Debug, Clone)]
+pub enum Credentials {
+    Basic {
+        username: String,
+        password: SecretValue,
+    },
+    Token(SecretValue),
 }
 
 impl Credentials {
@@ -113,22 +43,99 @@ impl Credentials {
     /// Will panic if it can't lock the mutex.
     pub fn init(args: CredentialsArgs) {
         trace!("Credentials::init()");
-        let mut initialized = INIT.lock().expect("Must lock INIT");
+        let mut creds = CREDS.lock().expect("Must lock CREDS");
 
-        if !*initialized {
-            let mut creds_lock = INIT_CREDS.lock().expect("Must lock USER_CREDS");
-            *creds_lock = args;
-            drop(creds_lock);
-            let _ = ENV_CREDENTIALS.as_ref();
+        let CredentialsArgs {
+            username,
+            password,
+            registry,
+        } = args;
 
-            *initialized = true;
-        }
+        let registry = match (
+            registry,
+            get_env_var(CI_REGISTRY).ok(),
+            get_env_var(GITHUB_ACTIONS).ok(),
+        ) {
+            (Some(registry), _, _) | (_, Some(registry), _) if !registry.is_empty() => registry,
+            (_, _, Some(_)) => string!("ghcr.io"),
+            _ => return,
+        };
+
+        let cred = match (
+            (username, password),
+            docker_credential::get_credential(&registry).ok(),
+            docker_credential::get_podman_credential(&registry).ok(),
+            (
+                get_env_var(CI_REGISTRY_USER).ok(),
+                get_env_var(CI_REGISTRY_PASSWORD)
+                    .ok()
+                    .map(SecretValue::from),
+            ),
+            (
+                get_env_var(GITHUB_ACTOR).ok(),
+                get_env_var(GITHUB_TOKEN).ok().map(SecretValue::from),
+            ),
+        ) {
+            ((Some(username), Some(password)), _, _, _, _) => Self::Basic { username, password },
+            (_, Some(DockerCredential::UsernamePassword(username, password)), _, _, _)
+            | (_, _, Some(DockerCredential::UsernamePassword(username, password)), _, _) => {
+                Self::Basic {
+                    username,
+                    password: password.into(),
+                }
+            }
+            (_, Some(DockerCredential::IdentityToken(token)), _, _, _)
+            | (_, _, Some(DockerCredential::IdentityToken(token)), _, _) => {
+                Self::Token(token.into())
+            }
+            (_, _, _, (Some(username), Some(password)), _)
+            | (_, _, _, _, (Some(username), Some(password)))
+                if !username.is_empty() && !password.is_empty() =>
+            {
+                Self::Basic { username, password }
+            }
+            _ => return,
+        };
+
+        let _ = creds.insert(registry, cred);
+        drop(creds);
     }
 
     /// Get the credentials for the current set of actions.
-    pub fn get() -> Option<&'static Self> {
-        trace!("credentials::get()");
-        ENV_CREDENTIALS.as_ref()
+    ///
+    /// # Panics
+    /// Will panic if it can't lock the mutex.
+    #[must_use]
+    pub fn get(registry: &str) -> Option<Self> {
+        trace!("credentials::get({registry})");
+
+        let mut creds = CREDS.lock().expect("Must lock CREDS");
+
+        match (
+            creds.get(registry),
+            docker_credential::get_credential(registry).ok(),
+            docker_credential::get_podman_credential(registry).ok(),
+        ) {
+            (Some(creds), _, _) => Some(creds.clone()),
+            (None, Some(DockerCredential::IdentityToken(token)), _)
+            | (None, None, Some(DockerCredential::IdentityToken(token))) => {
+                let cred = Self::Token(SecretValue::from(token));
+                let _ = creds.insert(registry.into(), cred.clone());
+                drop(creds);
+                Some(cred)
+            }
+            (None, Some(DockerCredential::UsernamePassword(username, password)), _)
+            | (None, None, Some(DockerCredential::UsernamePassword(username, password))) => {
+                let cred = Self::Basic {
+                    username,
+                    password: password.into(),
+                };
+                let _ = creds.insert(registry.into(), cred.clone());
+                drop(creds);
+                Some(cred)
+            }
+            (None, None, None) => None,
+        }
     }
 }
 
@@ -147,5 +154,5 @@ pub struct CredentialsArgs {
     /// The password to login to the
     /// container registry.
     #[arg(short = 'P', long, env = BB_PASSWORD, hide_env_values = true)]
-    pub password: Option<String>,
+    pub password: Option<SecretValue>,
 }

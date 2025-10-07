@@ -1,7 +1,4 @@
-use std::{
-    env,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use blue_build_process_management::{
     drivers::{
@@ -28,12 +25,12 @@ use blue_build_utils::{
 use bon::Builder;
 use clap::Args;
 use log::{debug, info, trace, warn};
-use miette::{Context, IntoDiagnostic, Result, bail};
+use miette::{IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
 use rayon::prelude::*;
 use tempfile::TempDir;
 
-use crate::{BuildScripts, commands::generate::GenerateCommand};
+use crate::commands::generate::GenerateCommand;
 
 use super::BlueBuildCommand;
 
@@ -176,8 +173,6 @@ impl BlueBuildCommand for BuildCommand {
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
             Driver::check_signing_files(CheckKeyPairOpts::builder().dir(Path::new(".")).build())?;
-            Driver::login()?;
-            Driver::signing_login()?;
         }
 
         let tempdir = if let Some(ref dir) = self.tempdir {
@@ -200,17 +195,6 @@ impl BlueBuildCommand for BuildCommand {
 
                 recipes.into_iter().filter(|recipe| same.insert(recipe.clone())).collect()
             });
-        let build_scripts_dir = BuildScripts::extract_mount_dir()?;
-        let build_scripts_dir = build_scripts_dir
-            .path()
-            .strip_prefix(
-                env::current_dir()
-                    .into_diagnostic()
-                    .wrap_err("Failed to get current_dir")?,
-            )
-            .into_diagnostic()
-            .wrap_err("Failed to strip path prefix for build scripts dir")?;
-
         recipe_paths.par_iter().try_for_each(|recipe| {
             GenerateCommand::builder()
                 .output(
@@ -220,7 +204,6 @@ impl BlueBuildCommand for BuildCommand {
                 )
                 .skip_validation(self.skip_validation)
                 .maybe_platform(self.platform)
-                .build_scripts_dir(build_scripts_dir)
                 .recipe(recipe)
                 .drivers(self.drivers)
                 .build()
@@ -288,6 +271,11 @@ impl BuildCommand {
             debug!("Using {cache_image} for caching layers");
             cache_image
         });
+
+        if self.push {
+            Driver::login(image.registry())?;
+            Driver::signing_login(image.registry())?;
+        }
 
         let images = if self.rechunk {
             self.rechunk(

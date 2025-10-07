@@ -1,7 +1,13 @@
-use std::{borrow::Cow, collections::HashSet, fs, path::Path};
+use std::{
+    borrow::Cow,
+    collections::HashSet,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use blue_build_utils::secret::Secret;
 use bon::Builder;
+use cached::proc_macro::cached;
 use log::{debug, trace};
 use miette::{Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
@@ -80,33 +86,35 @@ impl Recipe<'_> {
     /// Errors when a yaml file cannot be deserialized,
     /// or a linked module yaml file does not exist.
     pub fn parse<P: AsRef<Path>>(path: P) -> Result<Self> {
-        trace!("Recipe::parse({})", path.as_ref().display());
+        #[cached(result = true, key = "PathBuf", convert = r"{ path.into() }")]
+        fn inner(path: &Path) -> Result<Recipe<'static>> {
+            trace!("Recipe::parse({})", path.display());
 
-        let file_path = if Path::new(path.as_ref()).is_absolute() {
-            path.as_ref().to_path_buf()
-        } else {
-            std::env::current_dir()
-                .into_diagnostic()?
-                .join(path.as_ref())
-        };
+            let file_path = if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                std::env::current_dir().into_diagnostic()?.join(path)
+            };
 
-        let file = fs::read_to_string(&file_path)
-            .into_diagnostic()
-            .with_context(|| format!("Failed to read {}", file_path.display()))?;
+            let file = fs::read_to_string(&file_path)
+                .into_diagnostic()
+                .with_context(|| format!("Failed to read {}", file_path.display()))?;
 
-        debug!("Recipe contents: {file}");
+            debug!("Recipe contents: {file}");
 
-        let mut recipe = serde_yaml::from_str::<Recipe>(&file)
-            .map_err(blue_build_utils::serde_yaml_err(&file))
-            .into_diagnostic()?;
+            let mut recipe = serde_yaml::from_str::<Recipe>(&file)
+                .map_err(blue_build_utils::serde_yaml_err(&file))
+                .into_diagnostic()?;
 
-        recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules, None)?;
+            recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules, None)?;
 
-        if let Some(ref mut stages_ext) = recipe.stages_ext {
-            stages_ext.stages = crate::Stage::get_stages(&stages_ext.stages, None)?;
+            if let Some(ref mut stages_ext) = recipe.stages_ext {
+                stages_ext.stages = crate::Stage::get_stages(&stages_ext.stages, None)?;
+            }
+
+            Ok(recipe)
         }
-
-        Ok(recipe)
+        inner(path.as_ref())
     }
 
     /// Get a `Reference` object of the `base_image`.
