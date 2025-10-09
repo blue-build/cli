@@ -83,7 +83,6 @@ macro_rules! impl_de_fromstr {
 #[macro_export]
 macro_rules! sudo_cmd {
     (
-        prompt = $prompt:expr,
         sudo_check = $sudo_check:expr,
         $command:expr,
         $($rest:tt)*
@@ -93,71 +92,12 @@ macro_rules! sudo_cmd {
 
             ::comlexr::cmd!(
                 if _use_sudo {
-                    "sudo"
+                    "pkexec"
                 } else {
                     $command
                 },
-                if _use_sudo && $crate::has_env_var($crate::constants::SUDO_ASKPASS) => [
-                    "-A",
-                    "-p",
-                    $prompt,
-                ],
                 if _use_sudo => [
-                    "--preserve-env",
-                    $command,
-                ],
-                $($rest)*
-            )
-        }
-    };
-    (
-        sudo_check = $sudo_check:expr,
-        $command:expr,
-        $($rest:tt)*
-    ) => {
-        {
-            let _use_sudo = ($sudo_check) && !$crate::running_as_root();
-
-            ::comlexr::cmd!(
-                if _use_sudo {
-                    "sudo"
-                } else {
-                    $command
-                },
-                if _use_sudo && $crate::has_env_var($crate::constants::SUDO_ASKPASS) => [
-                    "-A",
-                    "-p",
-                    $crate::constants::SUDO_PROMPT,
-                ],
-                if _use_sudo => [
-                    "--preserve-env",
-                    $command,
-                ],
-                $($rest)*
-            )
-        }
-    };
-    (
-        prompt = $prompt:expr,
-        $command:expr,
-        $($rest:tt)*
-    ) => {
-        {
-            let _use_sudo = !$crate::running_as_root();
-
-            ::comlexr::cmd!(
-                if _use_sudo {
-                    "sudo"
-                } else {
-                    $command
-                },
-                if _use_sudo && $crate::has_env_var($crate::constants::SUDO_ASKPASS) => [
-                    "-A",
-                    "-p",
-                    $prompt,
-                ],
-                if _use_sudo => [
-                    "--preserve-env",
+                    "--keep-cwd",
                     $command,
                 ],
                 $($rest)*
@@ -173,17 +113,12 @@ macro_rules! sudo_cmd {
 
             ::comlexr::cmd!(
                 if _use_sudo {
-                    "sudo"
+                    "pkexec"
                 } else {
                     $command
                 },
-                if _use_sudo && $crate::has_env_var($crate::constants::SUDO_ASKPASS) => [
-                    "-A",
-                    "-p",
-                    $crate::constants::SUDO_PROMPT,
-                ],
                 if _use_sudo => [
-                    "--preserve-env",
+                    "--keep-cwd",
                     $command,
                 ],
                 $($rest)*
