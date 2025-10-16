@@ -1,7 +1,9 @@
 pub mod command_output;
 pub mod constants;
+pub mod container;
 pub mod credentials;
 mod macros;
+pub mod platform;
 pub mod secret;
 pub mod semver;
 pub mod syntax_highlighting;

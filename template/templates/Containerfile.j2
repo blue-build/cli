@@ -5,6 +5,7 @@
 # Main image
 FROM {{ recipe.base_image }}@{{ base_digest }} AS {{ main_stage }}
 
+ARG TARGETARCH
 ARG RECIPE={{ recipe_path.display() }}
 ARG IMAGE_REGISTRY={{ registry }}
 ARG BB_BUILD_FEATURES="{{ get_features() }}"
