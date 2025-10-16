@@ -129,7 +129,7 @@ pub trait BuildDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if login fails.
-    fn login() -> Result<()>;
+    fn login(server: &str) -> Result<()>;
 
     /// Runs prune commands for the driver.
     ///
@@ -379,7 +379,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
             main_tag.as_str().into(),
         );
 
-        Self::login()?;
+        Self::login(final_image.registry())?;
 
         let platform_images = opts
             .platform
@@ -731,7 +731,7 @@ pub trait SigningDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if login fails.
-    fn signing_login() -> Result<()>;
+    fn signing_login(server: &str) -> Result<()>;
 }
 
 /// Allows agnostic retrieval of CI-based information.

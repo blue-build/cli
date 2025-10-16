@@ -342,8 +342,8 @@ impl BuildDriver for Driver {
         impl_build_driver!(push(opts))
     }
 
-    fn login() -> Result<()> {
-        impl_build_driver!(login())
+    fn login(server: &str) -> Result<()> {
+        impl_build_driver!(login(server))
     }
 
     fn prune(opts: PruneOpts) -> Result<()> {
@@ -389,8 +389,8 @@ impl SigningDriver for Driver {
         impl_signing_driver!(verify(opts))
     }
 
-    fn signing_login() -> Result<()> {
-        impl_signing_driver!(signing_login())
+    fn signing_login(server: &str) -> Result<()> {
+        impl_signing_driver!(signing_login(server))
     }
 }
 

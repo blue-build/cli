@@ -1,10 +1,8 @@
-use std::{io::Write, process::Stdio};
-
 use blue_build_utils::{credentials::Credentials, secret::SecretArgs, semver::Version};
 use colored::Colorize;
-use comlexr::cmd;
+use comlexr::{cmd, pipe};
 use log::{debug, error, info, trace, warn};
-use miette::{Context, IntoDiagnostic, Result, bail, miette};
+use miette::{Context, IntoDiagnostic, Result, bail};
 use serde::Deserialize;
 use tempfile::TempDir;
 
@@ -159,47 +157,33 @@ impl BuildDriver for BuildahDriver {
         Ok(())
     }
 
-    fn login() -> Result<()> {
+    fn login(server: &str) -> Result<()> {
         trace!("BuildahDriver::login()");
 
-        if let Some(Credentials {
-            registry,
-            username,
-            password,
-        }) = Credentials::get()
-        {
-            let mut command = cmd!(
-                "buildah",
-                "login",
-                "-u",
-                username,
-                "--password-stdin",
-                registry
-            );
-            command
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped());
-
-            trace!("{command:?}");
-            let mut child = command.spawn().into_diagnostic()?;
-
-            write!(
-                child
-                    .stdin
-                    .as_mut()
-                    .ok_or_else(|| miette!("Unable to open pipe to stdin"))?,
-                "{password}"
+        if let Some(Credentials::Basic { username, password }) = Credentials::get(server) {
+            let output = pipe!(
+                stdin = password.value();
+                {
+                    let c = cmd!(
+                        "buildah",
+                        "login",
+                        "-u",
+                        &username,
+                        "--password-stdin",
+                        server,
+                    );
+                    trace!("{c:?}");
+                    c
+                }
             )
+            .output()
             .into_diagnostic()?;
-
-            let output = child.wait_with_output().into_diagnostic()?;
 
             if !output.status.success() {
                 let err_out = String::from_utf8_lossy(&output.stderr);
                 bail!("Failed to login for buildah:\n{}", err_out.trim());
             }
-            debug!("Logged into {registry}");
+            debug!("Logged into {server}");
         }
         Ok(())
     }

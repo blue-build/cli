@@ -131,12 +131,12 @@ impl SigningDriver for SigstoreDriver {
         );
         debug!("Created signer");
 
-        let Credentials {
-            registry: _,
-            username,
-            password,
-        } = Credentials::get().ok_or_else(|| miette!("Credentials are required for signing"))?;
-        let auth = Auth::Basic(username.clone(), password.clone());
+        let auth = match Credentials::get(image_digest.registry()) {
+            Some(Credentials::Basic { username, password }) => {
+                Auth::Basic(username, password.value().into())
+            }
+            _ => Auth::Anonymous,
+        };
         debug!("Credentials retrieved");
 
         let (cosign_signature_image, source_image_digest) = retry(2, 5, || {
@@ -229,7 +229,7 @@ impl SigningDriver for SigstoreDriver {
             )
     }
 
-    fn signing_login() -> miette::Result<()> {
+    fn signing_login(_server: &str) -> miette::Result<()> {
         Ok(())
     }
 }

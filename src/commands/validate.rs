@@ -64,7 +64,9 @@ impl BlueBuildCommand for ValidateCommand {
             bail!("File {recipe_path_display} must exist");
         }
 
-        ASYNC_RUNTIME.block_on(self.setup_validators())?;
+        ASYNC_RUNTIME
+            .block_on(self.setup_validators())
+            .wrap_err("Failed to setup validators")?;
 
         if let Err(errors) = self.validate_recipe() {
             let errors = errors.into_iter().try_fold(

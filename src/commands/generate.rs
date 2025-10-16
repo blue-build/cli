@@ -15,11 +15,12 @@ use blue_build_utils::{
 };
 use bon::Builder;
 use clap::Args;
+use colored::Colorize;
 use log::{debug, info, trace, warn};
-use miette::{IntoDiagnostic, Result};
+use miette::{Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 
-use crate::{DriverTemplate, commands::validate::ValidateCommand};
+use crate::{BuildScripts, DriverTemplate, commands::validate::ValidateCommand};
 
 use super::BlueBuildCommand;
 
@@ -76,10 +77,6 @@ pub struct GenerateCommand {
     #[arg(long, env = BB_SKIP_VALIDATION)]
     #[builder(default)]
     skip_validation: bool,
-
-    #[clap(skip)]
-    #[builder(into)]
-    build_scripts_dir: Option<PathBuf>,
 
     #[clap(flatten)]
     #[builder(default)]
@@ -142,7 +139,14 @@ impl GenerateCommand {
 
         let base_image: Reference = format!("{}:{}", &recipe.base_image, &recipe.image_version)
             .parse()
-            .into_diagnostic()?;
+            .into_diagnostic()
+            .wrap_err_with(|| {
+                format!(
+                    "Failed to parse image with base {} and version {}",
+                    recipe.base_image.bright_blue(),
+                    recipe.image_version.to_string().bright_yellow()
+                )
+            })?;
         let base_digest =
             &Driver::get_metadata(GetMetadataOpts::builder().image(&base_image).build())?;
         let base_digest = base_digest.digest();
@@ -151,10 +155,7 @@ impl GenerateCommand {
             #[cfg(feature = "bootc")]
             "bootc".into(),
         ];
-        let build_scripts_dir = self
-            .build_scripts_dir
-            .as_deref()
-            .unwrap_or_else(|| Path::new(".bluebuild-scripts"));
+        let build_scripts_dir = BuildScripts::extract_mount_dir()?;
 
         let template = ContainerFileTemplate::builder()
             .os_version(
@@ -167,14 +168,19 @@ impl GenerateCommand {
             .recipe_path(recipe_path.as_path())
             .registry(&registry)
             .repo(repo)
-            .build_scripts_dir(build_scripts_dir)
+            .build_scripts_dir(&build_scripts_dir)
             .base_digest(base_digest)
             .maybe_nushell_version(recipe.nushell_version.as_ref())
             .build_features(build_features)
             .build_engine(Driver::get_build_driver().build_engine())
             .build();
 
-        let output_str = template.render().into_diagnostic()?;
+        let output_str = template.render().into_diagnostic().wrap_err_with(|| {
+            format!(
+                "Failed to render Containerfile for {}",
+                recipe_path.display().to_string().cyan()
+            )
+        })?;
         if let Some(output) = self.output.as_ref() {
             debug!("Templating to file {}", output.display());
             trace!("Containerfile:\n{output_str}");

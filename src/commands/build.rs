@@ -1,5 +1,4 @@
 use std::{
-    env,
     ops::Not,
     path::{Path, PathBuf},
 };
@@ -30,12 +29,12 @@ use blue_build_utils::{
 use bon::Builder;
 use clap::Args;
 use log::{debug, info, trace, warn};
-use miette::{Context, IntoDiagnostic, Result, bail};
+use miette::{IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
 use rayon::prelude::*;
 use tempfile::TempDir;
 
-use crate::{BuildScripts, commands::generate::GenerateCommand};
+use crate::commands::generate::GenerateCommand;
 
 use super::BlueBuildCommand;
 
@@ -182,8 +181,6 @@ impl BlueBuildCommand for BuildCommand {
         if self.push {
             blue_build_utils::check_command_exists("cosign")?;
             Driver::check_signing_files(CheckKeyPairOpts::builder().dir(Path::new(".")).build())?;
-            Driver::login()?;
-            Driver::signing_login()?;
         }
 
         let tempdir = if let Some(ref dir) = self.tempdir {
@@ -206,17 +203,6 @@ impl BlueBuildCommand for BuildCommand {
 
                 recipes.into_iter().filter(|recipe| same.insert(recipe.clone())).collect()
             });
-        let build_scripts_dir = BuildScripts::extract_mount_dir()?;
-        let build_scripts_dir = build_scripts_dir
-            .path()
-            .strip_prefix(
-                env::current_dir()
-                    .into_diagnostic()
-                    .wrap_err("Failed to get current_dir")?,
-            )
-            .into_diagnostic()
-            .wrap_err("Failed to strip path prefix for build scripts dir")?;
-
         recipe_paths.par_iter().try_for_each(|recipe| {
             GenerateCommand::builder()
                 .output(
@@ -226,7 +212,6 @@ impl BlueBuildCommand for BuildCommand {
                 )
                 .skip_validation(self.skip_validation)
                 .maybe_platform(self.platform.first().copied())
-                .build_scripts_dir(build_scripts_dir)
                 .recipe(recipe)
                 .drivers(self.drivers)
                 .build()
@@ -291,7 +276,7 @@ impl BuildCommand {
             "At least 1 tag must have been generated"
         );
 
-        let main_image = &Driver::generate_image_name(
+        let image = &Driver::generate_image_name(
             GenerateImageNameOpts::builder()
                 .name(recipe.name.trim())
                 .maybe_registry(self.credentials.registry.as_deref())
@@ -302,13 +287,11 @@ impl BuildCommand {
 
         let cache_image = (self.cache_layers && self.push).then(|| {
             let cache_image = Reference::with_tag(
-                main_image.registry().to_string(),
-                main_image.repository().to_string(),
+                image.registry().to_string(),
+                image.repository().to_string(),
                 format!(
                     "{}-cache",
-                    main_image
-                        .tag()
-                        .expect("Reference should be built with tag")
+                    image.tag().expect("Reference should be built with tag")
                 ),
             );
             debug!("Using {cache_image} for caching layers");
@@ -337,15 +320,13 @@ impl BuildCommand {
             .maybe_cache_to(cache_image)
             .secrets(secrets);
 
-        let built_image_names = if self.rechunk {
-            self.rechunk(
-                containerfile,
-                recipe,
-                tags,
-                main_image,
-                cache_image,
-                platforms,
-            )?
+        if self.push {
+            Driver::login(image.registry())?;
+            Driver::signing_login(image.registry())?;
+        }
+
+        let images = if self.rechunk {
+            self.rechunk(containerfile, recipe, tags, image, cache_image, platforms)?
         } else if let Some(archive_dir) = self.archive.as_ref() {
             Driver::build_tag_push(
                 build_tag_opts
@@ -359,7 +340,7 @@ impl BuildCommand {
         } else {
             Driver::build_tag_push(
                 build_tag_opts
-                    .image(&ImageRef::from(main_image))
+                    .image(&ImageRef::from(image))
                     .tags(tags)
                     .push(self.push)
                     .retry_push(self.retry_push)
@@ -372,7 +353,7 @@ impl BuildCommand {
         if self.push && !self.no_sign {
             Driver::sign_and_verify(
                 SignVerifyOpts::builder()
-                    .image(main_image)
+                    .image(image)
                     .retry_push(self.retry_push)
                     .retry_count(self.retry_count)
                     .platforms(platforms)
@@ -380,7 +361,7 @@ impl BuildCommand {
             )?;
         }
 
-        Ok(built_image_names)
+        Ok(images)
     }
 
     fn rechunk(

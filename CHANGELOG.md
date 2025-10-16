@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.24] - 2025-10-07
+
+### Bug Fixes
+
+- Move build script logic to generate command
+- Find the correct credentials for inspecting
+- Add timeout of 10 seconds for retrieving schema files
+
+### Miscellaneous Tasks
+
+- Bump cosign to 2.6.1
+- Add extra error context for schema validator
+- Allow vendoring libgit2 (#562)
+
+## [0.9.23] - 2025-10-02
+
+### Bug Fixes
+
+- Use different mount options based on build engine
+- Get podman working for Gitlab builds (#520)
+- Ensure build and run driver is set to podman
+- Symlink /opt in prebuild
+- Make sure to recreate the symbolic link for /opt at the end
+- Have a better check for existing entries in /opt
+- Set buildscripts for switch command
+- Make sure to remove /opt before re-linking
+- Take into account directories with spaces in the name
+- The last argument shouldn't have quotes
+
+### Features
+
+- Add bootc support (#448)
+- Embed build scripts and extract into temp dir for build (#516)
+- Use oci-client crate for inspecting
+- Add --link arg for COPY if build driver is docker
+
+### Miscellaneous Tasks
+
+- Fix clippy lints
+- Update deps
+- Add env vars for some build args
+- Add missing env vars for build args
+- Create scorecard.yml
+- Add scorecard badge
+- Use /usr/lib/opt for optfix to match dnf and rpm-ostree modules
+- Release
+
 ## [0.9.22] - 2025-07-31
 
 ### Bug Fixes
@@ -11,6 +58,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Adjust release command
+- Release
 
 ## [0.9.21] - 2025-07-29
 

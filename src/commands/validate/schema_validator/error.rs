@@ -8,12 +8,14 @@ use crate::commands::validate::yaml_span::YamlSpanError;
 
 #[derive(Error, Diagnostic, Debug)]
 pub enum SchemaValidateBuilderError {
-    #[error(transparent)]
+    #[error("Failed to get schema from URL {}:\n{}", .0, .1)]
     #[cfg(not(test))]
     #[diagnostic()]
-    Reqwest(#[from] reqwest::Error),
+    Reqwest(String, reqwest::Error),
 
     #[error(transparent)]
+    #[cfg(test)]
+    #[diagnostic()]
     SerdeJson(#[from] serde_json::Error),
 
     #[error(transparent)]
@@ -21,9 +23,9 @@ pub enum SchemaValidateBuilderError {
     #[diagnostic()]
     Fs(#[from] std::io::Error),
 
-    #[error(transparent)]
+    #[error("Failed to process schema from URL {}:\n{}", .0, .1)]
     #[diagnostic()]
-    JsonSchemaBuild(#[from] jsonschema::ValidationError<'static>),
+    JsonSchemaBuild(String, jsonschema::ValidationError<'static>),
 }
 
 #[derive(Error, Diagnostic, Debug)]

@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use blue_build_process_management::drivers::{
     BootDriver, BuildDriver, CiDriver, Driver, DriverArgs, PodmanDriver, RunDriver,
     opts::{BuildOpts, GenerateImageNameOpts, RemoveImageOpts, SwitchOpts},
+    types::{BuildDriverType, RunDriverType},
 };
 use blue_build_recipe::Recipe;
 use blue_build_utils::{constants::BB_SKIP_VALIDATION, container::ImageRef};
@@ -47,7 +48,14 @@ impl BlueBuildCommand for SwitchCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("SwitchCommand::try_run()");
 
-        Driver::init(self.drivers);
+        Driver::init(
+            DriverArgs::builder()
+                .build_driver(BuildDriverType::Podman)
+                .run_driver(RunDriverType::Podman)
+                .maybe_boot_driver(self.drivers.boot_driver)
+                .maybe_signing_driver(self.drivers.signing_driver)
+                .build(),
+        );
 
         let status = Driver::status()?;
 
@@ -75,7 +83,7 @@ impl BlueBuildCommand for SwitchCommand {
             .recipe(&self.recipe)
             .build()
             .try_run()?;
-        PodmanDriver::build(
+        Driver::build(
             BuildOpts::builder()
                 .image(&ImageRef::from(&image_name))
                 .containerfile(&containerfile)

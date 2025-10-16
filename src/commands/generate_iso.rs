@@ -5,7 +5,10 @@ use std::{
 
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
-    constants::{ARCHIVE_SUFFIX, BB_SKIP_VALIDATION},
+    constants::{
+        ARCHIVE_SUFFIX, BB_GENISO_ENROLLMENT_PASSWORD, BB_GENISO_ISO_NAME,
+        BB_GENISO_SECURE_BOOT_URL, BB_SKIP_VALIDATION, BB_TEMPDIR,
+    },
     platform::Platform,
     string_vec,
 };
@@ -55,7 +58,8 @@ pub struct GenerateIsoCommand {
     /// image is not from UBlue.
     #[arg(
         long,
-        default_value = "https://github.com/ublue-os/bazzite/raw/main/secure_boot.der"
+        default_value = "https://github.com/ublue-os/bazzite/raw/main/secure_boot.der",
+        env = BB_GENISO_SECURE_BOOT_URL
     )]
     #[builder(into)]
     secure_boot_url: String,
@@ -66,18 +70,18 @@ pub struct GenerateIsoCommand {
     /// Default's to UBlue's enrollment password.
     /// It's recommended to change this if your base
     /// image is not from UBlue.
-    #[arg(long, default_value = "universalblue")]
+    #[arg(long, default_value = "universalblue", env = BB_GENISO_ENROLLMENT_PASSWORD)]
     #[builder(into)]
     enrollment_password: String,
 
     /// The name of your ISO image file.
-    #[arg(long)]
+    #[arg(long, env = BB_GENISO_ISO_NAME)]
     #[builder(into)]
     iso_name: Option<String>,
 
     /// The location to temporarily store files
     /// while building. If unset, it will use `/tmp`.
-    #[arg(long)]
+    #[arg(long, env = BB_TEMPDIR)]
     tempdir: Option<PathBuf>,
 
     /// The platform of the final ISO.

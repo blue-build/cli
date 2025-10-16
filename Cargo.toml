@@ -7,7 +7,7 @@ edition = "2024"
 repository = "https://github.com/blue-build/cli"
 license = "Apache-2.0"
 categories = ["command-line-utilities"]
-version = "0.9.22"
+version = "0.9.24"
 
 [workspace.dependencies]
 bon = "3"
@@ -70,10 +70,10 @@ pre-release-replacements = [
 ]
 
 [dependencies]
-blue-build-recipe = { version = "=0.9.22", path = "./recipe" }
-blue-build-template = { version = "=0.9.22", path = "./template" }
-blue-build-utils = { version = "=0.9.22", path = "./utils" }
-blue-build-process-management = { version = "=0.9.22", path = "./process" }
+blue-build-recipe = { version = "=0.9.24", path = "./recipe" }
+blue-build-template = { version = "=0.9.24", path = "./template" }
+blue-build-utils = { version = "=0.9.24", path = "./utils" }
+blue-build-process-management = { version = "=0.9.24", path = "./process" }
 clap-verbosity-flag = "3"
 clap_complete = "4"
 clap_complete_nushell = "4"
@@ -82,7 +82,7 @@ jsonschema = "0.30"
 open = "5"
 os_info = "3"
 requestty = { version = "0.5", features = ["macros", "termion"] }
-shadow-rs = { version = "1", default-features = false }
+shadow-rs = { version = "1.4.0", default-features = false }
 thiserror = "2"
 urlencoding = "2"
 yaml-rust2 = "0.10"
@@ -118,6 +118,7 @@ v0_10_0 = [
   "bootc"
 ]
 bootc = ["blue-build-process-management/bootc"]
+vendored-libgit2 = ["dep:git2", "git2/vendored-libgit2"]
 
 [dev-dependencies]
 rusty-hook = "0.11"
@@ -125,7 +126,8 @@ rusty-hook = "0.11"
 rstest.workspace = true
 
 [build-dependencies]
-shadow-rs = "1"
+git2 = { version = "0.20.0", default-features = false, optional = true }
+shadow-rs = { version = "1.4.0" }
 
 [lints]
 workspace = true
