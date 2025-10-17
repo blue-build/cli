@@ -2,6 +2,7 @@
 // `generate_labels` function.  It doesn't work to place this allowance on the function either,
 // so we place it at the file level
 #![allow(clippy::missing_errors_doc)]
+
 use crate::drivers::opts::GetMetadataOpts;
 use crate::drivers::{CiDriver, Driver, InspectDriver};
 use blue_build_recipe::Recipe;
@@ -79,7 +80,12 @@ fn aggregate_labels<'a>(
     // check for any conflicting labels and warn the user
     for (k, v) in &built_in_labels {
         if custom_labels.contains_key(*k) {
-            warn!("Found conflicting values for custom label form recipe: {}, custom value: {}, built-in value: {}", k, custom_labels.get(*k).unwrap(), v);
+            warn!(
+                "Found conflicting values for custom label form recipe: {}, custom value: {}, built-in value: {}",
+                k,
+                custom_labels.get(*k).unwrap(),
+                v
+            );
         }
     }
 

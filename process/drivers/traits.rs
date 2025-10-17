@@ -10,12 +10,6 @@ use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
 use semver::VersionReq;
 
-use crate::drivers::{
-    Driver,
-    functions::get_private_key,
-    types::{CiDriverType, ImageRef},
-};
-use crate::labels::generate_labels;
 use super::{
     opts::{
         BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, ContainerOpts, CopyOciDirOpts,
@@ -28,6 +22,12 @@ use super::{
         RunDriverType, SigningDriverType,
     },
 };
+use crate::drivers::{
+    Driver,
+    functions::get_private_key,
+    types::{CiDriverType, ImageRef},
+};
+use crate::labels::generate_labels;
 
 trait PrivateDriver {}
 
