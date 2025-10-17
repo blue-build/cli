@@ -284,7 +284,7 @@ impl BuildCommand {
                 &tags,
                 &image_name,
                 cache_image.as_ref(),
-                recipe_path
+                recipe_path,
             )?
         } else if let Some(archive_dir) = self.archive.as_ref() {
             Driver::build_tag_push(

@@ -41,7 +41,7 @@ pub struct ContainerFileTemplate<'a> {
     #[builder(default)]
     build_features: &'a [String],
     build_engine: BuildEngine,
-    
+
     labels: &'a str,
 }
 

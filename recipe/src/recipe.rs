@@ -1,10 +1,3 @@
-use std::{
-    borrow::Cow,
-    collections::HashSet,
-    fs,
-    path::{Path, PathBuf},
-};
-use std::collections::HashMap;
 use blue_build_utils::secret::Secret;
 use bon::Builder;
 use cached::proc_macro::cached;
@@ -12,6 +5,13 @@ use log::{debug, trace};
 use miette::{Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::{
+    borrow::Cow,
+    collections::HashSet,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use crate::{Module, ModuleExt, StagesExt, maybe_version::MaybeVersion};
 

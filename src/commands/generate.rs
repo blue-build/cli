@@ -3,9 +3,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{commands::validate::ValidateCommand, BuildScripts, DriverTemplate};
+use crate::{BuildScripts, DriverTemplate, commands::validate::ValidateCommand};
 use blue_build_process_management::drivers::{
-    opts::GetMetadataOpts, types::Platform, CiDriver, Driver, DriverArgs, InspectDriver,
+    CiDriver, Driver, DriverArgs, InspectDriver, opts::GetMetadataOpts, types::Platform,
 };
 use blue_build_process_management::labels::generate_labels;
 use blue_build_recipe::Recipe;
