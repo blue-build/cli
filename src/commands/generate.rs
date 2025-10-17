@@ -3,9 +3,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::{commands::validate::ValidateCommand, BuildScripts, DriverTemplate};
 use blue_build_process_management::drivers::{
-    CiDriver, Driver, DriverArgs, InspectDriver, opts::GetMetadataOpts, types::Platform,
+    opts::GetMetadataOpts, types::Platform, CiDriver, Driver, DriverArgs, InspectDriver,
 };
+use blue_build_process_management::labels::generate_labels;
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
@@ -18,8 +20,6 @@ use colored::Colorize;
 use log::{debug, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
-
-use crate::{BuildScripts, DriverTemplate, commands::validate::ValidateCommand};
 
 use super::BlueBuildCommand;
 
@@ -149,12 +149,13 @@ impl GenerateCommand {
         let base_digest =
             &Driver::get_metadata(GetMetadataOpts::builder().image(&base_image).build())?;
         let base_digest = base_digest.digest();
-        let repo = &Driver::get_repo_url()?;
         let build_features = &[
             #[cfg(feature = "bootc")]
             "bootc".into(),
         ];
         let build_scripts_dir = BuildScripts::extract_mount_dir()?;
+
+        let labels = generate_labels(&recipe_path)?;
 
         let template = ContainerFileTemplate::builder()
             .os_version(
@@ -166,12 +167,12 @@ impl GenerateCommand {
             .recipe(&recipe)
             .recipe_path(recipe_path.as_path())
             .registry(&registry)
-            .repo(repo)
             .build_scripts_dir(&build_scripts_dir)
             .base_digest(base_digest)
             .maybe_nushell_version(recipe.nushell_version.as_ref())
             .build_features(build_features)
             .build_engine(Driver::get_build_driver().build_engine())
+            .labels(labels.as_str())
             .build();
 
         let output_str = template.render().into_diagnostic().wrap_err_with(|| {

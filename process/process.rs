@@ -5,6 +5,7 @@
 pub mod drivers;
 pub mod logging;
 pub mod signal_handler;
+pub mod labels;
 
 pub static ASYNC_RUNTIME: std::sync::LazyLock<tokio::runtime::Runtime> =
     std::sync::LazyLock::new(|| {
