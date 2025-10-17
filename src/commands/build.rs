@@ -284,6 +284,7 @@ impl BuildCommand {
                 &tags,
                 &image_name,
                 cache_image.as_ref(),
+                recipe_path
             )?
         } else if let Some(archive_dir) = self.archive.as_ref() {
             Driver::build_tag_push(
@@ -341,6 +342,7 @@ impl BuildCommand {
         tags: &[String],
         image_name: &str,
         cache_image: Option<&Reference>,
+        recipe_path: &Path,
     ) -> Result<Vec<String>, miette::Error> {
         use blue_build_process_management::drivers::{
             InspectDriver, RechunkDriver,
@@ -378,6 +380,7 @@ impl BuildCommand {
                 .maybe_cache_from(cache_image)
                 .maybe_cache_to(cache_image)
                 .secrets(&recipe.get_secrets())
+                .recipe_path(recipe_path)
                 .build(),
         )
     }

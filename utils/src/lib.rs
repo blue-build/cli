@@ -23,7 +23,7 @@ use blake2::{
     digest::{Update, VariableOutput},
 };
 use cached::proc_macro::once;
-use chrono::Local;
+use chrono::{Local, Utc};
 use comlexr::cmd;
 use format_serde_error::SerdeError;
 use log::{trace, warn};
@@ -171,4 +171,9 @@ pub fn has_env_var(key: &str) -> bool {
 #[must_use]
 pub fn running_as_root() -> bool {
     nix::unistd::Uid::effective().is_root()
+}
+
+#[must_use]
+pub fn current_timestamp() -> String {
+    Utc::now().to_rfc3339()
 }

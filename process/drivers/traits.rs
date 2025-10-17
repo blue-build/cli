@@ -15,7 +15,7 @@ use crate::drivers::{
     functions::get_private_key,
     types::{CiDriverType, ImageRef},
 };
-
+use crate::labels::generate_labels;
 use super::{
     opts::{
         BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, ContainerOpts, CopyOciDirOpts,
@@ -479,21 +479,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         opts: RechunkOpts<'_>,
     ) -> Result<()> {
         let out_ref = format!("oci:{ostree_cache_id}");
-        let labels = format!(
-            "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
-            format_args!(
-                "{}={}",
-                blue_build_utils::constants::BUILD_ID_LABEL,
-                Driver::get_build_id()
-            ),
-            format_args!("org.opencontainers.image.title={}", &opts.name),
-            format_args!("org.opencontainers.image.description={}", &opts.description),
-            format_args!("org.opencontainers.image.source={}", &opts.repo),
-            format_args!("org.opencontainers.image.base.digest={}", &opts.base_digest),
-            format_args!("org.opencontainers.image.base.name={}", &opts.base_image),
-            "org.opencontainers.image.created=<timestamp>",
-            "io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md",
-        );
+        let labels = generate_labels(opts.recipe_path)?;
         let status = Self::run(
             RunOpts::builder()
                 .image(Self::RECHUNK_IMAGE)

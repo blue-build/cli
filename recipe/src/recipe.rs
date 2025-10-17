@@ -4,7 +4,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-
+use std::collections::HashMap;
 use blue_build_utils::secret::Secret;
 use bon::Builder;
 use cached::proc_macro::cached;
@@ -77,6 +77,12 @@ pub struct Recipe<'a> {
     /// This holds the list of modules to be run on the image.
     #[serde(flatten)]
     pub modules_ext: ModuleExt<'a>,
+
+    /// Custom LABELs to add to the image.
+    ///
+    /// This hashmap provides custom labels from ther use to the image
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub labels: Option<HashMap<String, String>>,
 }
 
 impl Recipe<'_> {
