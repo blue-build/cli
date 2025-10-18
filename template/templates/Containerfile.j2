@@ -51,11 +51,4 @@ RUN \
   /scripts/post_build.sh
 
 # Labels are added last since they cause cache misses with buildah
-LABEL {{ blue_build_utils::constants::BUILD_ID_LABEL }}="{{ build_id }}"
-LABEL org.opencontainers.image.title="{{ recipe.name }}"
-LABEL org.opencontainers.image.description="{{ recipe.description }}"
-LABEL org.opencontainers.image.source="{{ repo }}"
-LABEL org.opencontainers.image.base.digest="{{ base_digest }}"
-LABEL org.opencontainers.image.base.name="{{ recipe.base_image }}:{{ recipe.image_version }}"
-LABEL org.opencontainers.image.created="{{ self::current_timestamp() }}"
-LABEL io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md
+{{ labels }}

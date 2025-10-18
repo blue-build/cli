@@ -12,6 +12,7 @@ use super::CompressionType;
 pub struct RechunkOpts<'scope> {
     pub image: &'scope str,
     pub containerfile: &'scope Path,
+    pub recipe_path: &'scope Path,
 
     pub platform: Option<Platform>,
     pub version: &'scope str,

@@ -488,6 +488,7 @@ name = "blue-build-process-management"
 version = "0.9.24"
 dependencies = [
  "anyhow",
+ "blue-build-recipe",
  "blue-build-utils",
  "bon",
  "cached 0.55.1",
@@ -548,7 +549,6 @@ dependencies = [
  "blue-build-recipe",
  "blue-build-utils",
  "bon",
- "chrono",
  "colored",
  "log",
  "oci-client 0.15.0",

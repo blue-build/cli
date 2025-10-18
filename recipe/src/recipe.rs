@@ -1,10 +1,3 @@
-use std::{
-    borrow::Cow,
-    collections::HashSet,
-    fs,
-    path::{Path, PathBuf},
-};
-
 use blue_build_utils::secret::Secret;
 use bon::Builder;
 use cached::proc_macro::cached;
@@ -12,6 +5,13 @@ use log::{debug, trace};
 use miette::{Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::{
+    borrow::Cow,
+    collections::HashSet,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use crate::{Module, ModuleExt, StagesExt, maybe_version::MaybeVersion};
 
@@ -77,6 +77,12 @@ pub struct Recipe<'a> {
     /// This holds the list of modules to be run on the image.
     #[serde(flatten)]
     pub modules_ext: ModuleExt<'a>,
+
+    /// Custom LABELs to add to the image.
+    ///
+    /// This hashmap provides custom labels from ther use to the image
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub labels: Option<HashMap<String, String>>,
 }
 
 impl Recipe<'_> {
