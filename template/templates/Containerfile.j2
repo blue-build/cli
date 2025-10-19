@@ -51,6 +51,6 @@ RUN \
   /scripts/post_build.sh
 
 # Labels are added last since they cause cache misses with buildah
-{% for (name, value) in labels %}
-   LABEL {{ name }}="{{ value }}"
-{% endfor %}
+{%- for (name, value) in labels %}
+LABEL {{ name }}="{{ value }}"
+{%- endfor %}
