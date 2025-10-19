@@ -176,42 +176,41 @@ impl Recipe<'_> {
     #[must_use]
     pub fn generate_labels(
         &self,
-        default_labels: BTreeMap<String, String>,
+        default_labels: &BTreeMap<String, String>,
     ) -> BTreeMap<String, String> {
         aggregate_labels(default_labels, &self.labels.clone().unwrap_or_default())
     }
 }
 
 fn aggregate_labels(
-    mut built_in_labels: BTreeMap<String, String>,
+    built_in_labels: &BTreeMap<String, String>,
     custom_labels: &HashMap<String, String>,
 ) -> BTreeMap<String, String> {
-    if !custom_labels.contains_key("io.artifacthub.package.readme-url") {
+    let mut labels = built_in_labels.iter().chain(custom_labels.iter()).fold(
+        BTreeMap::new(),
+        |mut acc, (k, v)| {
+            if acc.contains_key(k) {
+                warn!(
+                    "Found conflicting values for label: {}, contains: {}, overwritten by: {}",
+                    k,
+                    acc.get(k).unwrap(),
+                    v
+                );
+            }
+            acc.insert(k.to_string(), v.to_string());
+            acc
+        },
+    );
+
+    if !labels.contains_key("io.artifacthub.package.readme-url") {
         // adding this if not included in the custom labeling to maintain backwards compatibility since this was hardcoded into the old template
-        built_in_labels.insert(
+        labels.insert(
             "io.artifacthub.package.readme-url".to_string(),
             "https://raw.githubusercontent.com/blue-build/cli/main/README.md".to_string(),
         );
     }
 
-    // check for any conflicting labels and warn the user
-    for (k, v) in &built_in_labels {
-        if custom_labels.contains_key(k) {
-            warn!(
-                "Found conflicting values for custom label form recipe: {}, custom value: {}, built-in value: {}",
-                k,
-                custom_labels.get(k).unwrap(),
-                v
-            );
-        }
-    }
-
-    built_in_labels.extend(
-        custom_labels
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string())),
-    );
-    built_in_labels
+    labels
 }
 
 #[cfg(test)]
@@ -254,7 +253,7 @@ mod tests {
     fn test_default_label_generation() {
         let built_in_labels = generate_default_labels_for_tests();
         let custom_labels = HashMap::new();
-        let labels = aggregate_labels(built_in_labels, &custom_labels);
+        let labels = aggregate_labels(&built_in_labels, &custom_labels);
         assert_eq!(
             labels.get(blue_build_utils::constants::BUILD_ID_LABEL),
             Some(&"build_id".to_string())
@@ -298,7 +297,7 @@ mod tests {
             "io.artifacthub.package.readme-url".to_string(),
             "https://test.html".to_string(),
         )]);
-        let labels = aggregate_labels(built_in_labels, &custom_labels);
+        let labels = aggregate_labels(&built_in_labels, &custom_labels);
 
         assert_eq!(
             labels.get("io.artifacthub.package.readme-url"),
@@ -312,7 +311,7 @@ mod tests {
         let built_in_labels = generate_default_labels_for_tests();
         let custom_labels =
             HashMap::from([("org.container.test".to_string(), "test1".to_string())]);
-        let labels = aggregate_labels(built_in_labels, &custom_labels);
+        let labels = aggregate_labels(&built_in_labels, &custom_labels);
 
         assert_eq!(labels.get("org.container.test"), Some(&"test1".to_string()));
         assert_eq!(labels.len(), 9);

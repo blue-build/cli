@@ -354,7 +354,7 @@ impl BuildCommand {
         let base_digest = base_digest.digest();
 
         let default_labels = generate_default_labels(recipe)?;
-        let labels = recipe.generate_labels(default_labels);
+        let labels = recipe.generate_labels(&default_labels);
 
         Driver::rechunk(
             RechunkOpts::builder()
