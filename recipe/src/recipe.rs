@@ -1,11 +1,11 @@
 use blue_build_utils::secret::Secret;
 use bon::Builder;
 use cached::proc_macro::cached;
-use log::{debug, trace};
+use log::{debug, trace, warn};
 use miette::{Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::{
     borrow::Cow,
     collections::HashSet,
@@ -171,5 +171,150 @@ impl Recipe<'_> {
             .collect::<HashSet<_>>()
             .into_iter()
             .collect()
+    }
+
+    #[must_use]
+    pub fn generate_labels(
+        &self,
+        default_labels: BTreeMap<String, String>,
+    ) -> BTreeMap<String, String> {
+        aggregate_labels(default_labels, &self.labels.clone().unwrap_or_default())
+    }
+}
+
+fn aggregate_labels(
+    mut built_in_labels: BTreeMap<String, String>,
+    custom_labels: &HashMap<String, String>,
+) -> BTreeMap<String, String> {
+    if !custom_labels.contains_key("io.artifacthub.package.readme-url") {
+        // adding this if not included in the custom labeling to maintain backwards compatibility since this was hardcoded into the old template
+        built_in_labels.insert(
+            "io.artifacthub.package.readme-url".to_string(),
+            "https://raw.githubusercontent.com/blue-build/cli/main/README.md".to_string(),
+        );
+    }
+
+    // check for any conflicting labels and warn the user
+    for (k, v) in &built_in_labels {
+        if custom_labels.contains_key(k) {
+            warn!(
+                "Found conflicting values for custom label form recipe: {}, custom value: {}, built-in value: {}",
+                k,
+                custom_labels.get(k).unwrap(),
+                v
+            );
+        }
+    }
+
+    built_in_labels.extend(
+        custom_labels
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string())),
+    );
+    built_in_labels
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn generate_default_labels_for_tests() -> BTreeMap<String, String> {
+        BTreeMap::from([
+            (
+                blue_build_utils::constants::BUILD_ID_LABEL.to_string(),
+                "build_id".to_string(),
+            ),
+            (
+                "org.opencontainers.image.title".to_string(),
+                "title".to_string(),
+            ),
+            (
+                "org.opencontainers.image.description".to_string(),
+                "description".to_string(),
+            ),
+            (
+                "org.opencontainers.image.source".to_string(),
+                "source".to_string(),
+            ),
+            (
+                "org.opencontainers.image.base.digest".to_string(),
+                "digest".to_string(),
+            ),
+            (
+                "org.opencontainers.image.base.name".to_string(),
+                "base_name".to_string(),
+            ),
+            (
+                "org.opencontainers.image.created".to_string(),
+                "today 15:30".to_string(),
+            ),
+        ])
+    }
+    #[test]
+    fn test_default_label_generation() {
+        let built_in_labels = generate_default_labels_for_tests();
+        let custom_labels = HashMap::new();
+        let labels = aggregate_labels(built_in_labels, &custom_labels);
+        assert_eq!(
+            labels.get(blue_build_utils::constants::BUILD_ID_LABEL),
+            Some(&"build_id".to_string())
+        );
+        assert_eq!(
+            labels.get("org.opencontainers.image.title"),
+            Some(&"title".to_string())
+        );
+        assert_eq!(
+            labels.get("org.opencontainers.image.description"),
+            Some(&"description".to_string())
+        );
+        assert_eq!(
+            labels.get("org.opencontainers.image.source"),
+            Some(&"source".to_string())
+        );
+        assert_eq!(
+            labels.get("org.opencontainers.image.base.digest"),
+            Some(&"digest".to_string())
+        );
+        assert_eq!(
+            labels.get("org.opencontainers.image.base.name"),
+            Some(&"base_name".to_string())
+        );
+        assert_eq!(
+            labels.get("org.opencontainers.image.created"),
+            Some(&"today 15:30".to_string())
+        );
+        assert_eq!(
+            labels.get("io.artifacthub.package.readme-url"),
+            Some(&"https://raw.githubusercontent.com/blue-build/cli/main/README.md".to_string())
+        );
+
+        assert_eq!(labels.len(), 8);
+    }
+
+    #[test]
+    fn test_custom_label_overwrite_generation() {
+        let built_in_labels = generate_default_labels_for_tests();
+        let custom_labels = HashMap::from([(
+            "io.artifacthub.package.readme-url".to_string(),
+            "https://test.html".to_string(),
+        )]);
+        let labels = aggregate_labels(built_in_labels, &custom_labels);
+
+        assert_eq!(
+            labels.get("io.artifacthub.package.readme-url"),
+            Some(&"https://test.html".to_string())
+        );
+        assert_eq!(labels.len(), 8);
+    }
+
+    #[test]
+    fn test_custom_label_addition_generation() {
+        let built_in_labels = generate_default_labels_for_tests();
+        let custom_labels =
+            HashMap::from([("org.container.test".to_string(), "test1".to_string())]);
+        let labels = aggregate_labels(built_in_labels, &custom_labels);
+
+        assert_eq!(labels.get("org.container.test"), Some(&"test1".to_string()));
+        assert_eq!(labels.len(), 9);
     }
 }

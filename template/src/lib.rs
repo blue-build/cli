@@ -1,5 +1,3 @@
-use std::{borrow::Cow, fs, path::Path, process};
-
 use blue_build_recipe::{MaybeVersion, Recipe};
 use blue_build_utils::{
     constants::{CONFIG_PATH, CONTAINER_FILE, CONTAINERFILES_PATH, COSIGN_PUB_PATH, FILES_PATH},
@@ -8,6 +6,8 @@ use blue_build_utils::{
 use bon::Builder;
 use colored::control::ShouldColorize;
 use log::{debug, error, trace, warn};
+use std::collections::BTreeMap;
+use std::{borrow::Cow, fs, path::Path, process};
 use uuid::Uuid;
 
 pub use askama::Template;
@@ -42,7 +42,7 @@ pub struct ContainerFileTemplate<'a> {
     build_features: &'a [String],
     build_engine: BuildEngine,
 
-    labels: &'a str,
+    labels: &'a BTreeMap<String, String>,
 }
 
 impl ContainerFileTemplate<'_> {

@@ -3,7 +3,6 @@
 //! images that interface with tools like docker or podman.
 
 pub mod drivers;
-pub mod labels;
 pub mod logging;
 pub mod signal_handler;
 

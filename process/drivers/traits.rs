@@ -27,7 +27,6 @@ use crate::drivers::{
     functions::get_private_key,
     types::{CiDriverType, ImageRef},
 };
-use crate::labels::generate_labels;
 
 trait PrivateDriver {}
 
@@ -479,7 +478,12 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         opts: RechunkOpts<'_>,
     ) -> Result<()> {
         let out_ref = format!("oci:{ostree_cache_id}");
-        let labels = generate_labels(opts.recipe_path)?;
+        let labels = opts.labels;
+        let label_string = labels
+            .iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .reduce(|a, b| format!("{a}\n{b}"))
+            .unwrap_or_default();
         let status = Self::run(
             RunOpts::builder()
                 .image(Self::RECHUNK_IMAGE)
@@ -499,7 +503,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                     "VERSION" => opts.version,
                     "OUT_REF" => &out_ref,
                     "GIT_DIR" => "/var/git",
-                    "LABELS" => &labels,
+                    "LABELS" => &label_string,
                 })
                 .args(&bon::vec!["/sources/rechunk/3_chunk.sh"])
                 .build(),
