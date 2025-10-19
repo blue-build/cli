@@ -1,25 +1,30 @@
-use std::{
-    ops::Not,
-    path::{Path, PathBuf},
-};
-
+// This is needed because the cache macro interferes with clippy's ability to proper lint the
+// `generate_default_labels` function.  It doesn't work to place this allowance on the function
+// either, so we place it at the file level
+#![allow(clippy::missing_errors_doc)]
 use crate::{BuildScripts, DriverTemplate, commands::validate::ValidateCommand};
 use blue_build_process_management::drivers::{
     CiDriver, Driver, DriverArgs, InspectDriver, opts::GetMetadataOpts, types::Platform,
 };
-use blue_build_process_management::labels::generate_labels;
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
     constants::{BB_SKIP_VALIDATION, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH},
+    current_timestamp,
     syntax_highlighting::{self, DefaultThemes},
 };
 use bon::Builder;
+use cached::proc_macro::cached;
 use clap::Args;
 use colored::Colorize;
 use log::{debug, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Result};
 use oci_distribution::Reference;
+use std::collections::BTreeMap;
+use std::{
+    ops::Not,
+    path::{Path, PathBuf},
+};
 
 use super::BlueBuildCommand;
 
@@ -155,7 +160,8 @@ impl GenerateCommand {
         ];
         let build_scripts_dir = BuildScripts::extract_mount_dir()?;
 
-        let labels = generate_labels(&recipe_path)?;
+        let default_labels = generate_default_labels(&recipe)?;
+        let labels = recipe.generate_labels(default_labels);
 
         let template = ContainerFileTemplate::builder()
             .os_version(
@@ -172,7 +178,7 @@ impl GenerateCommand {
             .maybe_nushell_version(recipe.nushell_version.as_ref())
             .build_features(build_features)
             .build_engine(Driver::get_build_driver().build_engine())
-            .labels(labels.as_str())
+            .labels(&labels)
             .build();
 
         let output_str = template.render().into_diagnostic().wrap_err_with(|| {
@@ -193,4 +199,67 @@ impl GenerateCommand {
 
         Ok(())
     }
+}
+
+/// Function will generate the labels for an image during generation of the containerfile and
+/// after the optional rechunking of an image.  It is cached to avoid recalculating the labels
+/// in the case they must be re-applied after rechunking.
+///
+/// # Arguments
+///
+/// * `recipe_path`: path to a given recipe
+///
+/// Returns: Result<String, Report>
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The recipe file cannot be parsed
+/// - Unable to retrieve repository URL
+/// - Unable to get metadata for the base image
+/// - Unable to generate the base image reference
+#[cached(
+    result = true,
+    key = "String",
+    convert = r"{ recipe.name.to_string() }"
+)]
+pub fn generate_default_labels(recipe: &Recipe) -> Result<BTreeMap<String, String>> {
+    trace!("Generate LABELS for recipe: ({})", recipe.name);
+
+    let build_id = Driver::get_build_id().to_string();
+    let source = Driver::get_repo_url()?;
+    let image_metada = Driver::get_metadata(
+        GetMetadataOpts::builder()
+            .image(&recipe.base_image_ref()?)
+            .build(),
+    )?;
+    let base_digest = image_metada.digest().to_string();
+    let base_name = format!("{}:{}", recipe.base_image, recipe.image_version);
+    let current_timestamp = current_timestamp();
+
+    // use btree here to have nice sorting by key, makes it easier to read and analyze resulting labels
+    Ok(BTreeMap::from([
+        (
+            blue_build_utils::constants::BUILD_ID_LABEL.to_string(),
+            build_id,
+        ),
+        (
+            "org.opencontainers.image.title".to_string(),
+            recipe.name.to_string(),
+        ),
+        (
+            "org.opencontainers.image.description".to_string(),
+            recipe.description.to_string(),
+        ),
+        ("org.opencontainers.image.source".to_string(), source),
+        (
+            "org.opencontainers.image.base.digest".to_string(),
+            base_digest,
+        ),
+        ("org.opencontainers.image.base.name".to_string(), base_name),
+        (
+            "org.opencontainers.image.created".to_string(),
+            current_timestamp,
+        ),
+    ]))
 }
