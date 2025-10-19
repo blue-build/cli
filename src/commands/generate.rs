@@ -161,7 +161,7 @@ impl GenerateCommand {
         let build_scripts_dir = BuildScripts::extract_mount_dir()?;
 
         let default_labels = generate_default_labels(&recipe)?;
-        let labels = recipe.generate_labels(default_labels);
+        let labels = recipe.generate_labels(&default_labels);
 
         let template = ContainerFileTemplate::builder()
             .os_version(
