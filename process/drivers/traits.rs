@@ -478,8 +478,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         opts: RechunkOpts<'_>,
     ) -> Result<()> {
         let out_ref = format!("oci:{ostree_cache_id}");
-        let labels = opts.labels;
-        let label_string = labels
+        let label_string = opts.labels
             .iter()
             .map(|(k, v)| format!("{k}={v}"))
             .reduce(|a, b| format!("{a}\n{b}"))
