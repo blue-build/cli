@@ -178,47 +178,37 @@ impl Recipe<'_> {
         &self,
         default_labels: &BTreeMap<String, String>,
     ) -> BTreeMap<String, String> {
-        aggregate_labels(default_labels, &self.labels.clone().unwrap_or_default())
-    }
-}
-
-fn aggregate_labels(
-    built_in_labels: &BTreeMap<String, String>,
-    custom_labels: &HashMap<String, String>,
-) -> BTreeMap<String, String> {
-    let mut labels = built_in_labels.iter().chain(custom_labels.iter()).fold(
-        BTreeMap::new(),
-        |mut acc, (k, v)| {
-            if acc.contains_key(k) {
-                warn!(
-                    "Found conflicting values for label: {}, contains: {}, overwritten by: {}",
-                    k,
-                    acc.get(k).unwrap(),
-                    v
-                );
-            }
-            acc.insert(k.to_string(), v.to_string());
-            acc
-        },
-    );
-
-    if !labels.contains_key("io.artifacthub.package.readme-url") {
-        // adding this if not included in the custom labeling to maintain backwards compatibility since this was hardcoded into the old template
-        labels.insert(
-            "io.artifacthub.package.readme-url".to_string(),
-            "https://raw.githubusercontent.com/blue-build/cli/main/README.md".to_string(),
+        let mut labels = default_labels.iter().chain(self.labels.clone().unwrap_or_default().iter()).fold(
+            BTreeMap::new(),
+            |mut acc, (k, v)| {
+                if let Some(existing_value) = acc.get(k) {
+                    warn!("Found conflicting values for label: {k}, contains: {existing_value}, overwritten by: {v}");
+                }
+                acc.insert(k.to_string(), v.to_string());
+                acc
+            },
         );
-    }
 
-    labels
+        if !labels.contains_key("io.artifacthub.package.readme-url") {
+            // adding this if not included in the custom labeling to maintain backwards compatibility since this was hardcoded into the old template
+            labels.insert(
+                "io.artifacthub.package.readme-url".to_string(),
+                "https://raw.githubusercontent.com/blue-build/cli/main/README.md".to_string(),
+            );
+        }
+
+        labels
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn generate_default_labels_for_tests() -> BTreeMap<String, String> {
-        BTreeMap::from([
+    fn generate_test_recipe(
+        custom_labels: HashMap<String, String>,
+    ) -> (BTreeMap<String, String>, Recipe<'static>) {
+        let default_labels = BTreeMap::from([
             (
                 blue_build_utils::constants::BUILD_ID_LABEL.to_string(),
                 "build_id".to_string(),
@@ -247,13 +237,24 @@ mod tests {
                 "org.opencontainers.image.created".to_string(),
                 "today 15:30".to_string(),
             ),
-        ])
+        ]);
+        (
+            default_labels,
+            Recipe::builder()
+                .name("title".to_string())
+                .description("description".to_string())
+                .base_image("base_name".to_string())
+                .image_version("version".to_string())
+                .modules_ext(ModuleExt::builder().modules(vec![]).build())
+                .labels(custom_labels)
+                .build(),
+        )
     }
     #[test]
     fn test_default_label_generation() {
-        let built_in_labels = generate_default_labels_for_tests();
         let custom_labels = HashMap::new();
-        let labels = aggregate_labels(&built_in_labels, &custom_labels);
+        let (built_in_labels, recipe) = generate_test_recipe(custom_labels);
+        let labels = recipe.generate_labels(&built_in_labels);
         assert_eq!(
             labels.get(blue_build_utils::constants::BUILD_ID_LABEL),
             Some(&"build_id".to_string())
@@ -292,12 +293,12 @@ mod tests {
 
     #[test]
     fn test_custom_label_overwrite_generation() {
-        let built_in_labels = generate_default_labels_for_tests();
         let custom_labels = HashMap::from([(
             "io.artifacthub.package.readme-url".to_string(),
             "https://test.html".to_string(),
         )]);
-        let labels = aggregate_labels(&built_in_labels, &custom_labels);
+        let (built_in_labels, recipe) = generate_test_recipe(custom_labels);
+        let labels = recipe.generate_labels(&built_in_labels);
 
         assert_eq!(
             labels.get("io.artifacthub.package.readme-url"),
@@ -308,10 +309,10 @@ mod tests {
 
     #[test]
     fn test_custom_label_addition_generation() {
-        let built_in_labels = generate_default_labels_for_tests();
         let custom_labels =
             HashMap::from([("org.container.test".to_string(), "test1".to_string())]);
-        let labels = aggregate_labels(&built_in_labels, &custom_labels);
+        let (built_in_labels, recipe) = generate_test_recipe(custom_labels);
+        let labels = recipe.generate_labels(&built_in_labels);
 
         assert_eq!(labels.get("org.container.test"), Some(&"test1".to_string()));
         assert_eq!(labels.len(), 9);
