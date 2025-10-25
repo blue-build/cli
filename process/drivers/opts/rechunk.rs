@@ -1,5 +1,4 @@
-use std::collections::BTreeMap;
-use std::path::Path;
+use std::{collections::BTreeMap, path::Path};
 
 use blue_build_utils::secret::Secret;
 use bon::Builder;
