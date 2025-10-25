@@ -19,7 +19,7 @@ pub struct BootcDriver;
 impl BootDriver for BootcDriver {
     fn status() -> Result<Box<dyn BootStatus>> {
         let output = {
-            let c = sudo_cmd!(prompt = SUDO_PROMPT, "bootc", "status", "--format=json");
+            let c = sudo_cmd!("bootc", "status", "--format=json");
             trace!("{c:?}");
             c
         }
@@ -47,7 +47,6 @@ impl BootDriver for BootcDriver {
     fn switch(opts: SwitchOpts) -> Result<()> {
         let status = {
             let c = sudo_cmd!(
-                prompt = SUDO_PROMPT,
                 "bootc",
                 "switch",
                 "--transport=containers-storage",
@@ -71,7 +70,7 @@ impl BootDriver for BootcDriver {
 
     fn upgrade(opts: SwitchOpts) -> Result<()> {
         let status = {
-            let c = sudo_cmd!(prompt = SUDO_PROMPT, "bootc", "upgrade");
+            let c = sudo_cmd!("bootc", "upgrade");
             trace!("{c:?}");
             c
         }
