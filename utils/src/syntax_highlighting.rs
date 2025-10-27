@@ -1,3 +1,5 @@
+use std::io::IsTerminal;
+
 use clap::ValueEnum;
 use log::trace;
 use miette::{IntoDiagnostic, Result, miette};
@@ -37,7 +39,7 @@ impl std::fmt::Display for DefaultThemes {
 /// failed to serialize.
 pub fn highlight(file: &str, file_type: &str, theme: Option<DefaultThemes>) -> Result<String> {
     trace!("syntax_highlighting::highlight(file, {file_type}, {theme:?})");
-    if atty::is(atty::Stream::Stdout) {
+    if std::io::stdout().is_terminal() {
         let ss: SyntaxSet = if file_type == "dockerfile" || file_type == "Dockerfile" {
             dumps::from_uncompressed_data(include_bytes!(concat!(
                 env!("OUT_DIR"),

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fs, path::Path, process};
+use std::{borrow::Cow, collections::BTreeMap, fs, path::Path, process};
 
 use blue_build_recipe::{MaybeVersion, Recipe};
 use blue_build_utils::{
@@ -6,7 +6,6 @@ use blue_build_utils::{
     secret::SecretMounts,
 };
 use bon::Builder;
-use chrono::Utc;
 use colored::control::ShouldColorize;
 use log::{debug, error, trace, warn};
 use uuid::Uuid;
@@ -36,13 +35,14 @@ pub struct ContainerFileTemplate<'a> {
     os_version: u64,
     registry: &'a str,
     build_scripts_dir: &'a Path,
-    repo: &'a str,
     base_digest: &'a str,
     nushell_version: Option<&'a MaybeVersion>,
 
     #[builder(default)]
     build_features: &'a [String],
     build_engine: BuildEngine,
+
+    labels: &'a BTreeMap<String, String>,
 }
 
 impl ContainerFileTemplate<'_> {
@@ -172,10 +172,6 @@ fn config_dir_exists() -> bool {
     }
 
     exists
-}
-
-fn current_timestamp() -> String {
-    Utc::now().to_rfc3339()
 }
 
 fn should_color() -> bool {

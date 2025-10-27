@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{collections::BTreeMap, path::Path};
 
 use blue_build_utils::{
     container::{ContainerId, OciDir, Tag},
@@ -15,6 +15,7 @@ use super::CompressionType;
 pub struct RechunkOpts<'scope> {
     pub image: &'scope Reference,
     pub containerfile: &'scope Path,
+    pub labels: &'scope BTreeMap<String, String>,
 
     pub platform: &'scope [Platform],
     pub version: &'scope str,

@@ -19,13 +19,6 @@ use oci_distribution::Reference;
 use rayon::prelude::*;
 use semver::VersionReq;
 
-use crate::drivers::{
-    Driver,
-    functions::get_private_key,
-    opts::{ManifestCreateOpts, ManifestPushOpts},
-    types::CiDriverType,
-};
-
 use super::{
     opts::{
         BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, ContainerOpts, CopyOciDirOpts,
@@ -37,6 +30,12 @@ use super::{
         BootDriverType, BuildDriverType, ImageMetadata, InspectDriverType, RunDriverType,
         SigningDriverType,
     },
+};
+use crate::drivers::{
+    Driver,
+    functions::get_private_key,
+    opts::{ManifestCreateOpts, ManifestPushOpts},
+    types::CiDriverType,
 };
 
 trait PrivateDriver {}
@@ -574,22 +573,13 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         opts: RechunkOpts<'_>,
     ) -> Result<()> {
         let out_ref = format!("oci:{ostree_cache_id}");
-        let labels = format!(
-            "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
-            format_args!(
-                "{}={}",
-                blue_build_utils::constants::BUILD_ID_LABEL,
-                Driver::get_build_id()
-            ),
-            format_args!("org.opencontainers.image.title={}", &opts.name),
-            format_args!("org.opencontainers.image.description={}", &opts.description),
-            format_args!("org.opencontainers.image.source={}", &opts.repo),
-            format_args!("org.opencontainers.image.base.digest={}", &opts.base_digest),
-            format_args!("org.opencontainers.image.base.name={}", &opts.base_image),
-            "org.opencontainers.image.created=<timestamp>",
-            "io.artifacthub.package.readme-url=https://raw.githubusercontent.com/blue-build/cli/main/README.md",
-        );
         let image = opts.image.to_string();
+        let label_string = opts
+            .labels
+            .iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .reduce(|a, b| format!("{a}\n{b}"))
+            .unwrap_or_default();
         let status = Self::run(
             RunOpts::builder()
                 .image(Self::RECHUNK_IMAGE)
@@ -609,7 +599,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                     "VERSION" => opts.version,
                     "OUT_REF" => &out_ref,
                     "GIT_DIR" => "/var/git",
-                    "LABELS" => &labels,
+                    "LABELS" => &label_string,
                 })
                 .args(&bon::vec!["/sources/rechunk/3_chunk.sh"])
                 .build(),

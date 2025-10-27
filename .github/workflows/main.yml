@@ -21,7 +21,6 @@ jobs:
     with:
       repo: ${{ github.repository }}
       ref: main
-    secrets: inherit
   test:
     uses: ./.github/workflows/test.yml
     permissions:
@@ -31,4 +30,5 @@ jobs:
     with:
       repo: ${{ github.repository }}
       ref: main
-    secrets: inherit
+    secrets:
+      TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}

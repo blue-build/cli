@@ -9,7 +9,6 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-atty = "0.2"
 base64 = "0.22"
 blake2 = "0.10"
 constcat = "0.6"
