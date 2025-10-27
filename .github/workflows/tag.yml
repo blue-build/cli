@@ -76,6 +76,13 @@ jobs:
       packages: write # write pacakges to ghcr
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    outputs:
+      CLI_IMAGE_REF: ${{ steps.image_manifest_metadata.outputs.CLI_IMAGE_REF }}
+      INSTALLER_IMAGE_REF: ${{ steps.image_manifest_metadata.outputs.INSTALLER_IMAGE_REF }}
+      DISTROBOX_IMAGE_REF: ${{ steps.image_manifest_metadata.outputs.DISTROBOX_IMAGE_REF }}
+      CLI_IMAGE_DIGEST: ${{ steps.image_manifest_metadata.outputs.CLI_IMAGE_DIGEST }}
+      INSTALLER_IMAGE_DIGEST: ${{ steps.image_manifest_metadata.outputs.INSTALLER_IMAGE_DIGEST }}
+      DISTROBOX_IMAGE_DIGEST: ${{ steps.image_manifest_metadata.outputs.DISTROBOX_IMAGE_DIGEST }}
     needs:
       - arm64-prebuild
       - amd64-prebuild
@@ -118,3 +125,65 @@ jobs:
             --secret GH_ACTOR --secret GH_TOKEN \
             --push --ci -P +build-images-all \
             --TAGGED="true" --LATEST="$LATEST"
+          earthly --push --ci -P +build-images-all --TAGGED="true" --LATEST="$LATEST"
+          
+      - name: Install regctl
+        uses: regclient/actions/regctl-installer@495560f7c3b510b71ff9f22d6c667c2c429b8e45 # main # zizmor: ignore[stale-action-refs] regctl does not publish tags
+
+      - name: Parse image manifest
+        id: image_manifest_metadata
+        run: |
+          CLI_IMAGE_REF="ghcr.io/blue-build/cli:latest"
+          INSTALLER_IMAGE_REF="${CLI_IMAGE_REF}-installer"
+          DISTROBOX_IMAGE_REF="${CLI_IMAGE_REF}-distrobox"
+          CLI_IMAGE_DIGEST="$(regctl image digest "${CLI_IMAGE_REF}")"
+          INSTALLER_IMAGE_DIGEST="$(regctl image digest "${INSTALLER_IMAGE_REF}")"
+          DISTROBOX_IMAGE_DIGEST="$(regctl image digest "${DISTROBOX_IMAGE_REF}")"
+          echo "CLI_IMAGE_REF=${CLI_IMAGE_REF}" >> $GITHUB_OUTPUT
+          echo "INSTALLER_IMAGE_REF=${INSTALLER_IMAGE_REF}" >> $GITHUB_OUTPUT
+          echo "DISTROBOX_IMAGE_REF=${DISTROBOX_IMAGE_REF}" >> $GITHUB_OUTPUT
+          echo "CLI_IMAGE_DIGEST=${CLI_IMAGE_DIGEST}" >> $GITHUB_OUTPUT
+          echo "INSTALLER_IMAGE_DIGEST=${INSTALLER_IMAGE_DIGEST}" >> $GITHUB_OUTPUT
+          echo "DISTROBOX_IMAGE_DIGEST=${DISTROBOX_IMAGE_DIGEST}" >> $GITHUB_OUTPUT
+
+  cli-provenance:
+    needs: [build-images]
+    permissions:
+      actions: read # for detecting the Github Actions environment.
+      id-token: write # for creating OIDC tokens for signing.
+      packages: write # for uploading attestations.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    with:
+      image: ${{ needs.build-images.outputs.CLI_IMAGE_REF }}
+      digest: ${{ needs.build-images.outputs.CLI_IMAGE_DIGEST }}
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+  installer-provenance:
+    needs: [build-images]
+    permissions:
+      actions: read # for detecting the Github Actions environment.
+      id-token: write # for creating OIDC tokens for signing.
+      packages: write # for uploading attestations.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    with:
+      image: ${{ needs.build-images.outputs.INSTALLER_IMAGE_REF }}
+      digest: ${{ needs.build-images.outputs.INSTALLER_IMAGE_DIGEST }}
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+  distrobox-provenance:
+    needs: [build-images]
+    permissions:
+      actions: read # for detecting the Github Actions environment.
+      id-token: write # for creating OIDC tokens for signing.
+      packages: write # for uploading attestations.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    with:
+      image: ${{ needs.build-images.outputs.DISTROBOX_IMAGE_REF }}
+      digest: ${{ needs.build-images.outputs.DISTROBOX_IMAGE_DIGEST }}
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
