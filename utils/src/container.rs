@@ -2,12 +2,18 @@ use std::{
     borrow::Cow,
     ops::Deref,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
+use lazy_regex::regex;
+use miette::miette;
 use oci_distribution::Reference;
+use serde::{Deserialize, Serialize};
+
+use crate::platform::Platform;
 
 #[derive(Debug, Clone)]
-pub struct ContainerId(pub(crate) String);
+pub struct ContainerId(pub String);
 
 impl Deref for ContainerId {
     type Target = str;
@@ -29,7 +35,7 @@ impl AsRef<std::ffi::OsStr> for ContainerId {
     }
 }
 
-pub struct MountId(pub(crate) String);
+pub struct MountId(pub String);
 
 impl Deref for MountId {
     type Target = str;
@@ -93,12 +99,25 @@ pub enum ImageRef<'scope> {
     Other(Cow<'scope, str>),
 }
 
-impl ImageRef<'_> {
+impl<'scope> ImageRef<'scope> {
     #[must_use]
     pub fn remote_ref(&self) -> Option<&Reference> {
         match self {
             Self::Remote(remote) => Some(remote.as_ref()),
             _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn with_platform(&'scope self, platform: Platform) -> Self {
+        if let Self::Remote(remote) = &self {
+            Self::Remote(Cow::Owned(platform.tagged_image(remote)))
+        } else if let Self::LocalTar(path) = &self
+            && let Some(tagged) = platform.tagged_path(path)
+        {
+            Self::LocalTar(Cow::Owned(tagged))
+        } else {
+            Self::from(self)
         }
     }
 }
@@ -175,5 +194,71 @@ impl PartialEq<Reference> for ImageRef<'_> {
             Self::Remote(remote) => &**remote == other,
             _ => false,
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Tag(String);
+
+impl Tag {
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl FromStr for Tag {
+    type Err = miette::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let regex = regex!(r"[\w][\w.-]{0,127}");
+        regex
+            .is_match(s)
+            .then(|| Self(s.into()))
+            .ok_or_else(|| miette!("Invalid tag: {s}"))
+    }
+}
+
+impl std::fmt::Display for Tag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", &self.0)
+    }
+}
+
+impl TryFrom<&Reference> for Tag {
+    type Error = miette::Error;
+
+    fn try_from(value: &Reference) -> Result<Self, Self::Error> {
+        value
+            .tag()
+            .map(|tag| Self(tag.into()))
+            .ok_or_else(|| miette!("Reference {value} has no tag"))
+    }
+}
+
+impl<'de> Deserialize<'de> for Tag {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Self::from_str(&String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
+impl Default for Tag {
+    fn default() -> Self {
+        Self(String::from("latest"))
+    }
+}
+
+impl From<Tag> for String {
+    fn from(value: Tag) -> Self {
+        value.0
+    }
+}
+
+impl From<&Tag> for String {
+    fn from(value: &Tag) -> Self {
+        value.0.clone()
     }
 }

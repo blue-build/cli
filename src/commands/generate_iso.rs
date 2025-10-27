@@ -9,6 +9,7 @@ use blue_build_utils::{
         ARCHIVE_SUFFIX, BB_GENISO_ENROLLMENT_PASSWORD, BB_GENISO_ISO_NAME,
         BB_GENISO_SECURE_BOOT_URL, BB_SKIP_VALIDATION, BB_TEMPDIR,
     },
+    platform::Platform,
     string_vec,
 };
 use bon::Builder;
@@ -82,6 +83,10 @@ pub struct GenerateIsoCommand {
     /// while building. If unset, it will use `/tmp`.
     #[arg(long, env = BB_TEMPDIR)]
     tempdir: Option<PathBuf>,
+
+    /// The platform of the final ISO.
+    #[arg(long)]
+    platform: Option<Platform>,
 
     #[clap(flatten)]
     #[builder(default)]
@@ -158,6 +163,8 @@ impl BlueBuildCommand for GenerateIsoCommand {
             env::current_dir().into_diagnostic()?
         };
 
+        let platform = self.platform.unwrap_or_default();
+
         if let GenIsoSubcommand::Recipe {
             recipe,
             skip_validation,
@@ -168,6 +175,7 @@ impl BlueBuildCommand for GenerateIsoCommand {
                 .archive(image_out_dir.path())
                 .maybe_tempdir(self.tempdir.clone())
                 .skip_validation(*skip_validation)
+                .platform(vec![platform])
                 .build()
                 .try_run()?;
         }
@@ -179,12 +187,18 @@ impl BlueBuildCommand for GenerateIsoCommand {
             fs::remove_file(iso_path).into_diagnostic()?;
         }
 
-        self.build_iso(iso_name, &output_dir, image_out_dir.path())
+        self.build_iso(iso_name, &output_dir, image_out_dir.path(), platform)
     }
 }
 
 impl GenerateIsoCommand {
-    fn build_iso(&self, iso_name: &str, output_dir: &Path, image_out_dir: &Path) -> Result<()> {
+    fn build_iso(
+        &self,
+        iso_name: &str,
+        output_dir: &Path,
+        image_out_dir: &Path,
+        platform: Platform,
+    ) -> Result<()> {
         let mut args = string_vec![
             format!("VARIANT={}", self.variant),
             format!("ISO_NAME=build/{iso_name}"),
@@ -254,6 +268,7 @@ impl GenerateIsoCommand {
         let opts = RunOpts::builder()
             .image("ghcr.io/jasonn3/build-container-installer")
             .privileged(true)
+            .platform(platform)
             .remove(true)
             .args(&args)
             .volumes(&vols)

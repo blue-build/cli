@@ -51,6 +51,7 @@ COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
 # {{ stage.name|capitalize }} stage
 FROM {{ stage.from }} AS {{ stage.name }}
 
+ARG TARGETARCH
       {%- if self::should_color() %}
 ARG FORCE_COLOR=1
 ARG CLICOLOR_FORCE=1

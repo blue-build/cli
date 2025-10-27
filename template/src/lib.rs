@@ -27,7 +27,7 @@ pub enum BuildEngine {
 )]
 pub struct ContainerFileTemplate<'a> {
     #[builder(into)]
-    recipe: &'a Recipe<'a>,
+    recipe: &'a Recipe,
     recipe_path: &'a Path,
 
     #[builder(into)]

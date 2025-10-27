@@ -3,10 +3,10 @@ use std::path::PathBuf;
 use blue_build_process_management::drivers::{
     BootDriver, BuildDriver, CiDriver, Driver, DriverArgs, PodmanDriver, RunDriver,
     opts::{BuildOpts, GenerateImageNameOpts, RemoveImageOpts, SwitchOpts},
-    types::{BuildDriverType, ImageRef, RunDriverType},
+    types::{BuildDriverType, RunDriverType},
 };
 use blue_build_recipe::Recipe;
-use blue_build_utils::constants::BB_SKIP_VALIDATION;
+use blue_build_utils::{constants::BB_SKIP_VALIDATION, container::ImageRef};
 use bon::Builder;
 use clap::Args;
 use log::trace;
