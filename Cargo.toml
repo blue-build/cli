@@ -106,7 +106,7 @@ syntect.workspace = true
 tempfile.workspace = true
 tokio.workspace = true
 bon.workspace = true
-users.workspace = true
+uzers.workspace = true
 rust-embed = { version = "8.7.2", features = ["debug-embed", "compression", "deterministic-timestamps"] }
 
 [features]
