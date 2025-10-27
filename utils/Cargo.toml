@@ -14,7 +14,6 @@ blake2 = "0.10"
 constcat = "0.6"
 directories = "6"
 docker_credential = "1"
-format_serde_error = "0.3"
 lenient_semver = "0.4"
 process_control = { version = "4", features = ["crossbeam-channel"] }
 which = "8"

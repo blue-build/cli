@@ -110,8 +110,8 @@ impl Recipe<'_> {
             debug!("Recipe contents: {file}");
 
             let mut recipe = serde_yaml::from_str::<Recipe>(&file)
-                .map_err(blue_build_utils::serde_yaml_err(&file))
-                .into_diagnostic()?;
+                .into_diagnostic()
+                .wrap_err_with(|| format!("Failed to parse recipe file {}", file_path.display()))?;
 
             recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules, None)?;
 

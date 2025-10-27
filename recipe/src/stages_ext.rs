@@ -59,8 +59,10 @@ impl TryFrom<&Path> for StagesExt<'_> {
         serde_yaml::from_str::<Self>(&file).map_or_else(
             |_| -> Result<Self> {
                 let mut stage = serde_yaml::from_str::<Stage>(&file)
-                    .map_err(blue_build_utils::serde_yaml_err(&file))
-                    .into_diagnostic()?;
+                    .into_diagnostic()
+                    .wrap_err_with(|| {
+                        format!("Failed to parse stage file {}", file_path.display())
+                    })?;
                 if let Some(ref mut rf) = stage.required_fields {
                     rf.modules_ext.modules = Module::get_modules(&rf.modules_ext.modules, None)?;
                 }

@@ -49,8 +49,10 @@ impl TryFrom<&Path> for ModuleExt<'_> {
         serde_yaml::from_str::<Self>(&file).map_or_else(
             |_| -> Result<Self> {
                 let module = serde_yaml::from_str::<Module>(&file)
-                    .map_err(blue_build_utils::serde_yaml_err(&file))
-                    .into_diagnostic()?;
+                    .into_diagnostic()
+                    .wrap_err_with(|| {
+                        format!("Failed to parse module file {}", file_path.display())
+                    })?;
                 Ok(Self::builder().modules(vec![module]).build())
             },
             Ok,
