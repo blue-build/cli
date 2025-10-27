@@ -2,7 +2,12 @@ use clap::ValueEnum;
 use log::trace;
 use miette::{IntoDiagnostic, Result, miette};
 use serde::ser::Serialize;
-use std::io::{IsTerminal};
+use std::io::IsTerminal;
+
+use clap::ValueEnum;
+use log::trace;
+use miette::{IntoDiagnostic, Result, miette};
+use serde::ser::Serialize;
 use syntect::{dumps, easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet};
 
 #[derive(Debug, Default, Clone, Copy, ValueEnum)]
