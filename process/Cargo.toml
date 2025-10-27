@@ -19,7 +19,7 @@ nu-ansi-term = { version = "0.50", features = ["gnu_legacy"] }
 os_pipe = { version = "1", features = ["io_safety"] }
 rand = "0.9"
 signal-hook = { version = "0.3", features = ["extended-siginfo"] }
-sigstore = { version = "0.11", features = ["full-rustls-tls", "cached-client", "sigstore-trust-root", "sign"], default-features = false }
+sigstore = { version = "0.13", features = ["rustls-tls", "cached-client", "sigstore-trust-root", "sign", "cosign"], default-features = false }
 
 cached.workspace = true
 chrono.workspace = true
