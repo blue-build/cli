@@ -1,5 +1,7 @@
 name: Earthly tag +build
 
+permissions: {}
+
 on:
   push:
     tags:
@@ -67,7 +69,7 @@ jobs:
 
   build-images:
     permissions:
-      packages: write
+      packages: write # write pacakges to ghcr
     timeout-minutes: 60
     runs-on: ubuntu-latest
     needs:

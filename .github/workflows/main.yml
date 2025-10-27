@@ -1,5 +1,7 @@
 name: Main branch build
 
+permissions: {}
+
 concurrency: 
   group: ${{ github.workflow }}-main
   cancel-in-progress: true
@@ -15,18 +17,18 @@ jobs:
     uses: ./.github/workflows/build.yml
     if: github.repository == 'blue-build/cli'
     permissions:
-      contents: read
-      packages: write
-      id-token: write
+      contents: read # read repo contents
+      packages: write # write package to ghcr
+      id-token: write # docker auth
     with:
       repo: ${{ github.repository }}
       ref: main
   test:
     uses: ./.github/workflows/test.yml
     permissions:
-      contents: read
-      packages: write
-      id-token: write
+      contents: read # read repo contents
+      packages: write # write package to ghcr
+      id-token: write # docker auth
     with:
       repo: ${{ github.repository }}
       ref: main
