@@ -18,7 +18,6 @@ jobs:
     with:
       repo: ${{ github.event.pull_request.head.repo.full_name }}
       ref: ${{ github.event.pull_request.head.ref }}
-    secrets: inherit
   test:
     uses: ./.github/workflows/test.yml
     permissions:
@@ -29,4 +28,5 @@ jobs:
       repo: ${{ github.event.pull_request.head.repo.full_name }}
       ref: ${{ github.event.pull_request.head.ref }}
       pr_event_number: ${{ github.event.number }}
-    secrets: inherit
+    secrets:
+      TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
