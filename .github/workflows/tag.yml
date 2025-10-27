@@ -14,6 +14,8 @@ jobs:
   arm64-prebuild:
     timeout-minutes: 60
     runs-on: ubuntu-24.04-arm
+    permissions:
+      packages: write # write pacakges to ghcr
 
     steps:
       - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
@@ -42,6 +44,8 @@ jobs:
   amd64-prebuild:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    permissions:
+      packages: write # write pacakges to ghcr
 
     steps:
       - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
