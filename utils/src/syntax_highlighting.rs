@@ -1,7 +1,3 @@
-use clap::ValueEnum;
-use log::trace;
-use miette::{IntoDiagnostic, Result, miette};
-use serde::ser::Serialize;
 use std::io::IsTerminal;
 
 use clap::ValueEnum;

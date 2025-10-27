@@ -34,7 +34,6 @@ serde_yaml = { version = "0.10.0", package = "serde_yaml_ng" }
 syntect = { version = "5", default-features = false, features = ["default-fancy"] }
 tempfile = "3"
 tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
-users = "0.11"
 uuid = { version = "1", features = ["v4"] }
 zeroize = { version = "1", features = ["aarch64", "derive", "std", "serde"] }
 
@@ -106,7 +105,6 @@ syntect.workspace = true
 tempfile.workspace = true
 tokio.workspace = true
 bon.workspace = true
-users.workspace = true
 rust-embed = { version = "8.7.2", features = ["debug-embed", "compression", "deterministic-timestamps"] }
 
 [features]
