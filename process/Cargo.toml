@@ -14,7 +14,7 @@ path = "process.rs"
 anyhow = "1"
 blue-build-utils = { version = "=0.9.24", path = "../utils" }
 indicatif-log-bridge = "0.2"
-log4rs = { version = "1", features = ["background_rotation"] }
+log4rs = { version = "1.4", features = ["background_rotation"] }
 nu-ansi-term = { version = "0.50", features = ["gnu_legacy"] }
 os_pipe = { version = "1", features = ["io_safety"] }
 rand = "0.9"
