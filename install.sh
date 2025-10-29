@@ -26,6 +26,9 @@ function cleanup() {
 
 trap cleanup SIGINT
 
+curl -L -O https://raw.githubusercontent.com/blue-build/cli/refs/heads/main/cosign.pub
+cosign verify --key cosign.pub "ghcr.io/blue-build/cli:${VERSION}-installer"
+
 cr create \
   --pull always \
   --replace \
