@@ -7,6 +7,8 @@ on:
       repo:
         required: true
         type: string
+    secrets:
+      SIGNING_SECRET:
 env:
   FORCE_COLOR: 1
   CLICOLOR_FORCE: 1
@@ -117,4 +119,6 @@ jobs:
 
 
       - name: Run build
-        run: earthly --push --ci -P +build-images-all
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+        run: earthly --secret COSIGN_PRIVATE_KEY --push --ci -P +build-images-all

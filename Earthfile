@@ -20,7 +20,16 @@ run-checks:
     BUILD +test
 
 build-images-all:
-    BUILD --platform=linux/amd64 --platform=linux/arm64 +build-images
+    WAIT
+        BUILD --platform=linux/amd64 --platform=linux/arm64 +build-images
+    END
+
+    ARG EARTHLY_PUSH
+    IF [ "$EARTHLY_PUSH" = "true" ]
+        ARG SUFFIX_LIST="- distrobox installer"
+        BUILD --pass-args +digest-list
+        BUILD --pass-args +sign-images
+    END
 
 build-images:
     BUILD +blue-build-cli
@@ -286,6 +295,62 @@ version:
 
     SAVE ARTIFACT /version
 
+digest-list:
+    FROM alpine
+
+    COPY --platform=native +version/version /
+    LET version="$(cat /version)"
+    LET major_version="$(echo "$version" | cut -d'.' -f1)"
+    LET minor_version="$(echo "$version" | cut -d'.' -f2)"
+
+    ARG --required SUFFIX_LIST
+    ARG EARTHLY_GIT_HASH
+    ARG EARTHLY_GIT_BRANCH
+    LET suffix=""
+
+    FOR s IN $SUFFIX_LIST
+        # The '-' character will be used for no suffix
+        IF [ "$s" = "-" ]
+            SET suffix=""
+        ELSE
+            SET suffix="-$s"
+        END
+
+        IF [ "$TAGGED" = "true" ]
+            DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:v${version}${suffix}"
+            IF [ "$LATEST" = "true" ]
+                DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:latest${suffix}"
+                DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:v${major_version}.${minor_version}${suffix}"
+                DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:v${major_version}${suffix}"
+            END
+        ELSE
+            DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:$(echo "${EARTHLY_GIT_BRANCH}" | sed 's|/|_|g')${suffix}"
+        END
+        DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:${EARTHLY_GIT_HASH}${suffix}"
+    END
+
+    SAVE ARTIFACT /digest-list AS LOCAL ./digest-list
+
+sign-images:
+    FROM alpine
+    COPY +cosign/cosign /usr/bin/
+
+    ARG --required SUFFIX_LIST
+    COPY --pass-args +digest-list/digest-list /
+
+    ENV COSIGN_YES="true"
+    ENV COSIGN_PASSWORD=""
+    FOR digest IN $(cat /digest-list | sed -E "s|^${IMAGE}:[^,]+,(sha256:[a-f0-9]+)$|\1|g" | sort -u)
+        RUN --push --secret COSIGN_PRIVATE_KEY \
+            cosign sign --key=env://COSIGN_PRIVATE_KEY --recursive "${IMAGE}@${digest}"
+    END
+
+PRINT_IMAGE_DIGEST:
+    FUNCTION
+    ARG --required IMAGE
+    COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$IMAGE) /base-image-digest
+    RUN echo "${IMAGE},$(cat /base-image-digest)" >> /digest-list
+
 INSTALL:
     FUNCTION
     ARG --required BUILD_TARGET
@@ -304,20 +369,18 @@ SAVE_IMAGE:
     ARG IMAGE="$IMAGE"
 
     COPY --platform=native +version/version /
-    ARG VERSION="$(cat /version)"
-    ARG MAJOR_VERSION="$(echo "$VERSION" | cut -d'.' -f1)"
-    ARG MINOR_VERSION="$(echo "$VERSION" | cut -d'.' -f2)"
-    ARG PATCH_VERSION="$(echo "$VERSION" | cut -d'.' -f3)"
-    ARG BUILD_TIME="$(date -Iseconds)"
+    LET version="$(cat /version)"
+    LET major_version="$(echo "$version" | cut -d'.' -f1)"
+    LET minor_version="$(echo "$version" | cut -d'.' -f2)"
     DO --pass-args +LABELS
 
     IF [ "$TAGGED" = "true" ]
-        SAVE IMAGE --push "${IMAGE}:v${VERSION}${SUFFIX}"
+        SAVE IMAGE --push "${IMAGE}:v${version}${SUFFIX}"
 
         IF [ "$LATEST" = "true" ]
             SAVE IMAGE --push "${IMAGE}:latest${SUFFIX}"
-            SAVE IMAGE --push "${IMAGE}:v${MAJOR_VERSION}.${MINOR_VERSION}${SUFFIX}"
-            SAVE IMAGE --push "${IMAGE}:v${MAJOR_VERSION}${SUFFIX}"
+            SAVE IMAGE --push "${IMAGE}:v${major_version}.${minor_version}${SUFFIX}"
+            SAVE IMAGE --push "${IMAGE}:v${major_version}${SUFFIX}"
         END
     ELSE
         ARG EARTHLY_GIT_BRANCH
@@ -329,7 +392,8 @@ SAVE_IMAGE:
 
 LABELS:
     FUNCTION
-    LABEL org.opencontainers.image.created="$BUILD_TIME"
+    LET build_time="$(date -Iseconds)"
+    LABEL org.opencontainers.image.created="$build_time"
     LABEL org.opencontainers.image.url="https://github.com/blue-build/cli"
     LABEL org.opencontainers.image.source="https://github.com/blue-build/cli"
     LABEL org.opencontainers.image.version="$VERSION"

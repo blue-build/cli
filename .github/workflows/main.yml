@@ -2,7 +2,7 @@ name: Main branch build
 
 permissions: {}
 
-concurrency: 
+concurrency:
   group: ${{ github.workflow }}-main
   cancel-in-progress: true
 
@@ -23,6 +23,8 @@ jobs:
     with:
       repo: ${{ github.repository }}
       ref: main
+    secrets:
+      SIGNING_SECRET: ${{ secrets.SIGNING_SECRET }}
   test:
     uses: ./.github/workflows/test.yml
     permissions:

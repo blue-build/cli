@@ -13,3 +13,4 @@ cosign.key
 /config/*
 /Containerfile
 /expand.rs
+/digest-list
