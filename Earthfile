@@ -337,12 +337,14 @@ sign-images:
 
     ARG --required SUFFIX_LIST
     COPY --pass-args +digest-list/digest-list /
+    COPY cosign.pub /
 
     ENV COSIGN_YES="true"
     ENV COSIGN_PASSWORD=""
     FOR digest IN $(cat /digest-list | sed -E "s|^${IMAGE}:[^,]+,(sha256:[a-f0-9]+)$|\1|g" | sort -u)
         RUN --push --secret COSIGN_PRIVATE_KEY \
             cosign sign --key=env://COSIGN_PRIVATE_KEY --recursive "${IMAGE}@${digest}"
+        RUN --push cosign verify --key=/cosign.pub
     END
 
 PRINT_IMAGE_DIGEST:

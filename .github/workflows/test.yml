@@ -11,6 +11,8 @@ on:
         type: string
     secrets:
       TEST_SIGNING_SECRET:
+        required: true
+        description: The cosign private key used to sign images for tests
 env:
   FORCE_COLOR: 1
   CLICOLOR_FORCE: 1

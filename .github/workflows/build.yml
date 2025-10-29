@@ -9,6 +9,8 @@ on:
         type: string
     secrets:
       SIGNING_SECRET:
+        required: true
+        description: The cosign private key used to sign images
 env:
   FORCE_COLOR: 1
   CLICOLOR_FORCE: 1
