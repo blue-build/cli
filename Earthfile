@@ -99,6 +99,7 @@ install-all-features:
 common:
     FROM --platform=native ghcr.io/blue-build/earthly-lib/cargo-builder
 
+    ENV RUSTUP_PERMIT_COPY_RENAME="true"
     RUN rustup self update && \
         rustup toolchain add stable && \
         rustup default stable && \

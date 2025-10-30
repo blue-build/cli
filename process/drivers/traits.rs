@@ -157,7 +157,7 @@ pub trait BuildDriver: PrivateDriver {
                     let tagged_image = Reference::with_tag(
                         image.registry().into(),
                         image.repository().into(),
-                        tag.to_string(),
+                        tag.clone(),
                     );
 
                     let tag_opts = TagOpts::builder()
@@ -340,7 +340,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                 let tagged_image = Reference::with_tag(
                     full_image.registry().to_string(),
                     full_image.repository().to_string(),
-                    tag.to_string(),
+                    tag.clone(),
                 );
 
                 blue_build_utils::retry(opts.retry_count, 5, || {

@@ -179,13 +179,20 @@ impl Recipe<'_> {
         &self,
         default_labels: &BTreeMap<String, String>,
     ) -> BTreeMap<String, String> {
-        let mut labels = default_labels.iter().chain(self.labels.clone().unwrap_or_default().iter()).fold(
+        #[allow(clippy::option_if_let_else)] // map_or_else won't work with returning ref
+        let labels = if let Some(labels) = &self.labels {
+            labels
+        } else {
+            &HashMap::new()
+        };
+
+        let mut labels = default_labels.iter().chain(labels).fold(
             BTreeMap::new(),
             |mut acc, (k, v)| {
                 if let Some(existing_value) = acc.get(k) {
                     warn!("Found conflicting values for label: {k}, contains: {existing_value}, overwritten by: {v}");
                 }
-                acc.insert(k.to_string(), v.to_string());
+                acc.insert(k.clone(), v.clone());
                 acc
             },
         );
