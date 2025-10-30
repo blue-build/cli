@@ -24,6 +24,7 @@ build-images-all:
         BUILD --platform=linux/amd64 --platform=linux/arm64 +build-images
     END
 
+    FROM alpine
     ARG EARTHLY_PUSH
     IF [ "$EARTHLY_PUSH" = "true" ]
         ARG SUFFIX_LIST="- distrobox installer"
