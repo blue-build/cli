@@ -350,7 +350,7 @@ sign-images:
     FOR digest IN $(cat /digest-list | sed -E "s|^${IMAGE}:[^,]+,(sha256:[a-f0-9]+)$|\1|g" | sort -u)
         RUN --push --secret COSIGN_PRIVATE_KEY \
             cosign sign --key=env://COSIGN_PRIVATE_KEY --recursive "${IMAGE}@${digest}"
-        RUN --push cosign verify --key=/cosign.pub
+        RUN --push cosign verify --key=/cosign.pub "${IMAGE}@${digest}"
     END
 
 PRINT_IMAGE_DIGEST:
