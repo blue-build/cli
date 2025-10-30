@@ -342,6 +342,11 @@ sign-images:
 
     ENV COSIGN_YES="true"
     ENV COSIGN_PASSWORD=""
+    RUN --push \
+        --secret GH_TOKEN \
+        --secret GH_ACTOR \
+        echo "$GH_TOKEN" | cosign login ghcr.io --username "$GH_ACTOR" --password-stdin
+
     FOR digest IN $(cat /digest-list | sed -E "s|^${IMAGE}:[^,]+,(sha256:[a-f0-9]+)$|\1|g" | sort -u)
         RUN --push --secret COSIGN_PRIVATE_KEY \
             cosign sign --key=env://COSIGN_PRIVATE_KEY --recursive "${IMAGE}@${digest}"

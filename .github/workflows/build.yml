@@ -122,5 +122,7 @@ jobs:
 
       - name: Run build
         env:
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ github.token }}
           COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
-        run: earthly --secret COSIGN_PRIVATE_KEY --push --ci -P +build-images-all
+        run: earthly --secret COSIGN_PRIVATE_KEY --secret GH_ACTOR --secret GH_TOKEN --push --ci -P +build-images-all
