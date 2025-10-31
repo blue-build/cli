@@ -26,6 +26,15 @@ function cleanup() {
 
 trap cleanup SIGINT
 
+
+if command -v cosign &> /dev/null
+then
+  PUBKEY_DIR=$(mktemp -d)
+  PUBKEY_FILE="${PUBKEY_DIR}/cosign.pub"
+  curl -Lo "${PUBKEY_FILE}" https://raw.githubusercontent.com/blue-build/cli/refs/heads/main/cosign.pub
+  cosign verify --key cosign.pub "ghcr.io/blue-build/cli:${VERSION}-installer"
+fi
+
 cr create \
   --pull always \
   --replace \
