@@ -7,6 +7,10 @@ on:
       repo:
         required: true
         type: string
+    secrets:
+      SIGNING_SECRET:
+        required: true
+        description: The cosign private key used to sign images
 env:
   FORCE_COLOR: 1
   CLICOLOR_FORCE: 1
@@ -117,4 +121,8 @@ jobs:
 
 
       - name: Run build
-        run: earthly --push --ci -P +build-images-all
+        env:
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ github.token }}
+          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+        run: earthly --secret COSIGN_PRIVATE_KEY --secret GH_ACTOR --secret GH_TOKEN --push --ci -P +build-images-all

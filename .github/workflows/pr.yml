@@ -2,7 +2,7 @@ name: PR build
 
 permissions: {}
 
-concurrency: 
+concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
@@ -20,6 +20,8 @@ jobs:
     with:
       repo: ${{ github.event.pull_request.head.repo.full_name }}
       ref: ${{ github.event.pull_request.head.ref }}
+    secrets:
+      SIGNING_SECRET: ${{ secrets.SIGNING_SECRET }}
   test:
     uses: ./.github/workflows/test.yml
     permissions:
