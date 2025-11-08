@@ -30,10 +30,12 @@ RUN --mount=type=bind,from=stage-keys,src=/keys,dst=/tmp/keys \
   mkdir -p /etc/pki/containers/ \
   && cp /tmp/keys/* /etc/pki/containers/
 
+{%- if recipe.should_install_bins() %}
 # Bin RUN
 RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
   mkdir -p /usr/bin/ \
   && cp /tmp/bins/* /usr/bin/
+{%- endif %}
 
 {%- if should_install_nu() %}
 RUN --mount=type=bind,from={{ blue_build_utils::constants::NUSHELL_IMAGE }}:{{ get_nu_version() }},src=/nu,dst=/tmp/nu \

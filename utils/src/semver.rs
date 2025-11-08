@@ -27,7 +27,9 @@ impl<'de> Deserialize<'de> for Version {
         D: serde::Deserializer<'de>,
     {
         let ver = String::deserialize(deserializer)?;
-        ver.parse()
+        ver.trim()
+            .trim_start_matches('v')
+            .parse()
             .map_err(|e: miette::Error| D::Error::custom(e.to_string()))
     }
 }

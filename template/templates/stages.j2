@@ -20,16 +20,21 @@ FROM scratch AS stage-modules
 COPY ./modules /modules
 {% endif %}
 
+{%- if recipe.should_install_bins() %}
 # Bins to install
 # These are basic tools that are added to all images.
 # Generally used for the build process. We use a multi
 # stage process so that adding the bins into the image
 # can be added to the ostree commits.
 FROM scratch AS stage-bins
-COPY --from={{ blue_build_utils::constants::COSIGN_IMAGE }} /ko-app/cosign /bins/cosign
-{%- if recipe.should_install_bluebuild() %}
+  {%- if recipe.should_install_cosign() %}
+COPY --from={{ blue_build_utils::constants::COSIGN_IMAGE_REF }}:{{ recipe.get_cosign_version() }} \
+  /ko-app/cosign /bins/cosign
+  {%- endif %}
+  {%- if recipe.should_install_bluebuild() %}
 COPY --from={{ blue_build_utils::constants::BLUE_BUILD_IMAGE_REF }}:{{ recipe.get_bluebuild_version() }} \
   /out/bluebuild /bins/bluebuild
+  {%- endif %}
 {%- endif %}
 
 # Keys for pre-verified images
@@ -62,8 +67,7 @@ ARG RUST_LOG_STYLE=always
 COPY --from={{ blue_build_utils::constants::NUSHELL_IMAGE }}:{{ get_nu_version() }} /nu/* /usr/libexec/bluebuild/nu/
 
 # Add compatibility for modules
-RUN --mount=type=bind,from=stage-bins,src=/bins/,dst=/tmp/bins/ \
-  {{ scripts_mount("/tmp/scripts/") }} \
+RUN {{ scripts_mount("/tmp/scripts/") }} \
   /tmp/scripts/setup.sh
 
         {%- if self::config_dir_exists() %}

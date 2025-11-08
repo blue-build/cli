@@ -3,13 +3,16 @@ use std::{fmt::Debug, fs, path::Path};
 use blue_build_utils::{
     constants::{COSIGN_PASSWORD, COSIGN_PUB_PATH, COSIGN_YES},
     credentials::Credentials,
+    semver::Version,
 };
 use colored::Colorize;
 use comlexr::{cmd, pipe};
 use log::{debug, trace};
 use miette::{Context, IntoDiagnostic, Result, bail};
+use semver::VersionReq;
+use serde::Deserialize;
 
-use crate::drivers::opts::VerifyType;
+use crate::drivers::{DriverVersion, opts::VerifyType};
 
 use super::{
     SigningDriver,
@@ -17,8 +20,42 @@ use super::{
     opts::{CheckKeyPairOpts, GenerateKeyPairOpts, SignOpts, VerifyOpts},
 };
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct VersionJson {
+    git_version: Version,
+}
+
 #[derive(Debug)]
 pub struct CosignDriver;
+
+impl CosignDriver {
+    fn is_v3() -> bool {
+        Self::version().is_ok_and(|version| {
+            VersionReq::parse(">=3, <4").is_ok_and(|req| req.matches(&version))
+        })
+    }
+}
+
+impl DriverVersion for CosignDriver {
+    const VERSION_REQ: &'static str = ">=2";
+
+    fn version() -> Result<Version> {
+        trace!("CosignDriver::version()");
+
+        let output = {
+            let c = cmd!("cosign", "version", "--json");
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        let version_json: VersionJson = serde_json::from_slice(&output.stdout).into_diagnostic()?;
+
+        Ok(version_json.git_version)
+    }
+}
 
 impl SigningDriver for CosignDriver {
     fn generate_key_pair(opts: GenerateKeyPairOpts) -> Result<()> {
@@ -136,6 +173,10 @@ impl SigningDriver for CosignDriver {
                 "cosign",
                 "sign",
                 if let Some(key) = opts.key => format!("--key={key}"),
+                if Self::is_v3() => [
+                    "--new-bundle-format=false",
+                    "--use-signing-config=false",
+                ],
                 "--recursive",
                 opts.image.to_string(),
             );
