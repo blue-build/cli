@@ -226,7 +226,14 @@ test-generate-iso-image: generate-test-secret install-debug-all-features
   #!/usr/bin/env bash
   set -eu
   ISO_OUT=$(mktemp -d)
-  bluebuild generate-iso -vv --output-dir "$ISO_OUT" image ghcr.io/blue-build/cli/test:40
+  bluebuild generate-iso -vv --output-dir "$ISO_OUT" image ghcr.io/blue-build/cli/test:latest
+
+# Run ISO generator for images using web-ui
+test-generate-iso-web-ui: generate-test-secret install-debug-all-features
+  #!/usr/bin/env bash
+  set -eu
+  ISO_OUT=$(mktemp -d)
+  bluebuild generate-iso -vv --output-dir "$ISO_OUT" --web-ui image ghcr.io/blue-build/cli/test:latest
 
 # Run ISO generator for images
 test-generate-iso-recipe: generate-test-secret install-debug-all-features

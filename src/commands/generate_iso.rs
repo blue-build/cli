@@ -7,7 +7,8 @@ use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{
         ARCHIVE_SUFFIX, BB_GENISO_ENROLLMENT_PASSWORD, BB_GENISO_ISO_NAME,
-        BB_GENISO_SECURE_BOOT_URL, BB_SKIP_VALIDATION, BB_TEMPDIR,
+        BB_GENISO_SECURE_BOOT_URL, BB_GENISO_WEB_UI, BB_SKIP_VALIDATION, BB_TEMPDIR,
+        JASONN3_INSTALLER_IMAGE,
     },
     string_vec,
 };
@@ -77,6 +78,11 @@ pub struct GenerateIsoCommand {
     #[arg(long, env = BB_GENISO_ISO_NAME)]
     #[builder(into)]
     iso_name: Option<String>,
+
+    /// Enable Anaconda WebUI.
+    #[arg(long, env = BB_GENISO_WEB_UI)]
+    #[builder(default)]
+    web_ui: bool,
 
     /// The location to temporarily store files
     /// while building. If unset, it will use `/tmp`.
@@ -191,6 +197,7 @@ impl GenerateIsoCommand {
             "DNF_CACHE=/cache/dnf",
             format!("SECURE_BOOT_KEY_URL={}", self.secure_boot_url),
             format!("ENROLLMENT_PASSWORD={}", self.enrollment_password),
+            format!("WEB_UI={}", self.web_ui),
         ];
         let image_out_dir = &image_out_dir.display().to_string();
         let output_dir = &output_dir.display().to_string();
@@ -252,7 +259,7 @@ impl GenerateIsoCommand {
 
         // Currently testing local tarball builds
         let opts = RunOpts::builder()
-            .image("ghcr.io/jasonn3/build-container-installer")
+            .image(JASONN3_INSTALLER_IMAGE)
             .privileged(true)
             .remove(true)
             .args(&args)
