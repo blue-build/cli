@@ -9,15 +9,14 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-base64 = "0.22"
-blake2 = "0.10"
-constcat = "0.6"
-directories = "6"
-docker_credential = "1"
-format_serde_error = "0.3"
-lenient_semver = "0.4"
-process_control = { version = "4", features = ["crossbeam-channel"] }
-which = "8"
+base64 = "0.22.1"
+blake2 = "0.10.6"
+constcat = "0.6.1"
+directories = "6.0.0"
+docker_credential = "1.3.2"
+lenient_semver = "0.4.2"
+process_control = { version = "4.2.2", features = ["crossbeam-channel"] }
+which = "8.0.0"
 
 bon.workspace = true
 cached.workspace = true

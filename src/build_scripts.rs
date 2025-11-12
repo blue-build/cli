@@ -7,6 +7,7 @@ use std::{
 };
 
 use blue_build_utils::constants::{BLUE_BUILD_SCRIPTS_DIR_IGNORE, GITIGNORE_PATH};
+use cached::proc_macro::once;
 use miette::{Context, IntoDiagnostic, Result, miette};
 use rust_embed::Embed;
 
@@ -21,46 +22,53 @@ impl BuildScripts {
     /// This will also remove any old build scripts that
     /// were not cleaned up previously.
     ///
+    /// This operation is performed once per program instance.
+    ///
     /// # Errors
     /// Will error if the scripts cannot be extracted or the
     /// old scripts cannot be deleted.
     pub fn extract_mount_dir() -> Result<PathBuf> {
-        update_gitignore()?;
-        delete_old_dirs()?;
+        #[once(result = true)]
+        fn inner() -> Result<PathBuf> {
+            update_gitignore()?;
+            delete_old_dirs()?;
 
-        let dir = PathBuf::from(format!(
-            "{SCRIPT_DIR_PREFIX}{}",
-            crate::shadow::SHORT_COMMIT
-        ));
-        fs::create_dir(&dir)
-            .into_diagnostic()
-            .wrap_err("Failed to create dir for build scripts.")?;
-
-        for file_path in Self::iter() {
-            let file = Self::get(file_path.as_ref())
-                .ok_or_else(|| miette!("Failed to get file {file_path}"))?;
-            let file_path = dir.join(&*file_path);
-            fs::write(&file_path, &file.data)
+            let dir = PathBuf::from(format!(
+                "{SCRIPT_DIR_PREFIX}{}",
+                crate::shadow::SHORT_COMMIT
+            ));
+            fs::create_dir(&dir)
                 .into_diagnostic()
-                .wrap_err_with(|| {
-                    format!("Failed to write build script file {}", file_path.display())
-                })?;
+                .wrap_err("Failed to create dir for build scripts.")?;
 
-            let mut perm = fs::metadata(&file_path)
-                .into_diagnostic()
-                .wrap_err_with(|| {
-                    format!(
-                        "Failed to get file permissions for file {}",
-                        file_path.display()
-                    )
-                })?
-                .permissions();
+            for file_path in BuildScripts::iter() {
+                let file = BuildScripts::get(file_path.as_ref())
+                    .ok_or_else(|| miette!("Failed to get file {file_path}"))?;
+                let file_path = dir.join(&*file_path);
+                fs::write(&file_path, &file.data)
+                    .into_diagnostic()
+                    .wrap_err_with(|| {
+                        format!("Failed to write build script file {}", file_path.display())
+                    })?;
 
-            perm.set_mode(0o755);
-            fs::set_permissions(&file_path, perm).into_diagnostic()?;
+                let mut perm = fs::metadata(&file_path)
+                    .into_diagnostic()
+                    .wrap_err_with(|| {
+                        format!(
+                            "Failed to get file permissions for file {}",
+                            file_path.display()
+                        )
+                    })?
+                    .permissions();
+
+                perm.set_mode(0o755);
+                fs::set_permissions(&file_path, perm).into_diagnostic()?;
+            }
+
+            Ok(dir)
         }
 
-        Ok(dir)
+        inner()
     }
 }
 

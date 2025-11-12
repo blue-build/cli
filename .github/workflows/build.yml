@@ -7,15 +7,23 @@ on:
       repo:
         required: true
         type: string
+    secrets:
+      SIGNING_SECRET:
+        required: true
+        description: The cosign private key used to sign images
 env:
   FORCE_COLOR: 1
   CLICOLOR_FORCE: 1
   RUST_LOG_STYLE: always
 
+permissions: {}
+
 jobs:
   arm64-prebuild:
     timeout-minutes: 20
     runs-on: ubuntu-24.04-arm
+    permissions:
+      packages: write # write pacakges to ghcr
 
     steps:
       - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
@@ -45,6 +53,8 @@ jobs:
   amd64-prebuild:
     timeout-minutes: 20
     runs-on: ubuntu-latest
+    permissions:
+      packages: write # write pacakges to ghcr
 
     steps:
       - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
@@ -75,7 +85,7 @@ jobs:
 
   build-images:
     permissions:
-      packages: write
+      packages: write # push images to ghcr
     timeout-minutes: 60
     runs-on: ubuntu-latest
     needs:
@@ -95,7 +105,7 @@ jobs:
 
       # Setup repo and add caching
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with: 
+        with:
           persist-credentials: false
           fetch-depth: 0
           ref: ${{ inputs.ref }}
@@ -111,4 +121,8 @@ jobs:
 
 
       - name: Run build
-        run: earthly --push --ci -P +build-images-all
+        env:
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ github.token }}
+          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+        run: earthly --secret COSIGN_PRIVATE_KEY --secret GH_ACTOR --secret GH_TOKEN --push --ci -P +build-images-all

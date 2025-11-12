@@ -110,8 +110,8 @@ impl Recipe {
             debug!("Recipe contents: {file}");
 
             let mut recipe = serde_yaml::from_str::<Recipe>(&file)
-                .map_err(blue_build_utils::serde_yaml_err(&file))
-                .into_diagnostic()?;
+                .into_diagnostic()
+                .wrap_err_with(|| format!("Failed to parse recipe file {}", file_path.display()))?;
 
             recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules, None)?;
 
@@ -139,7 +139,7 @@ impl Recipe {
     #[must_use]
     pub const fn should_install_bluebuild(&self) -> bool {
         match self.blue_build_tag {
-            None | Some(MaybeVersion::Version(_)) => true,
+            None | Some(MaybeVersion::VersionOrBranch(_)) => true,
             Some(MaybeVersion::None) => false,
         }
     }
@@ -148,7 +148,9 @@ impl Recipe {
     pub fn get_bluebuild_version(&self) -> String {
         match &self.blue_build_tag {
             Some(MaybeVersion::None) | None => "latest-installer".to_string(),
-            Some(MaybeVersion::Version(version)) => version.to_string(),
+            Some(MaybeVersion::VersionOrBranch(version)) => {
+                format!("{}-installer", version.replace('/', "_"))
+            }
         }
     }
 
@@ -179,13 +181,20 @@ impl Recipe {
         &self,
         default_labels: &BTreeMap<String, String>,
     ) -> BTreeMap<String, String> {
-        let mut labels = default_labels.iter().chain(self.labels.clone().unwrap_or_default().iter()).fold(
+        #[allow(clippy::option_if_let_else)] // map_or_else won't work with returning ref
+        let labels = if let Some(labels) = &self.labels {
+            labels
+        } else {
+            &HashMap::new()
+        };
+
+        let mut labels = default_labels.iter().chain(labels).fold(
             BTreeMap::new(),
             |mut acc, (k, v)| {
                 if let Some(existing_value) = acc.get(k) {
                     warn!("Found conflicting values for label: {k}, contains: {existing_value}, overwritten by: {v}");
                 }
-                acc.insert(k.to_string(), v.to_string());
+                acc.insert(k.clone(), v.clone());
                 acc
             },
         );
