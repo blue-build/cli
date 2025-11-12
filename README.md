@@ -62,7 +62,7 @@ Refer to the [distrobox documentation](https://distrobox.it/usage/distrobox-expo
 
 ### Distrobox Dev build
 
-If you would like to run the latest build from repository before a release is built.
+If you would like to run the latest build from the repository before a release is built.
 
 ```bash
 $ distrobox create -i ghcr.io/blue-build/cli:main -n bluebuild-dev
