@@ -249,11 +249,11 @@ pub fn generate_default_labels(recipe: &Recipe) -> Result<BTreeMap<String, Strin
             ),
             (
                 "org.opencontainers.image.title".to_string(),
-                recipe.name.to_string(),
+                recipe.name.clone(),
             ),
             (
                 "org.opencontainers.image.description".to_string(),
-                recipe.description.to_string(),
+                recipe.description.clone(),
             ),
             ("org.opencontainers.image.source".to_string(), source),
             (

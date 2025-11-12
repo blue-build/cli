@@ -223,13 +223,6 @@ pub trait BuildDriver: PrivateDriver {
                         tag.to_string(),
                     );
 
-                    // let tag_opts = TagOpts::builder()
-                    //     .src_image(image.as_ref())
-                    //     .dest_image(&tagged_image)
-                    //     .build();
-
-                    // Self::tag(tag_opts)?;
-
                     Self::manifest_create(
                         ManifestCreateOpts::builder()
                             .final_image(&tagged_image)
@@ -245,12 +238,6 @@ pub trait BuildDriver: PrivateDriver {
                         blue_build_utils::retry(retry_count, 5, || {
                             debug!("Pushing image {tagged_image}");
 
-                            // Self::push(
-                            //     PushOpts::builder()
-                            //         .image(&tagged_image)
-                            //         .compression_type(opts.compression)
-                            //         .build(),
-                            // )
                             Self::manifest_push(
                                 ManifestPushOpts::builder()
                                     .final_image(&tagged_image)
@@ -665,7 +652,6 @@ pub trait SigningDriver: PrivateDriver {
             .map_or_else(|| PathBuf::from("."), |d| d.to_path_buf());
         let cosign_file_path = path.join(COSIGN_PUB_PATH);
 
-        // opts.platforms.par_iter().try_for_each(|&platform| {
         let image_digest = Driver::get_metadata(
             GetMetadataOpts::builder()
                 .image(opts.image)
@@ -714,7 +700,6 @@ pub trait SigningDriver: PrivateDriver {
         })?;
 
         Ok(())
-        // })
     }
 
     /// Runs the login logic for the signing driver.
