@@ -48,7 +48,7 @@ pub struct ContainerFileTemplate<'a> {
 impl ContainerFileTemplate<'_> {
     const fn should_install_nu(&self) -> bool {
         match self.nushell_version {
-            None | Some(MaybeVersion::Version(_)) => true,
+            None | Some(MaybeVersion::VersionOrBranch(_)) => true,
             Some(MaybeVersion::None) => false,
         }
     }
@@ -56,7 +56,7 @@ impl ContainerFileTemplate<'_> {
     fn get_nu_version(&self) -> String {
         match self.nushell_version {
             Some(MaybeVersion::None) | None => "default".to_string(),
-            Some(MaybeVersion::Version(version)) => version.to_string(),
+            Some(MaybeVersion::VersionOrBranch(version)) => version.replace('/', "_"),
         }
     }
 

@@ -139,7 +139,7 @@ impl Recipe<'_> {
     #[must_use]
     pub const fn should_install_bluebuild(&self) -> bool {
         match self.blue_build_tag {
-            None | Some(MaybeVersion::Version(_)) => true,
+            None | Some(MaybeVersion::VersionOrBranch(_)) => true,
             Some(MaybeVersion::None) => false,
         }
     }
@@ -148,7 +148,9 @@ impl Recipe<'_> {
     pub fn get_bluebuild_version(&self) -> String {
         match &self.blue_build_tag {
             Some(MaybeVersion::None) | None => "latest-installer".to_string(),
-            Some(MaybeVersion::Version(version)) => version.to_string(),
+            Some(MaybeVersion::VersionOrBranch(version)) => {
+                format!("{}-installer", version.replace('/', "_"))
+            }
         }
     }
 

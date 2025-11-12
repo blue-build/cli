@@ -1,11 +1,10 @@
-use blue_build_utils::semver::Version;
-use serde::{Deserialize, Serialize, de::Error};
+use serde::{Deserialize, Serialize};
 
 #[derive(Default, Clone, Debug)]
 pub enum MaybeVersion {
     #[default]
     None,
-    Version(Version),
+    VersionOrBranch(String),
 }
 
 impl std::fmt::Display for MaybeVersion {
@@ -15,7 +14,7 @@ impl std::fmt::Display for MaybeVersion {
             "{}",
             match self {
                 Self::None => "none".to_string(),
-                Self::Version(version) => version.to_string(),
+                Self::VersionOrBranch(version) => version.clone(),
             }
         )
     }
@@ -30,11 +29,7 @@ impl<'de> Deserialize<'de> for MaybeVersion {
 
         Ok(match val {
             none if none.to_lowercase() == "none" => Self::None,
-            version => Self::Version(
-                version
-                    .parse()
-                    .map_err(|e: miette::Error| D::Error::custom(e.to_string()))?,
-            ),
+            version => Self::VersionOrBranch(version),
         })
     }
 }
