@@ -60,6 +60,19 @@ This will export `bluebuild` to your local machine and allow you to build images
 
 Refer to the [distrobox documentation](https://distrobox.it/usage/distrobox-export/) for more information.
 
+### Distrobox Dev build
+
+If you would like to run the latest build from repository before a release is built.
+
+```bash
+$ distrobox create -i ghcr.io/blue-build/cli:main -n bluebuild-dev
+$ distrobox enter bluebuild-dev
+$ cp /usr/bin/bluebuild ~/.local/bin
+$ exit
+# you can run with sudo also
+$ ~/.local/bin/bluebuild
+```
+
 ### Nix Flake
 
 You can install this CLI through the Nix flake on [Flakehub](https://flakehub.com/)
