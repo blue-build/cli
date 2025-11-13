@@ -6,13 +6,14 @@ use std::{
 
 use crate::{BuildScripts, DriverTemplate, commands::validate::ValidateCommand};
 use blue_build_process_management::drivers::{
-    CiDriver, Driver, DriverArgs, InspectDriver, opts::GetMetadataOpts, types::Platform,
+    CiDriver, Driver, DriverArgs, InspectDriver, opts::GetMetadataOpts,
 };
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
     constants::{BB_SKIP_VALIDATION, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH},
     current_timestamp,
+    platform::Platform,
     syntax_highlighting::{self, DefaultThemes},
 };
 use bon::Builder;
@@ -145,7 +146,7 @@ impl GenerateCommand {
                 format!(
                     "Failed to parse image with base {} and version {}",
                     recipe.base_image.bright_blue(),
-                    recipe.image_version.bright_yellow()
+                    recipe.image_version.to_string().bright_yellow()
                 )
             })?;
         let base_digest =
@@ -248,11 +249,11 @@ pub fn generate_default_labels(recipe: &Recipe) -> Result<BTreeMap<String, Strin
             ),
             (
                 "org.opencontainers.image.title".to_string(),
-                recipe.name.to_string(),
+                recipe.name.clone(),
             ),
             (
                 "org.opencontainers.image.description".to_string(),
-                recipe.description.to_string(),
+                recipe.description.clone(),
             ),
             ("org.opencontainers.image.source".to_string(), source),
             (

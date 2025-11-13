@@ -24,6 +24,7 @@ miette = "7.6.0"
 nix = { version = "0.30.1" }
 oci-distribution = { package = "oci-client", version = "0.15.0", default-features = false }
 pretty_assertions = "1.4.1"
+rayon = "1.11.0"
 regex = "1.12.2"
 reqwest = { version = "0.12.24", default-features = false, features = ["rustls-tls"] }
 rstest = "0.26.1"
@@ -79,7 +80,6 @@ fuzzy-matcher = "0.3.7"
 jsonschema = "0.30.0"
 open = "5.3.2"
 os_info = "3.12.0"
-rayon = "1.11.0"
 requestty = { version = "0.6.1", features = ["macros", "termion"] }
 rust-embed = { version = "8.7.2", features = ["debug-embed", "compression", "deterministic-timestamps"] }
 shadow-rs = { version = "1.4.0", default-features = false }
@@ -96,6 +96,7 @@ indicatif.workspace = true
 log.workspace = true
 miette = { workspace = true, features = ["fancy"] }
 oci-distribution.workspace = true
+rayon.workspace = true
 regex.workspace = true
 reqwest.workspace = true
 semver.workspace = true

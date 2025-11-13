@@ -1,11 +1,11 @@
 use std::{borrow::Cow, path::PathBuf};
 
-use blue_build_utils::constants::OCI_ARCHIVE;
+use blue_build_utils::{constants::OCI_ARCHIVE, container::ImageRef};
 use log::warn;
 use oci_distribution::Reference;
 use serde::Deserialize;
 
-use crate::drivers::{BootStatus, types::ImageRef};
+use crate::drivers::BootStatus;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct BootcStatus {

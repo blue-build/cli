@@ -1,12 +1,11 @@
 use std::{
-    borrow::Cow,
     collections::HashSet,
     collections::{BTreeMap, HashMap},
     fs,
     path::{Path, PathBuf},
 };
 
-use blue_build_utils::secret::Secret;
+use blue_build_utils::{container::Tag, platform::Platform, secret::Secret};
 use bon::Builder;
 use cached::proc_macro::cached;
 use log::{debug, trace, warn};
@@ -23,28 +22,25 @@ use crate::{Module, ModuleExt, StagesExt, maybe_version::MaybeVersion};
 /// base image to assist with building the Containerfile
 /// and tagging the image appropriately.
 #[derive(Default, Serialize, Clone, Deserialize, Debug, Builder)]
-pub struct Recipe<'a> {
+#[builder(on(String, into))]
+pub struct Recipe {
     /// The name of the user's image.
     ///
     /// This will be set on the `org.opencontainers.image.title` label.
-    #[builder(into)]
-    pub name: Cow<'a, str>,
+    pub name: String,
 
     /// The description of the user's image.
     ///
     /// This will be set on the `org.opencontainers.image.description` label.
-    #[builder(into)]
-    pub description: Cow<'a, str>,
+    pub description: String,
 
     /// The base image from which to build the user's image.
     #[serde(alias = "base-image")]
-    #[builder(into)]
-    pub base_image: Cow<'a, str>,
+    pub base_image: String,
 
     /// The version/tag of the base image.
     #[serde(alias = "image-version")]
-    #[builder(into)]
-    pub image_version: Cow<'a, str>,
+    pub image_version: Tag,
 
     /// The version of `bluebuild` to install in the image
     #[serde(alias = "blue-build-tag", skip_serializing_if = "Option::is_none")]
@@ -59,11 +55,15 @@ pub struct Recipe<'a> {
     /// Any user input will override the `latest` and timestamp tags.
     #[serde(alias = "alt-tags", skip_serializing_if = "Option::is_none")]
     #[builder(into)]
-    pub alt_tags: Option<Vec<String>>,
+    pub alt_tags: Option<Vec<Tag>>,
 
     /// The version of nushell to use for modules.
     #[serde(skip_serializing_if = "Option::is_none", rename = "nushell-version")]
     pub nushell_version: Option<MaybeVersion>,
+
+    /// The platforms to build for the image.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub platforms: Option<Vec<Platform>>,
 
     /// The stages extension of the recipe.
     ///
@@ -71,13 +71,13 @@ pub struct Recipe<'a> {
     /// be used to build software outside of
     /// the final build image.
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
-    pub stages_ext: Option<StagesExt<'a>>,
+    pub stages_ext: Option<StagesExt>,
 
     /// The modules extension of the recipe.
     ///
     /// This holds the list of modules to be run on the image.
     #[serde(flatten)]
-    pub modules_ext: ModuleExt<'a>,
+    pub modules_ext: ModuleExt,
 
     /// Custom LABELs to add to the image.
     ///
@@ -86,7 +86,7 @@ pub struct Recipe<'a> {
     pub labels: Option<HashMap<String, String>>,
 }
 
-impl Recipe<'_> {
+impl Recipe {
     /// Parse a recipe file
     ///
     /// # Errors
@@ -94,7 +94,7 @@ impl Recipe<'_> {
     /// or a linked module yaml file does not exist.
     pub fn parse<P: AsRef<Path>>(path: P) -> Result<Self> {
         #[cached(result = true, key = "PathBuf", convert = r"{ path.into() }")]
-        fn inner(path: &Path) -> Result<Recipe<'static>> {
+        fn inner(path: &Path) -> Result<Recipe> {
             trace!("Recipe::parse({})", path.display());
 
             let file_path = if path.is_absolute() {
@@ -217,7 +217,7 @@ mod tests {
 
     fn generate_test_recipe(
         custom_labels: HashMap<String, String>,
-    ) -> (BTreeMap<String, String>, Recipe<'static>) {
+    ) -> (BTreeMap<String, String>, Recipe) {
         let default_labels = BTreeMap::from([
             (
                 blue_build_utils::constants::BUILD_ID_LABEL.to_string(),
@@ -254,7 +254,7 @@ mod tests {
                 .name("title".to_string())
                 .description("description".to_string())
                 .base_image("base_name".to_string())
-                .image_version("version".to_string())
+                .image_version("42".parse().unwrap())
                 .modules_ext(ModuleExt::builder().modules(vec![]).build())
                 .labels(custom_labels)
                 .build(),

@@ -1,9 +1,9 @@
+use blue_build_utils::{container::ContainerId, platform::Platform};
 use bon::Builder;
 use oci_distribution::Reference;
 
-use crate::drivers::types::ContainerId;
-
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct RunOpts<'scope> {
     pub image: &'scope str,
 
@@ -25,9 +25,11 @@ pub struct RunOpts<'scope> {
 
     #[builder(default)]
     pub remove: bool,
+    pub platform: Option<Platform>,
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct RunOptsVolume<'scope> {
     pub path_or_vol_name: &'scope str,
     pub container_path: &'scope str,
@@ -48,6 +50,7 @@ macro_rules! run_volumes {
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct RunOptsEnv<'scope> {
     pub key: &'scope str,
     pub value: &'scope str,
@@ -68,6 +71,7 @@ macro_rules! run_envs {
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct CreateContainerOpts<'scope> {
     pub image: &'scope Reference,
 
@@ -76,6 +80,7 @@ pub struct CreateContainerOpts<'scope> {
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct RemoveContainerOpts<'scope> {
     pub container_id: &'scope ContainerId,
 
@@ -84,6 +89,7 @@ pub struct RemoveContainerOpts<'scope> {
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct RemoveImageOpts<'scope> {
     pub image: &'scope Reference,
 

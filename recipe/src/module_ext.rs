@@ -12,12 +12,12 @@ use serde::{Deserialize, Serialize};
 use crate::{AkmodsInfo, FromFileList, Module, base_recipe_path};
 
 #[derive(Default, Serialize, Clone, Deserialize, Debug, Builder)]
-pub struct ModuleExt<'a> {
+pub struct ModuleExt {
     #[builder(default)]
-    pub modules: Vec<Module<'a>>,
+    pub modules: Vec<Module>,
 }
 
-impl FromFileList for ModuleExt<'_> {
+impl FromFileList for ModuleExt {
     const LIST_KEY: &'static str = "modules";
 
     fn get_from_file_paths(&self) -> Vec<PathBuf> {
@@ -28,7 +28,7 @@ impl FromFileList for ModuleExt<'_> {
     }
 }
 
-impl TryFrom<&PathBuf> for ModuleExt<'_> {
+impl TryFrom<&PathBuf> for ModuleExt {
     type Error = Report;
 
     fn try_from(value: &PathBuf) -> std::result::Result<Self, Self::Error> {
@@ -36,7 +36,7 @@ impl TryFrom<&PathBuf> for ModuleExt<'_> {
     }
 }
 
-impl TryFrom<&Path> for ModuleExt<'_> {
+impl TryFrom<&Path> for ModuleExt {
     type Error = Report;
 
     fn try_from(file_name: &Path) -> Result<Self> {
@@ -60,7 +60,7 @@ impl TryFrom<&Path> for ModuleExt<'_> {
     }
 }
 
-impl ModuleExt<'_> {
+impl ModuleExt {
     #[must_use]
     pub fn get_akmods_info_list(&self, os_version: &u64) -> Vec<AkmodsInfo> {
         trace!("get_akmods_image_list({self:#?}, {os_version})");

@@ -1,11 +1,9 @@
 use std::{ops::Not, path::PathBuf, str::FromStr};
 
-use blue_build_utils::impl_de_fromstr;
+use blue_build_utils::{container::ImageRef, impl_de_fromstr};
 use lazy_regex::{regex_if, regex_switch};
 use miette::{IntoDiagnostic, bail};
 use oci_distribution::Reference;
-
-use crate::drivers::types::ImageRef;
 
 impl_de_fromstr!(
     DeploymentImageRef,

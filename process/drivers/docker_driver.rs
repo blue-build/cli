@@ -6,6 +6,7 @@ use std::{
 
 use blue_build_utils::{
     constants::{BLUE_BUILD, DOCKER_HOST, GITHUB_ACTIONS},
+    container::{ContainerId, ImageRef},
     credentials::Credentials,
     get_env_var,
     secret::SecretArgs,
@@ -24,10 +25,10 @@ use tempfile::TempDir;
 use crate::{
     drivers::{
         opts::{
-            BuildOpts, BuildTagPushOpts, PushOpts, RunOpts, RunOptsEnv, RunOptsVolume, TagOpts,
+            BuildOpts, BuildTagPushOpts, ManifestCreateOpts, ManifestPushOpts, PushOpts, RunOpts,
+            RunOptsEnv, RunOptsVolume, TagOpts,
         },
         traits::{BuildDriver, DriverVersion, RunDriver},
-        types::{ContainerId, ImageRef},
     },
     logging::CommandLogging,
     signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
@@ -377,6 +378,59 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
+    fn manifest_create(opts: ManifestCreateOpts) -> Result<()> {
+        let output = {
+            let c = cmd!("docker", "manifest", "rm", opts.final_image.to_string());
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if output.status.success() {
+            warn!(
+                "Existing image manifest {} exists, removing...",
+                opts.final_image
+            );
+        }
+
+        let status = {
+            let c = cmd!(
+                "docker",
+                "manifest",
+                "create",
+                opts.final_image.to_string(),
+                for image in opts.image_list => image.to_string(),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
+        }
+
+        Ok(())
+    }
+
+    fn manifest_push(opts: ManifestPushOpts) -> Result<()> {
+        let status = {
+            let c = cmd!("docker", "manifest", "push", opts.final_image.to_string());
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
+        }
+
+        Ok(())
+    }
+
     fn build_tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
         trace!("DockerDriver::build_tag_push({opts:#?})");
 
@@ -432,7 +486,9 @@ fn build_tag_push_cmd(
                     opts.compression
                 ),
             ],
-            ImageRef::Remote(_remote) if get_env_var(GITHUB_ACTIONS).is_err() => "--load",
+            ImageRef::Remote(_remote)
+                if get_env_var(GITHUB_ACTIONS).is_err()
+                && opts.platform.len() <= 1 => "--load",
             ImageRef::LocalTar(archive_path) => [
                 "--output",
                 format!("type=oci,dest={}", archive_path.display()),
@@ -448,7 +504,7 @@ fn build_tag_push_cmd(
                 }).collect()
             }),
         "--pull",
-        if let Some(platform) = opts.platform => [
+        for platform in opts.platform => [
             "--platform",
             platform.to_string(),
         ],
@@ -528,7 +584,7 @@ impl RunDriver for DockerDriver {
         Ok(output)
     }
 
-    fn create_container(opts: CreateContainerOpts) -> Result<super::types::ContainerId> {
+    fn create_container(opts: CreateContainerOpts) -> Result<ContainerId> {
         trace!("DockerDriver::create_container({opts:?})");
 
         let output = {

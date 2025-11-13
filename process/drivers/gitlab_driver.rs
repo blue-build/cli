@@ -6,6 +6,7 @@ use blue_build_utils::{
         CI_PIPELINE_SOURCE, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_PROJECT_URL, CI_REGISTRY,
         CI_SERVER_HOST, CI_SERVER_PROTOCOL,
     },
+    container::Tag,
     string_vec,
 };
 use log::trace;
@@ -15,6 +16,7 @@ use blue_build_utils::get_env_var;
 
 #[cfg(test)]
 use blue_build_utils::test_utils::get_env_var;
+use miette::Result;
 
 use crate::drivers::Driver;
 
@@ -29,7 +31,7 @@ impl CiDriver for GitlabDriver {
         })
     }
 
-    fn keyless_cert_identity() -> miette::Result<String> {
+    fn keyless_cert_identity() -> Result<String> {
         Ok(format!(
             "{}//.gitlab-ci.yml@refs/heads/{}",
             get_env_var(CI_PROJECT_URL)?,
@@ -45,7 +47,7 @@ impl CiDriver for GitlabDriver {
         ))
     }
 
-    fn generate_tags(opts: GenerateTagsOpts) -> miette::Result<Vec<String>> {
+    fn generate_tags(opts: GenerateTagsOpts) -> Result<Vec<Tag>> {
         const MR_EVENT: &str = "merge_request_event";
         let os_version = Driver::get_os_version().oci_ref(opts.oci_ref).call()?;
         let timestamp = blue_build_utils::get_tag_timestamp();
@@ -74,7 +76,7 @@ impl CiDriver for GitlabDriver {
                 .iter()
                 .flat_map(|alt| {
                     string_vec![
-                        &**alt,
+                        alt,
                         format!("{alt}-{os_version}"),
                         format!("{timestamp}-{alt}-{os_version}"),
                         format!("{short_sha}-{alt}-{os_version}"),
@@ -115,7 +117,10 @@ impl CiDriver for GitlabDriver {
                     ]
                 })
                 .collect(),
-        };
+        }
+        .into_iter()
+        .map(|tag| tag.parse())
+        .collect::<Result<Vec<Tag>>>()?;
         trace!("{tags:?}");
 
         Ok(tags)
@@ -154,6 +159,8 @@ mod test {
             CI_PIPELINE_SOURCE, CI_PROJECT_NAME, CI_PROJECT_NAMESPACE, CI_REGISTRY, CI_SERVER_HOST,
             CI_SERVER_PROTOCOL,
         },
+        container::Tag,
+        platform::Platform,
         string_vec,
         test_utils::set_env_var,
     };
@@ -293,13 +300,22 @@ mod test {
     ) {
         setup();
         expected.sort();
+        let expected: Vec<Tag> = expected
+            .into_iter()
+            .map(|tag| tag.parse().unwrap())
+            .collect();
         let oci_ref: Reference = "ghcr.io/ublue-os/silverblue-main".parse().unwrap();
+        let alt_tags = alt_tags.map(|tags| {
+            tags.into_iter()
+                .map(|tag| tag.parse::<Tag>().unwrap())
+                .collect::<Vec<_>>()
+        });
 
         let mut tags = GitlabDriver::generate_tags(
             GenerateTagsOpts::builder()
                 .oci_ref(&oci_ref)
                 .maybe_alt_tags(alt_tags.as_deref())
-                .platform(crate::drivers::types::Platform::LinuxAmd64)
+                .platform(Platform::LinuxAmd64)
                 .build(),
         )
         .unwrap();

@@ -3,13 +3,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use blue_build_utils::get_env_var;
+use blue_build_utils::{get_env_var, platform::Platform};
 use bon::Builder;
 use miette::{IntoDiagnostic, Result};
 use oci_distribution::Reference;
 use zeroize::{Zeroize, Zeroizing};
-
-use crate::drivers::types::Platform;
 
 #[derive(Debug)]
 pub enum PrivateKey {
@@ -57,16 +55,19 @@ impl PrivateKeyContents<String> for PrivateKey {
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct GenerateKeyPairOpts<'scope> {
     pub dir: Option<&'scope Path>,
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct CheckKeyPairOpts<'scope> {
     pub dir: Option<&'scope Path>,
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct SignOpts<'scope> {
     pub image: &'scope Reference,
     pub key: Option<&'scope PrivateKey>,
@@ -83,12 +84,14 @@ pub enum VerifyType<'scope> {
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct VerifyOpts<'scope> {
     pub image: &'scope Reference,
     pub verify_type: VerifyType<'scope>,
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct SignVerifyOpts<'scope> {
     pub image: &'scope Reference,
     pub dir: Option<&'scope Path>,
@@ -102,6 +105,5 @@ pub struct SignVerifyOpts<'scope> {
     /// Defaults to 1.
     #[builder(default = 1)]
     pub retry_count: u8,
-
-    pub platform: Option<Platform>,
+    pub platforms: &'scope [Platform],
 }

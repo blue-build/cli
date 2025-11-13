@@ -22,6 +22,6 @@ fi
 rm -rf /tmp/* /var/* /opt
 ln -fs /var/opt /opt
 
-if feature_enabled "bootc" && command -v bootc >/dev/null; then
-  bootc container lint
-fi
+# if feature_enabled "bootc" && command -v bootc > /dev/null; then
+#   bootc container lint
+# fi

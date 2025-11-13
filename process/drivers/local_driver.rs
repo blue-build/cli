@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
-use blue_build_utils::string_vec;
+use blue_build_utils::{container::Tag, string_vec};
 use comlexr::cmd;
 use log::trace;
-use miette::bail;
+use miette::{Result, bail};
 
 use super::{CiDriver, Driver, opts::GenerateTagsOpts};
 
@@ -15,7 +15,7 @@ impl CiDriver for LocalDriver {
         false
     }
 
-    fn keyless_cert_identity() -> miette::Result<String> {
+    fn keyless_cert_identity() -> Result<String> {
         bail!("Unimplemented for local")
     }
 
@@ -23,45 +23,50 @@ impl CiDriver for LocalDriver {
         bail!("Unimplemented for local")
     }
 
-    fn generate_tags(opts: GenerateTagsOpts) -> miette::Result<Vec<String>> {
+    fn generate_tags(opts: GenerateTagsOpts) -> Result<Vec<Tag>> {
         trace!("LocalDriver::generate_tags({opts:?})");
         let os_version = Driver::get_os_version().oci_ref(opts.oci_ref).call()?;
         let timestamp = blue_build_utils::get_tag_timestamp();
         let short_sha = commit_sha();
 
-        Ok(opts.alt_tags.as_ref().map_or_else(
-            || {
-                let mut tags = string_vec![
-                    "latest",
-                    &timestamp,
-                    format!("{os_version}"),
-                    format!("{timestamp}-{os_version}"),
-                ];
+        opts.alt_tags
+            .as_ref()
+            .map_or_else(
+                || {
+                    let mut tags = string_vec![
+                        "latest",
+                        &timestamp,
+                        format!("{os_version}"),
+                        format!("{timestamp}-{os_version}"),
+                    ];
 
-                if let Some(short_sha) = &short_sha {
-                    tags.push(format!("{short_sha}-{os_version}"));
-                }
+                    if let Some(short_sha) = &short_sha {
+                        tags.push(format!("{short_sha}-{os_version}"));
+                    }
 
-                tags
-            },
-            |alt_tags| {
-                alt_tags
-                    .iter()
-                    .flat_map(|alt| {
-                        let mut tags = string_vec![
-                            &**alt,
-                            format!("{alt}-{os_version}"),
-                            format!("{timestamp}-{alt}-{os_version}"),
-                        ];
-                        if let Some(short_sha) = &short_sha {
-                            tags.push(format!("{short_sha}-{alt}-{os_version}"));
-                        }
+                    tags
+                },
+                |alt_tags| {
+                    alt_tags
+                        .iter()
+                        .flat_map(|alt| {
+                            let mut tags = string_vec![
+                                alt,
+                                format!("{alt}-{os_version}"),
+                                format!("{timestamp}-{alt}-{os_version}"),
+                            ];
+                            if let Some(short_sha) = &short_sha {
+                                tags.push(format!("{short_sha}-{alt}-{os_version}"));
+                            }
 
-                        tags
-                    })
-                    .collect()
-            },
-        ))
+                            tags
+                        })
+                        .collect()
+                },
+            )
+            .into_iter()
+            .map(|tag| tag.parse())
+            .collect()
     }
 
     fn get_repo_url() -> miette::Result<String> {

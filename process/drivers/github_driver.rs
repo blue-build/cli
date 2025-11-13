@@ -5,6 +5,7 @@ use blue_build_utils::{
         GITHUB_EVENT_NAME, GITHUB_EVENT_PATH, GITHUB_REF_NAME, GITHUB_SHA, GITHUB_TOKEN_ISSUER_URL,
         GITHUB_WORKFLOW_REF, PR_EVENT_NUMBER,
     },
+    container::Tag,
     string_vec,
 };
 use event::Event;
@@ -15,6 +16,7 @@ use blue_build_utils::get_env_var;
 
 #[cfg(test)]
 use blue_build_utils::test_utils::get_env_var;
+use miette::Result;
 
 use super::{CiDriver, Driver, opts::GenerateTagsOpts};
 
@@ -28,7 +30,7 @@ impl CiDriver for GithubDriver {
             .is_ok_and(|path| Event::try_new(path).is_ok_and(|e| e.on_default_branch()))
     }
 
-    fn keyless_cert_identity() -> miette::Result<String> {
+    fn keyless_cert_identity() -> Result<String> {
         get_env_var(GITHUB_WORKFLOW_REF)
     }
 
@@ -36,7 +38,7 @@ impl CiDriver for GithubDriver {
         Ok(GITHUB_TOKEN_ISSUER_URL.to_string())
     }
 
-    fn generate_tags(opts: GenerateTagsOpts) -> miette::Result<Vec<String>> {
+    fn generate_tags(opts: GenerateTagsOpts) -> Result<Vec<Tag>> {
         const PR_EVENT: &str = "pull_request";
         let timestamp = blue_build_utils::get_tag_timestamp();
         let os_version = Driver::get_os_version()
@@ -71,7 +73,7 @@ impl CiDriver for GithubDriver {
                 .iter()
                 .flat_map(|alt| {
                     string_vec![
-                        &**alt,
+                        alt,
                         format!("{alt}-{os_version}"),
                         format!("{timestamp}-{alt}-{os_version}"),
                         format!("{short_sha}-{alt}-{os_version}"),
@@ -110,7 +112,10 @@ impl CiDriver for GithubDriver {
                     ]
                 })
                 .collect(),
-        };
+        }
+        .into_iter()
+        .map(|tag| tag.parse())
+        .collect::<Result<Vec<Tag>>>()?;
         trace!("{tags:?}");
 
         Ok(tags)
@@ -145,6 +150,8 @@ mod test {
         constants::{
             GITHUB_EVENT_NAME, GITHUB_EVENT_PATH, GITHUB_REF_NAME, GITHUB_SHA, PR_EVENT_NUMBER,
         },
+        container::Tag,
+        platform::Platform,
         string_vec,
         test_utils::set_env_var,
     };
@@ -152,7 +159,7 @@ mod test {
     use rstest::rstest;
 
     use crate::{
-        drivers::{CiDriver, opts::GenerateTagsOpts, types::Platform},
+        drivers::{CiDriver, opts::GenerateTagsOpts},
         test::{TEST_TAG_1, TEST_TAG_2, TIMESTAMP},
     };
 
@@ -288,7 +295,16 @@ mod test {
     ) {
         setup();
         expected.sort();
+        let expected: Vec<Tag> = expected
+            .into_iter()
+            .map(|tag| tag.parse().unwrap())
+            .collect();
         let oci_ref: Reference = "ghcr.io/ublue-os/silverblue-main".parse().unwrap();
+        let alt_tags = alt_tags.map(|tags| {
+            tags.into_iter()
+                .map(|tag| tag.parse::<Tag>().unwrap())
+                .collect::<Vec<_>>()
+        });
 
         let mut tags = GithubDriver::generate_tags(
             GenerateTagsOpts::builder()

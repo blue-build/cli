@@ -5,12 +5,17 @@ use std::{
 };
 
 use blue_build_utils::{
-    constants::USER, credentials::Credentials, get_env_var, secret::SecretArgs, semver::Version,
+    constants::USER,
+    container::{ContainerId, MountId},
+    credentials::Credentials,
+    get_env_var,
+    secret::SecretArgs,
+    semver::Version,
     sudo_cmd,
 };
 use colored::Colorize;
 use comlexr::{cmd, pipe};
-use log::{debug, error, info, trace};
+use log::{debug, error, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
 use serde::Deserialize;
@@ -22,12 +27,14 @@ use super::{
         ContainerOpts, CreateContainerOpts, PruneOpts, RemoveContainerOpts, RemoveImageOpts,
         VolumeOpts,
     },
-    types::{ContainerId, MountId},
 };
 use crate::{
     drivers::{
         BuildDriver, DriverVersion, RunDriver,
-        opts::{BuildOpts, PushOpts, RunOpts, RunOptsEnv, RunOptsVolume, TagOpts},
+        opts::{
+            BuildOpts, ManifestCreateOpts, ManifestPushOpts, PushOpts, RunOpts, RunOptsEnv,
+            RunOptsVolume, TagOpts,
+        },
     },
     logging::CommandLogging,
     signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
@@ -128,22 +135,28 @@ impl BuildDriver for PodmanDriver {
                 "--platform",
                 platform.to_string(),
             ],
-            if let Some(cache_from) = opts.cache_from.as_ref() => [
-                "--cache-from",
-                format!(
-                    "{}/{}",
-                    cache_from.registry(),
-                    cache_from.repository()
-                ),
-            ],
-            if let Some(cache_to) = opts.cache_to.as_ref() => [
-                "--cache-to",
-                format!(
-                    "{}/{}",
-                    cache_to.registry(),
-                    cache_to.repository()
-                ),
-            ],
+            match opts.cache_from.as_ref() {
+                Some(cache_from) if !opts.squash => [
+                    "--cache-from",
+                    format!(
+                        "{}/{}",
+                        cache_from.registry(),
+                        cache_from.repository()
+                    ),
+                ],
+                _ => [],
+            },
+            match opts.cache_from.as_ref() {
+                Some(cache_to) if !opts.squash => [
+                    "--cache-to",
+                    format!(
+                        "{}/{}",
+                        cache_to.registry(),
+                        cache_to.repository()
+                    ),
+                ],
+                _ => [],
+            },
             "--pull=true",
             if opts.host_network => "--net=host",
             format!("--layers={}", !opts.squash),
@@ -275,6 +288,65 @@ impl BuildDriver for PodmanDriver {
 
         if !status.success() {
             bail!("Failed to prune podman");
+        }
+
+        Ok(())
+    }
+
+    fn manifest_create(opts: ManifestCreateOpts) -> Result<()> {
+        let output = {
+            let c = cmd!("podman", "manifest", "rm", opts.final_image.to_string());
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if output.status.success() {
+            warn!(
+                "Existing image manifest {} exists, removing...",
+                opts.final_image
+            );
+        }
+
+        let status = {
+            let c = cmd!(
+                "podman",
+                "manifest",
+                "create",
+                opts.final_image.to_string(),
+                for image in opts.image_list => image.to_string(),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
+        }
+
+        Ok(())
+    }
+
+    fn manifest_push(opts: ManifestPushOpts) -> Result<()> {
+        let status = {
+            let c = cmd!(
+                "podman",
+                "manifest",
+                "push",
+                opts.final_image.to_string(),
+                format!("docker://{}", opts.final_image),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
         }
 
         Ok(())
