@@ -3,6 +3,8 @@
 name: cli/test
 description: This is my personal OS image.
 base-image: quay.io/fedora/fedora-bootc
+blue-build-tag: none
+cosign-version: none
 image-version: latest
 stages:
   - from-file: stages.yml

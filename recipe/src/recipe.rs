@@ -5,7 +5,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use blue_build_utils::{container::Tag, platform::Platform, secret::Secret};
+use blue_build_utils::{
+    constants::COSIGN_IMAGE_VERSION, container::Tag, platform::Platform, secret::Secret,
+};
 use bon::Builder;
 use cached::proc_macro::cached;
 use log::{debug, trace, warn};
@@ -64,6 +66,10 @@ pub struct Recipe {
     /// The platforms to build for the image.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub platforms: Option<Vec<Platform>>,
+
+    /// The version of cosign to install.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "cosign-version")]
+    pub cosign_version: Option<MaybeVersion>,
 
     /// The stages extension of the recipe.
     ///
@@ -145,12 +151,33 @@ impl Recipe {
     }
 
     #[must_use]
+    pub const fn should_install_cosign(&self) -> bool {
+        match self.cosign_version {
+            None | Some(MaybeVersion::VersionOrBranch(_)) => true,
+            Some(MaybeVersion::None) => false,
+        }
+    }
+
+    #[must_use]
+    pub const fn should_install_bins(&self) -> bool {
+        self.should_install_bluebuild() && self.should_install_cosign()
+    }
+
+    #[must_use]
     pub fn get_bluebuild_version(&self) -> String {
         match &self.blue_build_tag {
             Some(MaybeVersion::None) | None => "latest-installer".to_string(),
             Some(MaybeVersion::VersionOrBranch(version)) => {
                 format!("{}-installer", version.replace('/', "_"))
             }
+        }
+    }
+
+    #[must_use]
+    pub fn get_cosign_version(&self) -> String {
+        match &self.cosign_version {
+            Some(MaybeVersion::None) | None => format!("v{COSIGN_IMAGE_VERSION}"),
+            Some(MaybeVersion::VersionOrBranch(version)) => format!("v{version}"),
         }
     }
 
