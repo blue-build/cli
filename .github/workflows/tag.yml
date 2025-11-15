@@ -127,7 +127,7 @@ jobs:
       - name: Store image digest info
         id: image_manifest_metadata
         run: |
-          digest_list_json=$(jq -R -c '[ inputs | split(",") | {"image_ref":.[0],"image_digest":.[1]} ]' ./digest-list)
+          digest_list_json=$(jq -Rc '[ inputs | split(",") | {"image_ref":.[0],"image_digest":.[1]} ]' ./digest-list)
           echo "digests=$digest_list_json" >> $GITHUB_OUTPUT
 
   provenance:
