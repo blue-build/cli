@@ -20,6 +20,7 @@ jobs:
       contents: read # read repo contents
       packages: write # write package to ghcr
       id-token: write # docker auth
+      actions: read # Provenance
     with:
       repo: ${{ github.repository }}
       ref: main
