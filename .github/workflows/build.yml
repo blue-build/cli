@@ -127,7 +127,13 @@ jobs:
           GH_ACTOR: ${{ github.actor }}
           GH_TOKEN: ${{ github.token }}
           COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
-        run: earthly --secret COSIGN_PRIVATE_KEY --secret GH_ACTOR --secret GH_TOKEN --push --ci -P +build-images-all
+        run: |
+          earthly \
+            --secret COSIGN_PRIVATE_KEY \
+            --secret GH_ACTOR \
+            --secret GH_TOKEN \
+            --artifact +sign-all/digest-list ./digest-list \
+            --push --ci -P +build-images-all
 
       - name: Store image digest info
         id: image_manifest_metadata

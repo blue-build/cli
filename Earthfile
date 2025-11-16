@@ -4,6 +4,7 @@ PROJECT blue-build/cli
 IMPORT github.com/blue-build/earthly-lib/rust AS rust
 # IMPORT ../earthly-lib/rust AS rust
 
+FROM alpine
 ARG --global IMAGE=ghcr.io/blue-build/cli
 ARG --global TAGGED="false"
 ARG --global LATEST="false"
@@ -24,13 +25,16 @@ build-images-all:
         BUILD --platform=linux/amd64 --platform=linux/arm64 +build-images
     END
 
-    FROM alpine
     ARG EARTHLY_PUSH
     IF [ "$EARTHLY_PUSH" = "true" ]
-        ARG SUFFIX_LIST="- distrobox installer"
-        BUILD --pass-args +digest-list
-        BUILD --pass-args +sign-images
+        BUILD --pass-args +sign-all
     END
+
+sign-all:
+    ARG SUFFIX_LIST="- distrobox installer"
+    BUILD --pass-args +sign-images
+    COPY --pass-args +digest-list/digest-list /
+    SAVE ARTIFACT /digest-list AS LOCAL ./digest-list
 
 build-images:
     BUILD +blue-build-cli
@@ -330,7 +334,7 @@ digest-list:
         DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:${EARTHLY_GIT_HASH}${suffix}"
     END
 
-    SAVE ARTIFACT /digest-list AS LOCAL ./digest-list
+    SAVE ARTIFACT /digest-list
 
 sign-images:
     FROM alpine
