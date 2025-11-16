@@ -132,8 +132,9 @@ jobs:
             --secret COSIGN_PRIVATE_KEY \
             --secret GH_ACTOR \
             --secret GH_TOKEN \
-            --artifact +sign-all/digest-list ./digest-list \
             --push --ci -P +build-images-all
+          earthly \
+            --artifact +sign-all/digest-list ./digest-list
 
       - name: Store image digest info
         id: image_manifest_metadata
