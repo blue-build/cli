@@ -120,7 +120,10 @@ jobs:
             --secret GH_ACTOR --secret GH_TOKEN \
             --push --ci -P +build-images-all \
             --TAGGED="true" --LATEST="$LATEST"
-          
+          earthly \
+            --TAGGED="true" --LATEST="$LATEST" \
+            --artifact +sign-all/digest-list ./digest-list
+
       - name: Install regctl
         uses: regclient/actions/regctl-installer@495560f7c3b510b71ff9f22d6c667c2c429b8e45 # main # zizmor: ignore[stale-action-refs] regctl does not publish tags
 
