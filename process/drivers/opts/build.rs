@@ -80,7 +80,7 @@ pub struct ManifestPushOpts<'scope> {
     pub final_image: &'scope Reference,
 }
 
-/// Options for building, tagging, and pusing images.
+/// Options for building, tagging, and pushing images.
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Copy, Builder)]
 #[builder(derive(Debug, Clone))]

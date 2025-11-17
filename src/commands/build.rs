@@ -1,14 +1,17 @@
 use std::{
+    num::NonZero,
     ops::Not,
     path::{Path, PathBuf},
 };
 
 use blue_build_process_management::{
     drivers::{
-        BuildDriver, CiDriver, Driver, DriverArgs, InspectDriver, RechunkDriver, SigningDriver,
+        BuildChunkedOciDriver, BuildDriver, CiDriver, Driver, DriverArgs, InspectDriver,
+        RechunkDriver, SigningDriver,
         opts::{
-            BuildTagPushOpts, CheckKeyPairOpts, CompressionType, GenerateImageNameOpts,
-            GenerateTagsOpts, GetMetadataOpts, RechunkOpts, SignVerifyOpts,
+            BuildChunkedOciOpts, BuildRechunkTagPushOpts, BuildTagPushOpts, CheckKeyPairOpts,
+            CompressionType, GenerateImageNameOpts, GenerateTagsOpts, GetMetadataOpts, RechunkOpts,
+            SignVerifyOpts,
         },
         types::{BuildDriverType, RunDriverType},
     },
@@ -17,10 +20,11 @@ use blue_build_process_management::{
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
     constants::{
-        ARCHIVE_SUFFIX, BB_BUILD_ARCHIVE, BB_BUILD_NO_SIGN, BB_BUILD_PLATFORM, BB_BUILD_PUSH,
-        BB_BUILD_RECHUNK, BB_BUILD_RECHUNK_CLEAR_PLAN, BB_BUILD_RETRY_COUNT, BB_BUILD_RETRY_PUSH,
-        BB_BUILD_SQUASH, BB_CACHE_LAYERS, BB_REGISTRY_NAMESPACE, BB_SKIP_VALIDATION, BB_TEMPDIR,
-        CONFIG_PATH, RECIPE_FILE, RECIPE_PATH,
+        ARCHIVE_SUFFIX, BB_BUILD_ARCHIVE, BB_BUILD_CHUNKED_OCI, BB_BUILD_CHUNKED_OCI_MAX_LAYERS,
+        BB_BUILD_NO_SIGN, BB_BUILD_PLATFORM, BB_BUILD_PUSH, BB_BUILD_RECHUNK,
+        BB_BUILD_RECHUNK_CLEAR_PLAN, BB_BUILD_RETRY_COUNT, BB_BUILD_RETRY_PUSH, BB_BUILD_SQUASH,
+        BB_CACHE_LAYERS, BB_REGISTRY_NAMESPACE, BB_SKIP_VALIDATION, BB_TEMPDIR, CONFIG_PATH,
+        RECIPE_FILE, RECIPE_PATH,
     },
     container::{ImageRef, Tag},
     credentials::{Credentials, CredentialsArgs},
@@ -112,14 +116,29 @@ pub struct BuildCommand {
     #[builder(default)]
     squash: bool,
 
-    /// Performs rechunking on the image to allow for smaller images
+    /// Uses `rpm-ostree compose build-chunked-oci` to rechunk the image,
+    /// allowing for smaller images and smaller updates.
+    ///
+    /// WARN: This will increase the build-time
+    /// and take up more space during build-time.
+    #[arg(long, env = BB_BUILD_CHUNKED_OCI)]
+    #[builder(default)]
+    build_chunked_oci: bool,
+
+    /// Maximum number of layers to use when rechunking. Requires `--build-chunked-oci`.
+    #[arg(long, env = BB_BUILD_CHUNKED_OCI_MAX_LAYERS, requires = "build_chunked_oci")]
+    max_layers: Option<NonZero<u32>>,
+
+    /// Uses `hhd-dev/rechunk` to rechunk the image, allowing for smaller images
     /// and smaller updates.
+    ///
+    /// WARN: This will be deprecated in the future.
     ///
     /// WARN: This will increase the build-time
     /// and take up more space during build-time.
     ///
     /// NOTE: This must be run as root!
-    #[arg(long, group = "archive_rechunk", env = BB_BUILD_RECHUNK)]
+    #[arg(long, group = "archive_rechunk", env = BB_BUILD_RECHUNK, conflicts_with = "build_chunked_oci")]
     #[builder(default)]
     rechunk: bool,
 
@@ -312,7 +331,20 @@ impl BuildCommand {
         );
 
         let secrets = &recipe.get_secrets();
+
+        let image_ref = self.archive.as_ref().map_or_else(
+            || ImageRef::from(image),
+            |archive_dir| {
+                ImageRef::from(PathBuf::from(format!(
+                    "{}/{}.{ARCHIVE_SUFFIX}",
+                    archive_dir.to_string_lossy().trim_end_matches('/'),
+                    recipe.name.to_lowercase().replace('/', "_"),
+                )))
+            },
+        );
+
         let build_tag_opts = BuildTagPushOpts::builder()
+            .image(&image_ref)
             .containerfile(containerfile)
             .platform(platforms)
             .squash(self.squash)
@@ -320,34 +352,37 @@ impl BuildCommand {
             .maybe_cache_to(cache_image)
             .secrets(secrets);
 
+        let opts = if matches!(image_ref, ImageRef::Remote(_)) {
+            build_tag_opts
+                .tags(tags)
+                .push(self.push)
+                .retry_push(self.retry_push)
+                .retry_count(self.retry_count)
+                .compression(self.compression_format)
+                .build()
+        } else {
+            build_tag_opts.build()
+        };
+
         if self.push {
             Driver::login(image.registry())?;
             Driver::signing_login(image.registry())?;
         }
 
-        let images = if self.rechunk {
+        let images = if self.build_chunked_oci {
+            let rechunk_opts = BuildChunkedOciOpts::builder()
+                .max_layers(self.max_layers)
+                .build();
+            Driver::build_rechunk_tag_push(
+                BuildRechunkTagPushOpts::builder()
+                    .build_tag_push_opts(opts)
+                    .rechunk_opts(rechunk_opts)
+                    .build(),
+            )?
+        } else if self.rechunk {
             self.rechunk(containerfile, recipe, tags, image, cache_image, platforms)?
-        } else if let Some(archive_dir) = self.archive.as_ref() {
-            Driver::build_tag_push(
-                build_tag_opts
-                    .image(&ImageRef::from(PathBuf::from(format!(
-                        "{}/{}.{ARCHIVE_SUFFIX}",
-                        archive_dir.to_string_lossy().trim_end_matches('/'),
-                        recipe.name.to_lowercase().replace('/', "_"),
-                    ))))
-                    .build(),
-            )?
         } else {
-            Driver::build_tag_push(
-                build_tag_opts
-                    .image(&ImageRef::from(image))
-                    .tags(tags)
-                    .push(self.push)
-                    .retry_push(self.retry_push)
-                    .retry_count(self.retry_count)
-                    .compression(self.compression_format)
-                    .build(),
-            )?
+            Driver::build_tag_push(opts)?
         };
 
         if self.push && !self.no_sign {

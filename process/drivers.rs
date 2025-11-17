@@ -8,6 +8,7 @@
 
 use std::{
     borrow::Borrow,
+    ffi::OsString,
     fmt::Debug,
     process::{ExitStatus, Output},
     sync::{LazyLock, RwLock, atomic::AtomicBool},
@@ -19,7 +20,7 @@ use blue_build_utils::{
     constants::{
         BB_BOOT_DRIVER, BB_BUILD_DRIVER, BB_INSPECT_DRIVER, BB_RUN_DRIVER, BB_SIGNING_DRIVER,
     },
-    container::{ContainerId, MountId, Tag},
+    container::{ContainerId, ImageRef, MountId, Tag},
     semver::Version,
 };
 use bon::{Builder, bon};
@@ -31,10 +32,10 @@ use log::{info, trace, warn};
 use miette::{Context, Result};
 use oci_distribution::Reference;
 use opts::{
-    BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, ContainerOpts, CopyOciDirOpts,
-    CreateContainerOpts, GenerateImageNameOpts, GenerateKeyPairOpts, GenerateTagsOpts,
-    GetMetadataOpts, PruneOpts, PushOpts, RechunkOpts, RemoveContainerOpts, RemoveImageOpts,
-    RunOpts, SignOpts, SwitchOpts, TagOpts, VerifyOpts, VolumeOpts,
+    BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts, CheckKeyPairOpts,
+    ContainerOpts, CopyOciDirOpts, CreateContainerOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
+    GenerateTagsOpts, GetMetadataOpts, PruneOpts, PushOpts, RechunkOpts, RemoveContainerOpts,
+    RemoveImageOpts, RunOpts, SignOpts, SwitchOpts, TagOpts, VerifyOpts, VolumeOpts,
 };
 use types::{
     BootDriverType, BuildDriverType, CiDriverType, ImageMetadata, InspectDriverType, RunDriverType,
@@ -479,6 +480,28 @@ impl CiDriver for Driver {
 
     fn default_ci_file_path() -> std::path::PathBuf {
         impl_ci_driver!(default_ci_file_path())
+    }
+}
+
+impl BuildChunkedOciDriver for Driver {
+    fn setup_rpm_ostree() -> Result<()> {
+        PodmanDriver::setup_rpm_ostree()
+    }
+
+    fn rpm_ostree_command() -> Result<(OsString, Vec<OsString>)> {
+        PodmanDriver::rpm_ostree_command()
+    }
+
+    fn build_chunked_oci(
+        input_image: &ImageRef<'_>,
+        output_image: &ImageRef<'_>,
+        opts: BuildChunkedOciOpts,
+    ) -> Result<()> {
+        PodmanDriver::build_chunked_oci(input_image, output_image, opts)
+    }
+
+    fn build_rechunk_tag_push(opts: BuildRechunkTagPushOpts) -> Result<Vec<String>> {
+        PodmanDriver::build_rechunk_tag_push(opts)
     }
 }
 
