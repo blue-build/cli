@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.25] - 2025-11-17
+
+### Bug Fixes
+
+- Drop unmaintained dep atty
+- Remove unused dep users
+- Mismatched sha and version
+- Specific secrets inheritance
+- Give amd64 and arm64 pre-build write for packages
+- Allow blue-build-tag to take a branch name
+- Ensure build scripts are extracted only once per run
+- Give provenance jobs `actions: read` access
+- Retrieve the digest-list artifact directly
+- Get digest-list from separate call
+
+### Features
+
+- Add environment variables for generate-iso args
+- Refactor label generation to support custom user-defined values.
+- Add --web-ui option (#602)
+- Enable multi-arch builds (#518)
+- Support Cosign V3 (#601)
+- Add SLSA provenance generation (#596)
+
+### Miscellaneous Tasks
+
+- Cargo format
+- Consolidated label generation into recipe method and cleaned up some formatting
+- Cleanup use statements and fix clippy doc errors
+- Upgrade sigstore to 0.13
+- Replace serde_yml with serde_yaml_ng
+- Upgrade log4rs to 1.4 to drop unmaintained subdep
+- Create SECURITY.md
+- Add cooldown for dependabot with default 7 days
+- Pin actions references
+- Set empty top level permissions for all jobs (#595)
+- Remove crate format_serde_error
+- Pin all crate versions
+- Add RUSTUP_PERMIT_COPY_RENAME and clippy fixes
+- Print all digests and sign all images (#597)
+- Add cosign validation to install.sh (#598)
+
+### Update
+
+- Simplified label generation and clarity, removed mutation as impact of new btree generation is negligible and maintains a better, immutable api.
+
 ## [0.9.24] - 2025-10-07
 
 ### Bug Fixes
@@ -15,6 +61,7 @@ All notable changes to this project will be documented in this file.
 - Bump cosign to 2.6.1
 - Add extra error context for schema validator
 - Allow vendoring libgit2 (#562)
+- Release
 
 ## [0.9.23] - 2025-10-02
 
