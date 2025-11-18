@@ -21,6 +21,5 @@ pub struct BuildChunkedOciOpts {
     pub format_version: u32,
 
     /// Maximum number of layers to use. Currently defaults to 64 if not specified.
-    #[builder(required, default = None)]
     pub max_layers: Option<NonZero<u32>>,
 }

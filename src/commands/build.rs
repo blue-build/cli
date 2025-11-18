@@ -180,7 +180,7 @@ impl BlueBuildCommand for BuildCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
-        Driver::init(if self.rechunk {
+        Driver::init(if self.build_chunked_oci || self.rechunk {
             DriverArgs::builder()
                 .build_driver(BuildDriverType::Podman)
                 .run_driver(RunDriverType::Podman)
@@ -371,7 +371,7 @@ impl BuildCommand {
 
         let images = if self.build_chunked_oci {
             let rechunk_opts = BuildChunkedOciOpts::builder()
-                .max_layers(self.max_layers)
+                .maybe_max_layers(self.max_layers)
                 .build();
             Driver::build_rechunk_tag_push(
                 BuildRechunkTagPushOpts::builder()
