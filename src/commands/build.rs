@@ -1,5 +1,5 @@
 use std::{
-    num::NonZeroU32,
+    num::NonZero,
     ops::Not,
     path::{Path, PathBuf},
 };
@@ -24,7 +24,7 @@ use blue_build_utils::{
         BB_BUILD_NO_SIGN, BB_BUILD_PLATFORM, BB_BUILD_PUSH, BB_BUILD_RECHUNK,
         BB_BUILD_RECHUNK_CLEAR_PLAN, BB_BUILD_RETRY_COUNT, BB_BUILD_RETRY_PUSH, BB_BUILD_SQUASH,
         BB_CACHE_LAYERS, BB_REGISTRY_NAMESPACE, BB_SKIP_VALIDATION, BB_TEMPDIR, CONFIG_PATH,
-        DEFAULT_MAX_LAYERS, RECIPE_FILE, RECIPE_PATH,
+        RECIPE_FILE, RECIPE_PATH,
     },
     container::{ImageRef, Tag},
     credentials::{Credentials, CredentialsArgs},
@@ -126,14 +126,8 @@ pub struct BuildCommand {
     build_chunked_oci: bool,
 
     /// Maximum number of layers to use when rechunking. Requires `--build-chunked-oci`.
-    #[arg(
-        long,
-        default_value_t = DEFAULT_MAX_LAYERS,
-        env = BB_BUILD_CHUNKED_OCI_MAX_LAYERS,
-        requires = "build_chunked_oci"
-    )]
-    #[builder(default = DEFAULT_MAX_LAYERS)]
-    max_layers: NonZeroU32,
+    #[arg(long, env = BB_BUILD_CHUNKED_OCI_MAX_LAYERS, requires = "build_chunked_oci")]
+    max_layers: Option<NonZero<u32>>,
 
     /// Uses `hhd-dev/rechunk` to rechunk the image, allowing for smaller images
     /// and smaller updates.
@@ -280,7 +274,7 @@ impl BuildCommand {
         Ok(())
     }
 
-    #[expect(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines)]
     fn build(&self, recipe_path: &Path, containerfile: &Path) -> Result<Vec<String>> {
         trace!(
             "BuildCommand::build({}, {})",
@@ -309,11 +303,6 @@ impl BuildCommand {
                 .maybe_tag(tags.first())
                 .build(),
         )?;
-
-        if self.push {
-            Driver::login(image.registry())?;
-            Driver::signing_login(image.registry())?;
-        }
 
         let cache_image = (self.cache_layers && self.push).then(|| {
             let cache_image = Reference::with_tag(
@@ -375,9 +364,14 @@ impl BuildCommand {
             build_tag_opts.build()
         };
 
+        if self.push {
+            Driver::login(image.registry())?;
+            Driver::signing_login(image.registry())?;
+        }
+
         let images = if self.build_chunked_oci {
             let rechunk_opts = BuildChunkedOciOpts::builder()
-                .max_layers(self.max_layers)
+                .maybe_max_layers(self.max_layers)
                 .build();
             Driver::build_rechunk_tag_push(
                 BuildRechunkTagPushOpts::builder()
