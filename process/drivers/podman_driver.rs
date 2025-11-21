@@ -313,22 +313,27 @@ impl BuildDriver for PodmanDriver {
             );
         }
 
-        let status = {
+        let output = {
             let c = cmd!(
                 "podman",
                 "manifest",
                 "create",
+                "--all",
                 opts.final_image.to_string(),
-                for image in opts.image_list => image.to_string(),
+                for image in opts.image_list => format!("containers-storage:{image}"),
             );
             trace!("{c:?}");
             c
         }
-        .status()
+        .output()
         .into_diagnostic()?;
 
-        if !status.success() {
-            bail!("Failed to create manifest for {}", opts.final_image);
+        if !output.status.success() {
+            bail!(
+                "Failed to create manifest for {}:\n{}",
+                opts.final_image,
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
 
         Ok(())

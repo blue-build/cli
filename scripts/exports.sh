@@ -75,7 +75,18 @@ feature_enabled() {
 
 # Parse OS version and export it
 export OS_VERSION="$(awk -F= '/^VERSION_ID=/ {gsub(/"/, "", $2); print $2}' /usr/lib/os-release)"
-export OS_ARCH="$(uname -m)"
+case "$TARGETARCH" in
+  "amd64")
+    OS_ARCH="x86_64"
+    ;;
+  "arm64")
+    OS_ARCH="aarch64"
+    ;;
+  *)
+    OS_ARCH="$TARGETARCH"
+    ;;
+esac
+export OS_ARCH
 
 # Export functions for use in sub-shells or sourced scripts
 export -f get_json_array
