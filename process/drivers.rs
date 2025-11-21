@@ -493,11 +493,11 @@ impl BuildChunkedOciDriver for Driver {
     }
 
     fn build_chunked_oci(
-        input_image: &ImageRef<'_>,
-        output_image: &ImageRef<'_>,
+        unchunked_image: &Reference,
+        final_image: &ImageRef<'_>,
         opts: BuildChunkedOciOpts,
     ) -> Result<()> {
-        PodmanDriver::build_chunked_oci(input_image, output_image, opts)
+        PodmanDriver::build_chunked_oci(unchunked_image, final_image, opts)
     }
 
     fn build_rechunk_tag_push(opts: BuildRechunkTagPushOpts) -> Result<Vec<String>> {

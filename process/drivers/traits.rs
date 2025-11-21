@@ -4,7 +4,6 @@ use std::{
     ops::Not,
     path::PathBuf,
     process::{ExitStatus, Output},
-    sync::atomic::{AtomicU32, Ordering},
 };
 
 use blue_build_utils::{
@@ -21,6 +20,7 @@ use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
 use rayon::prelude::*;
 use semver::VersionReq;
+use uuid::Uuid;
 
 use super::{
     opts::{
@@ -186,27 +186,7 @@ pub trait BuildDriver: PrivateDriver {
             .try_for_each(|&build_opts| -> Result<()> {
                 info!("Building image {}", build_opts.image);
 
-                Self::build(build_opts)?;
-
-                if let ImageRef::Remote(tagged_image) = build_opts.image
-                    && opts.push
-                {
-                    let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
-
-                    // Push images with retries (1s delay between retries)
-                    blue_build_utils::retry(retry_count, 5, || {
-                        debug!("Pushing image {tagged_image}");
-
-                        Self::push(
-                            PushOpts::builder()
-                                .image(tagged_image)
-                                .compression_type(opts.compression)
-                                .build(),
-                        )
-                    })?;
-                }
-
-                Ok(())
+                Self::build(build_opts)
             })?;
 
         Self::tag_push(opts)
@@ -341,15 +321,15 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
     /// # Errors
     /// Will error if rechunking fails.
     fn build_chunked_oci(
-        input_image: &ImageRef<'_>,
-        output_image: &ImageRef<'_>,
+        unchunked_image: &Reference,
+        final_image: &ImageRef<'_>,
         opts: BuildChunkedOciOpts,
     ) -> Result<()> {
         Self::setup_rpm_ostree()?;
         let (first_cmd, rpm_ostree_args) = Self::rpm_ostree_command()?;
-        let output_ref = match output_image {
-            ImageRef::Remote(_) => format!("containers-storage:{output_image}"),
-            _ => output_image.to_string(),
+        let transport_ref = match final_image {
+            ImageRef::Remote(image) => format!("containers-storage:{image}"),
+            _ => final_image.to_string(),
         };
         let command = cmd!(
             first_cmd,
@@ -358,19 +338,19 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
             "build-chunked-oci",
             "--bootc",
             format!("--format-version={}", opts.format_version),
-            if let Some(max_layers) = opts.max_layers => format!("--max-layers={}", max_layers),
-            format!("--from={input_image}"),
-            format!("--output={output_ref}"),
+            format!("--max-layers={}", opts.max_layers),
+            format!("--from={unchunked_image}"),
+            format!("--output={transport_ref}"),
         );
         trace!("{command:?}");
         let status = command
-            .build_status(output_image.to_string(), "Rechunking image")
+            .build_status(final_image.to_string(), "Rechunking image")
             .into_diagnostic()?;
 
         if !status.success() {
-            bail!("Failed to rechunk image {input_image}");
+            bail!("Failed to rechunk image {}", final_image);
         }
-        Ok(())
+        Self::remove_image(RemoveImageOpts::builder().image(unchunked_image).build())
     }
 
     /// Runs the logic for building, rechunking, tagging, and pushing an image.
@@ -378,8 +358,6 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
     /// # Errors
     /// Will error if building, rechunking, tagging, or pushing fails.
     fn build_rechunk_tag_push(opts: BuildRechunkTagPushOpts) -> Result<Vec<String>> {
-        // Global counter to avoid name collisions with temporary image refs
-        static COUNTER: AtomicU32 = AtomicU32::new(0);
         trace!("BuildChunkedOciDriver::build_rechunk_tag_push({opts:#?})");
 
         let BuildRechunkTagPushOpts {
@@ -391,79 +369,30 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
             btp_opts.platform.is_empty().not(),
             "Must have at least 1 platform"
         );
-        let platform_images: Vec<(ImageRef<'_>, Platform)> = btp_opts
-            .platform
-            .iter()
-            .map(|&platform| (btp_opts.image.with_platform(platform), platform))
-            .collect();
-
+        let unchunked_image =
+            Reference::try_from(format!("localhost/{}/unchunked", Uuid::new_v4()))
+                .expect("Should be a valid Reference");
         let build_opts = BuildOpts::builder()
             .containerfile(btp_opts.containerfile.as_ref())
-            .squash(btp_opts.squash)
-            .maybe_cache_from(btp_opts.cache_from)
-            .maybe_cache_to(btp_opts.cache_to)
+            .squash(true)
             .secrets(btp_opts.secrets);
-        let build_opts = platform_images
-            .iter()
-            .map(|(image, platform)| build_opts.clone().image(image).platform(*platform).build())
-            .collect::<Vec<_>>();
 
-        build_opts
+        btp_opts
+            .platform
             .par_iter()
-            .try_for_each(|&build_opts| -> Result<()> {
-                info!("Building image {}", build_opts.image);
+            .try_for_each(|&platform| -> Result<()> {
+                let image = btp_opts.image.with_platform(platform);
+                let unchunked_image = platform.tagged_image(&unchunked_image);
+                info!("Building image {image}");
 
-                // Replace the image ref with a temporary ref where we'll store
-                // the image to be rechunked.
-                let image_ref = build_opts.image;
-                let temp_reference = Reference::try_from(format!(
-                    "localhost/{}-rechunk-temp{}",
+                Self::build(
                     build_opts
-                        .image
-                        .to_string()
-                        .rsplit('/')
-                        .next()
-                        .unwrap()
-                        .to_lowercase()
-                        .replace(':', "-"),
-                    COUNTER.fetch_add(1, Ordering::Relaxed),
-                ))
-                .unwrap();
-                let temp_image_ref = ImageRef::from(&temp_reference);
-                let mut build_opts = build_opts;
-                build_opts.image = &temp_image_ref;
-
-                Self::build(build_opts)?;
-
-                let rechunk_result =
-                    Self::build_chunked_oci(&temp_image_ref, image_ref, rechunk_opts);
-                info!("Cleaning up image {temp_image_ref}");
-                Self::remove_image(RemoveImageOpts::builder().image(&temp_reference).build())?;
-                rechunk_result?;
-
-                if let ImageRef::Remote(tagged_image) = build_opts.image
-                    && btp_opts.push
-                {
-                    let retry_count = if btp_opts.retry_push {
-                        btp_opts.retry_count
-                    } else {
-                        0
-                    };
-
-                    // Push images with retries (1s delay between retries)
-                    blue_build_utils::retry(retry_count, 5, || {
-                        debug!("Pushing image {tagged_image}");
-
-                        Self::push(
-                            PushOpts::builder()
-                                .image(tagged_image)
-                                .compression_type(btp_opts.compression)
-                                .build(),
-                        )
-                    })?;
-                }
-
-                Ok(())
+                        .clone()
+                        .image(&ImageRef::from(&unchunked_image))
+                        .platform(platform)
+                        .build(),
+                )?;
+                Self::build_chunked_oci(&unchunked_image, &image, rechunk_opts)
             })?;
 
         Self::tag_push(btp_opts)
