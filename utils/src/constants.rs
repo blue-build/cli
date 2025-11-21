@@ -1,3 +1,5 @@
+use std::num::{NonZero, NonZeroU32};
+
 use constcat::concat;
 
 // Paths
@@ -118,6 +120,7 @@ pub const UNKNOWN_SHELL: &str = "<unknown shell>";
 pub const UNKNOWN_VERSION: &str = "<unknown version>";
 pub const UNKNOWN_TERMINAL: &str = "<unknown terminal>";
 pub const GITHUB_CHAR_LIMIT: usize = 8100; // Magic number accepted by Github
+pub const DEFAULT_MAX_LAYERS: NonZeroU32 = NonZero::new(128).unwrap();
 
 // Schema
 pub const SCHEMA_BASE_URL: &str = "https://schema.blue-build.org";
