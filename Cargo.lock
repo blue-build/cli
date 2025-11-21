@@ -504,6 +504,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "uuid",
+ "which",
  "zeroize",
 ]
 

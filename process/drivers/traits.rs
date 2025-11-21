@@ -1,8 +1,10 @@
 use std::{
     borrow::Borrow,
+    ffi::OsString,
     ops::Not,
     path::PathBuf,
     process::{ExitStatus, Output},
+    sync::atomic::{AtomicU32, Ordering},
 };
 
 use blue_build_utils::{
@@ -13,6 +15,7 @@ use blue_build_utils::{
     semver::Version,
     string_vec,
 };
+use comlexr::cmd;
 use log::{debug, info, trace};
 use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
@@ -21,10 +24,11 @@ use semver::VersionReq;
 
 use super::{
     opts::{
-        BuildOpts, BuildTagPushOpts, CheckKeyPairOpts, ContainerOpts, CopyOciDirOpts,
-        CreateContainerOpts, GenerateImageNameOpts, GenerateKeyPairOpts, GenerateTagsOpts,
-        GetMetadataOpts, PushOpts, RechunkOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts,
-        SignOpts, SignVerifyOpts, SwitchOpts, TagOpts, VerifyOpts, VerifyType, VolumeOpts,
+        BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts,
+        CheckKeyPairOpts, ContainerOpts, CopyOciDirOpts, CreateContainerOpts,
+        GenerateImageNameOpts, GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts,
+        RechunkOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts,
+        SwitchOpts, TagOpts, VerifyOpts, VerifyType, VolumeOpts,
     },
     types::{
         BootDriverType, BuildDriverType, ImageMetadata, InspectDriverType, RunDriverType,
@@ -37,6 +41,7 @@ use crate::drivers::{
     opts::{ManifestCreateOpts, ManifestPushOpts},
     types::CiDriverType,
 };
+use crate::logging::CommandLogging;
 
 trait PrivateDriver {}
 
@@ -151,7 +156,7 @@ pub trait BuildDriver: PrivateDriver {
     /// Runs the logic for building, tagging, and pushing an image.
     ///
     /// # Errors
-    /// Will error if building, tagging, or pusing fails.
+    /// Will error if building, tagging, or pushing fails.
     fn build_tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
         trace!("BuildDriver::build_tag_push({opts:#?})");
 
@@ -204,6 +209,15 @@ pub trait BuildDriver: PrivateDriver {
                 Ok(())
             })?;
 
+        Self::tag_push(opts)
+    }
+
+    /// Runs the logic for tagging and pushing an image.
+    ///
+    /// # Errors
+    /// Will error if tagging or pushing fails.
+    fn tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
+        trace!("BuildDriver::tag_push({opts:#?})");
         let image_list: Vec<String> = match &opts.image {
             ImageRef::Remote(image) if !opts.tags.is_empty() => {
                 debug!("Tagging all images");
@@ -306,6 +320,154 @@ pub trait RunDriver: PrivateDriver {
     /// # Errors
     /// Will error if the image list command fails.
     fn list_images(privileged: bool) -> Result<Vec<Reference>>;
+}
+
+#[allow(private_bounds)]
+pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
+    /// Do any necessary setup to prepare for running `rpm-ostree`.
+    ///
+    /// # Errors
+    /// Will error if `rpm-ostree` setup fails.
+    fn setup_rpm_ostree() -> Result<()>;
+
+    /// Command arguments to invoke `rpm-ostree`.
+    ///
+    /// # Errors
+    /// Will error if unable to invoke `rpm-ostree`.
+    fn rpm_ostree_command() -> Result<(OsString, Vec<OsString>)>;
+
+    /// Runs build-chunked-oci on an image.
+    ///
+    /// # Errors
+    /// Will error if rechunking fails.
+    fn build_chunked_oci(
+        input_image: &ImageRef<'_>,
+        output_image: &ImageRef<'_>,
+        opts: BuildChunkedOciOpts,
+    ) -> Result<()> {
+        Self::setup_rpm_ostree()?;
+        let (first_cmd, rpm_ostree_args) = Self::rpm_ostree_command()?;
+        let output_ref = match output_image {
+            ImageRef::Remote(_) => format!("containers-storage:{output_image}"),
+            _ => output_image.to_string(),
+        };
+        let command = cmd!(
+            first_cmd,
+            for rpm_ostree_args,
+            "compose",
+            "build-chunked-oci",
+            "--bootc",
+            format!("--format-version={}", opts.format_version),
+            if let Some(max_layers) = opts.max_layers => format!("--max-layers={}", max_layers),
+            format!("--from={input_image}"),
+            format!("--output={output_ref}"),
+        );
+        trace!("{command:?}");
+        let status = command
+            .build_status(output_image.to_string(), "Rechunking image")
+            .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to rechunk image {input_image}");
+        }
+        Ok(())
+    }
+
+    /// Runs the logic for building, rechunking, tagging, and pushing an image.
+    ///
+    /// # Errors
+    /// Will error if building, rechunking, tagging, or pushing fails.
+    fn build_rechunk_tag_push(opts: BuildRechunkTagPushOpts) -> Result<Vec<String>> {
+        // Global counter to avoid name collisions with temporary image refs
+        static COUNTER: AtomicU32 = AtomicU32::new(0);
+        trace!("BuildChunkedOciDriver::build_rechunk_tag_push({opts:#?})");
+
+        let BuildRechunkTagPushOpts {
+            build_tag_push_opts: btp_opts,
+            rechunk_opts,
+        } = opts;
+
+        assert!(
+            btp_opts.platform.is_empty().not(),
+            "Must have at least 1 platform"
+        );
+        let platform_images: Vec<(ImageRef<'_>, Platform)> = btp_opts
+            .platform
+            .iter()
+            .map(|&platform| (btp_opts.image.with_platform(platform), platform))
+            .collect();
+
+        let build_opts = BuildOpts::builder()
+            .containerfile(btp_opts.containerfile.as_ref())
+            .squash(btp_opts.squash)
+            .maybe_cache_from(btp_opts.cache_from)
+            .maybe_cache_to(btp_opts.cache_to)
+            .secrets(btp_opts.secrets);
+        let build_opts = platform_images
+            .iter()
+            .map(|(image, platform)| build_opts.clone().image(image).platform(*platform).build())
+            .collect::<Vec<_>>();
+
+        build_opts
+            .par_iter()
+            .try_for_each(|&build_opts| -> Result<()> {
+                info!("Building image {}", build_opts.image);
+
+                // Replace the image ref with a temporary ref where we'll store
+                // the image to be rechunked.
+                let image_ref = build_opts.image;
+                let temp_reference = Reference::try_from(format!(
+                    "localhost/{}-rechunk-temp{}",
+                    build_opts
+                        .image
+                        .to_string()
+                        .rsplit('/')
+                        .next()
+                        .unwrap()
+                        .to_lowercase()
+                        .replace(':', "-"),
+                    COUNTER.fetch_add(1, Ordering::Relaxed),
+                ))
+                .unwrap();
+                let temp_image_ref = ImageRef::from(&temp_reference);
+                let mut build_opts = build_opts;
+                build_opts.image = &temp_image_ref;
+
+                Self::build(build_opts)?;
+
+                let rechunk_result =
+                    Self::build_chunked_oci(&temp_image_ref, image_ref, rechunk_opts);
+                info!("Cleaning up image {temp_image_ref}");
+                Self::remove_image(RemoveImageOpts::builder().image(&temp_reference).build())?;
+                rechunk_result?;
+
+                if let ImageRef::Remote(tagged_image) = build_opts.image
+                    && btp_opts.push
+                {
+                    let retry_count = if btp_opts.retry_push {
+                        btp_opts.retry_count
+                    } else {
+                        0
+                    };
+
+                    // Push images with retries (1s delay between retries)
+                    blue_build_utils::retry(retry_count, 5, || {
+                        debug!("Pushing image {tagged_image}");
+
+                        Self::push(
+                            PushOpts::builder()
+                                .image(tagged_image)
+                                .compression_type(btp_opts.compression)
+                                .build(),
+                        )
+                    })?;
+                }
+
+                Ok(())
+            })?;
+
+        Self::tag_push(btp_opts)
+    }
 }
 
 #[allow(private_bounds)]

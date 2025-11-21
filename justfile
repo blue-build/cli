@@ -162,6 +162,14 @@ test-empty-files-build: generate-test-secret install-debug-all-features
     {{ should_push }} \
     -vv
 
+test-build-chunked-oci-build: generate-test-secret install-debug-all-features
+  cd integration-tests/test-repo \
+  && bluebuild build \
+    {{ should_push }} \
+    -vv \
+    --build-chunked-oci \
+    recipes/recipe-build-chunked-oci.yml
+
 test-rechunk-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && bluebuild build \
@@ -222,7 +230,7 @@ test-buildah-build: generate-test-secret install-debug-all-features
     recipes/recipe-buildah.yml
 
 # Run the multi-platform builds
-test-multiplatform: test-multiplatform-docker test-multiplatform-podman test-multiplatform-buildah test-multiplatform-rechunk
+test-multiplatform: test-multiplatform-docker test-multiplatform-podman test-multiplatform-buildah test-multiplatform-build-chunked-oci test-multiplatform-rechunk
 
 test-multiplatform-docker: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
@@ -253,6 +261,16 @@ test-multiplatform-buildah: generate-test-secret install-debug-all-features
     {{ should_push }} \
     -vv \
     recipes/recipe-multiplatform-buildah.yml
+
+test-multiplatform-build-chunked-oci: generate-test-secret install-debug-all-features
+  cd integration-tests/test-repo \
+  && bluebuild build \
+    --retry-push \
+    --build-chunked-oci \
+    -S sigstore \
+    {{ should_push }} \
+    -vv \
+    recipes/recipe-multiplatform-build-chunked-oci.yml
 
 test-multiplatform-rechunk: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
@@ -305,6 +323,12 @@ exec-cli-container +args: build-local-cli-image
 test-container-podman-build: \
   generate-test-secret \
   (exec-cli-container "bluebuild" "build" "-B" "podman" "--squash" "-vv")
+
+# Run a cli container using the podman build driver with build-chunked-oci
+test-container-podman-build-chunked-oci: \
+  generate-test-secret \
+  (exec-cli-container "bluebuild" "build" "-B" \
+    "podman" "-vv" "--build-chunked-oci" "recipes/recipe-build-chunked-oci.yml")
 
 # Run a cli container using the podman build driver with rechunk
 test-container-podman-rechunk: \

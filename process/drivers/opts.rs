@@ -2,6 +2,7 @@ use clap::ValueEnum;
 
 pub use boot::*;
 pub use build::*;
+pub use build_chunked_oci::*;
 pub use ci::*;
 pub use inspect::*;
 pub use rechunk::*;
@@ -10,6 +11,7 @@ pub use signing::*;
 
 mod boot;
 mod build;
+mod build_chunked_oci;
 mod ci;
 mod inspect;
 mod rechunk;

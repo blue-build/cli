@@ -1,5 +1,7 @@
 use std::{
+    ffi::OsString,
     ops::Not,
+    os::unix::ffi::OsStringExt,
     path::Path,
     process::{Command, ExitStatus},
 };
@@ -30,7 +32,7 @@ use super::{
 };
 use crate::{
     drivers::{
-        BuildDriver, DriverVersion, RunDriver,
+        BuildChunkedOciDriver, BuildDriver, DriverVersion, RunDriver,
         opts::{
             BuildOpts, ManifestCreateOpts, ManifestPushOpts, PushOpts, RunOpts, RunOptsEnv,
             RunOptsVolume, TagOpts,
@@ -58,6 +60,8 @@ struct PodmanVersionJson {
 pub struct PodmanDriver;
 
 impl PodmanDriver {
+    const RPM_OSTREE_CONTAINER: &str = "ghcr.io/blue-build/rpm-ostree-container:latest";
+
     /// Copy an image from the user container
     /// store to the root container store for
     /// booting off of.
@@ -355,6 +359,61 @@ impl BuildDriver for PodmanDriver {
         }
 
         Ok(())
+    }
+}
+
+impl BuildChunkedOciDriver for PodmanDriver {
+    fn setup_rpm_ostree() -> Result<()> {
+        if which::which("rpm-ostree").is_ok() {
+            return Ok(());
+        }
+        let output = cmd!("podman", "pull", Self::RPM_OSTREE_CONTAINER)
+            .output()
+            .into_diagnostic()?;
+        if !output.status.success() {
+            bail!(
+                "Failed to pull image {}\nstderr: {}",
+                Self::RPM_OSTREE_CONTAINER,
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        Ok(())
+    }
+
+    fn rpm_ostree_command() -> Result<(OsString, Vec<OsString>)> {
+        if let Ok(rpm_ostree) = which::which("rpm-ostree") {
+            return Ok((rpm_ostree.into(), Vec::new()));
+        }
+        let mut args = Vec::new();
+        for s in ["run", "--privileged", "--rm", "-v"] {
+            args.push(s.to_owned().into());
+        }
+        let podman_storage_dir = {
+            let mut output = cmd!("podman", "info", "--format={{.Store.GraphRoot}}")
+                .output()
+                .into_diagnostic()?;
+            if !output.status.success() {
+                bail!("Failed to find podman storage root");
+            }
+            while output
+                .stdout
+                .pop_if(|byte| byte.is_ascii_whitespace())
+                .is_some()
+            {}
+            OsString::from_vec(output.stdout)
+        };
+        let podman_storage_mount = {
+            let mut out = podman_storage_dir.clone().into_vec();
+            out.push(b':');
+            out.extend_from_within(0..podman_storage_dir.len());
+            OsString::from_vec(out)
+        };
+        args.push(podman_storage_mount);
+        args.push(Self::RPM_OSTREE_CONTAINER.to_owned().into());
+        args.push("--storage".to_owned().into());
+        args.push(podman_storage_dir);
+        args.push("rpm-ostree".to_owned().into());
+        Ok(("podman".into(), args))
     }
 }
 
