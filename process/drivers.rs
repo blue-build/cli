@@ -493,7 +493,7 @@ impl BuildChunkedOciDriver for Driver {
     }
 
     fn build_chunked_oci(
-        unchunked_image: &Reference,
+        unchunked_image: &ImageRef<'_>,
         final_image: &ImageRef<'_>,
         opts: BuildChunkedOciOpts,
     ) -> Result<()> {

@@ -20,7 +20,6 @@ use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_distribution::Reference;
 use rayon::prelude::*;
 use semver::VersionReq;
-use uuid::Uuid;
 
 use super::{
     opts::{
@@ -321,7 +320,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
     /// # Errors
     /// Will error if rechunking fails.
     fn build_chunked_oci(
-        unchunked_image: &Reference,
+        unchunked_image: &ImageRef<'_>,
         final_image: &ImageRef<'_>,
         opts: BuildChunkedOciOpts,
     ) -> Result<()> {
@@ -350,7 +349,8 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
         if !status.success() {
             bail!("Failed to rechunk image {}", final_image);
         }
-        Self::remove_image(RemoveImageOpts::builder().image(unchunked_image).build())
+
+        Ok(())
     }
 
     /// Runs the logic for building, rechunking, tagging, and pushing an image.
@@ -369,9 +369,6 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
             btp_opts.platform.is_empty().not(),
             "Must have at least 1 platform"
         );
-        let unchunked_image =
-            Reference::try_from(format!("localhost/{}/unchunked", Uuid::new_v4()))
-                .expect("Should be a valid Reference");
         let build_opts = BuildOpts::builder()
             .containerfile(btp_opts.containerfile.as_ref())
             .squash(true)
@@ -382,7 +379,8 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
             .par_iter()
             .try_for_each(|&platform| -> Result<()> {
                 let image = btp_opts.image.with_platform(platform);
-                let unchunked_image = platform.tagged_image(&unchunked_image);
+                let unchunked_image =
+                    image.append_tag(&"unchunked".parse().expect("Should be a valid tag"));
                 info!("Building image {image}");
 
                 Self::build(
@@ -392,7 +390,13 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
                         .platform(platform)
                         .build(),
                 )?;
-                Self::build_chunked_oci(&unchunked_image, &image, rechunk_opts)
+                let result = Self::build_chunked_oci(&unchunked_image, &image, rechunk_opts);
+
+                if let ImageRef::Remote(unchunked_image) = unchunked_image {
+                    Self::remove_image(RemoveImageOpts::builder().image(&unchunked_image).build())?;
+                }
+
+                result
             })?;
 
         Self::tag_push(btp_opts)
