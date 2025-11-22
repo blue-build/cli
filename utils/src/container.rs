@@ -120,6 +120,39 @@ impl<'scope> ImageRef<'scope> {
             Self::from(self)
         }
     }
+
+    /// Appends a value to the end of a tag.
+    ///
+    /// If the ref is a tarball, it will append it to the file
+    /// stem. If it's other, it will append to the end of the value.
+    #[must_use]
+    pub fn append_tag(&self, value: &Tag) -> Self {
+        match self {
+            Self::Remote(image) => Self::Remote(Cow::Owned(Reference::with_tag(
+                image.registry().to_owned(),
+                image.repository().to_owned(),
+                image
+                    .tag()
+                    .map_or_else(|| format!("latest_{value}"), |tag| format!("{tag}_{value}")),
+            ))),
+            Self::LocalTar(path) => {
+                if let Some(file_stem) = path.file_stem()
+                    && let Some(extension) = path.extension()
+                {
+                    Self::LocalTar(Cow::Owned(
+                        path.with_file_name(format!("{}_{value}", file_stem.display(),))
+                            .with_extension(extension),
+                    ))
+                } else {
+                    Self::LocalTar(Cow::Owned(PathBuf::from(format!(
+                        "{}_{value}",
+                        path.display()
+                    ))))
+                }
+            }
+            Self::Other(other) => Self::Other(Cow::Owned(format!("{other}_{value}"))),
+        }
+    }
 }
 
 impl<'scope> From<&'scope Self> for ImageRef<'scope> {
