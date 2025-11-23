@@ -41,8 +41,29 @@ impl ImageMetadata {
             .get(IMAGE_VERSION_LABEL)
             .ok_or_else(|| miette!("No version label found"))
             .and_then(|v| {
+                // Handle ublue version formats:
+                // - "latest-43.20251123.1" (Aurora/Bluefin)
+                // - "43.20251118" (Bazzite)
+                // - "43.20251123.1" (Silverblue/Kinoite)
+                
+                // Strip optional prefix
+                let version_str = v.strip_prefix("latest-")
+                    .or_else(|| v.strip_prefix("stable-"))
+                    .unwrap_or(v);
+                
+                // Extract first component (the Fedora version)
+                if let Some(version_part) = version_str.split('.').next() {
+                    // Check if it looks like a Fedora version (1-3 digits)
+                    if version_part.len() <= 3 && version_part.chars().all(|c| c.is_ascii_digit()) {
+                        if let Ok(version) = version_part.parse::<Version>() {
+                            return Ok(version);
+                        }
+                    }
+                }
+                
+                // Fall back to standard semver parsing for non-ublue images
                 v.parse::<Version>()
-                    .wrap_err_with(|| format!("Failed to parse version {v}"))
+                    .wrap_err_with(|| format!("Failed to deserialize version {v}"))
             })
     }
 }
