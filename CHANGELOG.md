@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.26] - 2025-11-23
+
+### Bug Fixes
+
+- Sign images using old bundle format
+- Attempt to fix podman manifest create failures (#615)
+
+### Features
+
+- Support rechunking with build-chunked-oci (#610)
+
+### Miscellaneous Tasks
+
+- Export `OS_ARCH` variable to be from the container… (#614)
+- Clean up and consolidate chunked logic
+- Clean up and consolidate chunked logic (#616)
+
 ## [0.9.25] - 2025-11-17
 
 ### Bug Fixes
@@ -16,6 +33,8 @@ All notable changes to this project will be documented in this file.
 - Give provenance jobs `actions: read` access
 - Retrieve the digest-list artifact directly
 - Get digest-list from separate call
+- Make sure the tag build spits out the digest list
+- Build args should be last
 
 ### Features
 
@@ -43,6 +62,7 @@ All notable changes to this project will be documented in this file.
 - Add RUSTUP_PERMIT_COPY_RENAME and clippy fixes
 - Print all digests and sign all images (#597)
 - Add cosign validation to install.sh (#598)
+- Release
 
 ### Update
 
