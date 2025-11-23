@@ -22,6 +22,12 @@ fi
 rm -rf /tmp/* /var/* /opt
 ln -fs /var/opt /opt
 
+echo "Fixing up groups"
+sed --sandbox -i -e "$(
+  sed -En -e '/wheel|root|sudo/d' -e 's@^g\s+(\S+)\s.*@/\1/d@p' /usr/lib/sysusers.d/*.conf
+)" "$1"
+
+# TODO: Re-enable when we're able to run this with emulation
 # if feature_enabled "bootc" && command -v bootc > /dev/null; then
 #   bootc container lint
 # fi
