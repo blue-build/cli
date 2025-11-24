@@ -46,11 +46,8 @@ impl ImageMetadata {
                 // - "43.20251118" (Bazzite)
                 // - "43.20251123.1" (Silverblue/Kinoite)
 
-                // Strip optional prefix
-                let version_str = v
-                    .strip_prefix("latest-")
-                    .or_else(|| v.strip_prefix("stable-"))
-                    .unwrap_or(v);
+                // Strip any alphabetic prefix and hyphens (e.g., "latest-", "stable-", etc.)
+                let version_str = v.trim_start_matches(|c: char| c.is_alphabetic() || c == '-');
 
                 // Extract first component (the Fedora version)
                 if let Some(version_part) = version_str.split('.').next() {
