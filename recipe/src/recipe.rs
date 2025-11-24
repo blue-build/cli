@@ -160,7 +160,7 @@ impl Recipe {
 
     #[must_use]
     pub const fn should_install_bins(&self) -> bool {
-        self.should_install_bluebuild() && self.should_install_cosign()
+        self.should_install_bluebuild() || self.should_install_cosign()
     }
 
     #[must_use]
