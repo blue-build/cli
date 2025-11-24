@@ -45,12 +45,13 @@ impl ImageMetadata {
                 // - "latest-43.20251123.1" (Aurora/Bluefin)
                 // - "43.20251118" (Bazzite)
                 // - "43.20251123.1" (Silverblue/Kinoite)
-                
+
                 // Strip optional prefix
-                let version_str = v.strip_prefix("latest-")
+                let version_str = v
+                    .strip_prefix("latest-")
                     .or_else(|| v.strip_prefix("stable-"))
                     .unwrap_or(v);
-                
+
                 // Extract first component (the Fedora version)
                 if let Some(version_part) = version_str.split('.').next() {
                     // Check if it looks like a Fedora version (1-3 digits)
@@ -60,7 +61,7 @@ impl ImageMetadata {
                         }
                     }
                 }
-                
+
                 // Fall back to standard semver parsing for non-ublue images
                 v.parse::<Version>()
                     .wrap_err_with(|| format!("Failed to deserialize version {v}"))
