@@ -144,7 +144,7 @@ pub struct BuildCommand {
     /// and take up more space during build-time.
     ///
     /// NOTE: This must be run as root!
-    #[arg(long, group = "archive_rechunk", env = BB_BUILD_RECHUNK, conflicts_with = "build_chunked_oci")]
+    #[arg(long, group = "archive_rechunk", env = BB_BUILD_RECHUNK)]
     #[builder(default)]
     rechunk: bool,
 
@@ -201,6 +201,10 @@ impl BlueBuildCommand for BuildCommand {
 
         if self.push && self.archive.is_some() {
             bail!("You cannot use '--archive' and '--push' at the same time");
+        }
+
+        if self.rechunk && self.build_chunked_oci {
+            bail!("You cannot use '--rechunk' and '--build-chunked-oci' at the same time");
         }
 
         if self.push {
