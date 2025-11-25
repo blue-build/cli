@@ -162,6 +162,16 @@ test-empty-files-build: generate-test-secret install-debug-all-features
     {{ should_push }} \
     -vv
 
+test-bluefin-build: generate-test-secret install-debug-all-features
+  cd integration-tests/test-repo \
+  && bluebuild build \
+    --retry-push \
+    -B docker \
+    -S sigstore \
+    {{ should_push }} \
+    -vv \
+    recipes/recipe-bluefin.yml
+
 test-build-chunked-oci-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && bluebuild build \

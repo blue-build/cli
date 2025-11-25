@@ -1,0 +1,12 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
+name: cli/test-bluefin
+description: This is my personal OS image.
+base-image: ghcr.io/ublue-os/bluefin
+blue-build-tag: none
+cosign-version: none
+image-version: stable
+stages:
+  - from-file: stages.yml
+modules:
+  - from-file: common.yml
