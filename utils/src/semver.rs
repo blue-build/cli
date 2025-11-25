@@ -38,10 +38,17 @@ impl FromStr for Version {
     type Err = miette::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let Ok(mut parsed_ver) = lenient_semver::parse(s) else {
+        // Strip common prefixes: "v1.0.0" → "1.0.0", "latest-43" → "43"
+        let cleaned = s.trim_start_matches(|c: char| c.is_alphabetic() || c == '-');
+
+        if cleaned.is_empty() {
+            bail!("Failed to deserialize version {s}");
+        }
+
+        let Ok(mut parsed_ver) = lenient_semver::parse(cleaned) else {
             bail!("Failed to deserialize version {s}");
         };
-        // delete pre-release field or we can never match pre-release versions of tools
+        // Delete pre-release field or we can never match pre-release versions of tools
         parsed_ver.pre = Prerelease::EMPTY;
         Ok(Self(parsed_ver))
     }
