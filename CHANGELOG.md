@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.27] - 2025-11-26
+
+### Bug Fixes
+
+- "or", not "and", in `Recipe::should_install_bins` (#619)
+- Don't use conflicts_with for rechunk
+- Run build-chunked-oci steps serially (#622)
+- Support more lenient version strings (#621)
+
+### Miscellaneous Tasks
+
+- Update lockfile
+
 ## [0.9.26] - 2025-11-23
 
 ### Bug Fixes
@@ -18,6 +31,7 @@ All notable changes to this project will be documented in this file.
 - Export `OS_ARCH` variable to be from the container… (#614)
 - Clean up and consolidate chunked logic
 - Clean up and consolidate chunked logic (#616)
+- Release
 
 ## [0.9.25] - 2025-11-17
 
