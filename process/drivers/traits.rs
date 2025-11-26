@@ -374,10 +374,10 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
             .squash(true)
             .secrets(btp_opts.secrets);
 
-        btp_opts
+        let images_to_rechunk: Vec<(ImageRef, ImageRef)> = btp_opts
             .platform
             .par_iter()
-            .try_for_each(|&platform| -> Result<()> {
+            .map(|&platform| -> Result<(ImageRef, ImageRef)> {
                 let image = btp_opts.image.with_platform(platform);
                 let unchunked_image =
                     image.append_tag(&"unchunked".parse().expect("Should be a valid tag"));
@@ -386,18 +386,22 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
                 Self::build(
                     build_opts
                         .clone()
-                        .image(&ImageRef::from(&unchunked_image))
+                        .image(&unchunked_image)
                         .platform(platform)
                         .build(),
                 )?;
-                let result = Self::build_chunked_oci(&unchunked_image, &image, rechunk_opts);
+                Ok((unchunked_image, image))
+            })
+            .collect::<Result<Vec<_>>>()?;
 
-                if let ImageRef::Remote(unchunked_image) = unchunked_image {
-                    Self::remove_image(RemoveImageOpts::builder().image(&unchunked_image).build())?;
-                }
-
-                result
-            })?;
+        // Rechunk images serially to avoid using excessive disk space.
+        for (unchunked_image, image) in images_to_rechunk {
+            let result = Self::build_chunked_oci(&unchunked_image, &image, rechunk_opts);
+            if let ImageRef::Remote(unchunked_image) = unchunked_image {
+                Self::remove_image(RemoveImageOpts::builder().image(&unchunked_image).build())?;
+            }
+            result?;
+        }
 
         Self::tag_push(btp_opts)
     }
