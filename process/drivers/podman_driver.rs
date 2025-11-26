@@ -340,18 +340,19 @@ impl BuildDriver for PodmanDriver {
     }
 
     fn manifest_push(opts: ManifestPushOpts) -> Result<()> {
+        let image = &opts.final_image.to_string();
         let status = {
             let c = cmd!(
                 "podman",
                 "manifest",
                 "push",
-                opts.final_image.to_string(),
+                image,
                 format!("docker://{}", opts.final_image),
             );
             trace!("{c:?}");
             c
         }
-        .status()
+        .build_status(image, format!("Pushing manifest {image}..."))
         .into_diagnostic()?;
 
         if !status.success() {
