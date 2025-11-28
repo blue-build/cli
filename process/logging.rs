@@ -119,31 +119,37 @@ impl Logger {
             .tty_only(true)
             .build();
 
-        let file = RollingFileAppender::builder()
-            .encoder(Box::new(PatternEncoder::new("{d} - {l} - {m}{n}")))
-            .build(
-                log_out_path,
-                Box::new(CompoundPolicy::new(
-                    Box::new(SizeTrigger::new(Self::TRIGGER_FILE_SIZE)),
-                    Box::new(
-                        FixedWindowRoller::builder()
-                            .build(&log_archive_pattern, Self::LOG_FILE_COUNT)
-                            .expect("Roller should be created"),
-                    ),
-                )),
-            )
-            .expect("Must be able to create log FileAppender");
+        let config =
+            Config::builder().appender(Appender::builder().build("stderr", Box::new(stderr)));
+        let mut root = Root::builder().appender("stderr");
 
-        let config = Config::builder()
-            .appender(Appender::builder().build("stderr", Box::new(stderr)))
-            .appender(Appender::builder().build("file", Box::new(file)))
-            .build(
-                Root::builder()
-                    .appender("stderr")
-                    .appender("file")
-                    .build(self.level),
-            )
-            .expect("Logger config should build");
+        let config = {
+            let file_appender = FixedWindowRoller::builder()
+                .build(&log_archive_pattern, Self::LOG_FILE_COUNT)
+                .and_then(|window_roller| {
+                    Ok(RollingFileAppender::builder()
+                        .encoder(Box::new(PatternEncoder::new("{d} - {l} - {m}{n}")))
+                        .build(
+                            log_out_path,
+                            Box::new(CompoundPolicy::new(
+                                Box::new(SizeTrigger::new(Self::TRIGGER_FILE_SIZE)),
+                                Box::new(window_roller),
+                            )),
+                        )?)
+                });
+            match file_appender {
+                Err(e) => {
+                    eprintln!("Cannot create logs directory:\n{e}");
+                    config
+                }
+                Ok(file_appender) => {
+                    root = root.appender("file");
+                    config.appender(Appender::builder().build("file", Box::new(file_appender)))
+                }
+            }
+            .build(root.build(self.level))
+            .expect("Logger config should build")
+        };
 
         let logger = L4RSLogger::new(config);
 
