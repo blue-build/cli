@@ -37,7 +37,6 @@ fi
 
 cr create \
   --pull always \
-  --replace \
   --name blue-build-installer \
   ghcr.io/blue-build/cli:${VERSION}-installer
 
