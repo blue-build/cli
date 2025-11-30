@@ -72,7 +72,6 @@ impl PodmanDriver {
         let image = image.whole();
         let status = {
             let c = sudo_cmd!(
-                prompt = SUDO_PROMPT,
                 "podman",
                 "image",
                 "scp",
@@ -131,7 +130,6 @@ impl BuildDriver for PodmanDriver {
             .wrap_err("Failed to create temporary directory for secrets")?;
 
         let command = sudo_cmd!(
-            prompt = SUDO_PROMPT,
             sudo_check = opts.privileged,
             "podman",
             "build",
@@ -192,7 +190,6 @@ impl BuildDriver for PodmanDriver {
         let dest_image_str = opts.dest_image.to_string();
 
         let mut command = sudo_cmd!(
-            prompt = SUDO_PROMPT,
             sudo_check = opts.privileged,
             "podman",
             "tag",
@@ -217,7 +214,6 @@ impl BuildDriver for PodmanDriver {
         let image_str = opts.image.to_string();
 
         let command = sudo_cmd!(
-            prompt = SUDO_PROMPT,
             sudo_check = opts.privileged,
             "podman",
             "push",
@@ -422,7 +418,6 @@ impl ContainerMountDriver for PodmanDriver {
     fn mount_container(opts: ContainerOpts) -> Result<MountId> {
         let output = {
             let c = sudo_cmd!(
-                prompt = SUDO_PROMPT,
                 sudo_check = opts.privileged,
                 "podman",
                 "mount",
@@ -446,7 +441,6 @@ impl ContainerMountDriver for PodmanDriver {
     fn unmount_container(opts: ContainerOpts) -> Result<()> {
         let output = {
             let c = sudo_cmd!(
-                prompt = SUDO_PROMPT,
                 sudo_check = opts.privileged,
                 "podman",
                 "unmount",
@@ -468,7 +462,6 @@ impl ContainerMountDriver for PodmanDriver {
     fn remove_volume(opts: VolumeOpts) -> Result<()> {
         let output = {
             let c = sudo_cmd!(
-                prompt = SUDO_PROMPT,
                 sudo_check = opts.privileged,
                 "podman",
                 "volume",
@@ -533,7 +526,6 @@ impl RunDriver for PodmanDriver {
 
         let output = {
             let c = sudo_cmd!(
-                prompt = SUDO_PROMPT,
                 sudo_check = opts.privileged,
                 "podman",
                 "create",
@@ -560,7 +552,6 @@ impl RunDriver for PodmanDriver {
 
         let output = {
             let c = sudo_cmd!(
-                prompt = SUDO_PROMPT,
                 sudo_check = opts.privileged,
                 "podman",
                 "rm",
@@ -584,7 +575,6 @@ impl RunDriver for PodmanDriver {
 
         let output = {
             let c = sudo_cmd!(
-                prompt = SUDO_PROMPT,
                 sudo_check = opts.privileged,
                 "podman",
                 "rmi",
@@ -614,7 +604,6 @@ impl RunDriver for PodmanDriver {
 
         let output = {
             let c = sudo_cmd!(
-                prompt = SUDO_PROMPT,
                 sudo_check = privileged,
                 "podman",
                 "images",
@@ -647,7 +636,6 @@ impl RunDriver for PodmanDriver {
 
 fn podman_run(opts: RunOpts, cid_file: &Path) -> Command {
     let command = sudo_cmd!(
-        prompt = SUDO_PROMPT,
         sudo_check = opts.privileged,
         "podman",
         "run",
