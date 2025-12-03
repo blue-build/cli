@@ -26,7 +26,7 @@ use std::eprintln as trace;
 // use std::eprintln as warn;
 
 #[cfg(not(test))]
-use log::{trace, warn};
+use log::trace;
 
 mod error;
 
@@ -115,7 +115,7 @@ impl SchemaValidator {
         trace!("{recipe_path_display}:\n{file}");
 
         Ok(if self.all_errors {
-            process_basic_output(self.validator.apply(&instance).basic(), &spanner)
+            process_basic_output(self.validator.evaluate(&instance), &spanner)
         } else {
             process_err(self.validator.iter_errors(&instance), &spanner)
         })
@@ -206,7 +206,7 @@ where
             LabeledSpan::new_primary_with_span(
                 Some(masked_err.to_string().bold().red().to_string()),
                 spanner
-                    .get_span(&Location::from(err.instance_path))
+                    .get_span(&Location::from(err.instance_path()))
                     .unwrap(),
             )
         })

@@ -120,15 +120,15 @@ where
             let (event, marker) = self.events.next().unwrap();
             trace!("{event:?} {marker:?}");
 
-            match (event, expected_key) {
+            match (event, &expected_key) {
                 (Event::Scalar(key, _, _, _), LocationSegment::Property(expected_key))
-                    if key == expected_key =>
+                    if *key == *expected_key =>
                 {
                     trace!("Found matching key '{key}'");
                     break self.value();
                 }
                 (Event::Scalar(key, _, _, _), LocationSegment::Property(expected_key))
-                    if key != expected_key =>
+                    if *key != *expected_key =>
                 {
                     trace!("Non-matching key '{key}'");
                     let (event, marker) = self.events.next().unwrap();
@@ -143,11 +143,11 @@ where
                 (Event::Scalar(key, _, _, _), LocationSegment::Index(index)) => {
                     return Err(YamlSpanError::ExpectIndexFoundKey {
                         key: key.to_owned(),
-                        index,
+                        index: *index,
                     });
                 }
                 (Event::SequenceStart(_, _), LocationSegment::Index(index)) => {
-                    break self.sequence(index, 0);
+                    break self.sequence(*index, 0);
                 }
                 (Event::SequenceStart(_, _), _) => {
                     self.skip_sequence(marker.index());
