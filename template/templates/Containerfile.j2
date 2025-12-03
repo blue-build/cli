@@ -3,7 +3,8 @@
 {%- set main_stage = recipe.name|replace('/', "-") %}
 
 # Main image
-FROM {{ recipe.base_image }}@{{ base_digest }} AS {{ main_stage }}
+ARG BASE_IMAGE="{{ recipe.base_image }}@{{ base_digest }}"
+FROM "${BASE_IMAGE}" AS {{ main_stage }}
 
 ARG TARGETARCH
 ARG RECIPE={{ recipe_path.display() }}
