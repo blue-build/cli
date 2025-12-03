@@ -5,10 +5,10 @@ use std::{
 };
 
 use blue_build_process_management::ASYNC_RUNTIME;
-use blue_build_recipe::ModuleTypeVersion;
-use blue_build_utils::constants::{
-    CUSTOM_MODULE_SCHEMA, IMPORT_MODULE_SCHEMA, JSON_SCHEMA, STAGE_SCHEMA,
-};
+// use blue_build_recipe::ModuleTypeVersion;
+// use blue_build_utils::constants::{
+//     CUSTOM_MODULE_SCHEMA, IMPORT_MODULE_SCHEMA, JSON_SCHEMA, STAGE_SCHEMA,
+// };
 use bon::bon;
 use cached::proc_macro::cached;
 use colored::Colorize;
@@ -22,8 +22,8 @@ use super::{location::Location, yaml_span::YamlSpan};
 
 #[cfg(test)]
 use std::eprintln as trace;
-#[cfg(test)]
-use std::eprintln as warn;
+// #[cfg(test)]
+// use std::eprintln as warn;
 
 #[cfg(not(test))]
 use log::{trace, warn};
@@ -200,7 +200,7 @@ where
     I: Iterator<Item = ValidationError<'a>>,
 {
     errors
-        .flat_map(|err| process_anyof_error(&err).unwrap_or_else(|| vec![err]))
+        // .flat_map(|err| process_anyof_error(&err).unwrap_or_else(|| vec![err]))
         .map(|err| {
             let masked_err = err.masked();
             LabeledSpan::new_primary_with_span(
@@ -213,82 +213,82 @@ where
         .collect()
 }
 
-fn process_anyof_error(err: &ValidationError<'_>) -> Option<Vec<ValidationError<'static>>> {
-    trace!("to_processed_module_err({err:#?})");
-    let ValidationError {
-        instance,
-        kind,
-        instance_path,
-        schema_path: _,
-    } = err;
+// fn process_anyof_error(err: &ValidationError<'_>) -> Option<Vec<ValidationError<'static>>> {
+//     trace!("to_processed_module_err({err:#?})");
+//     let ValidationError {
+//         instance,
+//         kind,
+//         instance_path,
+//         schema_path: _,
+//     } = err;
 
-    let mut path_iter = instance_path.into_iter();
-    let uri = match (kind, path_iter.next_back(), path_iter.next_back()) {
-        (
-            jsonschema::error::ValidationErrorKind::AnyOf,
-            Some(jsonschema::paths::LocationSegment::Index(_)),
-            Some(jsonschema::paths::LocationSegment::Property("modules")),
-        ) => {
-            trace!("FOUND MODULE ANYOF ERROR at {instance_path}");
-            if instance.get("source").is_some() {
-                Uri::parse(CUSTOM_MODULE_SCHEMA.to_string()).ok()?
-            } else if instance.get("from-file").is_some() {
-                Uri::parse(IMPORT_MODULE_SCHEMA.to_string()).ok()?
-            } else {
-                let typ = instance.get("type").and_then(Value::as_str)?;
-                let typ = ModuleTypeVersion::from(typ);
-                trace!("Module type: {typ}");
-                Uri::parse(format!(
-                    "{JSON_SCHEMA}/modules/{}-{}.json",
-                    typ.typ(),
-                    typ.version().unwrap_or("latest")
-                ))
-                .ok()?
-            }
-        }
-        (
-            jsonschema::error::ValidationErrorKind::AnyOf,
-            Some(jsonschema::paths::LocationSegment::Index(_)),
-            Some(jsonschema::paths::LocationSegment::Property("stages")),
-        ) => {
-            trace!("FOUND STAGE ANYOF ERROR at {instance_path}");
+//     let mut path_iter = instance_path.into_iter();
+//     let uri = match (kind, path_iter.next_back(), path_iter.next_back()) {
+//         (
+//             jsonschema::error::ValidationErrorKind::AnyOf,
+//             Some(jsonschema::paths::LocationSegment::Index(_)),
+//             Some(jsonschema::paths::LocationSegment::Property("modules")),
+//         ) => {
+//             trace!("FOUND MODULE ANYOF ERROR at {instance_path}");
+//             if instance.get("source").is_some() {
+//                 Uri::parse(CUSTOM_MODULE_SCHEMA.to_string()).ok()?
+//             } else if instance.get("from-file").is_some() {
+//                 Uri::parse(IMPORT_MODULE_SCHEMA.to_string()).ok()?
+//             } else {
+//                 let typ = instance.get("type").and_then(Value::as_str)?;
+//                 let typ = ModuleTypeVersion::from(typ);
+//                 trace!("Module type: {typ}");
+//                 Uri::parse(format!(
+//                     "{JSON_SCHEMA}/modules/{}-{}.json",
+//                     typ.typ(),
+//                     typ.version().unwrap_or("latest")
+//                 ))
+//                 .ok()?
+//             }
+//         }
+//         (
+//             jsonschema::error::ValidationErrorKind::AnyOf,
+//             Some(jsonschema::paths::LocationSegment::Index(_)),
+//             Some(jsonschema::paths::LocationSegment::Property("stages")),
+//         ) => {
+//             trace!("FOUND STAGE ANYOF ERROR at {instance_path}");
 
-            if instance.get("from-file").is_some() {
-                Uri::parse(IMPORT_MODULE_SCHEMA.to_string()).ok()?
-            } else {
-                Uri::parse(STAGE_SCHEMA.to_string()).ok()?
-            }
-        }
-        _ => return None,
-    };
+//             if instance.get("from-file").is_some() {
+//                 Uri::parse(IMPORT_MODULE_SCHEMA.to_string()).ok()?
+//             } else {
+//                 Uri::parse(STAGE_SCHEMA.to_string()).ok()?
+//             }
+//         }
+//         _ => return None,
+//     };
 
-    trace!("Schema URI: {uri}");
-    let schema = ASYNC_RUNTIME.block_on(cache_retrieve(&uri)).ok()?;
+//     trace!("Schema URI: {uri}");
+//     let schema = ASYNC_RUNTIME.block_on(cache_retrieve(&uri)).ok()?;
 
-    let validator = jsonschema::options()
-        .with_retriever(ModuleSchemaRetriever)
-        .build(&schema)
-        .inspect_err(|e| warn!("{e:#?}"))
-        .ok()?;
+//     let validator = jsonschema::options()
+//         .with_retriever(ModuleSchemaRetriever)
+//         .build(&schema)
+//         .inspect_err(|e| warn!("{e:#?}"))
+//         .ok()?;
 
-    Some(
-        validator
-            .iter_errors(instance)
-            .flat_map(|err| process_anyof_error(&err).unwrap_or_else(|| vec![err]))
-            .map(|err| {
-                let mut err = err.to_owned();
-                err.instance_path = instance_path
-                    .into_iter()
-                    .chain(&err.instance_path)
-                    .collect();
-                err
-            })
-            .inspect(|errs| {
-                trace!("From error: {err:#?}\nTo error list: {errs:#?}");
-            })
-            .collect(),
-    )
-}
+//     Some(
+//         validator
+//             .iter_errors(instance)
+//             .flat_map(|err| process_anyof_error(&err).unwrap_or_else(|| vec![err]))
+//             .map(|err| {
+//                 let mut err = err.to_owned();
+//                 err.instance_path = instance_path
+//                     .into_iter()
+//                     .chain(&err.instance_path)
+//                     .collect();
+//                 err
+//             })
+//             .inspect(|errs| {
+//                 trace!("From error: {err:#?}\nTo error list: {errs:#?}");
+//             })
+//             .collect(),
+//     )
+// }
 
 fn remove_json<S>(string: &S) -> String
 where
