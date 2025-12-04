@@ -1,10 +1,11 @@
-{%- import "modules/modules.j2" as modules -%}
-{%- include "stages.j2" %}
+ARG BASE_IMAGE="{{ recipe.base_image }}@{{ base_digest }}"
 {%- set main_stage = recipe.name|replace('/', "-") %}
+FROM "${BASE_IMAGE}" AS {{ main_stage }}
+{% import "modules/modules.j2" as modules %}
+{% include "stages.j2" %}
 
 # Main image
-ARG BASE_IMAGE="{{ recipe.base_image }}@{{ base_digest }}"
-FROM "${BASE_IMAGE}" AS {{ main_stage }}
+FROM {{ main_stage }}
 
 ARG TARGETARCH
 ARG RECIPE={{ recipe_path.display() }}
