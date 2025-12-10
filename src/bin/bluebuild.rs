@@ -6,6 +6,20 @@ use log::LevelFilter;
 fn main() {
     let args = BlueBuildArgs::parse();
 
+    miette::set_hook(Box::new(|_| {
+        Box::new(
+            miette::MietteHandlerOpts::new()
+                .terminal_links(true)
+                .context_lines(3)
+                .tab_width(2)
+                .break_words(false)
+                .wrap_lines(false)
+                .with_cause_chain()
+                .build(),
+        )
+    }))
+    .expect("Should set hook for miette");
+
     Logger::new()
         .filter_level(args.verbosity.log_level_filter())
         .filter_modules([

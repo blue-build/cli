@@ -123,7 +123,8 @@ pub const GITHUB_CHAR_LIMIT: usize = 8100; // Magic number accepted by Github
 pub const DEFAULT_MAX_LAYERS: NonZeroU32 = NonZeroU32::new(128).unwrap();
 
 // Schema
-pub const SCHEMA_BASE_URL: &str = "https://schema.blue-build.org";
+// pub const SCHEMA_BASE_URL: &str = "https://schema.blue-build.org";
+pub const SCHEMA_BASE_URL: &str = "https://use-oneof.schema-e29.pages.dev";
 pub const RECIPE_V1_SCHEMA_URL: &str = concat!(SCHEMA_BASE_URL, "/recipe-v1.json");
 pub const STAGE_V1_SCHEMA_URL: &str = concat!(SCHEMA_BASE_URL, "/stage-v1.json");
 pub const MODULE_V1_SCHEMA_URL: &str = concat!(SCHEMA_BASE_URL, "/module-v1.json");

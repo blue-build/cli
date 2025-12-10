@@ -3,19 +3,13 @@ use std::sync::Arc;
 
 use bon::bon;
 use jsonschema::paths::LocationSegment;
+use log::{debug, trace};
 use miette::SourceSpan;
 use yaml_rust2::{
     Event,
     parser::{MarkedEventReceiver, Parser},
     scanner::Marker,
 };
-
-#[cfg(not(test))]
-use log::{debug, trace};
-#[cfg(test)]
-use std::eprintln as trace;
-#[cfg(test)]
-use std::eprintln as debug;
 
 use super::location::Location;
 
@@ -106,29 +100,29 @@ where
                     document_start = true;
                 }
                 Event::MappingStart(_, _) if stream_start && document_start => {
-                    break self.key(key)?.into();
+                    break self.key(&key)?.into();
                 }
                 event => return Err(YamlSpanError::UnexpectedEvent(event.to_owned())),
             }
         })
     }
 
-    fn key(&mut self, expected_key: LocationSegment<'_>) -> Result<(usize, usize), YamlSpanError> {
+    fn key(&mut self, expected_key: &LocationSegment<'_>) -> Result<(usize, usize), YamlSpanError> {
         trace!("Looking for location {expected_key:?}");
 
         loop {
             let (event, marker) = self.events.next().unwrap();
             trace!("{event:?} {marker:?}");
 
-            match (event, expected_key) {
+            match (event, &expected_key) {
                 (Event::Scalar(key, _, _, _), LocationSegment::Property(expected_key))
-                    if key == expected_key =>
+                    if *key == *expected_key =>
                 {
                     trace!("Found matching key '{key}'");
                     break self.value();
                 }
                 (Event::Scalar(key, _, _, _), LocationSegment::Property(expected_key))
-                    if key != expected_key =>
+                    if *key != *expected_key =>
                 {
                     trace!("Non-matching key '{key}'");
                     let (event, marker) = self.events.next().unwrap();
@@ -143,11 +137,11 @@ where
                 (Event::Scalar(key, _, _, _), LocationSegment::Index(index)) => {
                     return Err(YamlSpanError::ExpectIndexFoundKey {
                         key: key.to_owned(),
-                        index,
+                        index: *index,
                     });
                 }
                 (Event::SequenceStart(_, _), LocationSegment::Index(index)) => {
-                    break self.sequence(index, 0);
+                    break self.sequence(*index, 0);
                 }
                 (Event::SequenceStart(_, _), _) => {
                     self.skip_sequence(marker.index());
@@ -229,7 +223,7 @@ where
                         let index = marker.index();
                         (index, self.skip_mapping(index) - index)
                     }
-                    Some(key) => self.key(key)?,
+                    Some(key) => self.key(&key)?,
                 }
             }
             Event::SequenceStart(_, _) if index > curr_index => {
@@ -243,7 +237,7 @@ where
                         let index = marker.index();
                         (index, self.skip_sequence(index) - index)
                     }
-                    Some(key) => self.key(key)?,
+                    Some(key) => self.key(&key)?,
                 }
             }
             event => unreachable!("{event:?}"),
@@ -265,7 +259,7 @@ where
                 });
             }
             (Event::MappingStart(_, _), Some(LocationSegment::Property(key))) => {
-                self.key(LocationSegment::Property(key))?
+                self.key(&LocationSegment::Property(key))?
             }
             (Event::MappingStart(_, _), None) => {
                 let index = marker.index();
