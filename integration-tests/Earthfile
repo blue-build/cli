@@ -39,7 +39,7 @@ build-full:
     WITH DOCKER
         RUN --secret BB_PASSWORD=github/registry bluebuild build --push -S sigstore -vv recipes/recipe.yml
     END
-    
+
 switch:
     FROM +test-base
 

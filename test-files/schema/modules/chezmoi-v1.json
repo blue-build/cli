@@ -1,70 +1,259 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "/modules/chezmoi.json",
-  "type": "object",
-  "properties": {
-    "type": {
-      "type": "string",
-      "const": "chezmoi",
-      "description": "The chezmoi module installs the latest chezmoi release at build time, along with services to clone a dotfile repository and keep it up-to-date.\nhttps://blue-build.org/reference/modules/chezmoi/"
-    },
-    "no-cache": {
-      "type": "boolean",
-      "default": false,
-      "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
-    },
-    "repository": {
-      "type": "string",
-      "description": "Git repository to initialize."
-    },
-    "branch": {
-      "type": "string",
-      "default": "",
-      "description": "Git branch of the chezmoi repository."
-    },
-    "all-users": {
-      "type": "boolean",
-      "default": true,
-      "description": "Whether to enable the modules services globally for all users, if false users need to enable services manually."
-    },
-    "run-every": {
-      "type": "string",
-      "default": "1d",
-      "description": "Dotfiles will be updated with this interval."
-    },
-    "wait-after-boot": {
-      "type": "string",
-      "default": "5m",
-      "description": "Dotfile updates will wait this long after a boot before running."
-    },
-    "disable-init": {
-      "type": "boolean",
-      "default": false,
-      "description": "Disable the service that initializes `repository` on users that are logged in or have linger enabled UI."
-    },
-    "disable-update": {
-      "type": "boolean",
-      "default": false,
-      "description": "Disable the timer that updates chezmoi with the set interval."
-    },
-    "file-conflict-policy": {
-      "anyOf": [
-        {
-          "type": "string",
-          "const": "skip"
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "/modules/chezmoi-v1.json",
+    "type": "object",
+    "properties": {
+        "type": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "chezmoi"
+                },
+                {
+                    "type": "string",
+                    "const": "chezmoi@v1"
+                },
+                {
+                    "type": "string",
+                    "const": "chezmoi@latest"
+                }
+            ],
+            "description": "The chezmoi module installs the latest chezmoi release at build time, along with services to clone a dotfile repository and keep it up-to-date.\nhttps://blue-build.org/reference/modules/chezmoi/"
         },
-        {
-          "type": "string",
-          "const": "replace"
+        "no-cache": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
+        },
+        "env": {
+            "$ref": "#/$defs/RecordString",
+            "description": "Environment variables to add for the module call."
+        },
+        "secrets": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/Secret"
+            },
+            "description": "Secrets to mount for this module call."
+        },
+        "repository": {
+            "type": "string",
+            "description": "Git repository to initialize."
+        },
+        "branch": {
+            "type": "string",
+            "default": "",
+            "description": "Git branch of the chezmoi repository."
+        },
+        "all-users": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to enable the modules services globally for all users, if false users need to enable services manually."
+        },
+        "run-every": {
+            "type": "string",
+            "default": "1d",
+            "description": "Dotfiles will be updated with this interval."
+        },
+        "wait-after-boot": {
+            "type": "string",
+            "default": "5m",
+            "description": "Dotfile updates will wait this long after a boot before running."
+        },
+        "disable-init": {
+            "type": "boolean",
+            "default": false,
+            "description": "Disable the service that initializes `repository` on users that are logged in or have linger enabled UI."
+        },
+        "disable-update": {
+            "type": "boolean",
+            "default": false,
+            "description": "Disable the timer that updates chezmoi with the set interval."
+        },
+        "file-conflict-policy": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "skip"
+                },
+                {
+                    "type": "string",
+                    "const": "replace"
+                }
+            ],
+            "default": "skip",
+            "description": "What to do when file different that exists on your repo is has been changed or exists locally. Accepts \"skip\" or \"replace\"."
         }
-      ],
-      "default": "skip",
-      "description": "What to do when file different that exists on your repo is has been changed or exists locally. Accepts \"skip\" or \"replace\"."
+    },
+    "required": [
+        "type",
+        "repository"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+        "RecordString": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "Secret": {
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/SecretEnv"
+                },
+                {
+                    "$ref": "#/$defs/SecretFile"
+                },
+                {
+                    "$ref": "#/$defs/SecretExec"
+                },
+                {
+                    "$ref": "#/$defs/SecretSsh"
+                }
+            ]
+        },
+        "SecretEnv": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "env",
+                    "description": "A secret pulled from an environment variable."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The name of the environment variable"
+                },
+                "mount": {
+                    "$ref": "#/$defs/SecretMount",
+                    "description": "Defines the mount type for the result of the command into the build."
+                }
+            },
+            "required": [
+                "type",
+                "name",
+                "mount"
+            ],
+            "additionalProperties": false
+        },
+        "SecretFile": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "file",
+                    "description": "A secret pulled from a file."
+                },
+                "source": {
+                    "type": "string",
+                    "description": "The source file containing the secret.\n\nNOTE: Relative paths are relative to the root of the repository."
+                },
+                "mount": {
+                    "$ref": "#/$defs/SecretMount",
+                    "description": "Defines the mount type for the result of the command into the build."
+                }
+            },
+            "required": [
+                "type",
+                "source",
+                "mount"
+            ],
+            "additionalProperties": false
+        },
+        "SecretExec": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "exec",
+                    "description": "A secret pulled from the stdout of a command."
+                },
+                "command": {
+                    "type": "string",
+                    "description": "The command that will be executed."
+                },
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Arguments for the command being executed."
+                },
+                "mount": {
+                    "$ref": "#/$defs/SecretMount",
+                    "description": "Defines the mount type for the result of the command into the build."
+                }
+            },
+            "required": [
+                "type",
+                "command",
+                "mount"
+            ],
+            "additionalProperties": false
+        },
+        "SecretSsh": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "ssh",
+                    "description": "Mount the SSH socket to use the hosts SSH socket."
+                }
+            },
+            "required": [
+                "type"
+            ],
+            "additionalProperties": false
+        },
+        "SecretMount": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/SecretMountEnv"
+                },
+                {
+                    "$ref": "#/$defs/SecretMountFile"
+                }
+            ]
+        },
+        "SecretMountEnv": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "env",
+                    "description": "A secret pulled from a file on the host system."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The environment variable where the secret will be set."
+                }
+            },
+            "required": [
+                "type",
+                "name"
+            ],
+            "additionalProperties": false
+        },
+        "SecretMountFile": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "file",
+                    "description": "A secret pulled from a file on the host system."
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "The destination path in the build to mount the secret."
+                }
+            },
+            "required": [
+                "type",
+                "destination"
+            ],
+            "additionalProperties": false
+        }
     }
-  },
-  "required": [
-    "type",
-    "repository"
-  ],
-  "additionalProperties": false
 }

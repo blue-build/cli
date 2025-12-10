@@ -457,6 +457,7 @@ dependencies = [
  "oci-client",
  "open",
  "os_info",
+ "pretty_assertions",
  "rayon",
  "regex",
  "requestty",

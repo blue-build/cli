@@ -1,24 +1,24 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "/modules/systemd-v1.json",
+    "$id": "/modules/initramfs-latest.json",
     "type": "object",
     "properties": {
         "type": {
             "anyOf": [
                 {
                     "type": "string",
-                    "const": "systemd"
+                    "const": "initramfs"
                 },
                 {
                     "type": "string",
-                    "const": "systemd@v1"
+                    "const": "initramfs@v1"
                 },
                 {
                     "type": "string",
-                    "const": "systemd@latest"
+                    "const": "initramfs@latest"
                 }
             ],
-            "description": "The systemd module streamlines the management of systemd units during image building.\nhttps://blue-build.org/reference/modules/systemd/"
+            "description": "The initramfs module is used to regenerate initramfs, needed to apply some modifications early in the Linux startup process.\nhttps://blue-build.org/reference/modules/initramfs/"
         },
         "no-cache": {
             "type": "boolean",
@@ -35,14 +35,6 @@
                 "$ref": "#/$defs/Secret"
             },
             "description": "Secrets to mount for this module call."
-        },
-        "system": {
-            "$ref": "#/$defs/UnitConfig",
-            "description": "System unit configuration."
-        },
-        "user": {
-            "$ref": "#/$defs/UnitConfig",
-            "description": "User unit configuration (with --global to make changes for all users)."
         }
     },
     "required": [
@@ -72,40 +64,6 @@
                     "$ref": "#/$defs/SecretSsh"
                 }
             ]
-        },
-        "UnitConfig": {
-            "type": "object",
-            "properties": {
-                "enabled": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to enable. (runs on system boot)"
-                },
-                "disabled": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to disable. (does not run on system boot, unless another unit strictly requires it)"
-                },
-                "masked": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to mask. (does not run on system boot, under any circumstances)"
-                },
-                "unmasked": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to unmask. (runs on system boot, even if previously masked)"
-                }
-            },
-            "additionalProperties": false
         },
         "SecretEnv": {
             "type": "object",

@@ -1,10 +1,10 @@
 import "@typespec/json-schema";
 using TypeSpec.JsonSchema;
 
-// @jsonSchema("/modules/containerfile-latest.json")
-// model ContainerfileModuleLatest {
-//   ...ContainerfileModuleV1;
-// }
+@jsonSchema("/modules/containerfile-latest.json")
+model ContainerfileModuleLatest {
+    ...ContainerfileModuleV1;
+}
 
 @jsonSchema("/modules/containerfile-v1.json")
 model ContainerfileModuleV1 {
