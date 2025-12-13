@@ -17,7 +17,7 @@ use blue_build_utils::{
 use comlexr::cmd;
 use log::{debug, info, trace};
 use miette::{Context, IntoDiagnostic, Result, bail};
-use oci_distribution::Reference;
+use oci_client::Reference;
 use rayon::prelude::*;
 use semver::VersionReq;
 

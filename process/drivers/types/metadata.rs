@@ -1,7 +1,7 @@
 use blue_build_utils::{constants::IMAGE_VERSION_LABEL, semver::Version};
 use bon::Builder;
 use miette::{Context, Result, miette};
-use oci_distribution::{config::Config, manifest::OciManifest};
+use oci_client::{config::Config, manifest::OciManifest};
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]

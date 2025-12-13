@@ -164,7 +164,7 @@ mod test {
         string_vec,
         test_utils::set_env_var,
     };
-    use oci_distribution::Reference;
+    use oci_client::Reference;
     use rstest::rstest;
 
     use crate::{

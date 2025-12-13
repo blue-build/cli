@@ -18,7 +18,7 @@ use colored::Colorize;
 use comlexr::{cmd, pipe};
 use log::{debug, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Result, bail};
-use oci_distribution::Reference;
+use oci_client::Reference;
 use serde::Deserialize;
 use tempfile::TempDir;
 

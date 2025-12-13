@@ -3,7 +3,7 @@ use std::{ops::Not, path::PathBuf, str::FromStr};
 use blue_build_utils::{container::ImageRef, impl_de_fromstr};
 use lazy_regex::{regex_if, regex_switch};
 use miette::{IntoDiagnostic, bail};
-use oci_distribution::Reference;
+use oci_client::Reference;
 
 impl_de_fromstr!(
     DeploymentImageRef,
@@ -443,7 +443,7 @@ impl FromStr for StorageSpecifier {
 
 #[cfg(test)]
 mod test {
-    use oci_distribution::Reference;
+    use oci_client::Reference;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
