@@ -34,7 +34,7 @@ use bon::Builder;
 use clap::Args;
 use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Result, bail};
-use oci_distribution::Reference;
+use oci_client::Reference;
 use rayon::prelude::*;
 use tempfile::TempDir;
 

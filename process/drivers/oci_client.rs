@@ -2,7 +2,7 @@ use blue_build_utils::credentials::Credentials;
 use cached::proc_macro::cached;
 use log::trace;
 use miette::{IntoDiagnostic, Result};
-use oci_distribution::{Reference, client::ClientConfig, secrets::RegistryAuth};
+use oci_client::{Reference, client::ClientConfig, secrets::RegistryAuth};
 
 use crate::{
     ASYNC_RUNTIME,
@@ -17,7 +17,7 @@ impl InspectDriver for OciClientDriver {
     fn get_metadata(opts: GetMetadataOpts) -> Result<ImageMetadata> {
         #[cached(result = true, key = "String", convert = r"{image.to_string()}")]
         fn inner(image: &Reference) -> Result<ImageMetadata> {
-            let client = oci_distribution::Client::new(ClientConfig::default());
+            let client = oci_client::Client::new(ClientConfig::default());
             let auth = match Credentials::get(image.registry()) {
                 Some(Credentials::Basic { username, password }) => {
                     RegistryAuth::Basic(username, password.value().into())

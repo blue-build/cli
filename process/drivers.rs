@@ -30,7 +30,7 @@ use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
 use miette::{Context, Result};
-use oci_distribution::Reference;
+use oci_client::Reference;
 use opts::{
     BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts, CheckKeyPairOpts,
     ContainerOpts, CopyOciDirOpts, CreateContainerOpts, GenerateImageNameOpts, GenerateKeyPairOpts,

@@ -16,7 +16,7 @@ blue-build-utils = { version = "=0.9.27", path = "../utils" }
 bon.workspace = true
 colored.workspace = true
 log.workspace = true
-oci-distribution.workspace = true
+oci-client.workspace = true
 uuid.workspace = true
 
 [lints]

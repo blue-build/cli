@@ -34,7 +34,7 @@ log.workspace = true
 miette.workspace = true
 nix = { workspace = true, features = ["signal"] }
 rayon.workspace = true
-oci-distribution.workspace = true
+oci-client.workspace = true
 reqwest.workspace = true
 semver.workspace = true
 serde.workspace = true

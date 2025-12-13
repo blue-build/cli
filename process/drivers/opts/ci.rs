@@ -1,6 +1,6 @@
 use blue_build_utils::{container::Tag, platform::Platform};
 use bon::Builder;
-use oci_distribution::Reference;
+use oci_client::Reference;
 
 #[derive(Debug, Clone, Copy, Builder)]
 #[builder(derive(Debug, Clone))]

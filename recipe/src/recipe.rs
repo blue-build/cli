@@ -12,7 +12,7 @@ use bon::Builder;
 use cached::proc_macro::cached;
 use log::{debug, trace, warn};
 use miette::{Context, IntoDiagnostic, Result};
-use oci_distribution::Reference;
+use oci_client::Reference;
 use serde::{Deserialize, Serialize};
 
 use crate::{Module, ModuleExt, StagesExt, maybe_version::MaybeVersion};

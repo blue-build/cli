@@ -7,7 +7,7 @@ use std::{
 
 use lazy_regex::regex;
 use miette::miette;
-use oci_distribution::Reference;
+use oci_client::Reference;
 use serde::{Deserialize, Serialize};
 
 use crate::platform::Platform;

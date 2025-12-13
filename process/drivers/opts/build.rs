@@ -6,7 +6,7 @@ use blue_build_utils::{
     secret::Secret,
 };
 use bon::Builder;
-use oci_distribution::Reference;
+use oci_client::Reference;
 
 use super::CompressionType;
 
