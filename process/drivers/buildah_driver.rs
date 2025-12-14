@@ -189,7 +189,7 @@ impl BuildDriver for BuildahDriver {
     }
 
     fn prune(opts: PruneOpts) -> Result<()> {
-        trace!("PodmanDriver::prune({opts:?})");
+        trace!("BuildahDriver::prune({opts:?})");
 
         let status = cmd!(
             "buildah",

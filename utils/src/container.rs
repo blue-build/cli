@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    ffi::OsString,
     ops::Deref,
     path::{Path, PathBuf},
     str::FromStr,
@@ -63,30 +64,79 @@ impl<'a> From<&'a MountId> for std::borrow::Cow<'a, str> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct OciDir(String);
+#[derive(Clone, Debug)]
+pub enum OciRef {
+    LocalStorage(String),
+    OciArchive(PathBuf),
+    OciDir(PathBuf),
+    Remote(Reference),
+}
 
-impl std::fmt::Display for OciDir {
+impl std::fmt::Display for OciRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", &self.0)
+        match self {
+            Self::LocalStorage(local_ref) => write!(f, "containers-storage:{local_ref}"),
+            Self::OciArchive(path) => write!(f, "oci-archive:{}", path.display()),
+            Self::OciDir(path) => write!(f, "oci:{}", path.display()),
+            Self::Remote(image_ref) => write!(f, "docker://{}", image_ref.whole()),
+        }
     }
 }
 
-impl AsRef<std::ffi::OsStr> for OciDir {
-    fn as_ref(&self) -> &std::ffi::OsStr {
-        self.0.as_ref()
+impl From<Reference> for OciRef {
+    fn from(image_ref: Reference) -> Self {
+        Self::Remote(image_ref)
     }
 }
 
-impl TryFrom<std::path::PathBuf> for OciDir {
-    type Error = miette::Report;
+impl From<&Reference> for OciRef {
+    fn from(image_ref: &Reference) -> Self {
+        Self::Remote(image_ref.clone())
+    }
+}
 
-    fn try_from(value: std::path::PathBuf) -> Result<Self, Self::Error> {
-        if !value.is_dir() {
-            miette::bail!("OCI directory doesn't exist at {}", value.display());
+impl OciRef {
+    #[must_use]
+    pub fn from_local_storage(local_ref: &str) -> Self {
+        Self::LocalStorage(local_ref.to_owned())
+    }
+
+    /// # Errors
+    /// Returns an error if the path does not point to a regular file.
+    pub fn from_oci_archive<P: AsRef<Path>>(path: P) -> Result<Self, miette::Report> {
+        if !path.as_ref().is_file() {
+            miette::bail!("OCI archive doesn't exist at {}", path.as_ref().display());
         }
 
-        Ok(Self(format!("oci:{}", value.display())))
+        Ok(Self::OciArchive(path.as_ref().to_owned()))
+    }
+
+    /// # Errors
+    /// Returns an error if the path does not point to a directory.
+    pub fn from_oci_directory<P: AsRef<Path>>(path: P) -> Result<Self, miette::Report> {
+        if !path.as_ref().is_dir() {
+            miette::bail!("OCI directory doesn't exist at {}", path.as_ref().display());
+        }
+
+        Ok(Self::OciDir(path.as_ref().to_owned()))
+    }
+
+    #[must_use]
+    pub fn to_os_string(&self) -> OsString {
+        match self {
+            Self::LocalStorage(local_ref) => format!("containers-storage:{local_ref}").into(),
+            Self::OciArchive(path) => {
+                let mut out = OsString::from("oci-archive:");
+                out.push(path.as_os_str());
+                out
+            }
+            Self::OciDir(path) => {
+                let mut out = OsString::from("oci:");
+                out.push(path.as_os_str());
+                out
+            }
+            Self::Remote(image_ref) => format!("docker://{}", image_ref.whole()).into(),
+        }
     }
 }
 
