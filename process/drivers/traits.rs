@@ -78,13 +78,13 @@ impl_private_driver!(
     super::bootc_driver::BootcStatus
 );
 
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait DetermineDriver<T>: PrivateDriver {
     fn determine_driver(&mut self) -> T;
 }
 
 /// Trait for retrieving version of a driver.
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait DriverVersion: PrivateDriver {
     /// The version req string slice that follows
     /// the semver standard <https://semver.org/>.
@@ -106,7 +106,7 @@ pub trait DriverVersion: PrivateDriver {
 
 /// Allows agnostic building, tagging
 /// pushing, and login.
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait BuildDriver: PrivateDriver {
     /// Runs the build logic for the driver.
     ///
@@ -250,7 +250,7 @@ pub trait BuildDriver: PrivateDriver {
 }
 
 /// Allows agnostic inspection of images.
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait InspectDriver: PrivateDriver {
     /// Gets the metadata on an image tag.
     ///
@@ -260,7 +260,7 @@ pub trait InspectDriver: PrivateDriver {
 }
 
 /// Allows agnostic running of containers.
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait RunDriver: PrivateDriver {
     /// Run a container to perform an action.
     ///
@@ -299,7 +299,6 @@ pub trait RunDriver: PrivateDriver {
     fn list_images(privileged: bool) -> Result<Vec<Reference>>;
 }
 
-#[allow(private_bounds)]
 pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
     /// Do any necessary setup to prepare for running `rpm-ostree`.
     ///
@@ -405,7 +404,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
     }
 }
 
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub(super) trait ContainerMountDriver: PrivateDriver {
     /// Mounts the container
     ///
@@ -426,11 +425,22 @@ pub(super) trait ContainerMountDriver: PrivateDriver {
     fn remove_volume(opts: VolumeOpts) -> Result<()>;
 }
 
-pub(super) trait OciCopy {
+#[expect(private_bounds)]
+pub trait OciCopy: PrivateDriver {
+    /// Logs in to an OCI registry.
+    ///
+    /// # Errors
+    /// Will error if login fails.
+    fn registry_login(server: &str) -> Result<()>;
+
+    /// Copy an OCI image to a remote registry.
+    ///
+    /// # Errors
+    /// Will error if copying the image fails.
     fn copy_oci_source(opts: CopyOciSourceOpts) -> Result<()>;
 }
 
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
     const RECHUNK_IMAGE: &str = "ghcr.io/hhd-dev/rechunk:v1.0.1";
 
@@ -705,7 +715,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
 }
 
 /// Allows agnostic management of signature keys.
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait SigningDriver: PrivateDriver {
     /// Generate a new private/public key pair.
     ///
@@ -807,7 +817,7 @@ pub trait SigningDriver: PrivateDriver {
 }
 
 /// Allows agnostic retrieval of CI-based information.
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait CiDriver: PrivateDriver {
     /// Determines if we're on the main branch of
     /// a repository.
@@ -953,7 +963,7 @@ pub trait CiDriver: PrivateDriver {
     fn default_ci_file_path() -> PathBuf;
 }
 
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait BootDriver: PrivateDriver {
     /// Get the status of the current booted image.
     ///
@@ -974,7 +984,7 @@ pub trait BootDriver: PrivateDriver {
     fn upgrade(opts: SwitchOpts) -> Result<()>;
 }
 
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait BootStatus: PrivateDriver {
     /// Checks to see if there's a transaction in progress.
     fn transaction_in_progress(&self) -> bool;

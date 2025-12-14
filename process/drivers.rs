@@ -521,6 +521,10 @@ impl ContainerMountDriver for Driver {
 }
 
 impl OciCopy for Driver {
+    fn registry_login(server: &str) -> Result<()> {
+        SkopeoDriver::registry_login(server)
+    }
+
     fn copy_oci_source(opts: CopyOciSourceOpts) -> Result<()> {
         SkopeoDriver::copy_oci_source(opts)
     }
