@@ -26,7 +26,6 @@ use blake2::{
 };
 use cached::proc_macro::once;
 use chrono::{Local, Utc};
-use comlexr::cmd;
 use log::{trace, warn};
 use miette::{Context, IntoDiagnostic, Result, miette};
 use uuid::Uuid;
@@ -46,12 +45,7 @@ pub fn check_command_exists(command: &str) -> Result<()> {
     trace!("check_command_exists({command})");
 
     trace!("which {command}");
-    if cmd!("which", command)
-        .output()
-        .into_diagnostic()?
-        .status
-        .success()
-    {
+    if which::which(command).is_ok() {
         trace!("Command {command} does exist");
         Ok(())
     } else {
