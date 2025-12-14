@@ -8,7 +8,7 @@ use std::{
 
 use blue_build_utils::{
     constants::COSIGN_PUB_PATH,
-    container::{ContainerId, ImageRef, MountId, OciDir, Tag},
+    container::{ContainerId, ImageRef, MountId, OciSource, Tag},
     platform::Platform,
     retry,
     semver::Version,
@@ -22,23 +22,21 @@ use rayon::prelude::*;
 use semver::VersionReq;
 
 use super::{
+    Driver,
+    functions::get_private_key,
     opts::{
         BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts,
-        CheckKeyPairOpts, ContainerOpts, CopyOciDirOpts, CreateContainerOpts,
+        CheckKeyPairOpts, ContainerOpts, CopyOciSourceOpts, CreateContainerOpts,
         GenerateImageNameOpts, GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts,
         RechunkOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts,
         SwitchOpts, TagOpts, VerifyOpts, VerifyType, VolumeOpts,
     },
+    opts::{ManifestCreateOpts, ManifestPushOpts},
+    types::CiDriverType,
     types::{
         BootDriverType, BuildDriverType, ImageMetadata, InspectDriverType, RunDriverType,
         SigningDriverType,
     },
-};
-use crate::drivers::{
-    Driver,
-    functions::get_private_key,
-    opts::{ManifestCreateOpts, ManifestPushOpts},
-    types::CiDriverType,
 };
 use crate::logging::CommandLogging;
 
@@ -65,7 +63,7 @@ impl_private_driver!(
     super::sigstore_driver::SigstoreDriver,
     super::rpm_ostree_driver::RpmOstreeDriver,
     super::rpm_ostree_driver::Status,
-    super::oci_client::OciClientDriver,
+    super::oci_client_driver::OciClientDriver,
     Option<BuildDriverType>,
     Option<RunDriverType>,
     Option<InspectDriverType>,
@@ -429,7 +427,7 @@ pub(super) trait ContainerMountDriver: PrivateDriver {
 }
 
 pub(super) trait OciCopy {
-    fn copy_oci_dir(opts: CopyOciDirOpts) -> Result<()>;
+    fn copy_oci_source(opts: CopyOciSourceOpts) -> Result<()>;
 }
 
 #[allow(private_bounds)]
@@ -515,7 +513,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         let mut image_list = Vec::with_capacity(opts.tags.len());
 
         if opts.push {
-            let oci_dir = &OciDir::try_from(temp_dir.path().join(ostree_cache_id))?;
+            let oci_dir = &OciSource::from_oci_directory(temp_dir.path().join(ostree_cache_id))?;
 
             for tag in opts.tags {
                 let tagged_image = Reference::with_tag(
@@ -527,9 +525,9 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                 blue_build_utils::retry(opts.retry_count, 5, || {
                     debug!("Pushing image {tagged_image}");
 
-                    Driver::copy_oci_dir(
-                        CopyOciDirOpts::builder()
-                            .oci_dir(oci_dir)
+                    Driver::copy_oci_source(
+                        CopyOciSourceOpts::builder()
+                            .oci_source(oci_dir)
                             .registry(&tagged_image)
                             .privileged(true)
                             .build(),

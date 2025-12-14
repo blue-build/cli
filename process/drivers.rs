@@ -33,9 +33,10 @@ use miette::{Context, Result};
 use oci_client::Reference;
 use opts::{
     BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts, CheckKeyPairOpts,
-    ContainerOpts, CopyOciDirOpts, CreateContainerOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
-    GenerateTagsOpts, GetMetadataOpts, PruneOpts, PushOpts, RechunkOpts, RemoveContainerOpts,
-    RemoveImageOpts, RunOpts, SignOpts, SwitchOpts, TagOpts, VerifyOpts, VolumeOpts,
+    ContainerOpts, CopyOciSourceOpts, CreateContainerOpts, GenerateImageNameOpts,
+    GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PruneOpts, PushOpts, RechunkOpts,
+    RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SwitchOpts, TagOpts, VerifyOpts,
+    VolumeOpts,
 };
 use types::{
     BootDriverType, BuildDriverType, CiDriverType, ImageMetadata, InspectDriverType, RunDriverType,
@@ -44,7 +45,7 @@ use types::{
 use uuid::Uuid;
 
 use crate::{
-    drivers::oci_client::OciClientDriver,
+    drivers::oci_client_driver::OciClientDriver,
     drivers::opts::{ManifestCreateOpts, ManifestPushOpts},
     logging::Logger,
 };
@@ -68,7 +69,7 @@ mod functions;
 mod github_driver;
 mod gitlab_driver;
 mod local_driver;
-mod oci_client;
+mod oci_client_driver;
 pub mod opts;
 mod podman_driver;
 mod rpm_ostree_driver;
@@ -520,8 +521,8 @@ impl ContainerMountDriver for Driver {
 }
 
 impl OciCopy for Driver {
-    fn copy_oci_dir(opts: CopyOciDirOpts) -> Result<()> {
-        SkopeoDriver::copy_oci_dir(opts)
+    fn copy_oci_source(opts: CopyOciSourceOpts) -> Result<()> {
+        SkopeoDriver::copy_oci_source(opts)
     }
 }
 

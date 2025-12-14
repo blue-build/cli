@@ -2,15 +2,15 @@ use comlexr::cmd;
 use log::trace;
 use miette::{IntoDiagnostic, Result, bail};
 
-use super::opts::CopyOciDirOpts;
+use super::opts::CopyOciSourceOpts;
+use crate::logging::CommandLogging;
 
 #[derive(Debug)]
 pub struct SkopeoDriver;
 
 impl super::OciCopy for SkopeoDriver {
-    fn copy_oci_dir(opts: CopyOciDirOpts) -> Result<()> {
-        use crate::logging::CommandLogging;
-
+    fn copy_oci_source(opts: CopyOciSourceOpts) -> Result<()> {
+        trace!("SkopeoDriver::copy_oci_source({opts:?})");
         let use_sudo = opts.privileged && !blue_build_utils::running_as_root();
         let status = {
             let c = cmd!(
@@ -23,17 +23,15 @@ impl super::OciCopy for SkopeoDriver {
                     "-A",
                     "-p",
                     format!(
-                        concat!(
-                            "Password is required to copy ",
-                            "OCI directory {dir:?} to remote registry {registry}"
-                        ),
-                        dir = opts.oci_dir,
+                        "Password is required to copy {source:?} to remote registry {registry}",
+                        source = opts.oci_source,
                         registry = opts.registry,
                     )
                 ],
                 if use_sudo => "skopeo",
                 "copy",
-                opts.oci_dir,
+                "--all",
+                opts.oci_source.to_os_string(),
                 format!("docker://{}", opts.registry),
             );
             trace!("{c:?}");
@@ -41,12 +39,12 @@ impl super::OciCopy for SkopeoDriver {
         }
         .build_status(
             opts.registry.to_string(),
-            format!("Copying {} to", opts.oci_dir),
+            format!("Copying {} to", opts.oci_source),
         )
         .into_diagnostic()?;
 
         if !status.success() {
-            bail!("Failed to copy {} to {}", opts.oci_dir, opts.registry);
+            bail!("Failed to copy {} to {}", opts.oci_source, opts.registry);
         }
 
         Ok(())

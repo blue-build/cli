@@ -18,7 +18,7 @@ pub struct LoginCommand {
 
     /// The password to login with.
     ///
-    /// Cannont be used with `--password-stdin`.
+    /// Cannot be used with `--password-stdin`.
     #[arg(group = "pass", long, short)]
     password: Option<String>,
 
