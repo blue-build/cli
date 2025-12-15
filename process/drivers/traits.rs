@@ -225,30 +225,16 @@ pub trait BuildDriver: PrivateDriver {
                     if opts.push {
                         let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
 
-                        if which::which("skopeo").is_ok() {
+                        // Push images with retries (1s delay between retries)
+                        blue_build_utils::retry(retry_count, 5, || {
                             debug!("Pushing image {tagged_image}");
-                            let src_ref = OciRef::from_local_storage(&tagged_image.whole());
-                            let dest_ref = OciRef::from(tagged_image);
-                            Driver::copy_oci(
-                                CopyOciOpts::builder()
-                                    .src_ref(&src_ref)
-                                    .dest_ref(&dest_ref)
-                                    .privileged(opts.privileged)
-                                    .retry_count(retry_count)
-                                    .build(),
-                            )?;
-                        } else {
-                            // Push images with retries (1s delay between retries)
-                            blue_build_utils::retry(retry_count, 5, || {
-                                debug!("Pushing image {tagged_image}");
 
-                                Self::manifest_push(
-                                    ManifestPushOpts::builder()
-                                        .final_image(&tagged_image)
-                                        .build(),
-                                )
-                            })?;
-                        }
+                            Self::manifest_push(
+                                ManifestPushOpts::builder()
+                                    .final_image(&tagged_image)
+                                    .build(),
+                            )
+                        })?;
                     }
                 }
 
