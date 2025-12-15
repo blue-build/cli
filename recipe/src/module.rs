@@ -44,7 +44,7 @@ pub struct ModuleRequiredFields {
     pub config: IndexMap<String, Value>,
 }
 
-#[allow(clippy::trivially_copy_pass_by_ref)]
+#[expect(clippy::trivially_copy_pass_by_ref)]
 const fn is_false(b: &bool) -> bool {
     !*b
 }
@@ -292,7 +292,6 @@ impl Module {
     }
 
     #[must_use]
-    #[allow(clippy::missing_panics_doc)]
     pub fn example() -> Self {
         Self::builder()
             .required_fields(

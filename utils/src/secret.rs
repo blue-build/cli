@@ -122,7 +122,6 @@ impl SecretMounts for Vec<Secret> {
 
 impl private::Private for &[&Secret] {}
 
-#[allow(private_bounds)]
 pub trait SecretArgs: private::Private {
     /// Retrieves the args for the image builder.
     ///

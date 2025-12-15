@@ -208,7 +208,7 @@ impl Recipe {
         &self,
         default_labels: &BTreeMap<String, String>,
     ) -> BTreeMap<String, String> {
-        #[allow(clippy::option_if_let_else)] // map_or_else won't work with returning ref
+        #[expect(clippy::option_if_let_else)] // map_or_else won't work with returning ref
         let labels = if let Some(labels) = &self.labels {
             labels
         } else {

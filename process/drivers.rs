@@ -94,7 +94,6 @@ static SELECTED_BOOT_DRIVER: LazyLock<RwLock<Option<BootDriverType>>> =
 /// If the args are left uninitialized, the program will determine
 /// the best one available.
 #[derive(Default, Clone, Copy, Debug, Builder, Args)]
-#[allow(clippy::struct_field_names)]
 pub struct DriverArgs {
     /// Select which driver to use to build
     /// your image.
