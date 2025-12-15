@@ -65,14 +65,14 @@ impl<'a> From<&'a MountId> for std::borrow::Cow<'a, str> {
 }
 
 #[derive(Clone, Debug)]
-pub enum OciSource {
+pub enum OciRef {
     LocalStorage(String),
     OciArchive(PathBuf),
     OciDir(PathBuf),
     Remote(Reference),
 }
 
-impl std::fmt::Display for OciSource {
+impl std::fmt::Display for OciRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::LocalStorage(local_ref) => write!(f, "containers-storage:{local_ref}"),
@@ -83,13 +83,19 @@ impl std::fmt::Display for OciSource {
     }
 }
 
-impl From<Reference> for OciSource {
+impl From<Reference> for OciRef {
     fn from(image_ref: Reference) -> Self {
         Self::Remote(image_ref)
     }
 }
 
-impl OciSource {
+impl From<&Reference> for OciRef {
+    fn from(image_ref: &Reference) -> Self {
+        Self::Remote(image_ref.clone())
+    }
+}
+
+impl OciRef {
     #[must_use]
     pub fn from_local_storage(local_ref: &str) -> Self {
         Self::LocalStorage(local_ref.to_owned())

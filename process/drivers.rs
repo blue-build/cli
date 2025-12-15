@@ -33,10 +33,9 @@ use miette::{Context, Result};
 use oci_client::Reference;
 use opts::{
     BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts, CheckKeyPairOpts,
-    ContainerOpts, CopyOciSourceOpts, CreateContainerOpts, GenerateImageNameOpts,
-    GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PruneOpts, PushOpts, RechunkOpts,
-    RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SwitchOpts, TagOpts, VerifyOpts,
-    VolumeOpts,
+    ContainerOpts, CopyOciOpts, CreateContainerOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
+    GenerateTagsOpts, GetMetadataOpts, PruneOpts, PushOpts, RechunkOpts, RemoveContainerOpts,
+    RemoveImageOpts, RunOpts, SignOpts, SwitchOpts, TagOpts, VerifyOpts, VolumeOpts,
 };
 use types::{
     BootDriverType, BuildDriverType, CiDriverType, ImageMetadata, InspectDriverType, RunDriverType,
@@ -525,8 +524,8 @@ impl OciCopy for Driver {
         SkopeoDriver::registry_login(server)
     }
 
-    fn copy_oci_source(opts: CopyOciSourceOpts) -> Result<()> {
-        SkopeoDriver::copy_oci_source(opts)
+    fn copy_oci(opts: CopyOciOpts) -> Result<()> {
+        SkopeoDriver::copy_oci(opts)
     }
 }
 

@@ -1,13 +1,15 @@
-use blue_build_utils::container::OciSource;
+use blue_build_utils::container::OciRef;
 use bon::Builder;
-use oci_client::Reference;
 
 #[derive(Debug, Clone, Copy, Builder)]
 #[builder(derive(Debug, Clone))]
-pub struct CopyOciSourceOpts<'scope> {
-    pub oci_source: &'scope OciSource,
-    pub registry: &'scope Reference,
+pub struct CopyOciOpts<'scope> {
+    pub src_ref: &'scope OciRef,
+    pub dest_ref: &'scope OciRef,
 
     #[builder(default)]
     pub privileged: bool,
+
+    #[builder(default)]
+    pub retry_count: u8,
 }

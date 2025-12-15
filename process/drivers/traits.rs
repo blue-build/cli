@@ -8,7 +8,7 @@ use std::{
 
 use blue_build_utils::{
     constants::COSIGN_PUB_PATH,
-    container::{ContainerId, ImageRef, MountId, OciSource, Tag},
+    container::{ContainerId, ImageRef, MountId, OciRef, Tag},
     platform::Platform,
     retry,
     semver::Version,
@@ -26,10 +26,10 @@ use super::{
     functions::get_private_key,
     opts::{
         BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts,
-        CheckKeyPairOpts, ContainerOpts, CopyOciSourceOpts, CreateContainerOpts,
-        GenerateImageNameOpts, GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts,
-        RechunkOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts,
-        SwitchOpts, TagOpts, VerifyOpts, VerifyType, VolumeOpts,
+        CheckKeyPairOpts, ContainerOpts, CopyOciOpts, CreateContainerOpts, GenerateImageNameOpts,
+        GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts, RechunkOpts,
+        RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts, SwitchOpts,
+        TagOpts, VerifyOpts, VerifyType, VolumeOpts,
     },
     opts::{ManifestCreateOpts, ManifestPushOpts},
     types::CiDriverType,
@@ -225,16 +225,30 @@ pub trait BuildDriver: PrivateDriver {
                     if opts.push {
                         let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
 
-                        // Push images with retries (1s delay between retries)
-                        blue_build_utils::retry(retry_count, 5, || {
+                        if which::which("skopeo").is_ok() {
                             debug!("Pushing image {tagged_image}");
-
-                            Self::manifest_push(
-                                ManifestPushOpts::builder()
-                                    .final_image(&tagged_image)
+                            let src_ref = OciRef::from_local_storage(&tagged_image.whole());
+                            let dest_ref = OciRef::from(tagged_image);
+                            Driver::copy_oci(
+                                CopyOciOpts::builder()
+                                    .src_ref(&src_ref)
+                                    .dest_ref(&dest_ref)
+                                    .privileged(opts.privileged)
+                                    .retry_count(retry_count)
                                     .build(),
-                            )
-                        })?;
+                            )?;
+                        } else {
+                            // Push images with retries (1s delay between retries)
+                            blue_build_utils::retry(retry_count, 5, || {
+                                debug!("Pushing image {tagged_image}");
+
+                                Self::manifest_push(
+                                    ManifestPushOpts::builder()
+                                        .final_image(&tagged_image)
+                                        .build(),
+                                )
+                            })?;
+                        }
                     }
                 }
 
@@ -433,11 +447,11 @@ pub trait OciCopy: PrivateDriver {
     /// Will error if login fails.
     fn registry_login(server: &str) -> Result<()>;
 
-    /// Copy an OCI image to a remote registry.
+    /// Copy an OCI image.
     ///
     /// # Errors
     /// Will error if copying the image fails.
-    fn copy_oci_source(opts: CopyOciSourceOpts) -> Result<()>;
+    fn copy_oci(opts: CopyOciOpts) -> Result<()>;
 }
 
 #[expect(private_bounds)]
@@ -523,7 +537,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         let mut image_list = Vec::with_capacity(opts.tags.len());
 
         if opts.push {
-            let oci_dir = &OciSource::from_oci_directory(temp_dir.path().join(ostree_cache_id))?;
+            let oci_dir = OciRef::from_oci_directory(temp_dir.path().join(ostree_cache_id))?;
 
             for tag in opts.tags {
                 let tagged_image = Reference::with_tag(
@@ -535,10 +549,10 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                 blue_build_utils::retry(opts.retry_count, 5, || {
                     debug!("Pushing image {tagged_image}");
 
-                    Driver::copy_oci_source(
-                        CopyOciSourceOpts::builder()
-                            .oci_source(oci_dir)
-                            .registry(&tagged_image)
+                    Driver::copy_oci(
+                        CopyOciOpts::builder()
+                            .src_ref(&oci_dir)
+                            .dest_ref(&OciRef::from(&tagged_image))
                             .privileged(true)
                             .build(),
                     )
