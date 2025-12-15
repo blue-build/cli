@@ -388,10 +388,7 @@ impl Encode for CustomPatternEncoder {
                         "{level:width$} {module}:{line}",
                         level = record.level().colored(),
                         width = 5,
-                        module = record
-                            .module_path()
-                            .map_or_else(|| "", |p| p)
-                            .bright_yellow(),
+                        module = record.module_path().unwrap_or("").bright_yellow(),
                         line = record
                             .line()
                             .map_or_else(String::new, |l| l.to_string())

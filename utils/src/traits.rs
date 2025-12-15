@@ -4,7 +4,7 @@ trait PrivateTrait<T: ?Sized>: IntoIterator {}
 
 impl<T, R> PrivateTrait<R> for T where T: IntoIterator {}
 
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait CowCollecter<'a, IN, OUT>: PrivateTrait<IN>
 where
     IN: ToOwned + ?Sized,
@@ -45,7 +45,7 @@ impl_cow_collector!(str);
 impl_cow_collector!(Path);
 impl_cow_collector!(OsStr);
 
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait AsRefCollector<'a, IN, OUT>: PrivateTrait<IN>
 where
     IN: ?Sized,
@@ -81,7 +81,7 @@ impl_asref_collector!(str);
 impl_asref_collector!(Path);
 impl_asref_collector!(OsStr);
 
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait IntoCollector<IN, OUT>: PrivateTrait<IN>
 where
     IN: Into<OUT>,

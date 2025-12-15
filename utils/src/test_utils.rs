@@ -8,7 +8,7 @@ use miette::{Result, miette};
 
 use crate::string;
 
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity)]
 static ENV_VARS: LazyLock<Arc<RwLock<HashMap<(ThreadId, String), String>>>> =
     LazyLock::new(|| Arc::new(RwLock::new(HashMap::new())));
 

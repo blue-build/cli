@@ -1,4 +1,4 @@
-#![allow(clippy::needless_continue)]
+#![expect(clippy::needless_continue)]
 use std::sync::Arc;
 
 use bon::bon;

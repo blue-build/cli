@@ -59,7 +59,7 @@ impl DriverVersion for CosignDriver {
 
 impl SigningDriver for CosignDriver {
     fn generate_key_pair(opts: GenerateKeyPairOpts) -> Result<()> {
-        let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
+        let path = opts.dir.unwrap_or_else(|| Path::new("."));
 
         let status = {
             let c = cmd!(
@@ -85,7 +85,7 @@ impl SigningDriver for CosignDriver {
     }
 
     fn check_signing_files(opts: CheckKeyPairOpts) -> Result<()> {
-        let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
+        let path = opts.dir.unwrap_or_else(|| Path::new("."));
         let priv_key = get_private_key(path)?;
 
         let output = {
