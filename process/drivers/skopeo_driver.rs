@@ -13,12 +13,14 @@ impl super::OciCopy for SkopeoDriver {
     fn registry_login(server: &str) -> Result<()> {
         trace!("SkopeoDriver::registry_login()");
 
-        if let Some(Credentials::Basic { username, password }) = Credentials::get(server) {
+        if let Some(Credentials::Basic { username, password }) = Credentials::get(server)
+            && let Ok(skopeo_cmd) = which::which("skopeo")
+        {
             let output = pipe!(
                 stdin = password.value();
                 {
                     let c = cmd!(
-                        "skopeo",
+                        &skopeo_cmd,
                         "login",
                         "-u",
                         &username,
