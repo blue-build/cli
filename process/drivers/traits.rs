@@ -1,6 +1,5 @@
 use std::{
     borrow::Borrow,
-    ffi::OsString,
     ops::Not,
     path::PathBuf,
     process::{ExitStatus, Output},
@@ -32,6 +31,7 @@ use super::{
         TagOpts, VerifyOpts, VerifyType, VolumeOpts,
     },
     opts::{ManifestCreateOpts, ManifestPushOpts},
+    rpm_ostree_runner::RpmOstreeRunner,
     types::CiDriverType,
     types::{
         BootDriverType, BuildDriverType, ImageMetadata, InspectDriverType, RunDriverType,
@@ -186,15 +186,6 @@ pub trait BuildDriver: PrivateDriver {
                 Self::build(build_opts)
             })?;
 
-        Self::tag_push(opts)
-    }
-
-    /// Runs the logic for tagging and pushing an image.
-    ///
-    /// # Errors
-    /// Will error if tagging or pushing fails.
-    fn tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
-        trace!("BuildDriver::tag_push({opts:#?})");
         let image_list: Vec<String> = match &opts.image {
             ImageRef::Remote(image) if !opts.tags.is_empty() => {
                 debug!("Tagging all images");
@@ -300,38 +291,42 @@ pub trait RunDriver: PrivateDriver {
 }
 
 pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
-    /// Do any necessary setup to prepare for running `rpm-ostree`.
+    /// Create a manifest containing all the built images.
+    /// Runs within the same context as rpm-ostree.
     ///
     /// # Errors
-    /// Will error if `rpm-ostree` setup fails.
-    fn setup_rpm_ostree() -> Result<()>;
+    /// Will error if the driver fails to create a manifest.
+    fn manifest_create_with_runner(
+        runner: &RpmOstreeRunner,
+        opts: ManifestCreateOpts,
+    ) -> Result<()>;
 
-    /// Command arguments to invoke `rpm-ostree`.
+    /// Pushes a manifest containing all the built images.
+    /// Runs within the same context as rpm-ostree.
     ///
     /// # Errors
-    /// Will error if unable to invoke `rpm-ostree`.
-    fn rpm_ostree_command() -> Result<(OsString, Vec<OsString>)>;
+    /// Will error if the driver fails to push a manifest.
+    fn manifest_push_with_runner(runner: &RpmOstreeRunner, opts: ManifestPushOpts) -> Result<()>;
 
     /// Runs build-chunked-oci on an image.
     ///
     /// # Errors
     /// Will error if rechunking fails.
     fn build_chunked_oci(
+        runner: &RpmOstreeRunner,
         unchunked_image: &ImageRef<'_>,
         final_image: &ImageRef<'_>,
         opts: BuildChunkedOciOpts,
     ) -> Result<()> {
-        Self::setup_rpm_ostree()?;
-        let (first_cmd, rpm_ostree_args) = Self::rpm_ostree_command()?;
+        let (first_cmd, args) =
+            runner.command_args("rpm-ostree", &["compose", "build-chunked-oci"]);
         let transport_ref = match final_image {
             ImageRef::Remote(image) => format!("containers-storage:{image}"),
             _ => final_image.to_string(),
         };
         let command = cmd!(
             first_cmd,
-            for rpm_ostree_args,
-            "compose",
-            "build-chunked-oci",
+            for args,
             "--bootc",
             format!("--format-version={}", opts.format_version),
             format!("--max-layers={}", opts.max_layers),
@@ -391,16 +386,76 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
             })
             .collect::<Result<Vec<_>>>()?;
 
+        // Run subsequent commands on host if rpm-ostree is available on host, otherwise
+        // run in container that has rpm-ostree installed.
+        let runner = RpmOstreeRunner::start()?;
+
         // Rechunk images serially to avoid using excessive disk space.
         for (unchunked_image, image) in images_to_rechunk {
-            let result = Self::build_chunked_oci(&unchunked_image, &image, rechunk_opts);
+            let result = Self::build_chunked_oci(&runner, &unchunked_image, &image, rechunk_opts);
             if let ImageRef::Remote(unchunked_image) = unchunked_image {
                 Self::remove_image(RemoveImageOpts::builder().image(&unchunked_image).build())?;
             }
             result?;
         }
 
-        Self::tag_push(btp_opts)
+        let image_list: Vec<String> = match &btp_opts.image {
+            ImageRef::Remote(image) if !btp_opts.tags.is_empty() => {
+                debug!("Tagging all images");
+
+                let mut image_list = Vec::with_capacity(btp_opts.tags.len());
+                let platform_images = btp_opts
+                    .platform
+                    .iter()
+                    .map(|&platform| platform.tagged_image(image))
+                    .collect::<Vec<_>>();
+
+                for tag in btp_opts.tags {
+                    debug!("Tagging {} with {tag}", &image);
+                    let tagged_image = Reference::with_tag(
+                        image.registry().into(),
+                        image.repository().into(),
+                        tag.to_string(),
+                    );
+
+                    Self::manifest_create_with_runner(
+                        &runner,
+                        ManifestCreateOpts::builder()
+                            .final_image(&tagged_image)
+                            .image_list(&platform_images)
+                            .build(),
+                    )?;
+                    image_list.push(tagged_image.to_string());
+
+                    if btp_opts.push {
+                        let retry_count = if btp_opts.retry_push {
+                            btp_opts.retry_count
+                        } else {
+                            0
+                        };
+
+                        // Push images with retries (1s delay between retries)
+                        blue_build_utils::retry(retry_count, 5, || {
+                            debug!("Pushing image {tagged_image}");
+
+                            Self::manifest_push_with_runner(
+                                &runner,
+                                ManifestPushOpts::builder()
+                                    .final_image(&tagged_image)
+                                    .build(),
+                            )
+                        })?;
+                    }
+                }
+
+                image_list
+            }
+            _ => {
+                string_vec![btp_opts.image]
+            }
+        };
+
+        Ok(image_list)
     }
 }
 

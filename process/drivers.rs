@@ -8,7 +8,6 @@
 
 use std::{
     borrow::Borrow,
-    ffi::OsString,
     fmt::Debug,
     process::{ExitStatus, Output},
     sync::{LazyLock, RwLock, atomic::AtomicBool},
@@ -44,8 +43,11 @@ use types::{
 use uuid::Uuid;
 
 use crate::{
-    drivers::oci_client_driver::OciClientDriver,
-    drivers::opts::{ManifestCreateOpts, ManifestPushOpts},
+    drivers::{
+        oci_client_driver::OciClientDriver,
+        opts::{ManifestCreateOpts, ManifestPushOpts},
+        rpm_ostree_runner::RpmOstreeRunner,
+    },
     logging::Logger,
 };
 
@@ -72,6 +74,7 @@ mod oci_client_driver;
 pub mod opts;
 mod podman_driver;
 mod rpm_ostree_driver;
+mod rpm_ostree_runner;
 mod sigstore_driver;
 mod skopeo_driver;
 mod traits;
@@ -483,20 +486,24 @@ impl CiDriver for Driver {
 }
 
 impl BuildChunkedOciDriver for Driver {
-    fn setup_rpm_ostree() -> Result<()> {
-        PodmanDriver::setup_rpm_ostree()
+    fn manifest_create_with_runner(
+        runner: &RpmOstreeRunner,
+        opts: ManifestCreateOpts,
+    ) -> Result<()> {
+        PodmanDriver::manifest_create_with_runner(runner, opts)
     }
 
-    fn rpm_ostree_command() -> Result<(OsString, Vec<OsString>)> {
-        PodmanDriver::rpm_ostree_command()
+    fn manifest_push_with_runner(runner: &RpmOstreeRunner, opts: ManifestPushOpts) -> Result<()> {
+        PodmanDriver::manifest_push_with_runner(runner, opts)
     }
 
     fn build_chunked_oci(
+        runner: &RpmOstreeRunner,
         unchunked_image: &ImageRef<'_>,
         final_image: &ImageRef<'_>,
         opts: BuildChunkedOciOpts,
     ) -> Result<()> {
-        PodmanDriver::build_chunked_oci(unchunked_image, final_image, opts)
+        PodmanDriver::build_chunked_oci(runner, unchunked_image, final_image, opts)
     }
 
     fn build_rechunk_tag_push(opts: BuildRechunkTagPushOpts) -> Result<Vec<String>> {

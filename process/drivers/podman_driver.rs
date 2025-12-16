@@ -1,7 +1,5 @@
 use std::{
-    ffi::OsString,
     ops::Not,
-    os::unix::ffi::OsStringExt,
     path::Path,
     process::{Command, ExitStatus},
 };
@@ -37,6 +35,7 @@ use crate::{
             BuildOpts, ManifestCreateOpts, ManifestPushOpts, PushOpts, RunOpts, RunOptsEnv,
             RunOptsVolume, TagOpts,
         },
+        rpm_ostree_runner::RpmOstreeRunner,
     },
     logging::CommandLogging,
     signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
@@ -60,8 +59,6 @@ struct PodmanVersionJson {
 pub struct PodmanDriver;
 
 impl PodmanDriver {
-    const RPM_OSTREE_CONTAINER: &str = "ghcr.io/blue-build/rpm-ostree-container:latest";
-
     /// Copy an image from the user container
     /// store to the root container store for
     /// booting off of.
@@ -364,57 +361,75 @@ impl BuildDriver for PodmanDriver {
 }
 
 impl BuildChunkedOciDriver for PodmanDriver {
-    fn setup_rpm_ostree() -> Result<()> {
-        if which::which("rpm-ostree").is_ok() {
-            return Ok(());
+    fn manifest_create_with_runner(
+        runner: &RpmOstreeRunner,
+        opts: ManifestCreateOpts,
+    ) -> Result<()> {
+        let (cmd, args) = runner.command_args("podman", &["manifest"]);
+        let output = {
+            let c = cmd!(&cmd, for &args, "rm", opts.final_image.to_string());
+            trace!("{c:?}");
+            c
         }
-        let output = cmd!("podman", "pull", Self::RPM_OSTREE_CONTAINER)
-            .output()
-            .into_diagnostic()?;
+        .output()
+        .into_diagnostic()?;
+
+        if output.status.success() {
+            warn!(
+                "Existing image manifest {} exists, removing...",
+                opts.final_image
+            );
+        }
+
+        let output = {
+            let c = cmd!(
+                &cmd,
+                for &args,
+                "create",
+                "--all",
+                opts.final_image.to_string(),
+                for image in opts.image_list => format!("containers-storage:{image}"),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
         if !output.status.success() {
             bail!(
-                "Failed to pull image {}\nstderr: {}",
-                Self::RPM_OSTREE_CONTAINER,
+                "Failed to create manifest for {}:\n{}",
+                opts.final_image,
                 String::from_utf8_lossy(&output.stderr)
             );
         }
+
         Ok(())
     }
 
-    fn rpm_ostree_command() -> Result<(OsString, Vec<OsString>)> {
-        if let Ok(rpm_ostree) = which::which("rpm-ostree") {
-            return Ok((rpm_ostree.into(), Vec::new()));
+    fn manifest_push_with_runner(runner: &RpmOstreeRunner, opts: ManifestPushOpts) -> Result<()> {
+        let (cmd, args) = runner.command_args("podman", &["manifest"]);
+        let image = &opts.final_image.to_string();
+        let status = {
+            let c = cmd!(
+                cmd,
+                for args,
+                "push",
+                if let Some(authfile) = runner.authfile() => ["--authfile", authfile],
+                image,
+                format!("docker://{}", opts.final_image),
+            );
+            trace!("{c:?}");
+            c
         }
-        let mut args = Vec::new();
-        for s in ["run", "--privileged", "--rm", "-v"] {
-            args.push(s.to_owned().into());
+        .build_status(image, format!("Pushing manifest {image}..."))
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
         }
-        let podman_storage_dir = {
-            let mut output = cmd!("podman", "info", "--format={{.Store.GraphRoot}}")
-                .output()
-                .into_diagnostic()?;
-            if !output.status.success() {
-                bail!("Failed to find podman storage root");
-            }
-            while output
-                .stdout
-                .pop_if(|byte| byte.is_ascii_whitespace())
-                .is_some()
-            {}
-            OsString::from_vec(output.stdout)
-        };
-        let podman_storage_mount = {
-            let mut out = podman_storage_dir.clone().into_vec();
-            out.push(b':');
-            out.extend_from_within(0..podman_storage_dir.len());
-            OsString::from_vec(out)
-        };
-        args.push(podman_storage_mount);
-        args.push(Self::RPM_OSTREE_CONTAINER.to_owned().into());
-        args.push("--storage".to_owned().into());
-        args.push(podman_storage_dir);
-        args.push("rpm-ostree".to_owned().into());
-        Ok(("podman".into(), args))
+
+        Ok(())
     }
 }
 
