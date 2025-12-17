@@ -1,8 +1,6 @@
 use std::io::{self, Read};
 
-use blue_build_process_management::drivers::{
-    BuildDriver, Driver, DriverArgs, OciCopy, SigningDriver,
-};
+use blue_build_process_management::drivers::{BuildDriver, Driver, DriverArgs, SigningDriver};
 use blue_build_utils::{
     credentials::{Credentials, CredentialsArgs},
     secret::SecretValue,
@@ -51,7 +49,6 @@ impl BlueBuildCommand for LoginCommand {
         );
 
         Driver::login(&self.server)?;
-        Driver::registry_login(&self.server)?;
         Driver::signing_login(&self.server)?;
 
         Ok(())

@@ -30,31 +30,26 @@ use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
 use miette::{Context, Result};
 use oci_client::Reference;
+use uuid::Uuid;
+
+use crate::logging::Logger;
 use opts::{
     BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts, CheckKeyPairOpts,
     ContainerOpts, CopyOciOpts, CreateContainerOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
-    GenerateTagsOpts, GetMetadataOpts, PruneOpts, PushOpts, RechunkOpts, RemoveContainerOpts,
-    RemoveImageOpts, RunOpts, SignOpts, SwitchOpts, TagOpts, VerifyOpts, VolumeOpts,
+    GenerateTagsOpts, GetMetadataOpts, ManifestCreateOpts, ManifestPushOpts, PruneOpts, PushOpts,
+    RechunkOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SwitchOpts, TagOpts,
+    VerifyOpts, VolumeOpts,
 };
 use types::{
-    BootDriverType, BuildDriverType, CiDriverType, ImageMetadata, InspectDriverType, RunDriverType,
-    SigningDriverType,
-};
-use uuid::Uuid;
-
-use crate::{
-    drivers::{
-        oci_client_driver::OciClientDriver,
-        opts::{ManifestCreateOpts, ManifestPushOpts},
-        rpm_ostree_runner::RpmOstreeRunner,
-    },
-    logging::Logger,
+    BootDriverType, BuildChunkedOciDriverType, BuildDriverType, CiDriverType, ImageMetadata,
+    InspectDriverType, RunDriverType, SigningDriverType,
 };
 
 pub use self::{
     buildah_driver::BuildahDriver, cosign_driver::CosignDriver, docker_driver::DockerDriver,
     github_driver::GithubDriver, gitlab_driver::GitlabDriver, local_driver::LocalDriver,
-    podman_driver::PodmanDriver, rpm_ostree_driver::RpmOstreeDriver,
+    oci_client_driver::OciClientDriver, podman_driver::PodmanDriver,
+    rpm_ostree_driver::RpmOstreeDriver, rpm_ostree_runner::RpmOstreeRunner,
     sigstore_driver::SigstoreDriver, skopeo_driver::SkopeoDriver, traits::*,
 };
 
@@ -88,6 +83,8 @@ static SELECTED_RUN_DRIVER: LazyLock<RwLock<Option<RunDriverType>>> =
 static SELECTED_SIGNING_DRIVER: LazyLock<RwLock<Option<SigningDriverType>>> =
     LazyLock::new(|| RwLock::new(None));
 static SELECTED_CI_DRIVER: LazyLock<RwLock<Option<CiDriverType>>> =
+    LazyLock::new(|| RwLock::new(None));
+static SELECTED_BUILD_CHUNKED_OCI_DRIVER: LazyLock<RwLock<Option<BuildChunkedOciDriverType>>> =
     LazyLock::new(|| RwLock::new(None));
 static SELECTED_BOOT_DRIVER: LazyLock<RwLock<Option<BootDriverType>>> =
     LazyLock::new(|| RwLock::new(None));
@@ -264,6 +261,10 @@ impl Driver {
 
     pub fn get_ci_driver() -> CiDriverType {
         impl_driver_type!(SELECTED_CI_DRIVER)
+    }
+
+    pub fn get_build_chunked_oci_driver() -> BuildChunkedOciDriverType {
+        impl_driver_type!(SELECTED_BUILD_CHUNKED_OCI_DRIVER)
     }
 
     pub fn get_boot_driver() -> BootDriverType {
@@ -485,16 +486,25 @@ impl CiDriver for Driver {
     }
 }
 
+macro_rules! impl_build_chunked_oci_driver {
+    ($func:ident($($args:expr),*)) => {
+        match Self::get_build_chunked_oci_driver() {
+            BuildChunkedOciDriverType::Buildah => BuildahDriver::$func($($args,)*),
+            BuildChunkedOciDriverType::Podman => PodmanDriver::$func($($args,)*),
+        }
+    };
+}
+
 impl BuildChunkedOciDriver for Driver {
     fn manifest_create_with_runner(
         runner: &RpmOstreeRunner,
         opts: ManifestCreateOpts,
     ) -> Result<()> {
-        PodmanDriver::manifest_create_with_runner(runner, opts)
+        impl_build_chunked_oci_driver!(manifest_create_with_runner(runner, opts))
     }
 
     fn manifest_push_with_runner(runner: &RpmOstreeRunner, opts: ManifestPushOpts) -> Result<()> {
-        PodmanDriver::manifest_push_with_runner(runner, opts)
+        impl_build_chunked_oci_driver!(manifest_push_with_runner(runner, opts))
     }
 
     fn build_chunked_oci(
@@ -503,11 +513,16 @@ impl BuildChunkedOciDriver for Driver {
         final_image: &ImageRef<'_>,
         opts: BuildChunkedOciOpts,
     ) -> Result<()> {
-        PodmanDriver::build_chunked_oci(runner, unchunked_image, final_image, opts)
+        impl_build_chunked_oci_driver!(build_chunked_oci(
+            runner,
+            unchunked_image,
+            final_image,
+            opts
+        ))
     }
 
     fn build_rechunk_tag_push(opts: BuildRechunkTagPushOpts) -> Result<Vec<String>> {
-        PodmanDriver::build_rechunk_tag_push(opts)
+        impl_build_chunked_oci_driver!(build_rechunk_tag_push(opts))
     }
 }
 
@@ -526,12 +541,8 @@ impl ContainerMountDriver for Driver {
 }
 
 impl OciCopy for Driver {
-    fn registry_login(server: &str) -> Result<()> {
-        SkopeoDriver::registry_login(server)
-    }
-
-    fn copy_oci(opts: CopyOciOpts) -> Result<()> {
-        SkopeoDriver::copy_oci(opts)
+    fn copy_oci(&self, opts: CopyOciOpts) -> Result<()> {
+        SkopeoDriver.copy_oci(opts)
     }
 }
 

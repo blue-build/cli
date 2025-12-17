@@ -152,6 +152,53 @@ impl DetermineDriver<CiDriverType> for Option<CiDriverType> {
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum BuildChunkedOciDriverType {
+    Buildah,
+    Podman,
+}
+
+impl From<BuildChunkedOciDriverType> for String {
+    fn from(value: BuildChunkedOciDriverType) -> Self {
+        match value {
+            BuildChunkedOciDriverType::Buildah => "buildah".to_string(),
+            BuildChunkedOciDriverType::Podman => "podman".to_string(),
+        }
+    }
+}
+
+impl DetermineDriver<BuildChunkedOciDriverType> for Option<BuildChunkedOciDriverType> {
+    fn determine_driver(&mut self) -> BuildChunkedOciDriverType {
+        trace!("BuildChunkedOciDriverType::determine_driver()");
+
+        *self.get_or_insert(
+            match (
+                blue_build_utils::check_command_exists("buildah"),
+                blue_build_utils::check_command_exists("podman"),
+            ) {
+                (Ok(_buildah), _) if BuildahDriver::is_supported_version() => {
+                    BuildChunkedOciDriverType::Buildah
+                }
+                (_, Ok(_podman)) if PodmanDriver::is_supported_version() => {
+                    BuildChunkedOciDriverType::Podman
+                }
+                _ => panic!(
+                    "{}{}{}",
+                    "Could not determine strategy, ",
+                    format_args!(
+                        "need either buildah version {} ",
+                        BuildahDriver::VERSION_REQ
+                    ),
+                    format_args!(
+                        "or podman version {} to continue",
+                        PodmanDriver::VERSION_REQ
+                    ),
+                ),
+            },
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum BootDriverType {
     #[cfg(feature = "bootc")]
     Bootc,

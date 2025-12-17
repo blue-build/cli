@@ -22,21 +22,16 @@ use serde::Deserialize;
 use tempfile::TempDir;
 
 use super::{
-    ContainerMountDriver, RechunkDriver,
+    BuildChunkedOciDriver, BuildDriver, ContainerMountDriver, DriverVersion, RechunkDriver,
+    RunDriver,
     opts::{
-        ContainerOpts, CreateContainerOpts, PruneOpts, RemoveContainerOpts, RemoveImageOpts,
-        VolumeOpts,
+        BuildOpts, ContainerOpts, CreateContainerOpts, ManifestCreateOpts, ManifestPushOpts,
+        PruneOpts, PushOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, RunOptsEnv,
+        RunOptsVolume, TagOpts, VolumeOpts,
     },
+    rpm_ostree_runner::RpmOstreeRunner,
 };
 use crate::{
-    drivers::{
-        BuildChunkedOciDriver, BuildDriver, DriverVersion, RunDriver,
-        opts::{
-            BuildOpts, ManifestCreateOpts, ManifestPushOpts, PushOpts, RunOpts, RunOptsEnv,
-            RunOptsVolume, TagOpts,
-        },
-        rpm_ostree_runner::RpmOstreeRunner,
-    },
     logging::CommandLogging,
     signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
 };

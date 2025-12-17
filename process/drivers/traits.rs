@@ -34,11 +34,11 @@ use super::{
     rpm_ostree_runner::RpmOstreeRunner,
     types::CiDriverType,
     types::{
-        BootDriverType, BuildDriverType, ImageMetadata, InspectDriverType, RunDriverType,
-        SigningDriverType,
+        BootDriverType, BuildChunkedOciDriverType, BuildDriverType, ImageMetadata,
+        InspectDriverType, RunDriverType, SigningDriverType,
     },
 };
-use crate::logging::CommandLogging;
+use crate::{drivers::BuildahDriver, logging::CommandLogging};
 
 trait PrivateDriver {}
 
@@ -63,12 +63,15 @@ impl_private_driver!(
     super::sigstore_driver::SigstoreDriver,
     super::rpm_ostree_driver::RpmOstreeDriver,
     super::rpm_ostree_driver::Status,
+    super::rpm_ostree_runner::RpmOstreeContainer,
+    super::rpm_ostree_runner::RpmOstreeRunner,
     super::oci_client_driver::OciClientDriver,
     Option<BuildDriverType>,
     Option<RunDriverType>,
     Option<InspectDriverType>,
     Option<SigningDriverType>,
     Option<CiDriverType>,
+    Option<BuildChunkedOciDriverType>,
     Option<BootDriverType>,
 );
 
@@ -290,7 +293,8 @@ pub trait RunDriver: PrivateDriver {
     fn list_images(privileged: bool) -> Result<Vec<Reference>>;
 }
 
-pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
+#[expect(private_bounds)]
+pub trait BuildChunkedOciDriver: PrivateDriver {
     /// Create a manifest containing all the built images.
     /// Runs within the same context as rpm-ostree.
     ///
@@ -375,7 +379,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
                     image.append_tag(&"unchunked".parse().expect("Should be a valid tag"));
                 info!("Building image {image}");
 
-                Self::build(
+                Driver::build(
                     build_opts
                         .clone()
                         .image(&unchunked_image)
@@ -394,7 +398,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
         for (unchunked_image, image) in images_to_rechunk {
             let result = Self::build_chunked_oci(&runner, &unchunked_image, &image, rechunk_opts);
             if let ImageRef::Remote(unchunked_image) = unchunked_image {
-                Self::remove_image(RemoveImageOpts::builder().image(&unchunked_image).build())?;
+                Driver::remove_image(RemoveImageOpts::builder().image(&unchunked_image).build())?;
             }
             result?;
         }
@@ -418,13 +422,19 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
                         tag.to_string(),
                     );
 
-                    Self::manifest_create_with_runner(
-                        &runner,
+                    BuildahDriver::manifest_create(
                         ManifestCreateOpts::builder()
                             .final_image(&tagged_image)
                             .image_list(&platform_images)
                             .build(),
                     )?;
+                    // Self::manifest_create_with_runner(
+                    //     &runner,
+                    //     ManifestCreateOpts::builder()
+                    //         .final_image(&tagged_image)
+                    //         .image_list(&platform_images)
+                    //         .build(),
+                    // )?;
                     image_list.push(tagged_image.to_string());
 
                     if btp_opts.push {
@@ -438,12 +448,17 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
                         blue_build_utils::retry(retry_count, 5, || {
                             debug!("Pushing image {tagged_image}");
 
-                            Self::manifest_push_with_runner(
-                                &runner,
+                            BuildahDriver::manifest_push(
                                 ManifestPushOpts::builder()
                                     .final_image(&tagged_image)
                                     .build(),
                             )
+                            // Self::manifest_push_with_runner(
+                            //     &runner,
+                            //     ManifestPushOpts::builder()
+                            //         .final_image(&tagged_image)
+                            //         .build(),
+                            // )
                         })?;
                     }
                 }
@@ -482,17 +497,11 @@ pub(super) trait ContainerMountDriver: PrivateDriver {
 
 #[expect(private_bounds)]
 pub trait OciCopy: PrivateDriver {
-    /// Logs in to an OCI registry.
-    ///
-    /// # Errors
-    /// Will error if login fails.
-    fn registry_login(server: &str) -> Result<()>;
-
     /// Copy an OCI image.
     ///
     /// # Errors
     /// Will error if copying the image fails.
-    fn copy_oci(opts: CopyOciOpts) -> Result<()>;
+    fn copy_oci(&self, opts: CopyOciOpts) -> Result<()>;
 }
 
 #[expect(private_bounds)]
@@ -590,7 +599,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                 blue_build_utils::retry(opts.retry_count, 5, || {
                     debug!("Pushing image {tagged_image}");
 
-                    Driver::copy_oci(
+                    Driver.copy_oci(
                         CopyOciOpts::builder()
                             .src_ref(&oci_dir)
                             .dest_ref(&OciRef::from(&tagged_image))

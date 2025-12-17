@@ -1,31 +1,42 @@
 use std::{
     ffi::{OsStr, OsString},
-    os::unix::ffi::OsStringExt,
+    os::unix::ffi::{OsStrExt, OsStringExt},
     path::PathBuf,
     process::Stdio,
+    sync::Arc,
 };
 
 use comlexr::cmd;
 use log::trace;
 use miette::{IntoDiagnostic, Result, bail};
 
+use crate::logging::CommandLogging;
+
+use super::{Driver, OciCopy, opts::CopyOciOpts};
+
 #[derive(Clone, Debug)]
 pub enum RpmOstreeRunner {
     System,
-    Container(RpmOstreeContainer),
+    Container(Arc<RpmOstreeContainer>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct RpmOstreeContainer {
     id: OsString,
 }
 
 impl RpmOstreeRunner {
+    /// Initialize a context in which rpm-ostree can be run. If rpm-ostree is installed
+    /// on the host, this is essentially a no-op. Otherwise, a container in which rpm-ostree
+    /// is installed is started and made ready for execution of further commands.
+    ///
+    /// # Errors
+    /// Returns an error if the container fails to start.
     pub fn start() -> Result<Self> {
         let runner = if which::which("rpm-ostree").is_ok() {
             Self::System
         } else {
-            Self::Container(RpmOstreeContainer::start()?)
+            Self::Container(Arc::new(RpmOstreeContainer::start()?))
         };
         Ok(runner)
     }
@@ -45,8 +56,18 @@ impl RpmOstreeRunner {
         }
     }
 
+    #[must_use]
     pub fn authfile(&self) -> Option<PathBuf> {
         matches!(self, Self::Container(_)).then(|| PathBuf::from("/run/containers/auth.json"))
+    }
+}
+
+impl OciCopy for RpmOstreeRunner {
+    fn copy_oci(&self, opts: super::opts::CopyOciOpts) -> Result<()> {
+        match self {
+            Self::System => Driver.copy_oci(opts),
+            Self::Container(container) => container.copy_oci(opts),
+        }
     }
 }
 
@@ -83,6 +104,7 @@ impl RpmOstreeContainer {
             "/bin/sh",
             "-c",
             "while true; do sleep 86400; done",
+            // "while true; do sleep 86400; done",
         )
         .output()
         .into_diagnostic()?;
@@ -102,6 +124,23 @@ impl RpmOstreeContainer {
             "Started RpmOstreeContainer with ID: {}",
             container_id.display()
         );
+
+        // TODO: remove below test code
+        cmd!(
+            "podman",
+            "exec",
+            &container_id,
+            "dnf",
+            "install",
+            "-y",
+            "buildah"
+        )
+        .spawn()
+        .unwrap()
+        .wait()
+        .unwrap();
+        // TODO: remove above test code
+
         Ok(Self { id: container_id })
     }
 
@@ -116,6 +155,51 @@ impl RpmOstreeContainer {
         final_args.push(cmd.as_ref().to_owned());
         final_args.extend(args.iter().map(|arg| arg.as_ref().to_owned()));
         (OsString::from("podman"), final_args)
+    }
+}
+
+impl OciCopy for RpmOstreeContainer {
+    fn copy_oci(&self, opts: CopyOciOpts) -> Result<()> {
+        trace!("SkopeoDriver::copy_oci({opts:?})");
+        let use_sudo = opts.privileged && !blue_build_utils::running_as_root();
+        let (cmd, args) = self.command_args("skopeo", &["copy"]);
+        let status = {
+            let c = cmd!(
+                if use_sudo {
+                    OsStr::from_bytes(b"sudo")
+                } else {
+                    &*cmd
+                },
+                if use_sudo && blue_build_utils::has_env_var(blue_build_utils::constants::SUDO_ASKPASS) => [
+                    "-A",
+                    "-p",
+                    format!(
+                        "Password is required to copy {source} to {dest}",
+                        source = opts.src_ref,
+                        dest = opts.dest_ref,
+                    )
+                ],
+                if use_sudo => cmd,
+                for args,
+                "--all",
+                if opts.retry_count != 0 => format!("--retry-times={}", opts.retry_count),
+                opts.src_ref.to_os_string(),
+                opts.dest_ref.to_os_string(),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .build_status(
+            opts.dest_ref.to_string(),
+            format!("Copying {} to", opts.src_ref),
+        )
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to copy {} to {}", opts.src_ref, opts.dest_ref);
+        }
+
+        Ok(())
     }
 }
 

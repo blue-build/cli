@@ -6,7 +6,7 @@ use std::{
 
 use blue_build_process_management::{
     drivers::{
-        BuildChunkedOciDriver, BuildDriver, CiDriver, Driver, DriverArgs, InspectDriver, OciCopy,
+        BuildChunkedOciDriver, BuildDriver, CiDriver, Driver, DriverArgs, InspectDriver,
         RechunkDriver, SigningDriver,
         opts::{
             BuildChunkedOciOpts, BuildRechunkTagPushOpts, BuildTagPushOpts, CheckKeyPairOpts,
@@ -316,7 +316,6 @@ impl BuildCommand {
 
         if self.push {
             Driver::login(image.registry())?;
-            Driver::registry_login(image.registry())?;
             Driver::signing_login(image.registry())?;
         }
 
