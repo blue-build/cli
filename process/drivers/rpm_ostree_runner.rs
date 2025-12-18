@@ -97,6 +97,7 @@ impl RpmOstreeContainer {
             RunOpts::builder()
                 .pull(true)
                 .privileged(true)
+                .rootless(true)
                 .remove(true)
                 .volumes(&[podman_storage_mount, runtime_container_mount])
                 .image(Self::IMAGE_REF)

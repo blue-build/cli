@@ -672,7 +672,7 @@ impl RunDriver for PodmanDriver {
 fn podman_run(opts: RunOpts, cid_file: &Path, detach: bool) -> Command {
     let command = sudo_cmd!(
         prompt = SUDO_PROMPT,
-        sudo_check = opts.privileged,
+        sudo_check = opts.privileged && !opts.rootless,
         "podman",
         "run",
         format!("--cidfile={}", cid_file.display()),
