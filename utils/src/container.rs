@@ -66,7 +66,7 @@ impl<'a> From<&'a MountId> for std::borrow::Cow<'a, str> {
 
 #[derive(Clone, Debug)]
 pub enum OciRef {
-    LocalStorage(String),
+    LocalStorage(Reference),
     OciArchive(PathBuf),
     OciDir(PathBuf),
     Remote(Reference),
@@ -75,7 +75,7 @@ pub enum OciRef {
 impl std::fmt::Display for OciRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::LocalStorage(local_ref) => write!(f, "containers-storage:{local_ref}"),
+            Self::LocalStorage(local_ref) => write!(f, "containers-storage:{}", local_ref.whole()),
             Self::OciArchive(path) => write!(f, "oci-archive:{}", path.display()),
             Self::OciDir(path) => write!(f, "oci:{}", path.display()),
             Self::Remote(image_ref) => write!(f, "docker://{}", image_ref.whole()),
@@ -83,22 +83,10 @@ impl std::fmt::Display for OciRef {
     }
 }
 
-impl From<Reference> for OciRef {
-    fn from(image_ref: Reference) -> Self {
-        Self::Remote(image_ref)
-    }
-}
-
-impl From<&Reference> for OciRef {
-    fn from(image_ref: &Reference) -> Self {
-        Self::Remote(image_ref.clone())
-    }
-}
-
 impl OciRef {
     #[must_use]
-    pub fn from_local_storage(local_ref: &str) -> Self {
-        Self::LocalStorage(local_ref.to_owned())
+    pub fn from_local_storage(local_ref: &Reference) -> Self {
+        Self::LocalStorage(local_ref.clone())
     }
 
     /// # Errors
@@ -119,6 +107,11 @@ impl OciRef {
         }
 
         Ok(Self::OciDir(path.as_ref().to_owned()))
+    }
+
+    #[must_use]
+    pub fn from_remote_ref(image_ref: &Reference) -> Self {
+        Self::Remote(image_ref.clone())
     }
 
     #[must_use]

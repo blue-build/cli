@@ -38,7 +38,7 @@ use super::{
         SigningDriverType,
     },
 };
-use crate::logging::CommandLogging;
+use crate::{logging::CommandLogging, signal_handler::DetachedContainer};
 
 trait PrivateDriver {}
 
@@ -267,6 +267,14 @@ pub trait RunDriver: PrivateDriver {
     /// Will error if there is an issue running the container.
     fn run_output(opts: RunOpts) -> Result<Output>;
 
+    /// Run a container to perform an action in the background.
+    /// The container will be stopped when the returned `DetachedContainer`
+    /// value is dropped.
+    ///
+    /// # Errors
+    /// Will error if there is an issue running the container.
+    fn run_detached(opts: RunOpts) -> Result<DetachedContainer>;
+
     /// Creates container
     ///
     /// # Errors
@@ -321,7 +329,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
         opts: BuildChunkedOciOpts,
     ) -> Result<()> {
         let (first_cmd, args) =
-            runner.command_args("rpm-ostree", &["compose", "build-chunked-oci"]);
+            runner.command_args("rpm-ostree", &["compose", "build-chunked-oci"])?;
         let transport_ref = match final_image {
             ImageRef::Remote(image) => format!("containers-storage:{image}"),
             _ => final_image.to_string(),
@@ -601,7 +609,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                     Driver.copy_oci(
                         CopyOciOpts::builder()
                             .src_ref(&oci_dir)
-                            .dest_ref(&OciRef::from(&tagged_image))
+                            .dest_ref(&OciRef::from_remote_ref(&tagged_image))
                             .privileged(true)
                             .build(),
                     )

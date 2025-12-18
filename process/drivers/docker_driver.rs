@@ -31,7 +31,7 @@ use crate::{
         traits::{BuildDriver, DriverVersion, RunDriver},
     },
     logging::CommandLogging,
-    signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
+    signal_handler::{ContainerRuntime, ContainerSignalId, DetachedContainer, add_cid, remove_cid},
 };
 
 use super::opts::{CreateContainerOpts, PruneOpts, RemoveContainerOpts, RemoveImageOpts};
@@ -559,7 +559,7 @@ impl RunDriver for DockerDriver {
 
         add_cid(&cid);
 
-        let status = docker_run(opts, &cid_file)
+        let status = docker_run(opts, &cid_file, false)
             .build_status(opts.image, "Running container")
             .into_diagnostic()?;
 
@@ -569,7 +569,7 @@ impl RunDriver for DockerDriver {
     }
 
     fn run_output(opts: RunOpts) -> Result<std::process::Output> {
-        trace!("DockerDriver::run({opts:#?})");
+        trace!("DockerDriver::run_output({opts:#?})");
 
         let cid_path = TempDir::new().into_diagnostic()?;
         let cid_file = cid_path.path().join("cid");
@@ -577,11 +577,38 @@ impl RunDriver for DockerDriver {
 
         add_cid(&cid);
 
-        let output = docker_run(opts, &cid_file).output().into_diagnostic()?;
+        let output = docker_run(opts, &cid_file, false)
+            .output()
+            .into_diagnostic()?;
 
         remove_cid(&cid);
 
         Ok(output)
+    }
+
+    fn run_detached(opts: RunOpts) -> Result<DetachedContainer> {
+        trace!("DockerDriver::run_detached({opts:#?})");
+
+        let cid_path = TempDir::new().into_diagnostic()?;
+        let cid_file = cid_path.path().join("cid");
+
+        let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Docker, opts.privileged);
+
+        let container = DetachedContainer::from(cid);
+
+        let output = docker_run(opts, &cid_file, true)
+            .output()
+            .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!(
+                "Failed to start image {}\nstderr: {}",
+                opts.image,
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+
+        Ok(container)
     }
 
     fn create_container(opts: CreateContainerOpts) -> Result<ContainerId> {
@@ -678,7 +705,7 @@ impl RunDriver for DockerDriver {
     }
 }
 
-fn docker_run(opts: RunOpts, cid_file: &Path) -> Command {
+fn docker_run(opts: RunOpts, cid_file: &Path, detach: bool) -> Command {
     let command = cmd!(
         "docker",
         "run",
@@ -686,6 +713,7 @@ fn docker_run(opts: RunOpts, cid_file: &Path) -> Command {
         cid_file,
         if opts.privileged => "--privileged",
         if opts.remove => "--rm",
+        if detach => "--detach",
         if opts.pull => "--pull=always",
         if let Some(user) = opts.user.as_ref() => format!("--user={user}"),
         for RunOptsVolume { path_or_vol_name, container_path } in opts.volumes.iter() => [

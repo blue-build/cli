@@ -1,7 +1,7 @@
 use std::{
     fs,
-    path::PathBuf,
-    process,
+    path::{Path, PathBuf},
+    process::{self, ExitStatus},
     sync::{Arc, Mutex, atomic::AtomicBool},
     thread,
 };
@@ -9,6 +9,7 @@ use std::{
 use blue_build_utils::{constants::SUDO_ASKPASS, has_env_var, running_as_root};
 use comlexr::cmd;
 use log::{debug, error, trace, warn};
+use miette::{IntoDiagnostic, Result};
 use nix::{
     libc::{SIGABRT, SIGCONT, SIGHUP, SIGTSTP},
     sys::signal::{Signal, kill},
@@ -30,7 +31,7 @@ pub struct ContainerSignalId {
     container_runtime: ContainerRuntime,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ContainerRuntime {
     Podman,
     Docker,
@@ -55,6 +56,38 @@ impl ContainerSignalId {
             cid_path,
             requires_sudo,
             container_runtime,
+        }
+    }
+
+    #[must_use]
+    pub fn cid_path(&self) -> &Path {
+        &self.cid_path
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct DetachedContainer {
+    cid: ContainerSignalId,
+}
+
+impl DetachedContainer {
+    #[must_use]
+    pub fn cid_path(&self) -> &Path {
+        &self.cid.cid_path
+    }
+}
+
+impl From<ContainerSignalId> for DetachedContainer {
+    fn from(cid: ContainerSignalId) -> Self {
+        add_cid(&cid);
+        Self { cid }
+    }
+}
+
+impl Drop for DetachedContainer {
+    fn drop(&mut self) {
+        if kill_container(&self.cid).is_ok_and(|exit_status| exit_status.success()) {
+            remove_cid(&self.cid);
         }
     }
 }
@@ -117,31 +150,7 @@ where
                 let cid_list = CID_LIST.clone();
                 let cid_list = cid_list.lock().expect("Should lock mutex");
                 cid_list.iter().for_each(|cid| {
-                    if let Ok(id) = fs::read_to_string(&cid.cid_path) {
-                        let id = id.trim();
-                        debug!("Killing container {id}");
-
-                        let status = cmd!(
-                            if cid.requires_sudo && !running_as_root() {
-                                "sudo".to_string()
-                            } else {
-                                cid.container_runtime.to_string()
-                            },
-                            if cid.requires_sudo && !running_as_root() && has_env_var(SUDO_ASKPASS) => [
-                                "-A",
-                                "-p",
-                                format!("Password needed to kill container {id}"),
-                            ],
-                            if cid.requires_sudo && !running_as_root() => cid.container_runtime.to_string(),
-                            "stop",
-                            id
-                        )
-                        .status();
-
-                        if let Err(e) = status {
-                            error!("Failed to kill container {id}: Error {e}");
-                        }
-                    }
+                    let _ = kill_container(cid);
                 });
                 drop(cid_list);
 
@@ -256,4 +265,35 @@ pub fn remove_cid(cid: &ContainerSignalId) {
     if let Some(index) = cid_list.iter().position(|val| *val == *cid) {
         cid_list.swap_remove(index);
     }
+}
+
+fn kill_container(cid: &ContainerSignalId) -> Result<ExitStatus> {
+    fs::read_to_string(&cid.cid_path)
+        .into_diagnostic()
+        .and_then(|id| {
+            let id = id.trim();
+            debug!("Killing container {id}");
+
+            let status = cmd!(
+                if cid.requires_sudo && !running_as_root() {
+                    "sudo".to_string()
+                } else {
+                    cid.container_runtime.to_string()
+                },
+                if cid.requires_sudo && !running_as_root() && has_env_var(SUDO_ASKPASS) => [
+                    "-A",
+                    "-p",
+                    format!("Password needed to kill container {id}"),
+                ],
+                if cid.requires_sudo && !running_as_root() => cid.container_runtime.to_string(),
+                "stop",
+                id
+            )
+            .status();
+
+            if let Err(e) = &status {
+                error!("Failed to kill container {id}: Error {e}");
+            }
+            status.into_diagnostic()
+        })
 }

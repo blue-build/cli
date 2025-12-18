@@ -32,7 +32,7 @@ use miette::{Context, Result};
 use oci_client::Reference;
 use uuid::Uuid;
 
-use crate::logging::Logger;
+use crate::{logging::Logger, signal_handler::DetachedContainer};
 use opts::{
     BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts, CheckKeyPairOpts,
     ContainerOpts, CopyOciOpts, CreateContainerOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
@@ -414,6 +414,10 @@ impl RunDriver for Driver {
 
     fn run_output(opts: RunOpts) -> Result<Output> {
         impl_run_driver!(run_output(opts))
+    }
+
+    fn run_detached(opts: RunOpts) -> Result<DetachedContainer> {
+        impl_run_driver!(run_detached(opts))
     }
 
     fn create_container(opts: CreateContainerOpts) -> Result<ContainerId> {

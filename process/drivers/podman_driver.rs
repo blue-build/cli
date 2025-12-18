@@ -33,7 +33,7 @@ use super::{
 };
 use crate::{
     logging::CommandLogging,
-    signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
+    signal_handler::{ContainerRuntime, ContainerSignalId, DetachedContainer, add_cid, remove_cid},
 };
 
 const SUDO_PROMPT: &str = "Password for %u required to run 'podman' as privileged";
@@ -360,7 +360,7 @@ impl BuildChunkedOciDriver for PodmanDriver {
         runner: &RpmOstreeRunner,
         opts: ManifestCreateOpts,
     ) -> Result<()> {
-        let (cmd, args) = runner.command_args("podman", &["manifest"]);
+        let (cmd, args) = runner.command_args("podman", &["manifest"])?;
         let output = {
             let c = cmd!(&cmd, for &args, "rm", opts.final_image.to_string());
             trace!("{c:?}");
@@ -403,7 +403,7 @@ impl BuildChunkedOciDriver for PodmanDriver {
     }
 
     fn manifest_push_with_runner(runner: &RpmOstreeRunner, opts: ManifestPushOpts) -> Result<()> {
-        let (cmd, args) = runner.command_args("podman", &["manifest"]);
+        let (cmd, args) = runner.command_args("podman", &["manifest"])?;
         let image = &opts.final_image.to_string();
         let status = {
             let c = cmd!(
@@ -512,7 +512,7 @@ impl RunDriver for PodmanDriver {
 
         add_cid(&cid);
 
-        let status = podman_run(opts, &cid_file)
+        let status = podman_run(opts, &cid_file, false)
             .build_status(opts.image, "Running container")
             .into_diagnostic()?;
 
@@ -531,11 +531,38 @@ impl RunDriver for PodmanDriver {
 
         add_cid(&cid);
 
-        let output = podman_run(opts, &cid_file).output().into_diagnostic()?;
+        let output = podman_run(opts, &cid_file, false)
+            .output()
+            .into_diagnostic()?;
 
         remove_cid(&cid);
 
         Ok(output)
+    }
+
+    fn run_detached(opts: RunOpts) -> Result<DetachedContainer> {
+        trace!("PodmanDriver::run_detached({opts:#?})");
+
+        let cid_path = TempDir::new().into_diagnostic()?;
+        let cid_file = cid_path.path().join("cid");
+
+        let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Podman, opts.privileged);
+
+        let container = DetachedContainer::from(cid);
+
+        let output = podman_run(opts, &cid_file, true)
+            .output()
+            .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!(
+                "Failed to start image {}\nstderr: {}",
+                opts.image,
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+
+        Ok(container)
     }
 
     fn create_container(opts: CreateContainerOpts) -> Result<ContainerId> {
@@ -655,7 +682,7 @@ impl RunDriver for PodmanDriver {
     }
 }
 
-fn podman_run(opts: RunOpts, cid_file: &Path) -> Command {
+fn podman_run(opts: RunOpts, cid_file: &Path, detach: bool) -> Command {
     let command = sudo_cmd!(
         prompt = SUDO_PROMPT,
         sudo_check = opts.privileged,
@@ -667,6 +694,7 @@ fn podman_run(opts: RunOpts, cid_file: &Path) -> Command {
             "--network=host",
         ],
         if opts.remove => "--rm",
+        if detach => "--detach",
         if opts.pull => "--pull=always",
         if let Some(user) = opts.user.as_ref() => format!("--user={user}"),
         for RunOptsVolume { path_or_vol_name, container_path } in opts.volumes.iter() => [

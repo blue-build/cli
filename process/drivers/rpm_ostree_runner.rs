@@ -1,8 +1,7 @@
 use std::{
     ffi::{OsStr, OsString},
-    os::unix::ffi::{OsStrExt, OsStringExt},
+    os::unix::ffi::OsStrExt,
     path::PathBuf,
-    process::Stdio,
     sync::Arc,
 };
 
@@ -10,9 +9,12 @@ use comlexr::cmd;
 use log::trace;
 use miette::{IntoDiagnostic, Result, bail};
 
-use crate::logging::CommandLogging;
+use crate::{logging::CommandLogging, signal_handler::DetachedContainer};
 
-use super::{Driver, OciCopy, opts::CopyOciOpts};
+use super::{
+    Driver, OciCopy, PodmanDriver, RunDriver,
+    opts::{CopyOciOpts, RunOpts, RunOptsVolume},
+};
 
 #[derive(Clone, Debug)]
 pub enum RpmOstreeRunner {
@@ -22,7 +24,7 @@ pub enum RpmOstreeRunner {
 
 #[derive(Debug)]
 pub struct RpmOstreeContainer {
-    id: OsString,
+    inner: DetachedContainer,
 }
 
 impl RpmOstreeRunner {
@@ -41,18 +43,23 @@ impl RpmOstreeRunner {
         Ok(runner)
     }
 
+    /// Produce the arguments to run the given command inside the runner context.
+    ///
+    /// # Errors
+    /// Returns an error if the runner is a container and the container ID file cannot
+    /// be read into a string.
     pub fn command_args<T: AsRef<OsStr>, U: AsRef<OsStr>>(
         &self,
         cmd: T,
         args: &[U],
-    ) -> (OsString, Vec<OsString>) {
+    ) -> Result<(OsString, Vec<OsString>)> {
         if let Self::Container(container) = self {
             container.command_args(cmd, args)
         } else {
-            (
+            Ok((
                 cmd.as_ref().to_owned(),
                 args.iter().map(|arg| arg.as_ref().to_owned()).collect(),
-            )
+            ))
         }
     }
 
@@ -76,76 +83,61 @@ impl RpmOstreeContainer {
 
     fn start() -> Result<Self> {
         let podman_storage_dir = get_podman_info("{{.Store.GraphRoot}}")?;
-        let podman_storage_mount = {
-            let mut out = podman_storage_dir.clone().into_vec();
-            out.push(b':');
-            out.extend_from_within(0..podman_storage_dir.len());
-            OsString::from_vec(out)
-        };
-        let runtime_container_mount = {
-            let mut out = get_podman_info("{{.Store.RunRoot}}")?.into_vec();
-            out.extend_from_slice(b":/run/containers");
-            OsString::from_vec(out)
-        };
+        let podman_storage_mount = RunOptsVolume::builder()
+            .path_or_vol_name(&podman_storage_dir)
+            .container_path(&podman_storage_dir)
+            .build();
+        let runtime_container_dir = get_podman_info("{{.Store.RunRoot}}")?;
+        let runtime_container_mount = RunOptsVolume::builder()
+            .path_or_vol_name(&runtime_container_dir)
+            .container_path("/run/containers")
+            .build();
 
-        let output = cmd!(
-            "podman",
-            "run",
-            "--detach",
-            "--privileged",
-            "--rm",
-            "-v",
-            podman_storage_mount,
-            "-v",
-            runtime_container_mount,
-            Self::IMAGE_REF,
-            "--storage",
-            podman_storage_dir,
-            "/bin/sh",
-            "-c",
-            "while true; do sleep 86400; done",
-        )
-        .output()
-        .into_diagnostic()?;
+        let container = PodmanDriver::run_detached(
+            RunOpts::builder()
+                .privileged(true)
+                .remove(true)
+                .volumes(&[podman_storage_mount, runtime_container_mount])
+                .image(Self::IMAGE_REF)
+                .args(&[
+                    "--storage".to_owned(),
+                    podman_storage_dir.clone(),
+                    "/bin/sh".to_owned(),
+                    "-c".to_owned(),
+                    "while true; do sleep 86400; done".to_owned(),
+                ])
+                .build(),
+        )?;
 
-        if !output.status.success() {
-            bail!(
-                "Failed to start image {}\nstderr: {}",
-                Self::IMAGE_REF,
-                String::from_utf8_lossy(&output.stderr)
-            );
-        }
-
-        let mut stdout = output.stdout;
-        while stdout.pop_if(|byte| byte.is_ascii_whitespace()).is_some() {}
-        let container_id = OsString::from_vec(stdout);
-        trace!(
-            "Started RpmOstreeContainer with ID: {}",
-            container_id.display()
-        );
-
-        Ok(Self { id: container_id })
+        Ok(Self { inner: container })
     }
 
+    /// Produce the arguments to run the given command inside the container.
+    ///
+    /// # Errors
+    /// Returns an error if the container ID file cannot be read into a string.
     fn command_args<T: AsRef<OsStr>, U: AsRef<OsStr>>(
         &self,
         cmd: T,
         args: &[U],
-    ) -> (OsString, Vec<OsString>) {
+    ) -> Result<(OsString, Vec<OsString>)> {
         let mut final_args = Vec::with_capacity(args.len() + 3);
         final_args.push(OsString::from("exec"));
-        final_args.push(self.id.clone());
+
+        let cid = std::fs::read_to_string(self.inner.cid_path()).into_diagnostic()?;
+        final_args.push(cid.into());
+
         final_args.push(cmd.as_ref().to_owned());
         final_args.extend(args.iter().map(|arg| arg.as_ref().to_owned()));
-        (OsString::from("podman"), final_args)
+        Ok((OsString::from("podman"), final_args))
     }
 }
 
 impl OciCopy for RpmOstreeContainer {
     fn copy_oci(&self, opts: CopyOciOpts) -> Result<()> {
-        trace!("SkopeoDriver::copy_oci({opts:?})");
+        trace!("RpmOstreeContainer::copy_oci({opts:?})");
         let use_sudo = opts.privileged && !blue_build_utils::running_as_root();
-        let (cmd, args) = self.command_args("skopeo", &["copy"]);
+        let (cmd, args) = self.command_args("skopeo", &["copy"])?;
         let status = {
             let c = cmd!(
                 if use_sudo {
@@ -186,18 +178,7 @@ impl OciCopy for RpmOstreeContainer {
     }
 }
 
-impl Drop for RpmOstreeContainer {
-    fn drop(&mut self) {
-        let _ = cmd!("podman", "stop", &self.id)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .and_then(|mut child| child.wait());
-    }
-}
-
-fn get_podman_info(fmt: &str) -> Result<OsString> {
+fn get_podman_info(fmt: &str) -> Result<String> {
     let output = cmd!("podman", "info", format!("--format={fmt}"))
         .output()
         .into_diagnostic()?;
@@ -206,5 +187,5 @@ fn get_podman_info(fmt: &str) -> Result<OsString> {
     }
     let mut stdout = output.stdout;
     while stdout.pop_if(|byte| byte.is_ascii_whitespace()).is_some() {}
-    Ok(OsString::from_vec(stdout))
+    String::from_utf8(stdout).into_diagnostic()
 }
