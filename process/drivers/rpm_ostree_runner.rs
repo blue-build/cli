@@ -52,14 +52,14 @@ impl RpmOstreeRunner {
         &self,
         cmd: T,
         args: &[U],
-    ) -> Result<(OsString, Vec<OsString>)> {
+    ) -> (OsString, Vec<OsString>) {
         if let Self::Container(container) = self {
             container.command_args(cmd, args)
         } else {
-            Ok((
+            (
                 cmd.as_ref().to_owned(),
                 args.iter().map(|arg| arg.as_ref().to_owned()).collect(),
-            ))
+            )
         }
     }
 
@@ -95,6 +95,7 @@ impl RpmOstreeContainer {
 
         let container = PodmanDriver::run_detached(
             RunOpts::builder()
+                .pull(true)
                 .privileged(true)
                 .remove(true)
                 .volumes(&[podman_storage_mount, runtime_container_mount])
@@ -120,16 +121,13 @@ impl RpmOstreeContainer {
         &self,
         cmd: T,
         args: &[U],
-    ) -> Result<(OsString, Vec<OsString>)> {
+    ) -> (OsString, Vec<OsString>) {
         let mut final_args = Vec::with_capacity(args.len() + 3);
         final_args.push(OsString::from("exec"));
-
-        let cid = std::fs::read_to_string(self.inner.cid_path()).into_diagnostic()?;
-        final_args.push(cid.into());
-
+        final_args.push(self.inner.id().into());
         final_args.push(cmd.as_ref().to_owned());
         final_args.extend(args.iter().map(|arg| arg.as_ref().to_owned()));
-        Ok((OsString::from("podman"), final_args))
+        (OsString::from("podman"), final_args)
     }
 }
 
@@ -137,7 +135,7 @@ impl OciCopy for RpmOstreeContainer {
     fn copy_oci(&self, opts: CopyOciOpts) -> Result<()> {
         trace!("RpmOstreeContainer::copy_oci({opts:?})");
         let use_sudo = opts.privileged && !blue_build_utils::running_as_root();
-        let (cmd, args) = self.command_args("skopeo", &["copy"])?;
+        let (cmd, args) = self.command_args("skopeo", &["copy"]);
         let status = {
             let c = cmd!(
                 if use_sudo {

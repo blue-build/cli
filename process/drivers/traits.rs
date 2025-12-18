@@ -328,8 +328,19 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
         final_image: &ImageRef<'_>,
         opts: BuildChunkedOciOpts,
     ) -> Result<()> {
+        trace!(
+            concat!(
+                "BuildChunkedOciDriver::build_chunked_oci(\n",
+                "runner: {:#?},\n",
+                "unchunked_image: {},\n",
+                "final_image: {},\n",
+                "opts: {:#?})\n)"
+            ),
+            runner, unchunked_image, final_image, opts
+        );
+
         let (first_cmd, args) =
-            runner.command_args("rpm-ostree", &["compose", "build-chunked-oci"])?;
+            runner.command_args("rpm-ostree", &["compose", "build-chunked-oci"]);
         let transport_ref = match final_image {
             ImageRef::Remote(image) => format!("containers-storage:{image}"),
             _ => final_image.to_string(),

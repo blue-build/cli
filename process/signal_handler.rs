@@ -1,15 +1,17 @@
 use std::{
     fs,
     path::{Path, PathBuf},
-    process::{self, ExitStatus},
+    process::{self, Command, ExitStatus},
     sync::{Arc, Mutex, atomic::AtomicBool},
     thread,
 };
 
-use blue_build_utils::{constants::SUDO_ASKPASS, has_env_var, running_as_root};
+use blue_build_utils::{
+    constants::SUDO_ASKPASS, container::ContainerId, has_env_var, running_as_root,
+};
 use comlexr::cmd;
 use log::{debug, error, trace, warn};
-use miette::{IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, bail};
 use nix::{
     libc::{SIGABRT, SIGCONT, SIGHUP, SIGTSTP},
     sys::signal::{Signal, kill},
@@ -58,36 +60,61 @@ impl ContainerSignalId {
             container_runtime,
         }
     }
-
-    #[must_use]
-    pub fn cid_path(&self) -> &Path {
-        &self.cid_path
-    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct DetachedContainer {
-    cid: ContainerSignalId,
+    signal_id: ContainerSignalId,
+    container_id: ContainerId,
 }
 
 impl DetachedContainer {
+    /// Runs the provided command to start a container with the given signal ID,
+    /// taking the output of the command as the container ID.
+    ///
+    /// # Errors
+    /// Returns an error if the command fails or if the output of the command
+    /// is invalid UTF-8.
+    pub fn start(signal_id: ContainerSignalId, mut cmd: Command) -> Result<Self> {
+        trace!("DetachedContainer::start({signal_id:#?}, {cmd:#?})");
+
+        add_cid(&signal_id);
+
+        let output = cmd.output().into_diagnostic()?;
+        if !output.status.success() {
+            remove_cid(&signal_id);
+            bail!(
+                "Failed to start detached container image.\nstderr: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        let container_id = {
+            let mut stdout = output.stdout;
+            while stdout.pop_if(|byte| byte.is_ascii_whitespace()).is_some() {}
+            ContainerId(String::from_utf8(stdout).into_diagnostic()?)
+        };
+
+        Ok(Self {
+            signal_id,
+            container_id,
+        })
+    }
+
+    #[must_use]
+    pub const fn id(&self) -> &ContainerId {
+        &self.container_id
+    }
+
     #[must_use]
     pub fn cid_path(&self) -> &Path {
-        &self.cid.cid_path
-    }
-}
-
-impl From<ContainerSignalId> for DetachedContainer {
-    fn from(cid: ContainerSignalId) -> Self {
-        add_cid(&cid);
-        Self { cid }
+        &self.signal_id.cid_path
     }
 }
 
 impl Drop for DetachedContainer {
     fn drop(&mut self) {
-        if kill_container(&self.cid).is_ok_and(|exit_status| exit_status.success()) {
-            remove_cid(&self.cid);
+        if kill_container(&self.signal_id).is_ok_and(|exit_status| exit_status.success()) {
+            remove_cid(&self.signal_id);
         }
     }
 }

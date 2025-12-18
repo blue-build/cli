@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::platform::Platform;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContainerId(pub String);
 
 impl Deref for ContainerId {

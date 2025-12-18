@@ -360,7 +360,7 @@ impl BuildChunkedOciDriver for PodmanDriver {
         runner: &RpmOstreeRunner,
         opts: ManifestCreateOpts,
     ) -> Result<()> {
-        let (cmd, args) = runner.command_args("podman", &["manifest"])?;
+        let (cmd, args) = runner.command_args("podman", &["manifest"]);
         let output = {
             let c = cmd!(&cmd, for &args, "rm", opts.final_image.to_string());
             trace!("{c:?}");
@@ -403,7 +403,7 @@ impl BuildChunkedOciDriver for PodmanDriver {
     }
 
     fn manifest_push_with_runner(runner: &RpmOstreeRunner, opts: ManifestPushOpts) -> Result<()> {
-        let (cmd, args) = runner.command_args("podman", &["manifest"])?;
+        let (cmd, args) = runner.command_args("podman", &["manifest"]);
         let image = &opts.final_image.to_string();
         let status = {
             let c = cmd!(
@@ -547,22 +547,9 @@ impl RunDriver for PodmanDriver {
         let cid_file = cid_path.path().join("cid");
 
         let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Podman, opts.privileged);
+        let run_cmd = podman_run(opts, &cid_file, true);
 
-        let container = DetachedContainer::from(cid);
-
-        let output = podman_run(opts, &cid_file, true)
-            .output()
-            .into_diagnostic()?;
-
-        if !output.status.success() {
-            bail!(
-                "Failed to start image {}\nstderr: {}",
-                opts.image,
-                String::from_utf8_lossy(&output.stderr)
-            );
-        }
-
-        Ok(container)
+        DetachedContainer::start(cid, run_cmd)
     }
 
     fn create_container(opts: CreateContainerOpts) -> Result<ContainerId> {

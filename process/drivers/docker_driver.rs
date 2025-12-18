@@ -593,22 +593,9 @@ impl RunDriver for DockerDriver {
         let cid_file = cid_path.path().join("cid");
 
         let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Docker, opts.privileged);
+        let run_cmd = docker_run(opts, &cid_file, true);
 
-        let container = DetachedContainer::from(cid);
-
-        let output = docker_run(opts, &cid_file, true)
-            .output()
-            .into_diagnostic()?;
-
-        if !output.status.success() {
-            bail!(
-                "Failed to start image {}\nstderr: {}",
-                opts.image,
-                String::from_utf8_lossy(&output.stderr)
-            );
-        }
-
-        Ok(container)
+        DetachedContainer::start(cid, run_cmd)
     }
 
     fn create_container(opts: CreateContainerOpts) -> Result<ContainerId> {
