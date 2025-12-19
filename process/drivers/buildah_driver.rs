@@ -13,7 +13,7 @@ use crate::{
 
 use super::{
     BuildDriver, DriverVersion,
-    opts::{BuildOpts, PruneOpts, PushOpts, TagOpts},
+    opts::{BuildOpts, PruneOpts, PushOpts, TagOpts, UntagOpts},
 };
 
 #[derive(Debug, Deserialize)]
@@ -125,6 +125,27 @@ impl BuildDriver for BuildahDriver {
             info!("Successfully tagged {}!", dest_image_str.bold().green());
         } else {
             bail!("Failed to tag image {}", dest_image_str.bold().red());
+        }
+        Ok(())
+    }
+
+    fn untag(opts: UntagOpts) -> Result<()> {
+        trace!("BuildahDriver::untag({opts:#?})");
+
+        let ref_string = opts.image.to_string();
+
+        let mut command = cmd!(
+            "buildah",
+            "untag",
+            &ref_string, // identify image by reference
+            &ref_string, // remove this reference
+        );
+
+        trace!("{command:?}");
+        if command.status().into_diagnostic()?.success() {
+            info!("Successfully untagged {}", ref_string.bold().green());
+        } else {
+            bail!("Failed to untag image {}", ref_string.bold().red());
         }
         Ok(())
     }

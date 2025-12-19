@@ -27,7 +27,7 @@ use super::{
     opts::{
         BuildOpts, ContainerOpts, CreateContainerOpts, ManifestCreateOpts, ManifestPushOpts,
         PruneOpts, PushOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, RunOptsEnv,
-        RunOptsVolume, TagOpts, VolumeOpts,
+        RunOptsVolume, TagOpts, UntagOpts, VolumeOpts,
     },
     rpm_ostree_runner::RpmOstreeRunner,
 };
@@ -199,6 +199,31 @@ impl BuildDriver for PodmanDriver {
             info!("Successfully tagged {}!", dest_image_str.bold().green());
         } else {
             bail!("Failed to tag image {}", dest_image_str.bold().red());
+        }
+        Ok(())
+    }
+
+    fn untag(opts: UntagOpts) -> Result<()> {
+        trace!("PodmanDriver::untag({opts:#?})");
+
+        let ref_string = opts.image.to_string();
+
+        let mut command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
+            "podman",
+            "untag",
+            &ref_string, // identify image by reference
+            &ref_string, // remove this reference
+        );
+
+        trace!("{command:?}");
+        let status = command.status().into_diagnostic()?;
+
+        if status.success() {
+            info!("Successfully untagged {}", ref_string.bold().green());
+        } else {
+            bail!("Failed to untag image {}", ref_string.bold().red());
         }
         Ok(())
     }

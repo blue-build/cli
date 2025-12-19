@@ -28,7 +28,7 @@ use super::{
         CheckKeyPairOpts, ContainerOpts, CopyOciOpts, CreateContainerOpts, GenerateImageNameOpts,
         GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts, RechunkOpts,
         RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts, SwitchOpts,
-        TagOpts, VerifyOpts, VerifyType, VolumeOpts,
+        TagOpts, UntagOpts, VerifyOpts, VerifyType, VolumeOpts,
     },
     opts::{ManifestCreateOpts, ManifestPushOpts},
     rpm_ostree_runner::RpmOstreeRunner,
@@ -121,6 +121,12 @@ pub trait BuildDriver: PrivateDriver {
     /// # Errors
     /// Will error if the tagging fails.
     fn tag(opts: TagOpts) -> Result<()>;
+
+    /// Runs the untag logic for the driver.
+    ///
+    /// # Errors
+    /// Will error if the untagging fails.
+    fn untag(opts: UntagOpts) -> Result<()>;
 
     /// Runs the push logic for the driver
     ///
@@ -336,7 +342,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
                 "final_image: {},\n",
                 "opts: {:#?})\n)"
             ),
-            runner, unchunked_image, final_image, opts
+            runner, unchunked_image, final_image, opts,
         );
 
         let (first_cmd, args) =
@@ -370,6 +376,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
     ///
     /// # Errors
     /// Will error if building, rechunking, tagging, or pushing fails.
+    #[expect(clippy::too_many_lines)]
     fn build_rechunk_tag_push(opts: BuildRechunkTagPushOpts) -> Result<Vec<String>> {
         trace!("BuildChunkedOciDriver::build_rechunk_tag_push({opts:#?})");
 
@@ -412,12 +419,45 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
         let runner = RpmOstreeRunner::start()?;
 
         // Rechunk images serially to avoid using excessive disk space.
-        for (unchunked_image, image) in images_to_rechunk {
-            let result = Self::build_chunked_oci(&runner, &unchunked_image, &image, rechunk_opts);
-            if let ImageRef::Remote(unchunked_image) = unchunked_image {
-                Self::remove_image(RemoveImageOpts::builder().image(&unchunked_image).build())?;
+        if let ImageRef::Remote(image_ref) = btp_opts.image {
+            for (unchunked_image, image) in images_to_rechunk {
+                // Use the non-platform-tagged image ref as the output for build-chunked-oci
+                // so it looks for an existing manifest at the right location (the multi-arch
+                // image that will be pushed). This allows build-chunked-oci to read the
+                // previous build's layer annotations to minimize layout changes.
+                let result = Self::build_chunked_oci(
+                    &runner,
+                    &unchunked_image,
+                    btp_opts.image,
+                    rechunk_opts,
+                );
+                // Clean up the unchunked image whether or not rechunking succeeded.
+                if let ImageRef::Remote(unchunked_image) = unchunked_image {
+                    Self::remove_image(RemoveImageOpts::builder().image(&unchunked_image).build())?;
+                }
+                result?;
+
+                // Now retag the image to use the platform tag.
+                if let ImageRef::Remote(image_with_platform) = image {
+                    Self::tag(
+                        TagOpts::builder()
+                            .src_image(image_ref)
+                            .dest_image(&image_with_platform)
+                            .privileged(btp_opts.privileged)
+                            .build(),
+                    )?;
+                    Self::untag(
+                        UntagOpts::builder()
+                            .image(image_ref)
+                            .privileged(btp_opts.privileged)
+                            .build(),
+                    )?;
+                }
             }
-            result?;
+        } else {
+            for (unchunked_image, image) in images_to_rechunk {
+                Self::build_chunked_oci(&runner, &unchunked_image, &image, rechunk_opts)?;
+            }
         }
 
         let image_list: Vec<String> = match &btp_opts.image {

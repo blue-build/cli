@@ -26,7 +26,7 @@ use crate::{
     drivers::{
         opts::{
             BuildOpts, BuildTagPushOpts, ManifestCreateOpts, ManifestPushOpts, PushOpts, RunOpts,
-            RunOptsEnv, RunOptsVolume, TagOpts,
+            RunOptsEnv, RunOptsVolume, TagOpts, UntagOpts,
         },
         traits::{BuildDriver, DriverVersion, RunDriver},
     },
@@ -264,6 +264,32 @@ impl BuildDriver for DockerDriver {
             info!("Successfully tagged {}!", dest_image_str.bold().green());
         } else {
             bail!("Failed to tag image {}", dest_image_str.bold().red());
+        }
+        Ok(())
+    }
+
+    fn untag(opts: UntagOpts) -> Result<()> {
+        trace!("DockerDriver::untag({opts:#?})");
+
+        let ref_string = opts.image.to_string();
+
+        let status = {
+            let c = cmd!(
+                "docker",
+                "untag",
+                &ref_string, // identify image by reference
+                &ref_string, // remove this reference
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if status.success() {
+            info!("Successfully untagged {}", ref_string.bold().green());
+        } else {
+            bail!("Failed to untag image {}", ref_string.bold().red());
         }
         Ok(())
     }

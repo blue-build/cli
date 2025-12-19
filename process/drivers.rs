@@ -38,7 +38,7 @@ use opts::{
     ContainerOpts, CopyOciOpts, CreateContainerOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
     GenerateTagsOpts, GetMetadataOpts, ManifestCreateOpts, ManifestPushOpts, PruneOpts, PushOpts,
     RechunkOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SwitchOpts, TagOpts,
-    VerifyOpts, VolumeOpts,
+    UntagOpts, VerifyOpts, VolumeOpts,
 };
 use types::{
     BootDriverType, BuildDriverType, CiDriverType, ImageMetadata, InspectDriverType, RunDriverType,
@@ -334,6 +334,10 @@ impl BuildDriver for Driver {
 
     fn tag(opts: TagOpts) -> Result<()> {
         impl_build_driver!(tag(opts))
+    }
+
+    fn untag(opts: UntagOpts) -> Result<()> {
+        impl_build_driver!(untag(opts))
     }
 
     fn push(opts: PushOpts) -> Result<()> {

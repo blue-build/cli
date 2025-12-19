@@ -47,6 +47,15 @@ pub struct TagOpts<'scope> {
 
 #[derive(Debug, Clone, Copy, Builder)]
 #[builder(derive(Debug, Clone))]
+pub struct UntagOpts<'scope> {
+    pub image: &'scope Reference,
+
+    #[builder(default)]
+    pub privileged: bool,
+}
+
+#[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct PushOpts<'scope> {
     pub image: &'scope Reference,
     pub compression_type: Option<CompressionType>,
