@@ -19,7 +19,7 @@ comlexr = "1.4.2"
 indexmap = { version = "2.12.1", features = ["serde"] }
 indicatif = { version = "0.18.2", features = ["improved_unicode", "rayon"] }
 lazy-regex = "3.4.1"
-log = "0.4.28"
+log = "0.4.29"
 miette = "7.6.0"
 nix = { version = "0.30.1" }
 oci-client = { version = "0.15.0", default-features = false }
