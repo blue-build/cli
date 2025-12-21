@@ -1,14 +1,17 @@
 use std::{
     fs,
-    path::PathBuf,
-    process,
+    path::{Path, PathBuf},
+    process::{self, Command, ExitStatus},
     sync::{Arc, Mutex, atomic::AtomicBool},
     thread,
 };
 
-use blue_build_utils::{constants::SUDO_ASKPASS, has_env_var, running_as_root};
+use blue_build_utils::{
+    constants::SUDO_ASKPASS, container::ContainerId, has_env_var, running_as_root,
+};
 use comlexr::cmd;
 use log::{debug, error, trace, warn};
+use miette::{IntoDiagnostic, Result, bail};
 use nix::{
     libc::{SIGABRT, SIGCONT, SIGHUP, SIGTSTP},
     sys::signal::{Signal, kill},
@@ -30,7 +33,7 @@ pub struct ContainerSignalId {
     container_runtime: ContainerRuntime,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ContainerRuntime {
     Podman,
     Docker,
@@ -55,6 +58,63 @@ impl ContainerSignalId {
             cid_path,
             requires_sudo,
             container_runtime,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct DetachedContainer {
+    signal_id: ContainerSignalId,
+    container_id: ContainerId,
+}
+
+impl DetachedContainer {
+    /// Runs the provided command to start a container with the given signal ID,
+    /// taking the output of the command as the container ID.
+    ///
+    /// # Errors
+    /// Returns an error if the command fails or if the output of the command
+    /// is invalid UTF-8.
+    pub fn start(signal_id: ContainerSignalId, mut cmd: Command) -> Result<Self> {
+        trace!("DetachedContainer::start({signal_id:#?}, {cmd:#?})");
+
+        add_cid(&signal_id);
+
+        let output = cmd.output().into_diagnostic()?;
+        if !output.status.success() {
+            remove_cid(&signal_id);
+            bail!(
+                "Failed to start detached container image.\nstderr: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        let container_id = {
+            let mut stdout = output.stdout;
+            while stdout.pop_if(|byte| byte.is_ascii_whitespace()).is_some() {}
+            ContainerId(String::from_utf8(stdout).into_diagnostic()?)
+        };
+
+        Ok(Self {
+            signal_id,
+            container_id,
+        })
+    }
+
+    #[must_use]
+    pub const fn id(&self) -> &ContainerId {
+        &self.container_id
+    }
+
+    #[must_use]
+    pub fn cid_path(&self) -> &Path {
+        &self.signal_id.cid_path
+    }
+}
+
+impl Drop for DetachedContainer {
+    fn drop(&mut self) {
+        if kill_container(&self.signal_id).is_ok_and(|exit_status| exit_status.success()) {
+            remove_cid(&self.signal_id);
         }
     }
 }
@@ -117,31 +177,7 @@ where
                 let cid_list = CID_LIST.clone();
                 let cid_list = cid_list.lock().expect("Should lock mutex");
                 cid_list.iter().for_each(|cid| {
-                    if let Ok(id) = fs::read_to_string(&cid.cid_path) {
-                        let id = id.trim();
-                        debug!("Killing container {id}");
-
-                        let status = cmd!(
-                            if cid.requires_sudo && !running_as_root() {
-                                "sudo".to_string()
-                            } else {
-                                cid.container_runtime.to_string()
-                            },
-                            if cid.requires_sudo && !running_as_root() && has_env_var(SUDO_ASKPASS) => [
-                                "-A",
-                                "-p",
-                                format!("Password needed to kill container {id}"),
-                            ],
-                            if cid.requires_sudo && !running_as_root() => cid.container_runtime.to_string(),
-                            "stop",
-                            id
-                        )
-                        .status();
-
-                        if let Err(e) = status {
-                            error!("Failed to kill container {id}: Error {e}");
-                        }
-                    }
+                    let _ = kill_container(cid);
                 });
                 drop(cid_list);
 
@@ -256,4 +292,35 @@ pub fn remove_cid(cid: &ContainerSignalId) {
     if let Some(index) = cid_list.iter().position(|val| *val == *cid) {
         cid_list.swap_remove(index);
     }
+}
+
+fn kill_container(cid: &ContainerSignalId) -> Result<ExitStatus> {
+    fs::read_to_string(&cid.cid_path)
+        .into_diagnostic()
+        .and_then(|id| {
+            let id = id.trim();
+            debug!("Killing container {id}");
+
+            let status = cmd!(
+                if cid.requires_sudo && !running_as_root() {
+                    "sudo".to_string()
+                } else {
+                    cid.container_runtime.to_string()
+                },
+                if cid.requires_sudo && !running_as_root() && has_env_var(SUDO_ASKPASS) => [
+                    "-A",
+                    "-p",
+                    format!("Password needed to kill container {id}"),
+                ],
+                if cid.requires_sudo && !running_as_root() => cid.container_runtime.to_string(),
+                "stop",
+                id
+            )
+            .status();
+
+            if let Err(e) = &status {
+                error!("Failed to kill container {id}: Error {e}");
+            }
+            status.into_diagnostic()
+        })
 }

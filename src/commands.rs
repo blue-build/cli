@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use log::error;
 
-use clap::{Parser, Subcommand, command, crate_authors};
+use clap::{Parser, Subcommand, crate_authors};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 
 use crate::shadow;

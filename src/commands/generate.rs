@@ -22,7 +22,7 @@ use clap::Args;
 use colored::Colorize;
 use log::{debug, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Result};
-use oci_distribution::Reference;
+use oci_client::Reference;
 
 use super::BlueBuildCommand;
 

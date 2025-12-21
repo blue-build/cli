@@ -1,12 +1,12 @@
 use std::{collections::BTreeMap, path::Path};
 
 use blue_build_utils::{
-    container::{ContainerId, OciDir, Tag},
+    container::{ContainerId, Tag},
     platform::Platform,
     secret::Secret,
 };
 use bon::Builder;
-use oci_distribution::Reference;
+use oci_client::Reference;
 
 use super::CompressionType;
 
@@ -74,16 +74,6 @@ pub struct ContainerOpts<'scope> {
 #[builder(derive(Debug, Clone))]
 pub struct VolumeOpts<'scope> {
     pub volume_id: &'scope str,
-
-    #[builder(default)]
-    pub privileged: bool,
-}
-
-#[derive(Debug, Clone, Copy, Builder)]
-#[builder(derive(Debug, Clone))]
-pub struct CopyOciDirOpts<'scope> {
-    pub oci_dir: &'scope OciDir,
-    pub registry: &'scope Reference,
 
     #[builder(default)]
     pub privileged: bool,

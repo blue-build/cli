@@ -34,7 +34,7 @@ pub struct SigstoreDriver;
 
 impl SigningDriver for SigstoreDriver {
     fn generate_key_pair(opts: GenerateKeyPairOpts) -> miette::Result<()> {
-        let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
+        let path = opts.dir.unwrap_or_else(|| Path::new("."));
         let priv_key_path = path.join(COSIGN_PRIV_PATH);
         let pub_key_path = path.join(COSIGN_PUB_PATH);
 
@@ -73,7 +73,7 @@ impl SigningDriver for SigstoreDriver {
     fn check_signing_files(opts: CheckKeyPairOpts) -> miette::Result<()> {
         trace!("SigstoreDriver::check_signing_files({opts:?})");
 
-        let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
+        let path = opts.dir.unwrap_or_else(|| Path::new("."));
         let pub_path = path.join(COSIGN_PUB_PATH);
 
         let pub_key = fs::read_to_string(&pub_path)
@@ -115,7 +115,7 @@ impl SigningDriver for SigstoreDriver {
             );
         }
 
-        let path = opts.dir.as_ref().map_or_else(|| Path::new("."), |dir| dir);
+        let path = opts.dir.unwrap_or_else(|| Path::new("."));
         let mut client = ClientBuilder::default().build().into_diagnostic()?;
         let image_digest: OciReference = opts.image.to_string().parse().into_diagnostic()?;
 

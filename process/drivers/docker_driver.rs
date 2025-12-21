@@ -18,7 +18,7 @@ use colored::Colorize;
 use comlexr::{cmd, pipe};
 use log::{debug, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Result, bail};
-use oci_distribution::Reference;
+use oci_client::Reference;
 use serde::Deserialize;
 use tempfile::TempDir;
 
@@ -26,12 +26,12 @@ use crate::{
     drivers::{
         opts::{
             BuildOpts, BuildTagPushOpts, ManifestCreateOpts, ManifestPushOpts, PushOpts, RunOpts,
-            RunOptsEnv, RunOptsVolume, TagOpts,
+            RunOptsEnv, RunOptsVolume, TagOpts, UntagOpts,
         },
         traits::{BuildDriver, DriverVersion, RunDriver},
     },
     logging::CommandLogging,
-    signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
+    signal_handler::{ContainerRuntime, ContainerSignalId, DetachedContainer, add_cid, remove_cid},
 };
 
 use super::opts::{CreateContainerOpts, PruneOpts, RemoveContainerOpts, RemoveImageOpts};
@@ -264,6 +264,32 @@ impl BuildDriver for DockerDriver {
             info!("Successfully tagged {}!", dest_image_str.bold().green());
         } else {
             bail!("Failed to tag image {}", dest_image_str.bold().red());
+        }
+        Ok(())
+    }
+
+    fn untag(opts: UntagOpts) -> Result<()> {
+        trace!("DockerDriver::untag({opts:#?})");
+
+        let ref_string = opts.image.to_string();
+
+        let status = {
+            let c = cmd!(
+                "docker",
+                "untag",
+                &ref_string, // identify image by reference
+                &ref_string, // remove this reference
+            );
+            trace!("{c:?}");
+            c
+        }
+        .status()
+        .into_diagnostic()?;
+
+        if status.success() {
+            info!("Successfully untagged {}", ref_string.bold().green());
+        } else {
+            bail!("Failed to untag image {}", ref_string.bold().red());
         }
         Ok(())
     }
@@ -559,7 +585,7 @@ impl RunDriver for DockerDriver {
 
         add_cid(&cid);
 
-        let status = docker_run(opts, &cid_file)
+        let status = docker_run(opts, &cid_file, false)
             .build_status(opts.image, "Running container")
             .into_diagnostic()?;
 
@@ -569,7 +595,7 @@ impl RunDriver for DockerDriver {
     }
 
     fn run_output(opts: RunOpts) -> Result<std::process::Output> {
-        trace!("DockerDriver::run({opts:#?})");
+        trace!("DockerDriver::run_output({opts:#?})");
 
         let cid_path = TempDir::new().into_diagnostic()?;
         let cid_file = cid_path.path().join("cid");
@@ -577,11 +603,25 @@ impl RunDriver for DockerDriver {
 
         add_cid(&cid);
 
-        let output = docker_run(opts, &cid_file).output().into_diagnostic()?;
+        let output = docker_run(opts, &cid_file, false)
+            .output()
+            .into_diagnostic()?;
 
         remove_cid(&cid);
 
         Ok(output)
+    }
+
+    fn run_detached(opts: RunOpts) -> Result<DetachedContainer> {
+        trace!("DockerDriver::run_detached({opts:#?})");
+
+        let cid_path = TempDir::new().into_diagnostic()?;
+        let cid_file = cid_path.path().join("cid");
+
+        let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Docker, opts.privileged);
+        let run_cmd = docker_run(opts, &cid_file, true);
+
+        DetachedContainer::start(cid, run_cmd)
     }
 
     fn create_container(opts: CreateContainerOpts) -> Result<ContainerId> {
@@ -678,7 +718,7 @@ impl RunDriver for DockerDriver {
     }
 }
 
-fn docker_run(opts: RunOpts, cid_file: &Path) -> Command {
+fn docker_run(opts: RunOpts, cid_file: &Path, detach: bool) -> Command {
     let command = cmd!(
         "docker",
         "run",
@@ -686,6 +726,7 @@ fn docker_run(opts: RunOpts, cid_file: &Path) -> Command {
         cid_file,
         if opts.privileged => "--privileged",
         if opts.remove => "--rm",
+        if detach => "--detach",
         if opts.pull => "--pull=always",
         if let Some(user) = opts.user.as_ref() => format!("--user={user}"),
         for RunOptsVolume { path_or_vol_name, container_path } in opts.volumes.iter() => [

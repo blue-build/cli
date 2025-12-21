@@ -1,7 +1,5 @@
 use std::{
-    ffi::OsString,
     ops::Not,
-    os::unix::ffi::OsStringExt,
     path::Path,
     process::{Command, ExitStatus},
 };
@@ -19,27 +17,23 @@ use colored::Colorize;
 use comlexr::{cmd, pipe};
 use log::{debug, error, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Result, bail};
-use oci_distribution::Reference;
+use oci_client::Reference;
 use serde::Deserialize;
 use tempfile::TempDir;
 
 use super::{
-    ContainerMountDriver, RechunkDriver,
+    BuildChunkedOciDriver, BuildDriver, ContainerMountDriver, DriverVersion, RechunkDriver,
+    RunDriver,
     opts::{
-        ContainerOpts, CreateContainerOpts, PruneOpts, RemoveContainerOpts, RemoveImageOpts,
-        VolumeOpts,
+        BuildOpts, ContainerOpts, CreateContainerOpts, ManifestCreateOpts, ManifestPushOpts,
+        PruneOpts, PushOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, RunOptsEnv,
+        RunOptsVolume, TagOpts, UntagOpts, VolumeOpts,
     },
+    rpm_ostree_runner::RpmOstreeRunner,
 };
 use crate::{
-    drivers::{
-        BuildChunkedOciDriver, BuildDriver, DriverVersion, RunDriver,
-        opts::{
-            BuildOpts, ManifestCreateOpts, ManifestPushOpts, PushOpts, RunOpts, RunOptsEnv,
-            RunOptsVolume, TagOpts,
-        },
-    },
     logging::CommandLogging,
-    signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},
+    signal_handler::{ContainerRuntime, ContainerSignalId, DetachedContainer, add_cid, remove_cid},
 };
 
 const SUDO_PROMPT: &str = "Password for %u required to run 'podman' as privileged";
@@ -60,8 +54,6 @@ struct PodmanVersionJson {
 pub struct PodmanDriver;
 
 impl PodmanDriver {
-    const RPM_OSTREE_CONTAINER: &str = "ghcr.io/blue-build/rpm-ostree-container:latest";
-
     /// Copy an image from the user container
     /// store to the root container store for
     /// booting off of.
@@ -207,6 +199,31 @@ impl BuildDriver for PodmanDriver {
             info!("Successfully tagged {}!", dest_image_str.bold().green());
         } else {
             bail!("Failed to tag image {}", dest_image_str.bold().red());
+        }
+        Ok(())
+    }
+
+    fn untag(opts: UntagOpts) -> Result<()> {
+        trace!("PodmanDriver::untag({opts:#?})");
+
+        let ref_string = opts.image.to_string();
+
+        let mut command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
+            "podman",
+            "untag",
+            &ref_string, // identify image by reference
+            &ref_string, // remove this reference
+        );
+
+        trace!("{command:?}");
+        let status = command.status().into_diagnostic()?;
+
+        if status.success() {
+            info!("Successfully untagged {}", ref_string.bold().green());
+        } else {
+            bail!("Failed to untag image {}", ref_string.bold().red());
         }
         Ok(())
     }
@@ -364,57 +381,75 @@ impl BuildDriver for PodmanDriver {
 }
 
 impl BuildChunkedOciDriver for PodmanDriver {
-    fn setup_rpm_ostree() -> Result<()> {
-        if which::which("rpm-ostree").is_ok() {
-            return Ok(());
+    fn manifest_create_with_runner(
+        runner: &RpmOstreeRunner,
+        opts: ManifestCreateOpts,
+    ) -> Result<()> {
+        let (cmd, args) = runner.command_args("podman", &["manifest"]);
+        let output = {
+            let c = cmd!(&cmd, for &args, "rm", opts.final_image.to_string());
+            trace!("{c:?}");
+            c
         }
-        let output = cmd!("podman", "pull", Self::RPM_OSTREE_CONTAINER)
-            .output()
-            .into_diagnostic()?;
+        .output()
+        .into_diagnostic()?;
+
+        if output.status.success() {
+            warn!(
+                "Existing image manifest {} exists, removing...",
+                opts.final_image
+            );
+        }
+
+        let output = {
+            let c = cmd!(
+                &cmd,
+                for &args,
+                "create",
+                "--all",
+                opts.final_image.to_string(),
+                for image in opts.image_list => format!("containers-storage:{image}"),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
         if !output.status.success() {
             bail!(
-                "Failed to pull image {}\nstderr: {}",
-                Self::RPM_OSTREE_CONTAINER,
+                "Failed to create manifest for {}:\n{}",
+                opts.final_image,
                 String::from_utf8_lossy(&output.stderr)
             );
         }
+
         Ok(())
     }
 
-    fn rpm_ostree_command() -> Result<(OsString, Vec<OsString>)> {
-        if let Ok(rpm_ostree) = which::which("rpm-ostree") {
-            return Ok((rpm_ostree.into(), Vec::new()));
+    fn manifest_push_with_runner(runner: &RpmOstreeRunner, opts: ManifestPushOpts) -> Result<()> {
+        let (cmd, args) = runner.command_args("podman", &["manifest"]);
+        let image = &opts.final_image.to_string();
+        let status = {
+            let c = cmd!(
+                cmd,
+                for args,
+                "push",
+                if let Some(authfile) = runner.authfile() => ["--authfile", authfile],
+                image,
+                format!("docker://{}", opts.final_image),
+            );
+            trace!("{c:?}");
+            c
         }
-        let mut args = Vec::new();
-        for s in ["run", "--privileged", "--rm", "-v"] {
-            args.push(s.to_owned().into());
+        .build_status(image, format!("Pushing manifest {image}..."))
+        .into_diagnostic()?;
+
+        if !status.success() {
+            bail!("Failed to create manifest for {}", opts.final_image);
         }
-        let podman_storage_dir = {
-            let mut output = cmd!("podman", "info", "--format={{.Store.GraphRoot}}")
-                .output()
-                .into_diagnostic()?;
-            if !output.status.success() {
-                bail!("Failed to find podman storage root");
-            }
-            while output
-                .stdout
-                .pop_if(|byte| byte.is_ascii_whitespace())
-                .is_some()
-            {}
-            OsString::from_vec(output.stdout)
-        };
-        let podman_storage_mount = {
-            let mut out = podman_storage_dir.clone().into_vec();
-            out.push(b':');
-            out.extend_from_within(0..podman_storage_dir.len());
-            OsString::from_vec(out)
-        };
-        args.push(podman_storage_mount);
-        args.push(Self::RPM_OSTREE_CONTAINER.to_owned().into());
-        args.push("--storage".to_owned().into());
-        args.push(podman_storage_dir);
-        args.push("rpm-ostree".to_owned().into());
-        Ok(("podman".into(), args))
+
+        Ok(())
     }
 }
 
@@ -502,7 +537,7 @@ impl RunDriver for PodmanDriver {
 
         add_cid(&cid);
 
-        let status = podman_run(opts, &cid_file)
+        let status = podman_run(opts, &cid_file, false)
             .build_status(opts.image, "Running container")
             .into_diagnostic()?;
 
@@ -521,11 +556,25 @@ impl RunDriver for PodmanDriver {
 
         add_cid(&cid);
 
-        let output = podman_run(opts, &cid_file).output().into_diagnostic()?;
+        let output = podman_run(opts, &cid_file, false)
+            .output()
+            .into_diagnostic()?;
 
         remove_cid(&cid);
 
         Ok(output)
+    }
+
+    fn run_detached(opts: RunOpts) -> Result<DetachedContainer> {
+        trace!("PodmanDriver::run_detached({opts:#?})");
+
+        let cid_path = TempDir::new().into_diagnostic()?;
+        let cid_file = cid_path.path().join("cid");
+
+        let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Podman, opts.privileged);
+        let run_cmd = podman_run(opts, &cid_file, true);
+
+        DetachedContainer::start(cid, run_cmd)
     }
 
     fn create_container(opts: CreateContainerOpts) -> Result<ContainerId> {
@@ -645,10 +694,10 @@ impl RunDriver for PodmanDriver {
     }
 }
 
-fn podman_run(opts: RunOpts, cid_file: &Path) -> Command {
+fn podman_run(opts: RunOpts, cid_file: &Path, detach: bool) -> Command {
     let command = sudo_cmd!(
         prompt = SUDO_PROMPT,
-        sudo_check = opts.privileged,
+        sudo_check = opts.privileged && !opts.rootless,
         "podman",
         "run",
         format!("--cidfile={}", cid_file.display()),
@@ -657,6 +706,7 @@ fn podman_run(opts: RunOpts, cid_file: &Path) -> Command {
             "--network=host",
         ],
         if opts.remove => "--rm",
+        if detach => "--detach",
         if opts.pull => "--pull=always",
         if let Some(user) = opts.user.as_ref() => format!("--user={user}"),
         for RunOptsVolume { path_or_vol_name, container_path } in opts.volumes.iter() => [

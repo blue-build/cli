@@ -6,7 +6,7 @@ use blue_build_utils::{
     secret::Secret,
 };
 use bon::Builder;
-use oci_distribution::Reference;
+use oci_client::Reference;
 
 use super::CompressionType;
 
@@ -40,6 +40,15 @@ pub struct BuildOpts<'scope> {
 pub struct TagOpts<'scope> {
     pub src_image: &'scope Reference,
     pub dest_image: &'scope Reference,
+
+    #[builder(default)]
+    pub privileged: bool,
+}
+
+#[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
+pub struct UntagOpts<'scope> {
+    pub image: &'scope Reference,
 
     #[builder(default)]
     pub privileged: bool,
@@ -81,7 +90,7 @@ pub struct ManifestPushOpts<'scope> {
 }
 
 /// Options for building, tagging, and pushing images.
-#[allow(clippy::struct_excessive_bools)]
+#[expect(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Copy, Builder)]
 #[builder(derive(Debug, Clone))]
 pub struct BuildTagPushOpts<'scope> {

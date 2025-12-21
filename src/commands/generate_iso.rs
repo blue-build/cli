@@ -16,7 +16,7 @@ use blue_build_utils::{
 use bon::Builder;
 use clap::{Args, Subcommand, ValueEnum};
 use miette::{Context, IntoDiagnostic, Result, bail};
-use oci_distribution::Reference;
+use oci_client::Reference;
 use tempfile::TempDir;
 
 use blue_build_process_management::{

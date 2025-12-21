@@ -2,7 +2,7 @@ use std::{borrow::Cow, path::PathBuf};
 
 use blue_build_utils::{constants::OCI_ARCHIVE, container::ImageRef};
 use log::warn;
-use oci_distribution::Reference;
+use oci_client::Reference;
 use serde::Deserialize;
 
 use crate::drivers::BootStatus;

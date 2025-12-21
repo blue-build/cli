@@ -1,6 +1,5 @@
 use std::{
     borrow::Borrow,
-    ffi::OsString,
     ops::Not,
     path::PathBuf,
     process::{ExitStatus, Output},
@@ -8,7 +7,7 @@ use std::{
 
 use blue_build_utils::{
     constants::COSIGN_PUB_PATH,
-    container::{ContainerId, ImageRef, MountId, OciDir, Tag},
+    container::{ContainerId, ImageRef, MountId, OciRef, Tag},
     platform::Platform,
     retry,
     semver::Version,
@@ -17,30 +16,29 @@ use blue_build_utils::{
 use comlexr::cmd;
 use log::{debug, info, trace};
 use miette::{Context, IntoDiagnostic, Result, bail};
-use oci_distribution::Reference;
+use oci_client::Reference;
 use rayon::prelude::*;
 use semver::VersionReq;
 
 use super::{
+    Driver,
+    functions::get_private_key,
     opts::{
         BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts,
-        CheckKeyPairOpts, ContainerOpts, CopyOciDirOpts, CreateContainerOpts,
-        GenerateImageNameOpts, GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts,
-        RechunkOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts,
-        SwitchOpts, TagOpts, VerifyOpts, VerifyType, VolumeOpts,
+        CheckKeyPairOpts, ContainerOpts, CopyOciOpts, CreateContainerOpts, GenerateImageNameOpts,
+        GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts, RechunkOpts,
+        RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts, SwitchOpts,
+        TagOpts, UntagOpts, VerifyOpts, VerifyType, VolumeOpts,
     },
+    opts::{ManifestCreateOpts, ManifestPushOpts},
+    rpm_ostree_runner::RpmOstreeRunner,
+    types::CiDriverType,
     types::{
         BootDriverType, BuildDriverType, ImageMetadata, InspectDriverType, RunDriverType,
         SigningDriverType,
     },
 };
-use crate::drivers::{
-    Driver,
-    functions::get_private_key,
-    opts::{ManifestCreateOpts, ManifestPushOpts},
-    types::CiDriverType,
-};
-use crate::logging::CommandLogging;
+use crate::{logging::CommandLogging, signal_handler::DetachedContainer};
 
 trait PrivateDriver {}
 
@@ -65,7 +63,9 @@ impl_private_driver!(
     super::sigstore_driver::SigstoreDriver,
     super::rpm_ostree_driver::RpmOstreeDriver,
     super::rpm_ostree_driver::Status,
-    super::oci_client::OciClientDriver,
+    super::rpm_ostree_runner::RpmOstreeContainer,
+    super::rpm_ostree_runner::RpmOstreeRunner,
+    super::oci_client_driver::OciClientDriver,
     Option<BuildDriverType>,
     Option<RunDriverType>,
     Option<InspectDriverType>,
@@ -80,13 +80,13 @@ impl_private_driver!(
     super::bootc_driver::BootcStatus
 );
 
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait DetermineDriver<T>: PrivateDriver {
     fn determine_driver(&mut self) -> T;
 }
 
 /// Trait for retrieving version of a driver.
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait DriverVersion: PrivateDriver {
     /// The version req string slice that follows
     /// the semver standard <https://semver.org/>.
@@ -108,7 +108,7 @@ pub trait DriverVersion: PrivateDriver {
 
 /// Allows agnostic building, tagging
 /// pushing, and login.
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait BuildDriver: PrivateDriver {
     /// Runs the build logic for the driver.
     ///
@@ -121,6 +121,12 @@ pub trait BuildDriver: PrivateDriver {
     /// # Errors
     /// Will error if the tagging fails.
     fn tag(opts: TagOpts) -> Result<()>;
+
+    /// Runs the untag logic for the driver.
+    ///
+    /// # Errors
+    /// Will error if the untagging fails.
+    fn untag(opts: UntagOpts) -> Result<()>;
 
     /// Runs the push logic for the driver
     ///
@@ -188,15 +194,6 @@ pub trait BuildDriver: PrivateDriver {
                 Self::build(build_opts)
             })?;
 
-        Self::tag_push(opts)
-    }
-
-    /// Runs the logic for tagging and pushing an image.
-    ///
-    /// # Errors
-    /// Will error if tagging or pushing fails.
-    fn tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
-        trace!("BuildDriver::tag_push({opts:#?})");
         let image_list: Vec<String> = match &opts.image {
             ImageRef::Remote(image) if !opts.tags.is_empty() => {
                 debug!("Tagging all images");
@@ -252,7 +249,7 @@ pub trait BuildDriver: PrivateDriver {
 }
 
 /// Allows agnostic inspection of images.
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait InspectDriver: PrivateDriver {
     /// Gets the metadata on an image tag.
     ///
@@ -262,7 +259,7 @@ pub trait InspectDriver: PrivateDriver {
 }
 
 /// Allows agnostic running of containers.
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait RunDriver: PrivateDriver {
     /// Run a container to perform an action.
     ///
@@ -275,6 +272,14 @@ pub trait RunDriver: PrivateDriver {
     /// # Errors
     /// Will error if there is an issue running the container.
     fn run_output(opts: RunOpts) -> Result<Output>;
+
+    /// Run a container to perform an action in the background.
+    /// The container will be stopped when the returned `DetachedContainer`
+    /// value is dropped.
+    ///
+    /// # Errors
+    /// Will error if there is an issue running the container.
+    fn run_detached(opts: RunOpts) -> Result<DetachedContainer>;
 
     /// Creates container
     ///
@@ -301,40 +306,54 @@ pub trait RunDriver: PrivateDriver {
     fn list_images(privileged: bool) -> Result<Vec<Reference>>;
 }
 
-#[allow(private_bounds)]
 pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
-    /// Do any necessary setup to prepare for running `rpm-ostree`.
+    /// Create a manifest containing all the built images.
+    /// Runs within the same context as rpm-ostree.
     ///
     /// # Errors
-    /// Will error if `rpm-ostree` setup fails.
-    fn setup_rpm_ostree() -> Result<()>;
+    /// Will error if the driver fails to create a manifest.
+    fn manifest_create_with_runner(
+        runner: &RpmOstreeRunner,
+        opts: ManifestCreateOpts,
+    ) -> Result<()>;
 
-    /// Command arguments to invoke `rpm-ostree`.
+    /// Pushes a manifest containing all the built images.
+    /// Runs within the same context as rpm-ostree.
     ///
     /// # Errors
-    /// Will error if unable to invoke `rpm-ostree`.
-    fn rpm_ostree_command() -> Result<(OsString, Vec<OsString>)>;
+    /// Will error if the driver fails to push a manifest.
+    fn manifest_push_with_runner(runner: &RpmOstreeRunner, opts: ManifestPushOpts) -> Result<()>;
 
     /// Runs build-chunked-oci on an image.
     ///
     /// # Errors
     /// Will error if rechunking fails.
     fn build_chunked_oci(
+        runner: &RpmOstreeRunner,
         unchunked_image: &ImageRef<'_>,
         final_image: &ImageRef<'_>,
         opts: BuildChunkedOciOpts,
     ) -> Result<()> {
-        Self::setup_rpm_ostree()?;
-        let (first_cmd, rpm_ostree_args) = Self::rpm_ostree_command()?;
+        trace!(
+            concat!(
+                "BuildChunkedOciDriver::build_chunked_oci(\n",
+                "runner: {:#?},\n",
+                "unchunked_image: {},\n",
+                "final_image: {},\n",
+                "opts: {:#?})\n)"
+            ),
+            runner, unchunked_image, final_image, opts,
+        );
+
+        let (first_cmd, args) =
+            runner.command_args("rpm-ostree", &["compose", "build-chunked-oci"]);
         let transport_ref = match final_image {
             ImageRef::Remote(image) => format!("containers-storage:{image}"),
             _ => final_image.to_string(),
         };
         let command = cmd!(
             first_cmd,
-            for rpm_ostree_args,
-            "compose",
-            "build-chunked-oci",
+            for args,
             "--bootc",
             format!("--format-version={}", opts.format_version),
             format!("--max-layers={}", opts.max_layers),
@@ -357,6 +376,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
     ///
     /// # Errors
     /// Will error if building, rechunking, tagging, or pushing fails.
+    #[expect(clippy::too_many_lines)]
     fn build_rechunk_tag_push(opts: BuildRechunkTagPushOpts) -> Result<Vec<String>> {
         trace!("BuildChunkedOciDriver::build_rechunk_tag_push({opts:#?})");
 
@@ -394,20 +414,125 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
             })
             .collect::<Result<Vec<_>>>()?;
 
+        // Run subsequent commands on host if rpm-ostree is available on host, otherwise
+        // run in container that has rpm-ostree installed.
+        let runner = RpmOstreeRunner::start()?;
+
         // Rechunk images serially to avoid using excessive disk space.
-        for (unchunked_image, image) in images_to_rechunk {
-            let result = Self::build_chunked_oci(&unchunked_image, &image, rechunk_opts);
-            if let ImageRef::Remote(unchunked_image) = unchunked_image {
-                Self::remove_image(RemoveImageOpts::builder().image(&unchunked_image).build())?;
+        if let ImageRef::Remote(image_ref) = btp_opts.image {
+            for (unchunked_image, image) in images_to_rechunk {
+                // Use the non-platform-tagged image ref as the output for build-chunked-oci
+                // so it looks for an existing manifest at the right location (the multi-arch
+                // image that will be pushed). This allows build-chunked-oci to read the
+                // previous build's layer annotations to minimize layout changes.
+                let result = Self::build_chunked_oci(
+                    &runner,
+                    &unchunked_image,
+                    btp_opts.image,
+                    rechunk_opts,
+                );
+                // Clean up the unchunked image whether or not rechunking succeeded.
+                if let ImageRef::Remote(unchunked_image) = unchunked_image {
+                    Self::remove_image(RemoveImageOpts::builder().image(&unchunked_image).build())?;
+                }
+                result?;
+
+                // Now retag the image to use the platform tag.
+                if let ImageRef::Remote(image_with_platform) = image {
+                    Self::tag(
+                        TagOpts::builder()
+                            .src_image(image_ref)
+                            .dest_image(&image_with_platform)
+                            .privileged(btp_opts.privileged)
+                            .build(),
+                    )?;
+                    Self::untag(
+                        UntagOpts::builder()
+                            .image(image_ref)
+                            .privileged(btp_opts.privileged)
+                            .build(),
+                    )?;
+                }
             }
-            result?;
+        } else {
+            for (unchunked_image, image) in images_to_rechunk {
+                Self::build_chunked_oci(&runner, &unchunked_image, &image, rechunk_opts)?;
+            }
         }
 
-        Self::tag_push(btp_opts)
+        let image_list: Vec<String> = match &btp_opts.image {
+            ImageRef::Remote(image) if !btp_opts.tags.is_empty() => {
+                debug!("Tagging all images");
+
+                let mut image_list = Vec::with_capacity(btp_opts.tags.len());
+                let platform_images = btp_opts
+                    .platform
+                    .iter()
+                    .map(|&platform| platform.tagged_image(image))
+                    .collect::<Vec<_>>();
+
+                for tag in btp_opts.tags {
+                    debug!("Tagging {} with {tag}", &image);
+                    let tagged_image = Reference::with_tag(
+                        image.registry().into(),
+                        image.repository().into(),
+                        tag.to_string(),
+                    );
+
+                    Self::manifest_create_with_runner(
+                        &runner,
+                        ManifestCreateOpts::builder()
+                            .final_image(&tagged_image)
+                            .image_list(&platform_images)
+                            .build(),
+                    )?;
+                    image_list.push(tagged_image.to_string());
+
+                    if btp_opts.push {
+                        let retry_count = if btp_opts.retry_push {
+                            btp_opts.retry_count
+                        } else {
+                            0
+                        };
+
+                        // Push images with retries (1s delay between retries)
+                        blue_build_utils::retry(retry_count, 5, || {
+                            debug!("Pushing image {tagged_image}");
+
+                            // We push twice due to a (very strange) bug in podman where layer
+                            // annotations aren't pushed unless the layer already exists in the
+                            // remote registry. See:
+                            // https://github.com/containers/podman/issues/27796
+                            Self::manifest_push_with_runner(
+                                &runner,
+                                ManifestPushOpts::builder()
+                                    .final_image(&tagged_image)
+                                    .build(),
+                            )
+                            .and_then(|()| {
+                                Self::manifest_push_with_runner(
+                                    &runner,
+                                    ManifestPushOpts::builder()
+                                        .final_image(&tagged_image)
+                                        .build(),
+                                )
+                            })
+                        })?;
+                    }
+                }
+
+                image_list
+            }
+            _ => {
+                string_vec![btp_opts.image]
+            }
+        };
+
+        Ok(image_list)
     }
 }
 
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub(super) trait ContainerMountDriver: PrivateDriver {
     /// Mounts the container
     ///
@@ -428,11 +553,16 @@ pub(super) trait ContainerMountDriver: PrivateDriver {
     fn remove_volume(opts: VolumeOpts) -> Result<()>;
 }
 
-pub(super) trait OciCopy {
-    fn copy_oci_dir(opts: CopyOciDirOpts) -> Result<()>;
+#[expect(private_bounds)]
+pub trait OciCopy: PrivateDriver {
+    /// Copy an OCI image.
+    ///
+    /// # Errors
+    /// Will error if copying the image fails.
+    fn copy_oci(&self, opts: CopyOciOpts) -> Result<()>;
 }
 
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
     const RECHUNK_IMAGE: &str = "ghcr.io/hhd-dev/rechunk:v1.0.1";
 
@@ -515,7 +645,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         let mut image_list = Vec::with_capacity(opts.tags.len());
 
         if opts.push {
-            let oci_dir = &OciDir::try_from(temp_dir.path().join(ostree_cache_id))?;
+            let oci_dir = OciRef::from_oci_directory(temp_dir.path().join(ostree_cache_id))?;
 
             for tag in opts.tags {
                 let tagged_image = Reference::with_tag(
@@ -527,10 +657,10 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                 blue_build_utils::retry(opts.retry_count, 5, || {
                     debug!("Pushing image {tagged_image}");
 
-                    Driver::copy_oci_dir(
-                        CopyOciDirOpts::builder()
-                            .oci_dir(oci_dir)
-                            .registry(&tagged_image)
+                    Driver.copy_oci(
+                        CopyOciOpts::builder()
+                            .src_ref(&oci_dir)
+                            .dest_ref(&OciRef::from_remote_ref(&tagged_image))
                             .privileged(true)
                             .build(),
                     )
@@ -707,7 +837,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
 }
 
 /// Allows agnostic management of signature keys.
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait SigningDriver: PrivateDriver {
     /// Generate a new private/public key pair.
     ///
@@ -809,7 +939,7 @@ pub trait SigningDriver: PrivateDriver {
 }
 
 /// Allows agnostic retrieval of CI-based information.
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait CiDriver: PrivateDriver {
     /// Determines if we're on the main branch of
     /// a repository.
@@ -955,7 +1085,7 @@ pub trait CiDriver: PrivateDriver {
     fn default_ci_file_path() -> PathBuf;
 }
 
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait BootDriver: PrivateDriver {
     /// Get the status of the current booted image.
     ///
@@ -976,7 +1106,7 @@ pub trait BootDriver: PrivateDriver {
     fn upgrade(opts: SwitchOpts) -> Result<()>;
 }
 
-#[allow(private_bounds)]
+#[expect(private_bounds)]
 pub trait BootStatus: PrivateDriver {
     /// Checks to see if there's a transaction in progress.
     fn transaction_in_progress(&self) -> bool;

@@ -5,7 +5,7 @@ use std::{
 
 use clap::ValueEnum;
 use miette::bail;
-use oci_distribution::Reference;
+use oci_client::Reference;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Hash)]

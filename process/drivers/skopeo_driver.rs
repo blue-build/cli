@@ -2,15 +2,15 @@ use comlexr::cmd;
 use log::trace;
 use miette::{IntoDiagnostic, Result, bail};
 
-use super::opts::CopyOciDirOpts;
+use super::opts::CopyOciOpts;
+use crate::logging::CommandLogging;
 
 #[derive(Debug)]
 pub struct SkopeoDriver;
 
 impl super::OciCopy for SkopeoDriver {
-    fn copy_oci_dir(opts: CopyOciDirOpts) -> Result<()> {
-        use crate::logging::CommandLogging;
-
+    fn copy_oci(&self, opts: CopyOciOpts) -> Result<()> {
+        trace!("SkopeoDriver::copy_oci({opts:?})");
         let use_sudo = opts.privileged && !blue_build_utils::running_as_root();
         let status = {
             let c = cmd!(
@@ -23,30 +23,29 @@ impl super::OciCopy for SkopeoDriver {
                     "-A",
                     "-p",
                     format!(
-                        concat!(
-                            "Password is required to copy ",
-                            "OCI directory {dir:?} to remote registry {registry}"
-                        ),
-                        dir = opts.oci_dir,
-                        registry = opts.registry,
+                        "Password is required to copy {source} to {dest}",
+                        source = opts.src_ref,
+                        dest = opts.dest_ref,
                     )
                 ],
                 if use_sudo => "skopeo",
                 "copy",
-                opts.oci_dir,
-                format!("docker://{}", opts.registry),
+                "--all",
+                if opts.retry_count != 0 => format!("--retry-times={}", opts.retry_count),
+                opts.src_ref.to_os_string(),
+                opts.dest_ref.to_os_string(),
             );
             trace!("{c:?}");
             c
         }
         .build_status(
-            opts.registry.to_string(),
-            format!("Copying {} to", opts.oci_dir),
+            opts.dest_ref.to_string(),
+            format!("Copying {} to", opts.src_ref),
         )
         .into_diagnostic()?;
 
         if !status.success() {
-            bail!("Failed to copy {} to {}", opts.oci_dir, opts.registry);
+            bail!("Failed to copy {} to {}", opts.src_ref, opts.dest_ref);
         }
 
         Ok(())

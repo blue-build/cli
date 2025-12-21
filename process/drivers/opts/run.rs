@@ -1,7 +1,8 @@
 use blue_build_utils::{container::ContainerId, platform::Platform};
 use bon::Builder;
-use oci_distribution::Reference;
+use oci_client::Reference;
 
+#[expect(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Copy, Builder)]
 #[builder(derive(Debug, Clone))]
 pub struct RunOpts<'scope> {
@@ -19,6 +20,10 @@ pub struct RunOpts<'scope> {
 
     #[builder(default)]
     pub privileged: bool,
+
+    /// Run container rootless if possible, even if privileged.
+    #[builder(default)]
+    pub rootless: bool,
 
     #[builder(default)]
     pub pull: bool,

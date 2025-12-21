@@ -6,7 +6,7 @@ use std::{
 use blue_build_utils::{get_env_var, platform::Platform};
 use bon::Builder;
 use miette::{IntoDiagnostic, Result};
-use oci_distribution::Reference;
+use oci_client::Reference;
 use zeroize::{Zeroize, Zeroizing};
 
 #[derive(Debug)]

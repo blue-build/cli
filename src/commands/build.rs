@@ -34,7 +34,7 @@ use bon::Builder;
 use clap::Args;
 use log::{debug, info, trace, warn};
 use miette::{IntoDiagnostic, Result, bail};
-use oci_distribution::Reference;
+use oci_client::Reference;
 use rayon::prelude::*;
 use tempfile::TempDir;
 
@@ -42,7 +42,7 @@ use crate::commands::generate::{GenerateCommand, generate_default_labels};
 
 use super::BlueBuildCommand;
 
-#[allow(clippy::struct_excessive_bools)]
+#[expect(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Builder)]
 pub struct BuildCommand {
     /// The recipe file to build an image

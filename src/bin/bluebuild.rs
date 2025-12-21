@@ -11,7 +11,6 @@ fn main() {
         .filter_modules([
             ("hyper::proto", LevelFilter::Off),
             ("hyper_util", LevelFilter::Off),
-            ("oci_distribution", LevelFilter::Off),
             ("reqwest", LevelFilter::Off),
             ("oci_client", LevelFilter::Off),
             ("rustls", LevelFilter::Off),
