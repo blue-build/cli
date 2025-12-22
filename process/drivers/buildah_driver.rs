@@ -310,6 +310,9 @@ impl BuildDriver for BuildahDriver {
                 "manifest",
                 "push",
                 "--all",
+                if let Some(compression_fmt) = opts.compression_type => format!(
+                    "--compression-format={compression_fmt}"
+                ),
                 image,
                 format!("docker://{}", opts.final_image),
             );
