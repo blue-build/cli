@@ -1,4 +1,6 @@
-use blue_build_utils::{credentials::Credentials, secret::SecretArgs, semver::Version};
+use blue_build_utils::{
+    container::ContainerId, credentials::Credentials, secret::SecretArgs, semver::Version,
+};
 use colored::Colorize;
 use comlexr::{cmd, pipe};
 use log::{debug, error, info, trace, warn};
@@ -13,7 +15,7 @@ use crate::{
 
 use super::{
     BuildDriver, DriverVersion,
-    opts::{BuildOpts, PruneOpts, PushOpts, TagOpts, UntagOpts},
+    opts::{BuildOpts, PruneOpts, PullOpts, PushOpts, TagOpts, UntagOpts},
 };
 
 #[derive(Debug, Deserialize)]
@@ -176,6 +178,37 @@ impl BuildDriver for BuildahDriver {
             bail!("Failed to push image {}", image_str.bold().red());
         }
         Ok(())
+    }
+
+    fn pull(opts: PullOpts) -> Result<ContainerId> {
+        trace!("BuildahDriver::pull({opts:#?})");
+
+        let image_str = opts.image.to_string();
+
+        let mut command = cmd!(
+            "buildah",
+            "pull",
+            "--quiet",
+            if let Some(retries) = opts.retry_count => format!("--retry={retries}"),
+            if let Some(platform) = opts.platform => format!("--platform={platform}"),
+            &image_str,
+        );
+
+        info!("Pulling image {image_str}...");
+
+        trace!("{command:?}");
+        let output = command.output().into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to pull image {}", image_str.bold().red());
+        }
+        info!("Successfully pulled image {}", image_str.bold().green());
+        let container_id = {
+            let mut stdout = output.stdout;
+            while stdout.pop_if(|byte| byte.is_ascii_whitespace()).is_some() {}
+            ContainerId(String::from_utf8(stdout).into_diagnostic()?)
+        };
+        Ok(container_id)
     }
 
     fn login(server: &str) -> Result<()> {

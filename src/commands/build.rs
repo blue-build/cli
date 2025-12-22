@@ -150,7 +150,7 @@ pub struct BuildCommand {
 
     /// Use a fresh rechunk plan, regardless of previous ref.
     ///
-    /// NOTE: Only works with `--rechunk`.
+    /// NOTE: Only works with `--build-chunked-oci` or `--rechunk`.
     #[arg(long, env = BB_BUILD_RECHUNK_CLEAR_PLAN)]
     #[builder(default)]
     rechunk_clear_plan: bool,
@@ -382,6 +382,7 @@ impl BuildCommand {
         let images = if self.build_chunked_oci {
             let rechunk_opts = BuildChunkedOciOpts::builder()
                 .max_layers(self.max_layers)
+                .clear_plan(self.rechunk_clear_plan)
                 .build();
             Driver::build_rechunk_tag_push(
                 BuildRechunkTagPushOpts::builder()

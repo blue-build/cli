@@ -36,9 +36,9 @@ use crate::{logging::Logger, signal_handler::DetachedContainer};
 use opts::{
     BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts, CheckKeyPairOpts,
     ContainerOpts, CopyOciOpts, CreateContainerOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
-    GenerateTagsOpts, GetMetadataOpts, ManifestCreateOpts, ManifestPushOpts, PruneOpts, PushOpts,
-    RechunkOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SwitchOpts, TagOpts,
-    UntagOpts, VerifyOpts, VolumeOpts,
+    GenerateTagsOpts, GetMetadataOpts, ManifestCreateOpts, ManifestPushOpts, PruneOpts, PullOpts,
+    PushOpts, RechunkOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SwitchOpts,
+    TagOpts, UntagOpts, VerifyOpts, VolumeOpts,
 };
 use types::{
     BootDriverType, BuildDriverType, CiDriverType, ImageMetadata, InspectDriverType, RunDriverType,
@@ -344,6 +344,10 @@ impl BuildDriver for Driver {
         impl_build_driver!(push(opts))
     }
 
+    fn pull(opts: PullOpts) -> Result<ContainerId> {
+        impl_build_driver!(pull(opts))
+    }
+
     fn login(server: &str) -> Result<()> {
         impl_build_driver!(login(server))
     }
@@ -498,6 +502,14 @@ impl BuildChunkedOciDriver for Driver {
 
     fn manifest_push_with_runner(runner: &RpmOstreeRunner, opts: ManifestPushOpts) -> Result<()> {
         PodmanDriver::manifest_push_with_runner(runner, opts)
+    }
+
+    fn pull_with_runner(runner: &RpmOstreeRunner, opts: PullOpts) -> Result<ContainerId> {
+        PodmanDriver::pull_with_runner(runner, opts)
+    }
+
+    fn remove_image_with_runner(runner: &RpmOstreeRunner, image_ref: &str) -> Result<()> {
+        PodmanDriver::remove_image_with_runner(runner, image_ref)
     }
 
     fn build_chunked_oci(

@@ -66,6 +66,17 @@ pub struct PushOpts<'scope> {
 
 #[derive(Debug, Clone, Copy, Builder)]
 #[builder(derive(Debug, Clone))]
+pub struct PullOpts<'scope> {
+    pub image: &'scope Reference,
+    pub platform: Option<Platform>,
+    pub retry_count: Option<u8>,
+
+    #[builder(default)]
+    pub privileged: bool,
+}
+
+#[derive(Debug, Clone, Copy, Builder)]
+#[builder(derive(Debug, Clone))]
 pub struct PruneOpts {
     pub all: bool,
     pub volumes: bool,
