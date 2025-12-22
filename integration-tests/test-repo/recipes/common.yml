@@ -73,6 +73,14 @@ modules:
     from: fedora-test
     src: /test.txt
     dest: /
+  - type: copy
+    from: arch-test
+    src: /test.txt
+    dest: /
+  - type: copy
+    from: suse-test
+    src: /test.txt
+    dest: /
 
   # Testing secrets
   - type: script
