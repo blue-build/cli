@@ -5,19 +5,56 @@ stages:
     from: ubuntu
     modules:
       - from-file: stages.yml
+      - type: apt
+        source: ghcr.io/blue-build/modules/apt:pr-523
+        install:
+          packages:
+            - git
   - name: debian-test
     from: debian
     modules:
       - from-file: stages.yml
+      - type: apt
+        source: ghcr.io/blue-build/modules/apt:pr-523
+        install:
+          packages:
+            - git
   - name: fedora-test
     from: fedora
     platform: linux/amd64
     modules:
       - from-file: stages.yml
+      - type: dnf
+        install:
+          packages:
+            - git
   - name: alpine-test
     from: alpine
     modules:
       - from-file: stages.yml
+      - type: apk
+        source: ghcr.io/blue-build/modules/apk:pr-523
+        install:
+          packages:
+            - git
+  - name: arch-test
+    from: archlinux/archlinux
+    modules:
+      - from-file: stages.yml
+      - type: pacman
+        source: ghcr.io/blue-build/modules/pacman:pr-523
+        install:
+          packages:
+            - git
+  - name: suse-test
+    from: opensuse/tumbleweed
+    modules:
+      - from-file: stages.yml
+      - type: zypper
+        source: ghcr.io/blue-build/modules/zypper:pr-523
+        install:
+          packages:
+            - git
 modules:
   - type: files
     files:
