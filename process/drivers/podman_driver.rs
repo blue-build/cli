@@ -26,7 +26,7 @@ use super::{
     RunDriver,
     opts::{
         BuildOpts, ContainerOpts, CreateContainerOpts, ManifestCreateOpts, ManifestPushOpts,
-        PruneOpts, PushOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, RunOptsEnv,
+        PruneOpts, PullOpts, PushOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, RunOptsEnv,
         RunOptsVolume, TagOpts, UntagOpts, VolumeOpts,
     },
     rpm_ostree_runner::RpmOstreeRunner,
@@ -258,6 +258,39 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
+    fn pull(opts: PullOpts) -> Result<ContainerId> {
+        trace!("PodmanDriver::pull({opts:#?})");
+
+        let image_str = opts.image.to_string();
+
+        let mut command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
+            "podman",
+            "pull",
+            "--quiet",
+            if let Some(retries) = opts.retry_count => format!("--retry={retries}"),
+            if let Some(platform) = opts.platform => format!("--platform={platform}"),
+            &image_str,
+        );
+
+        info!("Pulling image {image_str}...");
+
+        trace!("{command:?}");
+        let output = command.output().into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to pull image {}", image_str.bold().red());
+        }
+        info!("Successfully pulled image {}", image_str.bold().green());
+        let container_id = {
+            let mut stdout = output.stdout;
+            while stdout.pop_if(|byte| byte.is_ascii_whitespace()).is_some() {}
+            ContainerId(String::from_utf8(stdout).into_diagnostic()?)
+        };
+        Ok(container_id)
+    }
+
     fn login(server: &str) -> Result<()> {
         trace!("PodmanDriver::login()");
 
@@ -385,6 +418,7 @@ impl BuildChunkedOciDriver for PodmanDriver {
         runner: &RpmOstreeRunner,
         opts: ManifestCreateOpts,
     ) -> Result<()> {
+        trace!("PodmanDriver::manifest_create_with_runner({runner:#?}, {opts:#?})");
         let (cmd, args) = runner.command_args("podman", &["manifest"]);
         let output = {
             let c = cmd!(&cmd, for &args, "rm", opts.final_image.to_string());
@@ -428,6 +462,7 @@ impl BuildChunkedOciDriver for PodmanDriver {
     }
 
     fn manifest_push_with_runner(runner: &RpmOstreeRunner, opts: ManifestPushOpts) -> Result<()> {
+        trace!("PodmanDriver::manifest_push_with_runner({runner:#?}, {opts:#?})");
         let (cmd, args) = runner.command_args("podman", &["manifest"]);
         let image = &opts.final_image.to_string();
         let status = {
@@ -447,6 +482,53 @@ impl BuildChunkedOciDriver for PodmanDriver {
 
         if !status.success() {
             bail!("Failed to create manifest for {}", opts.final_image);
+        }
+
+        Ok(())
+    }
+
+    fn pull_with_runner(runner: &RpmOstreeRunner, opts: PullOpts) -> Result<ContainerId> {
+        trace!("PodmanDriver::pull_with_runner({runner:#?}, {opts:#?})");
+        let (cmd, args) = runner.command_args("podman", &["pull"]);
+        let image_str = opts.image.to_string();
+        let mut command = cmd!(
+            cmd,
+            for args,
+            "--quiet",
+            if let Some(retries) = opts.retry_count => format!("--retry={retries}"),
+            if let Some(platform) = opts.platform => format!("--platform={platform}"),
+            &image_str,
+        );
+        info!("Pulling image {image_str}...");
+
+        trace!("{command:?}");
+        let output = command.output().into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to pull image {}", image_str.bold().red());
+        }
+        info!("Successfully pulled image {}", image_str.bold().green());
+        let container_id = {
+            let mut stdout = output.stdout;
+            while stdout.pop_if(|byte| byte.is_ascii_whitespace()).is_some() {}
+            ContainerId(String::from_utf8(stdout).into_diagnostic()?)
+        };
+        Ok(container_id)
+    }
+
+    fn remove_image_with_runner(runner: &RpmOstreeRunner, image_ref: &str) -> Result<()> {
+        trace!("PodmanDriver::remove_image_with_runner({runner:?}, {image_ref})");
+        let (cmd, args) = runner.command_args("podman", &["rmi"]);
+        let output = {
+            let c = cmd!(cmd, for args, image_ref);
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            bail!("Failed to remove the image {image_ref}");
         }
 
         Ok(())

@@ -14,7 +14,7 @@ use blue_build_utils::{
     string_vec,
 };
 use comlexr::cmd;
-use log::{debug, info, trace};
+use log::{debug, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_client::Reference;
 use rayon::prelude::*;
@@ -26,7 +26,7 @@ use super::{
     opts::{
         BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts,
         CheckKeyPairOpts, ContainerOpts, CopyOciOpts, CreateContainerOpts, GenerateImageNameOpts,
-        GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PushOpts, RechunkOpts,
+        GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PullOpts, PushOpts, RechunkOpts,
         RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts, SwitchOpts,
         TagOpts, UntagOpts, VerifyOpts, VerifyType, VolumeOpts,
     },
@@ -133,6 +133,12 @@ pub trait BuildDriver: PrivateDriver {
     /// # Errors
     /// Will error if the push fails.
     fn push(opts: PushOpts) -> Result<()>;
+
+    /// Runs the pull logic for the driver
+    ///
+    /// # Errors
+    /// Will error if the pull fails.
+    fn pull(opts: PullOpts) -> Result<ContainerId>;
 
     /// Runs the login logic for the driver.
     ///
@@ -324,6 +330,20 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
     /// Will error if the driver fails to push a manifest.
     fn manifest_push_with_runner(runner: &RpmOstreeRunner, opts: ManifestPushOpts) -> Result<()>;
 
+    /// Pull an image from a remote registry.
+    /// Runs within the same context as rpm-ostree.
+    ///
+    /// # Errors
+    /// Will error if the driver fails to pull the image.
+    fn pull_with_runner(runner: &RpmOstreeRunner, opts: PullOpts) -> Result<ContainerId>;
+
+    /// Removes an image from local storage.
+    /// Runs within the same context as rpm-ostree.
+    ///
+    /// # Errors
+    /// Will error if image removal fails.
+    fn remove_image_with_runner(runner: &RpmOstreeRunner, image_ref: &str) -> Result<()>;
+
     /// Runs build-chunked-oci on an image.
     ///
     /// # Errors
@@ -345,6 +365,25 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
             runner, unchunked_image, final_image, opts,
         );
 
+        let prev_image_id = if !opts.clear_plan
+            && let ImageRef::Remote(image_ref) = final_image
+        {
+            Self::pull_with_runner(
+                runner,
+                PullOpts::builder()
+                    .image(image_ref)
+                    .maybe_platform(opts.platform)
+                    .retry_count(5)
+                    .build(),
+            )
+            .inspect_err(|_| {
+                warn!("Failed to pull previous build; rechunking will use fresh layer plan.");
+            })
+            .ok()
+        } else {
+            None
+        };
+
         let (first_cmd, args) =
             runner.command_args("rpm-ostree", &["compose", "build-chunked-oci"]);
         let transport_ref = match final_image {
@@ -364,6 +403,10 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
         let status = command
             .build_status(final_image.to_string(), "Rechunking image")
             .into_diagnostic()?;
+
+        if let Some(image_id) = prev_image_id {
+            Self::remove_image_with_runner(runner, &image_id.0)?;
+        }
 
         if !status.success() {
             bail!("Failed to rechunk image {}", final_image);
@@ -394,10 +437,10 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
             .squash(true)
             .secrets(btp_opts.secrets);
 
-        let images_to_rechunk: Vec<(ImageRef, ImageRef)> = btp_opts
+        let images_to_rechunk: Vec<(ImageRef, ImageRef, Platform)> = btp_opts
             .platform
             .par_iter()
-            .map(|&platform| -> Result<(ImageRef, ImageRef)> {
+            .map(|&platform| -> Result<(ImageRef, ImageRef, Platform)> {
                 let image = btp_opts.image.with_platform(platform);
                 let unchunked_image =
                     image.append_tag(&"unchunked".parse().expect("Should be a valid tag"));
@@ -410,7 +453,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
                         .platform(platform)
                         .build(),
                 )?;
-                Ok((unchunked_image, image))
+                Ok((unchunked_image, image, platform))
             })
             .collect::<Result<Vec<_>>>()?;
 
@@ -420,7 +463,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
 
         // Rechunk images serially to avoid using excessive disk space.
         if let ImageRef::Remote(image_ref) = btp_opts.image {
-            for (unchunked_image, image) in images_to_rechunk {
+            for (unchunked_image, image, platform) in images_to_rechunk {
                 // Use the non-platform-tagged image ref as the output for build-chunked-oci
                 // so it looks for an existing manifest at the right location (the multi-arch
                 // image that will be pushed). This allows build-chunked-oci to read the
@@ -429,7 +472,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
                     &runner,
                     &unchunked_image,
                     btp_opts.image,
-                    rechunk_opts,
+                    rechunk_opts.with_platform(platform),
                 );
                 // Clean up the unchunked image whether or not rechunking succeeded.
                 if let ImageRef::Remote(unchunked_image) = unchunked_image {
@@ -455,8 +498,13 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
                 }
             }
         } else {
-            for (unchunked_image, image) in images_to_rechunk {
-                Self::build_chunked_oci(&runner, &unchunked_image, &image, rechunk_opts)?;
+            for (unchunked_image, image, platform) in images_to_rechunk {
+                Self::build_chunked_oci(
+                    &runner,
+                    &unchunked_image,
+                    &image,
+                    rechunk_opts.with_platform(platform),
+                )?;
             }
         }
 
