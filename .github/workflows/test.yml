@@ -20,6 +20,10 @@ env:
 
 permissions: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.repo }}-${{ inputs.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     timeout-minutes: 40
