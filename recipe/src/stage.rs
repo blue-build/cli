@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use blue_build_utils::syntax_highlighting::highlight_ser;
+use blue_build_utils::{platform::Platform, syntax_highlighting::highlight_ser};
 use bon::Builder;
 use colored::Colorize;
 use miette::{Result, bail};
@@ -22,6 +22,12 @@ pub struct StageRequiredFields {
     ///
     /// This is set directly in a `FROM` instruction.
     pub from: String,
+
+    /// Run a stage on a specific platform.
+    ///
+    /// This sets the `--platform` arg on the
+    /// `FROM` instruction.
+    pub platform: Option<Platform>,
 
     /// The shell to use in the stage.
     #[builder(into)]
