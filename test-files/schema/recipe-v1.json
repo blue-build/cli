@@ -1,98 +1,132 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "recipe-v1.json",
-  "type": "object",
-  "properties": {
-    "name": {
-      "type": "string",
-      "description": "The image name. Used when publishing to GHCR as `ghcr.io/user/name`."
-    },
-    "description": {
-      "type": "string",
-      "description": "The image description. Published to GHCR in the image metadata."
-    },
-    "alt-tags": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "Allows setting custom tags on the recipe’s final image.\nAdding tags to this property will override the `latest` and timestamp tags."
-    },
-    "base-image": {
-      "type": "string",
-      "description": "The [OCI](https://opencontainers.org/) image to base your custom image on.\nOnly atomic Fedora images and those based on them are officially supported.\nUniversal Blue is recommended. [A list of Universal Blue's images](https://universal-blue.org/images/) can be found on their website\nBlueBuild-built images can be used as well."
-    },
-    "image-version": {
-      "anyOf": [
-        {
-          "type": "string"
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "recipe-v1.json",
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string",
+            "description": "The image name. Used when publishing to GHCR as `ghcr.io/user/name`."
         },
-        {
-          "type": "integer"
+        "description": {
+            "type": "string",
+            "description": "The image description. Published to GHCR in the image metadata."
+        },
+        "alt-tags": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Allows setting custom tags on the recipe’s final image.\nAdding tags to this property will override the `latest` and timestamp tags."
+        },
+        "base-image": {
+            "type": "string",
+            "description": "The [OCI](https://opencontainers.org/) image to base your custom image on.\nOnly atomic Fedora images and those based on them are officially supported.\nUniversal Blue is recommended. [A list of Universal Blue's images](https://universal-blue.org/images/) can be found on their website\nBlueBuild-built images can be used as well."
+        },
+        "image-version": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "integer"
+                }
+            ],
+            "description": "The tag of the base image to build on.\nUsed to select a version explicitly (`40`) or to always use the latest stable version (`latest`).\nA list of all available tags can be viewed by pasting your `base-image` url into your browser."
+        },
+        "blue-build-tag": {
+            "type": "string",
+            "description": "The tag to pull for the bluebuild cli. This is mostly used for\ntrying out specific versions of the cli without compiling it locally."
+        },
+        "cosign-version": {
+            "type": "string",
+            "description": "The version of cosign that will be included in the image.\nThis will override the default version set by the CLI.\nSetting to `none` will prevent installing cosign altogether."
+        },
+        "nushell-version": {
+            "type": "string",
+            "description": "The version of nushell to include in this image.\nThis will override the default BlueBuild Nushell version.\nChange only if you need a specific version of Nushell, changing this might break some BlueBuild modules."
+        },
+        "platforms": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/Platform"
+            },
+            "description": "A list of platforms that will be built for the image."
+        },
+        "stages": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/StageEntry"
+            },
+            "description": "A list of [stages](https://blue-build.org/reference/stages/) that are executed before the build of the final image.\nThis is useful for compiling programs from source without polluting the final bootable image."
+        },
+        "modules": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/ModuleEntry"
+            },
+            "description": "A list of [modules](https://blue-build.org/reference/module/) that is executed in order. Multiple of the same module can be included.\n\nEach item in this list should have at least a `type:` or be specified to be included from an external file in the `recipes/` directory with `from-file:`."
+        },
+        "labels": {
+            "$ref": "#/$defs/RecordString",
+            "description": "A collection of custom labels that will be applied to the image.\n\nEach item should be a `key: value` pair representing a label name mapping to label value."
         }
-      ],
-      "description": "The tag of the base image to build on.\nUsed to select a version explicitly (`40`) or to always use the latest stable version (`latest`).\nA list of all available tags can be viewed by pasting your `base-image` url into your browser."
     },
-    "blue-build-tag": {
-      "type": "string",
-      "description": "The tag to pull for the bluebuild cli. This is mostly used for\ntrying out specific versions of the cli without compiling it locally."
-    },
-    "stages": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/StageEntry"
-      },
-      "description": "A list of [stages](https://blue-build.org/reference/stages/) that are executed before the build of the final image.\nThis is useful for compiling programs from source without polluting the final bootable image."
-    },
-    "modules": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/ModuleEntry"
-      },
-      "description": "A list of [modules](https://blue-build.org/reference/module/) that is executed in order. Multiple of the same module can be included.\n\nEach item in this list should have at least a `type:` or be specified to be included from an external file in the `recipes/` directory with `from-file:`."
+    "required": [
+        "name",
+        "description",
+        "base-image",
+        "image-version",
+        "modules"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+        "Platform": {
+            "type": "string",
+            "enum": [
+                "linux/amd64",
+                "linux/amd64/v2",
+                "linux/arm64",
+                "linux/arm",
+                "linux/arm/v6",
+                "linux/arm/v7",
+                "linux/386",
+                "linux/loong64",
+                "linux/mips",
+                "linux/mipsle",
+                "linux/mips64",
+                "linux/mips64le",
+                "linux/ppc64",
+                "linux/ppc64le",
+                "linux/riscv64",
+                "linux/s390x"
+            ]
+        },
+        "StageEntry": {
+            "oneOf": [
+                {
+                    "$ref": "stage-v1.json"
+                },
+                {
+                    "$ref": "import-v1.json"
+                }
+            ]
+        },
+        "ModuleEntry": {
+            "oneOf": [
+                {
+                    "$ref": "module-v1.json"
+                },
+                {
+                    "$ref": "import-v1.json"
+                }
+            ]
+        },
+        "RecordString": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {
+                "type": "string"
+            }
+        }
     }
-  },
-  "required": [
-    "name",
-    "description",
-    "base-image",
-    "image-version",
-    "modules"
-  ],
-  "additionalProperties": false,
-  "$defs": {
-    "StageEntry": {
-      "anyOf": [
-        {
-          "$ref": "stage-v1.json"
-        },
-        {
-          "$ref": "#/$defs/ImportedModule"
-        }
-      ]
-    },
-    "ModuleEntry": {
-      "anyOf": [
-        {
-          "$ref": "module-v1.json"
-        },
-        {
-          "$ref": "#/$defs/ImportedModule"
-        }
-      ]
-    },
-    "ImportedModule": {
-      "type": "object",
-      "properties": {
-        "from-file": {
-          "type": "string",
-          "description": "The path to another file containing module configuration to import here.\nhttps://blue-build.org/how-to/multiple-files/"
-        }
-      },
-      "required": [
-        "from-file"
-      ],
-      "additionalProperties": false
-    }
-  }
 }
