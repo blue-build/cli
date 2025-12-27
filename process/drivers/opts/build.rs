@@ -98,6 +98,9 @@ pub struct ManifestCreateOpts<'scope> {
 pub struct ManifestPushOpts<'scope> {
     /// The final image to push.
     pub final_image: &'scope Reference,
+
+    /// Compression format to use when pushing images in manifest.
+    pub compression_type: Option<CompressionType>,
 }
 
 /// Options for building, tagging, and pushing images.

@@ -237,6 +237,7 @@ pub trait BuildDriver: PrivateDriver {
                             Self::manifest_push(
                                 ManifestPushOpts::builder()
                                     .final_image(&tagged_image)
+                                    .compression_type(opts.compression)
                                     .build(),
                             )
                         })?;
@@ -555,6 +556,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
                                 &runner,
                                 ManifestPushOpts::builder()
                                     .final_image(&tagged_image)
+                                    .compression_type(btp_opts.compression)
                                     .build(),
                             )
                             .and_then(|()| {
@@ -562,6 +564,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
                                     &runner,
                                     ManifestPushOpts::builder()
                                         .final_image(&tagged_image)
+                                        .compression_type(btp_opts.compression)
                                         .build(),
                                 )
                             })
