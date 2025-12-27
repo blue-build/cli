@@ -11,6 +11,7 @@ stages:
       - from-file: stages.yml
   - name: fedora-test
     from: fedora
+    platform: linux/amd64
     modules:
       - from-file: stages.yml
   - name: alpine-test
