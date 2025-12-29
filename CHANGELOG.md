@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.28] - 2025-12-29
+
+### Bug Fixes
+
+- Remove --replace arg
+- Continue initializing logger if it can't create log files (#625)
+- Have to move ARG and FROM to top of file
+- Ensure layer annotations for build-chunked-oci are preserved (#644)
+- Pull prior build for build-chunked-oci to use as baseline (#650)
+- Remove concurrency limits from reusable workflows (#652)
+- Set compression format in manifest_push (#645)
+
+### Features
+
+- Have the base image FROM use an ARG
+
+### Miscellaneous Tasks
+
+- Use special logging for pushing manifest
+- Add concurrency limits for all jobs (#651)
+
 ## [0.9.27] - 2025-11-26
 
 ### Bug Fixes
@@ -14,6 +35,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Update lockfile
+- Release
 
 ## [0.9.26] - 2025-11-23
 

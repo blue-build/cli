@@ -10,8 +10,8 @@ license.workspace = true
 
 [dependencies]
 askama = { version = "0.14.0", features = ["serde_json"] }
-blue-build-recipe = { version = "=0.9.27", path = "../recipe" }
-blue-build-utils = { version = "=0.9.27", path = "../utils" }
+blue-build-recipe = { version = "=0.9.28", path = "../recipe" }
+blue-build-utils = { version = "=0.9.28", path = "../utils" }
 
 bon.workspace = true
 colored.workspace = true
