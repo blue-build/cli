@@ -1,7 +1,19 @@
 use jsonschema::paths::{LazyLocation, Location as JsonLocation};
+use serde::Deserialize;
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Location(JsonLocation);
+
+impl<'de> Deserialize<'de> for Location {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer)?
+            .try_into()
+            .map_err(serde::de::Error::custom)
+    }
+}
 
 impl std::ops::Deref for Location {
     type Target = JsonLocation;
