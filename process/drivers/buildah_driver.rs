@@ -54,7 +54,20 @@ impl DriverVersion for BuildahDriver {
 }
 
 impl BuildDriver for BuildahDriver {
-    fn build(opts: BuildOpts) -> Result<()> {
+    fn build(
+        opts @ BuildOpts {
+            image,
+            squash,
+            containerfile,
+            platform,
+            host_network,
+            privileged,
+            cache_from,
+            cache_to,
+            secrets,
+            allow_host_exec,
+        }: BuildOpts,
+    ) -> Result<()> {
         trace!("BuildahDriver::build({opts:#?})");
 
         let temp_dir = TempDir::new()
@@ -63,19 +76,20 @@ impl BuildDriver for BuildahDriver {
 
         let command = sudo_cmd!(
             prompt = SUDO_PROMPT,
-            sudo_check = opts.privileged,
+            sudo_check = privileged,
             "buildah",
             "build",
-            for opts.secrets.args(&temp_dir)?,
-            if opts.secrets.ssh() => "--ssh",
-            if let Some(platform) = opts.platform => [
+            for secrets.args(&temp_dir, allow_host_exec)?,
+            if secrets.ssh() => "--ssh",
+            if let Some(platform) = platform => [
                 "--platform",
                 platform.to_string(),
             ],
+            if host_network => "--net=host",
             "--pull=true",
-            format!("--layers={}", !opts.squash),
-            match opts.cache_from.as_ref() {
-                Some(cache_from) if !opts.squash => [
+            format!("--layers={}", !squash),
+            match cache_from.as_ref() {
+                Some(cache_from) if !squash => [
                     "--cache-from",
                     format!(
                         "{}/{}",
@@ -85,8 +99,8 @@ impl BuildDriver for BuildahDriver {
                 ],
                 _ => [],
             },
-            match opts.cache_from.as_ref() {
-                Some(cache_to) if !opts.squash => [
+            match cache_to.as_ref() {
+                Some(cache_to) if !squash => [
                     "--cache-to",
                     format!(
                         "{}/{}",
@@ -97,20 +111,20 @@ impl BuildDriver for BuildahDriver {
                 _ => [],
             },
             "-f",
-            opts.containerfile,
+            containerfile,
             "-t",
-            opts.image.to_string(),
+            image.to_string(),
         );
 
         trace!("{command:?}");
         let status = command
-            .build_status(opts.image.to_string(), "Building Image")
+            .build_status(image.to_string(), "Building Image")
             .into_diagnostic()?;
 
         if status.success() {
-            info!("Successfully built {}", opts.image);
+            info!("Successfully built {image}");
         } else {
-            bail!("Failed to build {}", opts.image);
+            bail!("Failed to build {image}");
         }
         Ok(())
     }

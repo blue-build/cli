@@ -21,11 +21,12 @@ use blue_build_recipe::Recipe;
 use blue_build_utils::{
     colors::gen_random_ansi_color,
     constants::{
-        ARCHIVE_SUFFIX, BB_BUILD_ARCHIVE, BB_BUILD_CHUNKED_OCI, BB_BUILD_CHUNKED_OCI_MAX_LAYERS,
-        BB_BUILD_NO_SIGN, BB_BUILD_PLATFORM, BB_BUILD_PUSH, BB_BUILD_RECHUNK,
-        BB_BUILD_RECHUNK_CLEAR_PLAN, BB_BUILD_REMOVE_BASE_IMAGE, BB_BUILD_RETRY_COUNT,
-        BB_BUILD_RETRY_PUSH, BB_BUILD_SQUASH, BB_CACHE_LAYERS, BB_REGISTRY_NAMESPACE,
-        BB_SKIP_VALIDATION, BB_TEMPDIR, CONFIG_PATH, DEFAULT_MAX_LAYERS, RECIPE_FILE, RECIPE_PATH,
+        ARCHIVE_SUFFIX, BB_ALLOW_HOST_EXEC, BB_BUILD_ARCHIVE, BB_BUILD_CHUNKED_OCI,
+        BB_BUILD_CHUNKED_OCI_MAX_LAYERS, BB_BUILD_NO_SIGN, BB_BUILD_PLATFORM, BB_BUILD_PUSH,
+        BB_BUILD_RECHUNK, BB_BUILD_RECHUNK_CLEAR_PLAN, BB_BUILD_REMOVE_BASE_IMAGE,
+        BB_BUILD_RETRY_COUNT, BB_BUILD_RETRY_PUSH, BB_BUILD_SQUASH, BB_CACHE_LAYERS,
+        BB_REGISTRY_NAMESPACE, BB_SKIP_VALIDATION, BB_TEMPDIR, CONFIG_PATH, DEFAULT_MAX_LAYERS,
+        RECIPE_FILE, RECIPE_PATH,
     },
     container::{ImageRef, Tag},
     credentials::{Credentials, CredentialsArgs},
@@ -180,6 +181,17 @@ pub struct BuildCommand {
     #[builder(default)]
     skip_validation: bool,
 
+    /// Allow running `host-exec` checks.
+    ///
+    /// This is a precautionary measure to prevent
+    /// running arbitrary code on the host machine.
+    ///
+    /// Any module with a `host-exec` or `not-host-exec`
+    /// check will by default be skipped without this flag.
+    #[arg(long, env = BB_ALLOW_HOST_EXEC)]
+    #[builder(default)]
+    allow_host_exec: bool,
+
     #[clap(flatten)]
     #[builder(default)]
     credentials: CredentialsArgs,
@@ -251,6 +263,7 @@ impl BlueBuildCommand for BuildCommand {
                 .maybe_platform(self.platform.first().copied())
                 .recipe(recipe)
                 .drivers(self.drivers)
+                .allow_host_exec(self.allow_host_exec)
                 .build()
                 .try_run()
         })?;
@@ -373,6 +386,7 @@ impl BuildCommand {
             .squash(self.squash)
             .maybe_cache_from(cache_image)
             .maybe_cache_to(cache_image)
+            .allow_host_exec(self.allow_host_exec)
             .secrets(secrets);
 
         let opts = if matches!(image_ref, ImageRef::Remote(_)) {
@@ -477,6 +491,7 @@ impl BuildCommand {
                 .maybe_cache_to(cache_image)
                 .secrets(&recipe.get_secrets())
                 .labels(&labels)
+                .allow_host_exec(self.allow_host_exec)
                 .build(),
         )
     }

@@ -33,6 +33,7 @@ pub struct BuildOpts<'scope> {
 
     #[builder(default)]
     pub secrets: &'scope [&'scope Secret],
+    pub allow_host_exec: bool,
 }
 
 #[derive(Debug, Clone, Copy, Builder)]
@@ -160,4 +161,7 @@ pub struct BuildTagPushOpts<'scope> {
     /// Secrets to mount
     #[builder(default)]
     pub secrets: &'scope [&'scope Secret],
+
+    /// Allow executing commands on the host for secrets.
+    pub allow_host_exec: bool,
 }

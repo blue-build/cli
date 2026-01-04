@@ -12,18 +12,155 @@ modules:
       - example.sh
 
   - type: script
+    env:
+      TEST_ARG_2: "another"
+    if:
+      env:
+        exists:
+          - TEST_ARG
+          - TEST_ARG_2
     snippets:
-      - '[ -z "$TEST_ARG" ]'
+      - exit 1
 
   - type: script
     env:
       TEST_ARG: "test"
+      TEST_ARG_2: "another"
+    if:
+      env:
+        not-exists:
+          - TEST_ARG
+          - TEST_ARG_2
     snippets:
-      - '[ "$TEST_ARG" = "test" ]'
+      - exit 1
 
   - type: script
+    env:
+      TEST_ARG: "test"
+    if:
+      env:
+        equals:
+          TEST_ARG:
+            - no-test
+            - some-test
     snippets:
-      - '[ -z "$TEST_ARG" ]'
+      - exit 1
+
+  - type: script
+    env:
+      TEST_ARG: "test"
+    if:
+      env:
+        not-equals:
+          TEST_ARG:
+            - test
+            - some-test
+    snippets:
+      - exit 1
+
+  - type: script
+    env:
+      TEST_ARG: "test"
+      TEST_ARG_2: "another"
+    if: '[ "$TEST_ARG" = "$TEST_ARG_2" ]'
+    snippets:
+      - exit 1
+
+  - type: script
+    env:
+      TEST_ARG: "test"
+      TEST_ARG_2: "another"
+    if:
+      eval: '[ "$TEST_ARG" = "$TEST_ARG_2" ]'
+      env:
+        exists:
+          - TEST_ARG_2
+          - TEST_ARG_3
+        not-exists: TEST_ARG
+        equals:
+          TEST_ARG:
+            - no-test
+            - some-test
+        not-equals:
+          TEST_ARG_2: another
+    snippets:
+      - exit 1
+
+  - type: script
+    if:
+      host-file:
+        exists:
+          - ./non-existant-file.txt
+          - ./another-non-existant-file.txt
+    snippets:
+      - exit 1
+
+  - type: script
+    if:
+      host-file:
+        not-exists:
+          - ./test_secret_file.txt
+          - ./secrets/test-secret
+    snippets:
+      - exit 1
+
+  - type: script
+    if:
+      host-env:
+        exists:
+          - NON_EXISTANT_VAR
+          - ANOTHER_NON_EXISTANT_VAR
+    snippets:
+      - exit 1
+
+  - type: script
+    if:
+      host-env:
+        not-exists:
+          - TEST_SECRET
+          - SOME_TEST_VAR
+    snippets:
+      - exit 1
+
+  - type: script
+    if:
+      host-env:
+        equals:
+          TEST_SECRET: test321
+          SOME_TEST_VAR:
+            - some_value
+            - another_possible_value
+    snippets:
+      - exit 1
+
+  - type: script
+    if:
+      host-env:
+        not-equals:
+          TEST_SECRET: test123
+          SOME_TEST_VAR:
+            - something
+            - another_possible_value
+    snippets:
+      - exit 1
+
+  - type: script
+    if:
+       host-exec:
+         cmd: ./host_exec.sh
+         args:
+           - '1'
+    snippets:
+      - exit 1
+
+  - type: script
+    if:
+       not-host-exec:
+         cmd: ./host_exec.sh
+         args:
+           - '0'
+    snippets:
+      - exit 1
 
   - type: dnf
     repos:
@@ -84,6 +221,9 @@ modules:
 
   # Testing secrets
   - type: script
+    if:
+      host-env:
+        exists: TEST_SECRET
     secrets:
       - type: env
         name: TEST_SECRET
@@ -94,6 +234,9 @@ modules:
       - '[ "$TEST_SECRET" == "test123" ]'
 
   - type: script
+    if:
+      host-env:
+        exists: TEST_SECRET
     secrets:
       - type: env
         name: TEST_SECRET
@@ -104,6 +247,9 @@ modules:
       - '[ "$(cat /tmp/test-secret)" == "test123" ]'
 
   - type: script
+    if:
+      host-file:
+        exists: ./secrets/test-secret
     secrets:
       - type: file
         source: ./secrets/test-secret
@@ -114,6 +260,9 @@ modules:
       - '[ "$(cat /tmp/test-secret)" == "321tset" ]'
 
   - type: script
+    if:
+      host-file:
+        exists: ./secrets/test-secret
     secrets:
       - type: file
         source: ./secrets/test-secret
@@ -124,6 +273,9 @@ modules:
       - '[ "$TEST_SECRET" == "321tset" ]'
 
   - type: script
+    if:
+      host-file:
+        exists: ./test_secret_file.txt
     secrets:
       - type: exec
         command: cat
@@ -136,6 +288,9 @@ modules:
       - '[ "$TEST_SECRET" == "TEST_PASS" ]'
 
   - type: script
+    if:
+      host-file:
+        exists: ./test_secret_file.txt
     secrets:
       - type: exec
         command: cat

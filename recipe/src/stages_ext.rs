@@ -64,7 +64,8 @@ impl TryFrom<&Path> for StagesExt {
                         format!("Failed to parse stage file {}", file_path.display())
                     })?;
                 if let Some(ref mut rf) = stage.required_fields {
-                    rf.modules_ext.modules = Module::get_modules(&rf.modules_ext.modules, None)?;
+                    rf.modules_ext.modules = Module::get_modules(&rf.modules_ext.modules, None)
+                        .with_context(|| format!("Reading stage file {}", file_path.display()))?;
                 }
                 Ok(Self::builder().stages(vec![stage]).build())
             },
@@ -73,8 +74,10 @@ impl TryFrom<&Path> for StagesExt {
                     stages_ext.stages.iter().map(ToOwned::to_owned).collect();
                 for stage in &mut stages {
                     if let Some(ref mut rf) = stage.required_fields {
-                        rf.modules_ext.modules =
-                            Module::get_modules(&rf.modules_ext.modules, None)?;
+                        rf.modules_ext.modules = Module::get_modules(&rf.modules_ext.modules, None)
+                            .with_context(|| {
+                                format!("Reading stage file {}", file_path.display())
+                            })?;
                     }
                 }
                 stages_ext.stages = stages;

@@ -130,14 +130,14 @@ pub trait SecretArgs: private::Private {
     ///
     /// # Errors
     /// Will error if an exec based secret fails to run.
-    fn args(&self, temp_dir: &TempDir) -> Result<Vec<String>>;
+    fn args(&self, temp_dir: &TempDir, allow_host_exec: bool) -> Result<Vec<String>>;
 
     /// Checks to see if ssh is a required secret.
     fn ssh(&self) -> bool;
 }
 
 impl SecretArgs for &[&Secret] {
-    fn args(&self, temp_dir: &TempDir) -> Result<Vec<String>> {
+    fn args(&self, temp_dir: &TempDir, allow_host_exec: bool) -> Result<Vec<String>> {
         Ok(self
             .iter()
             .map(|&secret| {
@@ -152,7 +152,7 @@ impl SecretArgs for &[&Secret] {
                         secret.get_hash(),
                         source.display()
                     )),
-                    Secret::Exec(exec) => {
+                    Secret::Exec(exec) if allow_host_exec => {
                         let result = exec.exec()?;
                         let hash = secret.get_hash();
                         let secret_path = temp_dir.path().join(&hash);
@@ -161,7 +161,7 @@ impl SecretArgs for &[&Secret] {
                             .wrap_err("Failed to write secret to temp file")?;
                         Some(format!("--secret=id={hash},src={}", secret_path.display()))
                     }
-                    Secret::Ssh => None,
+                    Secret::Ssh | Secret::Exec(_) => None,
                 })
             })
             .collect::<Result<Vec<_>>>()?
