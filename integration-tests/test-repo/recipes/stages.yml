@@ -2,7 +2,7 @@
 # yaml-language-server: $schema=https://schema.blue-build.org/module-stage-list-v1.json
 stages:
   - name: ubuntu-test
-    from: ubuntu
+    from: docker.io/library/ubuntu
     modules:
       - from-file: stages.yml
       - type: apt
@@ -11,7 +11,7 @@ stages:
           packages:
             - git
   - name: debian-test
-    from: debian
+    from: docker.io/library/debian
     modules:
       - from-file: stages.yml
       - type: apt
@@ -20,8 +20,7 @@ stages:
           packages:
             - git
   - name: fedora-test
-    from: fedora
-    platform: linux/amd64
+    from: docker.io/library/fedora
     modules:
       - from-file: stages.yml
       - type: dnf
@@ -29,7 +28,7 @@ stages:
           packages:
             - git
   - name: alpine-test
-    from: alpine
+    from: docker.io/library/alpine
     modules:
       - from-file: stages.yml
       - type: apk
@@ -38,7 +37,8 @@ stages:
           packages:
             - git
   - name: arch-test
-    from: archlinux/archlinux
+    from: docker.io/archlinux/archlinux
+    platform: linux/amd64
     modules:
       - from-file: stages.yml
       - type: pacman
@@ -47,7 +47,7 @@ stages:
           packages:
             - git
   - name: suse-test
-    from: opensuse/tumbleweed
+    from: docker.io/opensuse/tumbleweed
     modules:
       - from-file: stages.yml
       - type: zypper
