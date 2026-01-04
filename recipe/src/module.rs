@@ -13,8 +13,10 @@ use serde_yaml::Value;
 
 use crate::{AkmodsInfo, ModuleExt, base_recipe_path};
 
+mod module_if;
 mod type_ver;
 
+pub use module_if::*;
 pub use type_ver::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Builder)]
@@ -38,6 +40,10 @@ pub struct ModuleRequiredFields {
     #[builder(into, default)]
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub secrets: Vec<Secret>,
+
+    #[serde(rename = "if")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub if_check: Option<ModuleIf>,
 
     #[serde(flatten)]
     #[builder(default, into)]

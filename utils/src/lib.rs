@@ -3,6 +3,7 @@ pub mod constants;
 pub mod container;
 pub mod credentials;
 mod macros;
+pub mod or_list;
 pub mod platform;
 pub mod secret;
 pub mod semver;
