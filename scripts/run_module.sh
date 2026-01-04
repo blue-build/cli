@@ -36,7 +36,7 @@ get_script_path() {
   for ext in "${extensions[@]}"; do
     local script_path="${base_script_path}.${ext}"
     tried_scripts+=("${script_name}.${ext}")
-      
+
     if [[ -f "$script_path" ]]; then
       # Output only the script path without extra information
       echo "$script_path"
@@ -57,12 +57,14 @@ nushell_version="$(echo "${params}" | jq '.["nushell-version"] // empty')"
 export PATH="/usr/libexec/bluebuild/nu/:$PATH"
 
 color_string "$(print_banner "Start '${module}' Module")" "33"
-chmod +x "${script_path}"
 
-if "${script_path}" "${params}"; then
-  color_string "$(print_banner  "End '${module}' Module")" "32"
+if /tmp/scripts/bbif "${params}"; then
+    chmod +x "${script_path}"
 
-else
-  color_string "$(print_banner "Failed '${module}' Module")" "31"
-  exit 1
+    if ! "${script_path}" "${params}"; then
+      color_string "$(print_banner "Failed '${module}' Module")" "31"
+      exit 1
+    fi
 fi
+
+color_string "$(print_banner  "End '${module}' Module")" "32"
