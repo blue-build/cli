@@ -1,0 +1,43 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/module-list-v1.json
+modules:
+  - type: apt
+    if:
+      os-release:
+        ID:
+          - ubuntu
+          - debian
+    install:
+      packages:
+        - git
+  - type: dnf
+    if:
+      os-release:
+        ID:
+          - fedora
+          - centos
+          - rhel
+    install:
+      packages:
+        - git
+  - type: apk
+    if:
+      os-release:
+        ID: alpine
+    install:
+      packages:
+        - git
+  - type: pacman
+    if:
+      os-release:
+        ID: archlinux
+    install:
+      packages:
+        - git
+  - type: zypper
+    if:
+      os-release:
+        ID: opensuse-tumbleweed
+    install:
+      packages:
+        - git
