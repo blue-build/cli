@@ -60,6 +60,7 @@ modules:
       - source: usr
         destination: /usr
   - type: script
+    source: ghcr.io/blue-build/modules:pr-528
     scripts:
       - example.sh
     snippets:

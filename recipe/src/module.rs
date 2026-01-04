@@ -42,6 +42,7 @@ pub struct ModuleRequiredFields {
     pub secrets: Vec<Secret>,
 
     #[serde(rename = "if")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub if_check: Option<ModuleIf>,
 
     #[serde(flatten)]
