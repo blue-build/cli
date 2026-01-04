@@ -1,0 +1,143 @@
+#!/usr/bin/env nu
+
+# Runs an eval using the string passed in.
+def check_eval [] string -> bool {
+    let eval = $in
+    let check = /bin/sh -c $'($eval)' | complete
+
+    if $check.exit_code != 0 {
+        print -e $"(ansi yellow)Check failed for (ansi cyan)'($eval)'(ansi reset)"
+        false
+    } else {
+        print -e $"(ansi green)Check passed for (ansi cyan)'($eval)'(ansi reset)"
+        true
+    }
+}
+
+# Gets the os-release values and
+# stores them in a parsed table.
+def get_os_release [] nothing -> record {
+    open --raw /etc/os-release
+        | lines
+        | parse '{key}={value}'
+        | transpose --ignore-titles -dr
+        | str trim -c '"'
+        | str trim -c "'"
+}
+
+# Checks that values specified match os-release values.
+def check_os_release [] record -> bool {
+    let os_release = $in
+
+    let os_vars = get_os_release
+
+    for $var in ($os_release | columns) {
+        let $os_value = $os_vars
+            | default '' $var
+            | get $var
+        let check_value = $os_release | get $var
+
+        match ($check_value | describe) {
+            'string' => {
+                if $check_value != $os_value {
+                    return false
+                }
+            }
+            'list' => {
+                let any = $check_value
+                    | any { $in == $os_value }
+
+                if not $any {
+                    return false
+                }
+            }
+            _ => {
+                return false
+            }
+        }
+    }
+
+    true
+}
+
+# Checks that no values specified match os-release values.
+def check_not_os_release [] record -> bool {
+    let not_os_release = $in
+
+    let os_vars = get_os_release
+
+    for $var in ($not_os_release | columns) {
+        let $os_value = $os_vars
+            | default '' $var
+            | get $var
+        let check_value = $not_os_release | get $var
+
+        match ($check_value | describe) {
+            'string' => {
+                if $check_value == $os_value {
+                    return false
+                }
+            }
+            'list' => {
+                let all = $check_value
+                    | all { $in != $os_value }
+
+                if not $all {
+                    return false
+                }
+            }
+            _ => {
+                return false
+            }
+        }
+    }
+
+    true
+}
+
+def check_env []: record<env: record> -> bool {
+    let check_env = $in
+        | default {} exists
+        | default {} not-exists
+        | default {} equals
+        | default {} not-equals
+    true
+}
+
+def main [config: string]: nothing -> nothing {
+    let config = $config
+        | from json
+        | default null if
+
+    let if_type = $config.if? | describe
+
+    let should_run = match $if_type {
+        'record' => {
+            let mod_if = $config
+                | get if
+                | default {} os-release
+                | default {} not-os-release
+                | default 'true' eval
+                | default {} env
+
+            let eval = $mod_if.eval | check_eval
+            let os_release = $mod_if.os-relase | check_os_release
+            let not_os_release = $mod_if.not-os-release | check_not_os_release
+            let check_env = $mod_if.env | check_env
+
+            $eval and $os_release and $not_os_release and $check_env
+        }
+        'string' => {
+            $config.if | check_eval
+        }
+        _ => {
+            true
+        }
+    }
+
+    if $should_run {
+        exit 0
+    } else {
+        exit 1
+    }
+}
