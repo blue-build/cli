@@ -12,18 +12,79 @@ modules:
       - example.sh
 
   - type: script
+    env:
+      TEST_ARG_2: "another"
+    if:
+      env:
+        exists:
+          - TEST_ARG
+          - TEST_ARG_2
     snippets:
-      - '[ -z "$TEST_ARG" ]'
+      - exit 1
 
   - type: script
     env:
       TEST_ARG: "test"
+      TEST_ARG_2: "another"
+    if:
+      env:
+        not-exists:
+          - TEST_ARG
+          - TEST_ARG_2
     snippets:
-      - '[ "$TEST_ARG" = "test" ]'
+      - exit 1
 
   - type: script
+    env:
+      TEST_ARG: "test"
+    if:
+      env:
+        equals:
+          TEST_ARG:
+            - no-test
+            - some-test
     snippets:
-      - '[ -z "$TEST_ARG" ]'
+      - exit 1
+
+  - type: script
+    env:
+      TEST_ARG: "test"
+    if:
+      env:
+        not-equals:
+          TEST_ARG:
+            - test
+            - some-test
+    snippets:
+      - exit 1
+
+  - type: script
+    env:
+      TEST_ARG: "test"
+      TEST_ARG_2: "another"
+    if: '[ "$TEST_ARG" = "$TEST_ARG_2" ]'
+    snippets:
+      - exit 1
+
+  - type: script
+    env:
+      TEST_ARG: "test"
+      TEST_ARG_2: "another"
+    if:
+      eval: '[ "$TEST_ARG" = "$TEST_ARG_2" ]'
+      env:
+        exists:
+          - TEST_ARG_2
+          - TEST_ARG_3
+        not-exists: TEST_ARG
+        equals:
+          TEST_ARG:
+            - no-test
+            - some-test
+        not-equals:
+          TEST_ARG_2: another
+    snippets:
+      - exit 1
 
   - type: dnf
     repos:
