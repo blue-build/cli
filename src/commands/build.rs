@@ -22,9 +22,9 @@ use blue_build_utils::{
     constants::{
         ARCHIVE_SUFFIX, BB_BUILD_ARCHIVE, BB_BUILD_CHUNKED_OCI, BB_BUILD_CHUNKED_OCI_MAX_LAYERS,
         BB_BUILD_NO_SIGN, BB_BUILD_PLATFORM, BB_BUILD_PUSH, BB_BUILD_RECHUNK,
-        BB_BUILD_RECHUNK_CLEAR_PLAN, BB_BUILD_RETRY_COUNT, BB_BUILD_RETRY_PUSH, BB_BUILD_SQUASH,
-        BB_CACHE_LAYERS, BB_REGISTRY_NAMESPACE, BB_SKIP_VALIDATION, BB_TEMPDIR, CONFIG_PATH,
-        DEFAULT_MAX_LAYERS, RECIPE_FILE, RECIPE_PATH,
+        BB_BUILD_RECHUNK_CLEAR_PLAN, BB_BUILD_REMOVE_BASE_IMAGE, BB_BUILD_RETRY_COUNT,
+        BB_BUILD_RETRY_PUSH, BB_BUILD_SQUASH, BB_CACHE_LAYERS, BB_REGISTRY_NAMESPACE,
+        BB_SKIP_VALIDATION, BB_TEMPDIR, CONFIG_PATH, DEFAULT_MAX_LAYERS, RECIPE_FILE, RECIPE_PATH,
     },
     container::{ImageRef, Tag},
     credentials::{Credentials, CredentialsArgs},
@@ -154,6 +154,12 @@ pub struct BuildCommand {
     #[arg(long, env = BB_BUILD_RECHUNK_CLEAR_PLAN)]
     #[builder(default)]
     rechunk_clear_plan: bool,
+
+    /// Remove the base image from local storage after the image is built.
+    /// (This can be useful to free up disk space.)
+    #[arg(long, env = BB_BUILD_REMOVE_BASE_IMAGE)]
+    #[builder(default)]
+    remove_base_image: bool,
 
     /// The location to temporarily store files
     /// while building. If unset, it will use `/tmp`.
@@ -358,11 +364,15 @@ impl BuildCommand {
             },
         );
 
+        let base_image = recipe.base_image_ref()?;
+        let remove_base_image = self.remove_base_image.then_some(base_image);
+
         let build_tag_opts = BuildTagPushOpts::builder()
             .image(&image_ref)
             .containerfile(containerfile)
             .platform(platforms)
             .squash(self.squash)
+            .maybe_remove_base_image(remove_base_image.as_ref())
             .maybe_cache_from(cache_image)
             .maybe_cache_to(cache_image)
             .secrets(secrets);
@@ -424,9 +434,7 @@ impl BuildCommand {
             containerfile.display()
         );
 
-        let base_image: Reference = format!("{}:{}", &recipe.base_image, &recipe.image_version)
-            .parse()
-            .into_diagnostic()?;
+        let base_image = recipe.base_image_ref()?;
         let base_digest =
             &Driver::get_metadata(GetMetadataOpts::builder().image(&base_image).build())?;
         let base_digest = base_digest.digest();

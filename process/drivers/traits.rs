@@ -200,6 +200,15 @@ pub trait BuildDriver: PrivateDriver {
                 Self::build(build_opts)
             })?;
 
+        if let Some(base_image) = opts.remove_base_image {
+            Driver::remove_image(
+                RemoveImageOpts::builder()
+                    .image(base_image)
+                    .privileged(opts.privileged)
+                    .build(),
+            )?;
+        }
+
         let image_list: Vec<String> = match &opts.image {
             ImageRef::Remote(image) if !opts.tags.is_empty() => {
                 debug!("Tagging all images");
@@ -457,6 +466,15 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
                 Ok((unchunked_image, image, platform))
             })
             .collect::<Result<Vec<_>>>()?;
+
+        if let Some(base_image) = btp_opts.remove_base_image {
+            Self::remove_image(
+                RemoveImageOpts::builder()
+                    .image(base_image)
+                    .privileged(btp_opts.privileged)
+                    .build(),
+            )?;
+        }
 
         // Run subsequent commands on host if rpm-ostree is available on host, otherwise
         // run in container that has rpm-ostree installed.
