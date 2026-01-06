@@ -1,24 +1,24 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "/modules/systemd-v1.json",
+    "$id": "/modules/default-flatpaks-v2.json",
     "type": "object",
     "properties": {
         "type": {
             "anyOf": [
                 {
                     "type": "string",
-                    "const": "systemd"
+                    "const": "default-flatpaks@v2"
                 },
                 {
                     "type": "string",
-                    "const": "systemd@v1"
+                    "const": "default-flatpaks@latest"
                 },
                 {
                     "type": "string",
-                    "const": "systemd@latest"
+                    "const": "default-flatpaks"
                 }
             ],
-            "description": "The systemd module streamlines the management of systemd units during image building.\nhttps://blue-build.org/reference/modules/systemd/"
+            "description": "The default-flatpaks module can be used to install Flatpaks from a configurable remote on every boot.\nusing version: v2\nhttps://blue-build.org/reference/modules/default-flatpaks/"
         },
         "no-cache": {
             "type": "boolean",
@@ -36,19 +36,17 @@
             },
             "description": "Secrets to mount for this module call."
         },
-        "system": {
-            "$ref": "#/$defs/UnitConfig",
-            "description": "System unit configuration."
-        },
-        "user": {
-            "$ref": "#/$defs/UnitConfig",
-            "description": "User unit configuration (with --global to make changes for all users)."
+        "configurations": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/ConfigurationV2"
+            }
         }
     },
     "required": [
-        "type"
+        "type",
+        "configurations"
     ],
-    "additionalProperties": false,
     "$defs": {
         "RecordString": {
             "type": "object",
@@ -73,36 +71,38 @@
                 }
             ]
         },
-        "UnitConfig": {
+        "ConfigurationV2": {
             "type": "object",
             "properties": {
-                "enabled": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to enable. (runs on system boot)"
+                "notify": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Whether to notify users about Flatpak installation."
                 },
-                "disabled": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to disable. (does not run on system boot, unless another unit strictly requires it)"
+                "scope": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "const": "system"
+                        },
+                        {
+                            "type": "string",
+                            "const": "user"
+                        }
+                    ],
+                    "default": "user",
+                    "description": "Whether to perform this configuration for system-wide or separately for each user."
                 },
-                "masked": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to mask. (does not run on system boot, under any circumstances)"
+                "repo": {
+                    "$ref": "#/$defs/ConfigurationV2Repo",
+                    "description": "Details of the Flatpak repository to set up. If omitted, Flathub will be used by default."
                 },
-                "unmasked": {
+                "install": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     },
-                    "description": "List of systemd units to unmask. (runs on system boot, even if previously masked)"
+                    "description": "List of Flatpak IDs to install from the repo."
                 }
             },
             "additionalProperties": false
@@ -198,6 +198,27 @@
             "required": [
                 "type"
             ],
+            "additionalProperties": false
+        },
+        "ConfigurationV2Repo": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "default": "https://dl.flathub.org/repo/flathub.flatpakrepo",
+                    "description": "Flatpak repository URL."
+                },
+                "name": {
+                    "type": "string",
+                    "default": "flathub",
+                    "description": "Flatpak repository name."
+                },
+                "title": {
+                    "type": "string",
+                    "default": "Flathub",
+                    "description": "Flatpak repository formatted title."
+                }
+            },
             "additionalProperties": false
         },
         "SecretMount": {
