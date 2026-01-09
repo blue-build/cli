@@ -246,6 +246,7 @@ test-multiplatform-docker: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && bluebuild build \
     --retry-push \
+    --remove-base-image \
     -B docker \
     -S sigstore \
     {{ should_push }} \
@@ -256,6 +257,7 @@ test-multiplatform-podman: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && bluebuild build \
     --retry-push \
+    --remove-base-image \
     -B podman \
     -S sigstore \
     {{ should_push }} \
@@ -266,6 +268,7 @@ test-multiplatform-buildah: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && bluebuild build \
     --retry-push \
+    --remove-base-image \
     -B buildah \
     -S sigstore \
     {{ should_push }} \
@@ -276,6 +279,7 @@ test-multiplatform-build-chunked-oci: generate-test-secret install-debug-all-fea
   cd integration-tests/test-repo \
   && bluebuild build \
     --retry-push \
+    --remove-base-image \
     --build-chunked-oci \
     -S sigstore \
     {{ should_push }} \
@@ -286,6 +290,7 @@ test-multiplatform-rechunk: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && bluebuild build \
     --retry-push \
+    --remove-base-image \
     --rechunk \
     -S sigstore \
     {{ should_push }} \
