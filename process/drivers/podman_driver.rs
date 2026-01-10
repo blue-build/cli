@@ -22,8 +22,8 @@ use serde::Deserialize;
 use tempfile::TempDir;
 
 use super::{
-    BuildChunkedOciDriver, BuildDriver, ContainerMountDriver, DriverVersion, RechunkDriver,
-    RunDriver,
+    BuildChunkedOciDriver, BuildDriver, ContainerMountDriver, DriverVersion, ImageStorageDriver,
+    RechunkDriver, RunDriver,
     opts::{
         BuildOpts, ContainerOpts, CreateContainerOpts, ManifestCreateOpts, ManifestPushOpts,
         PruneOpts, PullOpts, PushOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, RunOptsEnv,
@@ -725,7 +725,9 @@ impl RunDriver for PodmanDriver {
 
         Ok(())
     }
+}
 
+impl ImageStorageDriver for PodmanDriver {
     fn remove_image(opts: RemoveImageOpts) -> Result<()> {
         trace!("PodmanDriver::remove_image({opts:?})");
 

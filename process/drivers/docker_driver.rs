@@ -23,18 +23,18 @@ use serde::Deserialize;
 use tempfile::TempDir;
 
 use crate::{
-    drivers::{
-        opts::{
-            BuildOpts, BuildTagPushOpts, ManifestCreateOpts, ManifestPushOpts, PullOpts, PushOpts,
-            RunOpts, RunOptsEnv, RunOptsVolume, TagOpts, UntagOpts,
-        },
-        traits::{BuildDriver, DriverVersion, RunDriver},
-    },
     logging::CommandLogging,
     signal_handler::{ContainerRuntime, ContainerSignalId, DetachedContainer, add_cid, remove_cid},
 };
 
-use super::opts::{CreateContainerOpts, PruneOpts, RemoveContainerOpts, RemoveImageOpts};
+use super::{
+    opts::{
+        BuildOpts, BuildTagPushOpts, CreateContainerOpts, ManifestCreateOpts, ManifestPushOpts,
+        PruneOpts, PullOpts, PushOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, RunOptsEnv,
+        RunOptsVolume, TagOpts, UntagOpts,
+    },
+    traits::{BuildDriver, DriverVersion, ImageStorageDriver, RunDriver},
+};
 
 #[derive(Debug, Deserialize)]
 struct VerisonJsonClient {
@@ -701,7 +701,9 @@ impl RunDriver for DockerDriver {
 
         Ok(())
     }
+}
 
+impl ImageStorageDriver for DockerDriver {
     fn remove_image(opts: RemoveImageOpts) -> Result<()> {
         trace!("DockerDriver::remove_image({opts:?})");
 
