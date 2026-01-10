@@ -365,7 +365,13 @@ impl BuildCommand {
         );
 
         let base_image = recipe.base_image_ref()?;
-        let remove_base_image = self.remove_base_image.then_some(base_image);
+        let base_digest =
+            Driver::get_metadata(GetMetadataOpts::builder().image(&base_image).build())?
+                .digest()
+                .to_owned();
+        let remove_base_image = self
+            .remove_base_image
+            .then_some(base_image.clone_with_digest(base_digest));
 
         let build_tag_opts = BuildTagPushOpts::builder()
             .image(&image_ref)
