@@ -107,7 +107,8 @@ pub trait DriverVersion: PrivateDriver {
 }
 
 /// Allows agnostic building, tagging, pushing, and login.
-pub trait BuildDriver: ImageStorageDriver {
+#[expect(private_bounds)]
+pub trait BuildDriver: PrivateDriver {
     /// Runs the build logic for the driver.
     ///
     /// # Errors
@@ -197,15 +198,6 @@ pub trait BuildDriver: ImageStorageDriver {
 
                 Self::build(build_opts)
             })?;
-
-        if let Some(base_image) = opts.remove_base_image {
-            Self::remove_image(
-                RemoveImageOpts::builder()
-                    .image(base_image)
-                    .privileged(opts.privileged)
-                    .build(),
-            )?;
-        }
 
         let image_list: Vec<String> = match &opts.image {
             ImageRef::Remote(image) if !opts.tags.is_empty() => {
@@ -437,6 +429,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + ImageStorageDriver {
         let BuildRechunkTagPushOpts {
             build_tag_push_opts: btp_opts,
             rechunk_opts,
+            remove_base_image,
         } = opts;
 
         assert!(
@@ -468,7 +461,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + ImageStorageDriver {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        if let Some(base_image) = btp_opts.remove_base_image {
+        if let Some(base_image) = remove_base_image {
             Self::remove_image(
                 RemoveImageOpts::builder()
                     .image(base_image)

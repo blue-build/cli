@@ -135,6 +135,12 @@ pub struct BuildCommand {
     #[builder(default = DEFAULT_MAX_LAYERS)]
     max_layers: NonZeroU32,
 
+    /// Removes the base image from local storage after the image is built, but
+    /// before running build-chunked-oci. This frees up additional disk space.
+    #[arg(long, env = BB_BUILD_REMOVE_BASE_IMAGE, requires = "build_chunked_oci")]
+    #[builder(default)]
+    remove_base_image: bool,
+
     /// Uses `hhd-dev/rechunk` to rechunk the image, allowing for smaller images
     /// and smaller updates.
     ///
@@ -154,12 +160,6 @@ pub struct BuildCommand {
     #[arg(long, env = BB_BUILD_RECHUNK_CLEAR_PLAN)]
     #[builder(default)]
     rechunk_clear_plan: bool,
-
-    /// Remove the base image from local storage after the image is built.
-    /// (This can be useful to free up disk space.)
-    #[arg(long, env = BB_BUILD_REMOVE_BASE_IMAGE)]
-    #[builder(default)]
-    remove_base_image: bool,
 
     /// The location to temporarily store files
     /// while building. If unset, it will use `/tmp`.
@@ -364,21 +364,11 @@ impl BuildCommand {
             },
         );
 
-        let base_image = recipe.base_image_ref()?;
-        let base_digest =
-            Driver::get_metadata(GetMetadataOpts::builder().image(&base_image).build())?
-                .digest()
-                .to_owned();
-        let remove_base_image = self
-            .remove_base_image
-            .then_some(base_image.clone_with_digest(base_digest));
-
         let build_tag_opts = BuildTagPushOpts::builder()
             .image(&image_ref)
             .containerfile(containerfile)
             .platform(platforms)
             .squash(self.squash)
-            .maybe_remove_base_image(remove_base_image.as_ref())
             .maybe_cache_from(cache_image)
             .maybe_cache_to(cache_image)
             .secrets(secrets);
@@ -396,6 +386,15 @@ impl BuildCommand {
         };
 
         let images = if self.build_chunked_oci {
+            let base_image = recipe.base_image_ref()?;
+            let base_digest =
+                Driver::get_metadata(GetMetadataOpts::builder().image(&base_image).build())?
+                    .digest()
+                    .to_owned();
+            let remove_base_image = self
+                .remove_base_image
+                .then_some(base_image.clone_with_digest(base_digest));
+
             let rechunk_opts = BuildChunkedOciOpts::builder()
                 .max_layers(self.max_layers)
                 .clear_plan(self.rechunk_clear_plan)
@@ -404,6 +403,7 @@ impl BuildCommand {
                 BuildRechunkTagPushOpts::builder()
                     .build_tag_push_opts(opts)
                     .rechunk_opts(rechunk_opts)
+                    .maybe_remove_base_image(remove_base_image.as_ref())
                     .build(),
             )?
         } else if self.rechunk {

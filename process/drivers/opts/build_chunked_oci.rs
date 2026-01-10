@@ -2,6 +2,7 @@ use std::num::NonZeroU32;
 
 use blue_build_utils::{constants::DEFAULT_MAX_LAYERS, platform::Platform};
 use bon::Builder;
+use oci_client::Reference;
 
 use super::BuildTagPushOpts;
 
@@ -10,6 +11,9 @@ use super::BuildTagPushOpts;
 pub struct BuildRechunkTagPushOpts<'scope> {
     pub build_tag_push_opts: BuildTagPushOpts<'scope>,
     pub rechunk_opts: BuildChunkedOciOpts,
+
+    /// Base image to remove after building.
+    pub remove_base_image: Option<&'scope Reference>,
 }
 
 #[derive(Debug, Clone, Copy, Builder)]

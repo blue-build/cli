@@ -140,9 +140,6 @@ pub struct BuildTagPushOpts<'scope> {
     #[builder(default)]
     pub squash: bool,
 
-    /// Base image to remove after building.
-    pub remove_base_image: Option<&'scope Reference>,
-
     /// The platform to build the image on.
     #[builder(default)]
     pub platform: &'scope [Platform],
