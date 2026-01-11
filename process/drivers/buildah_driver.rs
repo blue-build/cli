@@ -1,5 +1,5 @@
 use blue_build_utils::{
-    container::ContainerId, credentials::Credentials, secret::SecretArgs, semver::Version,
+    container::ContainerId, credentials::Credentials, secret::SecretArgs, semver::Version, sudo_cmd,
 };
 use colored::Colorize;
 use comlexr::{cmd, pipe};
@@ -18,6 +18,8 @@ use super::{
         UntagOpts,
     },
 };
+
+const SUDO_PROMPT: &str = "Password for %u required to run 'buildah' as privileged";
 
 #[derive(Debug, Deserialize)]
 struct BuildahVersionJson {
@@ -59,7 +61,9 @@ impl BuildDriver for BuildahDriver {
             .into_diagnostic()
             .wrap_err("Failed to create temporary directory for secrets")?;
 
-        let command = cmd!(
+        let command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
             "buildah",
             "build",
             for opts.secrets.args(&temp_dir)?,
@@ -116,7 +120,9 @@ impl BuildDriver for BuildahDriver {
 
         let dest_image_str = opts.dest_image.to_string();
 
-        let mut command = cmd!(
+        let mut command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
             "buildah",
             "tag",
             opts.src_image.to_string(),
@@ -137,7 +143,9 @@ impl BuildDriver for BuildahDriver {
 
         let ref_string = opts.image.to_string();
 
-        let mut command = cmd!(
+        let mut command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
             "buildah",
             "untag",
             &ref_string, // identify image by reference
@@ -158,7 +166,9 @@ impl BuildDriver for BuildahDriver {
 
         let image_str = opts.image.to_string();
 
-        let command = cmd!(
+        let command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
             "buildah",
             "push",
             format!(
@@ -186,7 +196,9 @@ impl BuildDriver for BuildahDriver {
 
         let image_str = opts.image.to_string();
 
-        let mut command = cmd!(
+        let mut command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
             "buildah",
             "pull",
             "--quiet",
@@ -336,7 +348,13 @@ impl ImageStorageDriver for BuildahDriver {
         trace!("BuildahDriver::remove_image({opts:?})");
 
         let output = {
-            let c = cmd!("buildah", "rmi", opts.image.to_string());
+            let c = sudo_cmd!(
+                prompt = SUDO_PROMPT,
+                sudo_check = opts.privileged,
+                "buildah",
+                "rmi",
+                opts.image.to_string(),
+            );
             trace!("{c:?}");
             c
         }
@@ -355,17 +373,23 @@ impl ImageStorageDriver for BuildahDriver {
         Ok(())
     }
 
-    fn list_images(_privileged: bool) -> Result<Vec<Reference>> {
+    fn list_images(privileged: bool) -> Result<Vec<Reference>> {
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct Image {
             names: Option<Vec<String>>,
         }
 
-        trace!("BuildahDriver::list_images()");
+        trace!("BuildahDriver::list_images({privileged})");
 
         let output = {
-            let c = cmd!("buildah", "images", "--json",);
+            let c = sudo_cmd!(
+                prompt = SUDO_PROMPT,
+                sudo_check = privileged,
+                "buildah",
+                "images",
+                "--json",
+            );
             trace!("{c:?}");
             c
         }
