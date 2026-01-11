@@ -1,22 +1,25 @@
 use blue_build_utils::{
-    container::ContainerId, credentials::Credentials, secret::SecretArgs, semver::Version,
+    container::ContainerId, credentials::Credentials, secret::SecretArgs, semver::Version, sudo_cmd,
 };
 use colored::Colorize;
 use comlexr::{cmd, pipe};
 use log::{debug, error, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Result, bail};
+use oci_client::Reference;
 use serde::Deserialize;
 use tempfile::TempDir;
 
-use crate::{
-    drivers::opts::{ManifestCreateOpts, ManifestPushOpts},
-    logging::CommandLogging,
-};
+use crate::logging::CommandLogging;
 
 use super::{
-    BuildDriver, DriverVersion,
-    opts::{BuildOpts, PruneOpts, PullOpts, PushOpts, TagOpts, UntagOpts},
+    BuildDriver, DriverVersion, ImageStorageDriver,
+    opts::{
+        BuildOpts, ManifestCreateOpts, ManifestPushOpts, PruneOpts, PullOpts, PushOpts, TagOpts,
+        UntagOpts,
+    },
 };
+
+const SUDO_PROMPT: &str = "Password for %u required to run 'buildah' as privileged";
 
 #[derive(Debug, Deserialize)]
 struct BuildahVersionJson {
@@ -58,7 +61,9 @@ impl BuildDriver for BuildahDriver {
             .into_diagnostic()
             .wrap_err("Failed to create temporary directory for secrets")?;
 
-        let command = cmd!(
+        let command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
             "buildah",
             "build",
             for opts.secrets.args(&temp_dir)?,
@@ -115,7 +120,9 @@ impl BuildDriver for BuildahDriver {
 
         let dest_image_str = opts.dest_image.to_string();
 
-        let mut command = cmd!(
+        let mut command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
             "buildah",
             "tag",
             opts.src_image.to_string(),
@@ -136,7 +143,9 @@ impl BuildDriver for BuildahDriver {
 
         let ref_string = opts.image.to_string();
 
-        let mut command = cmd!(
+        let mut command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
             "buildah",
             "untag",
             &ref_string, // identify image by reference
@@ -157,7 +166,9 @@ impl BuildDriver for BuildahDriver {
 
         let image_str = opts.image.to_string();
 
-        let command = cmd!(
+        let command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
             "buildah",
             "push",
             format!(
@@ -185,7 +196,9 @@ impl BuildDriver for BuildahDriver {
 
         let image_str = opts.image.to_string();
 
-        let mut command = cmd!(
+        let mut command = sudo_cmd!(
+            prompt = SUDO_PROMPT,
+            sudo_check = opts.privileged,
             "buildah",
             "pull",
             "--quiet",
@@ -327,5 +340,77 @@ impl BuildDriver for BuildahDriver {
         }
 
         Ok(())
+    }
+}
+
+impl ImageStorageDriver for BuildahDriver {
+    fn remove_image(opts: super::opts::RemoveImageOpts) -> Result<()> {
+        trace!("BuildahDriver::remove_image({opts:?})");
+
+        let output = {
+            let c = sudo_cmd!(
+                prompt = SUDO_PROMPT,
+                sudo_check = opts.privileged,
+                "buildah",
+                "rmi",
+                opts.image.to_string(),
+            );
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            let err_out = String::from_utf8_lossy(&output.stderr);
+            bail!(
+                "Failed to remove the image {}:\n{}",
+                opts.image,
+                err_out.trim()
+            );
+        }
+
+        Ok(())
+    }
+
+    fn list_images(privileged: bool) -> Result<Vec<Reference>> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct Image {
+            names: Option<Vec<String>>,
+        }
+
+        trace!("BuildahDriver::list_images({privileged})");
+
+        let output = {
+            let c = sudo_cmd!(
+                prompt = SUDO_PROMPT,
+                sudo_check = privileged,
+                "buildah",
+                "images",
+                "--json",
+            );
+            trace!("{c:?}");
+            c
+        }
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            let err_out = String::from_utf8_lossy(&output.stderr);
+            bail!("Failed to list images:\n{}", err_out.trim());
+        }
+
+        let images: Vec<Image> = serde_json::from_slice(&output.stdout).into_diagnostic()?;
+
+        images
+            .into_iter()
+            .filter_map(|image| image.names)
+            .flat_map(|names| {
+                names
+                    .into_iter()
+                    .map(|name| name.parse::<Reference>().into_diagnostic())
+            })
+            .collect()
     }
 }

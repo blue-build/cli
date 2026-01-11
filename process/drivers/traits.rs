@@ -106,8 +106,7 @@ pub trait DriverVersion: PrivateDriver {
     }
 }
 
-/// Allows agnostic building, tagging
-/// pushing, and login.
+/// Allows agnostic building, tagging, pushing, and login.
 #[expect(private_bounds)]
 pub trait BuildDriver: PrivateDriver {
     /// Runs the build logic for the driver.
@@ -266,8 +265,7 @@ pub trait InspectDriver: PrivateDriver {
 }
 
 /// Allows agnostic running of containers.
-#[expect(private_bounds)]
-pub trait RunDriver: PrivateDriver {
+pub trait RunDriver: ImageStorageDriver {
     /// Run a container to perform an action.
     ///
     /// # Errors
@@ -299,7 +297,11 @@ pub trait RunDriver: PrivateDriver {
     /// # Errors
     /// Will error if the container remove command fails.
     fn remove_container(opts: RemoveContainerOpts) -> Result<()>;
+}
 
+/// Allows agnostic management of container image storage.
+#[expect(private_bounds)]
+pub trait ImageStorageDriver: PrivateDriver {
     /// Removes an image
     ///
     /// # Errors
@@ -313,7 +315,7 @@ pub trait RunDriver: PrivateDriver {
     fn list_images(privileged: bool) -> Result<Vec<Reference>>;
 }
 
-pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
+pub trait BuildChunkedOciDriver: BuildDriver + ImageStorageDriver {
     /// Create a manifest containing all the built images.
     /// Runs within the same context as rpm-ostree.
     ///
@@ -427,6 +429,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
         let BuildRechunkTagPushOpts {
             build_tag_push_opts: btp_opts,
             rechunk_opts,
+            remove_base_image,
         } = opts;
 
         assert!(
@@ -457,6 +460,15 @@ pub trait BuildChunkedOciDriver: BuildDriver + RunDriver {
                 Ok((unchunked_image, image, platform))
             })
             .collect::<Result<Vec<_>>>()?;
+
+        if let Some(base_image) = remove_base_image {
+            Self::remove_image(
+                RemoveImageOpts::builder()
+                    .image(base_image)
+                    .privileged(btp_opts.privileged)
+                    .build(),
+            )?;
+        }
 
         // Run subsequent commands on host if rpm-ostree is available on host, otherwise
         // run in container that has rpm-ostree installed.

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use blue_build_process_management::drivers::{
-    BootDriver, BuildDriver, CiDriver, Driver, DriverArgs, PodmanDriver, RunDriver,
+    BootDriver, BuildDriver, CiDriver, Driver, DriverArgs, ImageStorageDriver, PodmanDriver,
     opts::{BuildOpts, GenerateImageNameOpts, RemoveImageOpts, SwitchOpts},
     types::{BuildDriverType, RunDriverType},
 };

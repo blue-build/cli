@@ -277,6 +277,7 @@ test-multiplatform-build-chunked-oci: generate-test-secret install-debug-all-fea
   && bluebuild build \
     --retry-push \
     --build-chunked-oci \
+    --remove-base-image \
     -S sigstore \
     {{ should_push }} \
     -vv \

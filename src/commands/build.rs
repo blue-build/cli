@@ -22,9 +22,9 @@ use blue_build_utils::{
     constants::{
         ARCHIVE_SUFFIX, BB_BUILD_ARCHIVE, BB_BUILD_CHUNKED_OCI, BB_BUILD_CHUNKED_OCI_MAX_LAYERS,
         BB_BUILD_NO_SIGN, BB_BUILD_PLATFORM, BB_BUILD_PUSH, BB_BUILD_RECHUNK,
-        BB_BUILD_RECHUNK_CLEAR_PLAN, BB_BUILD_RETRY_COUNT, BB_BUILD_RETRY_PUSH, BB_BUILD_SQUASH,
-        BB_CACHE_LAYERS, BB_REGISTRY_NAMESPACE, BB_SKIP_VALIDATION, BB_TEMPDIR, CONFIG_PATH,
-        DEFAULT_MAX_LAYERS, RECIPE_FILE, RECIPE_PATH,
+        BB_BUILD_RECHUNK_CLEAR_PLAN, BB_BUILD_REMOVE_BASE_IMAGE, BB_BUILD_RETRY_COUNT,
+        BB_BUILD_RETRY_PUSH, BB_BUILD_SQUASH, BB_CACHE_LAYERS, BB_REGISTRY_NAMESPACE,
+        BB_SKIP_VALIDATION, BB_TEMPDIR, CONFIG_PATH, DEFAULT_MAX_LAYERS, RECIPE_FILE, RECIPE_PATH,
     },
     container::{ImageRef, Tag},
     credentials::{Credentials, CredentialsArgs},
@@ -134,6 +134,12 @@ pub struct BuildCommand {
     )]
     #[builder(default = DEFAULT_MAX_LAYERS)]
     max_layers: NonZeroU32,
+
+    /// Removes the base image from local storage after the image is built, but
+    /// before running build-chunked-oci. This frees up additional disk space.
+    #[arg(long, env = BB_BUILD_REMOVE_BASE_IMAGE, requires = "build_chunked_oci")]
+    #[builder(default)]
+    remove_base_image: bool,
 
     /// Uses `hhd-dev/rechunk` to rechunk the image, allowing for smaller images
     /// and smaller updates.
@@ -380,6 +386,15 @@ impl BuildCommand {
         };
 
         let images = if self.build_chunked_oci {
+            let base_image = recipe.base_image_ref()?;
+            let base_digest =
+                Driver::get_metadata(GetMetadataOpts::builder().image(&base_image).build())?
+                    .digest()
+                    .to_owned();
+            let remove_base_image = self
+                .remove_base_image
+                .then_some(base_image.clone_with_digest(base_digest));
+
             let rechunk_opts = BuildChunkedOciOpts::builder()
                 .max_layers(self.max_layers)
                 .clear_plan(self.rechunk_clear_plan)
@@ -388,6 +403,7 @@ impl BuildCommand {
                 BuildRechunkTagPushOpts::builder()
                     .build_tag_push_opts(opts)
                     .rechunk_opts(rechunk_opts)
+                    .maybe_remove_base_image(remove_base_image.as_ref())
                     .build(),
             )?
         } else if self.rechunk {
@@ -424,9 +440,7 @@ impl BuildCommand {
             containerfile.display()
         );
 
-        let base_image: Reference = format!("{}:{}", &recipe.base_image, &recipe.image_version)
-            .parse()
-            .into_diagnostic()?;
+        let base_image = recipe.base_image_ref()?;
         let base_digest =
             &Driver::get_metadata(GetMetadataOpts::builder().image(&base_image).build())?;
         let base_digest = base_digest.digest();

@@ -327,6 +327,16 @@ macro_rules! impl_build_driver {
     };
 }
 
+impl ImageStorageDriver for Driver {
+    fn remove_image(opts: RemoveImageOpts) -> Result<()> {
+        impl_build_driver!(remove_image(opts))
+    }
+
+    fn list_images(privileged: bool) -> Result<Vec<Reference>> {
+        impl_build_driver!(list_images(privileged))
+    }
+}
+
 impl BuildDriver for Driver {
     fn build(opts: BuildOpts) -> Result<()> {
         impl_build_driver!(build(opts))
@@ -434,14 +444,6 @@ impl RunDriver for Driver {
 
     fn remove_container(opts: RemoveContainerOpts) -> Result<()> {
         impl_run_driver!(remove_container(opts))
-    }
-
-    fn remove_image(opts: RemoveImageOpts) -> Result<()> {
-        impl_run_driver!(remove_image(opts))
-    }
-
-    fn list_images(privileged: bool) -> Result<Vec<Reference>> {
-        impl_run_driver!(list_images(privileged))
     }
 }
 

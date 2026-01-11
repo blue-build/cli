@@ -23,18 +23,18 @@ use serde::Deserialize;
 use tempfile::TempDir;
 
 use crate::{
-    drivers::{
-        opts::{
-            BuildOpts, BuildTagPushOpts, ManifestCreateOpts, ManifestPushOpts, PullOpts, PushOpts,
-            RunOpts, RunOptsEnv, RunOptsVolume, TagOpts, UntagOpts,
-        },
-        traits::{BuildDriver, DriverVersion, RunDriver},
-    },
     logging::CommandLogging,
     signal_handler::{ContainerRuntime, ContainerSignalId, DetachedContainer, add_cid, remove_cid},
 };
 
-use super::opts::{CreateContainerOpts, PruneOpts, RemoveContainerOpts, RemoveImageOpts};
+use super::{
+    opts::{
+        BuildOpts, BuildTagPushOpts, CreateContainerOpts, ManifestCreateOpts, ManifestPushOpts,
+        PruneOpts, PullOpts, PushOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, RunOptsEnv,
+        RunOptsVolume, TagOpts, UntagOpts,
+    },
+    traits::{BuildDriver, DriverVersion, ImageStorageDriver, RunDriver},
+};
 
 #[derive(Debug, Deserialize)]
 struct VerisonJsonClient {
@@ -666,7 +666,12 @@ impl RunDriver for DockerDriver {
         .into_diagnostic()?;
 
         if !output.status.success() {
-            bail!("Failed to create container from image {}", opts.image);
+            let err_out = String::from_utf8_lossy(&output.stderr);
+            bail!(
+                "Failed to create container from image {}:\n{}",
+                opts.image,
+                err_out.trim()
+            );
         }
 
         Ok(ContainerId(
@@ -686,12 +691,19 @@ impl RunDriver for DockerDriver {
         .into_diagnostic()?;
 
         if !output.status.success() {
-            bail!("Failed to remove container {}", opts.container_id);
+            let err_out = String::from_utf8_lossy(&output.stderr);
+            bail!(
+                "Failed to remove container {}:\n{}",
+                opts.container_id,
+                err_out.trim()
+            );
         }
 
         Ok(())
     }
+}
 
+impl ImageStorageDriver for DockerDriver {
     fn remove_image(opts: RemoveImageOpts) -> Result<()> {
         trace!("DockerDriver::remove_image({opts:?})");
 
@@ -704,7 +716,12 @@ impl RunDriver for DockerDriver {
         .into_diagnostic()?;
 
         if !output.status.success() {
-            bail!("Failed to remove the image {}", opts.image);
+            let err_out = String::from_utf8_lossy(&output.stderr);
+            bail!(
+                "Failed to remove the image {}:\n{}",
+                opts.image,
+                err_out.trim()
+            );
         }
 
         Ok(())
@@ -727,7 +744,8 @@ impl RunDriver for DockerDriver {
         .into_diagnostic()?;
 
         if !output.status.success() {
-            bail!("Failed to list images");
+            let err_out = String::from_utf8_lossy(&output.stderr);
+            bail!("Failed to list images:\n{}", err_out.trim());
         }
 
         let images: Vec<Image> = String::from_utf8_lossy(&output.stdout)
