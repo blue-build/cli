@@ -26,9 +26,9 @@ use super::{
     opts::{
         BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts,
         CheckKeyPairOpts, ContainerOpts, CopyOciOpts, CreateContainerOpts, GenerateImageNameOpts,
-        GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PullOpts, PushOpts, RechunkOpts,
-        RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts, SwitchOpts,
-        TagOpts, UntagOpts, VerifyOpts, VerifyType, VolumeOpts,
+        GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, PruneOpts, PullOpts, PushOpts,
+        RechunkOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts,
+        SwitchOpts, TagOpts, UntagOpts, VerifyOpts, VerifyType, VolumeOpts,
     },
     opts::{ManifestCreateOpts, ManifestPushOpts},
     rpm_ostree_runner::RpmOstreeRunner,
@@ -468,6 +468,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + ImageStorageDriver {
                     .privileged(btp_opts.privileged)
                     .build(),
             )?;
+            Self::prune(PruneOpts::builder().volumes(true).build())?;
         }
 
         // Run subsequent commands on host if rpm-ostree is available on host, otherwise
