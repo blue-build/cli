@@ -1,14 +1,8 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
-set -euo pipefail
+set -eu
 
-if ! command -v jq > /dev/null; then
-  if command -v rpm-ostree > /dev/null; then
-    rpm-ostree install jq
-  else
-    dnf -y install jq
-  fi
-fi
+/scripts/setup.sh
 
 optfix_dir="/usr/lib/opt"
 

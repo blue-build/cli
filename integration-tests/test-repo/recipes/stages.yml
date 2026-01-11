@@ -2,27 +2,65 @@
 # yaml-language-server: $schema=https://schema.blue-build.org/module-stage-list-v1.json
 stages:
   - name: ubuntu-test
-    from: ubuntu
+    from: docker.io/library/ubuntu
     modules:
       - from-file: stages.yml
+      - type: apt
+        source: ghcr.io/blue-build/modules/apt:pr-523
+        install:
+          packages:
+            - git
   - name: debian-test
-    from: debian
+    from: docker.io/library/debian
     modules:
       - from-file: stages.yml
+      - type: apt
+        source: ghcr.io/blue-build/modules/apt:pr-523
+        install:
+          packages:
+            - git
   - name: fedora-test
-    from: fedora
+    from: docker.io/library/fedora
     modules:
       - from-file: stages.yml
+      - type: dnf
+        install:
+          packages:
+            - git
   - name: alpine-test
-    from: alpine
+    from: docker.io/library/alpine
     modules:
       - from-file: stages.yml
+      - type: apk
+        source: ghcr.io/blue-build/modules/apk:pr-523
+        install:
+          packages:
+            - git
+  - name: arch-test
+    from: docker.io/archlinux/archlinux
+    modules:
+      - from-file: stages.yml
+      - type: pacman
+        source: ghcr.io/blue-build/modules/pacman:pr-523
+        install:
+          packages:
+            - git
+  - name: suse-test
+    from: docker.io/opensuse/tumbleweed
+    modules:
+      - from-file: stages.yml
+      - type: zypper
+        source: ghcr.io/blue-build/modules/zypper:pr-523
+        install:
+          packages:
+            - git
 modules:
   - type: files
     files:
       - source: usr
         destination: /usr
   - type: script
+    source: ghcr.io/blue-build/modules/script:pr-529
     scripts:
       - example.sh
     snippets:
