@@ -78,7 +78,10 @@ pub struct PullOpts<'scope> {
 #[derive(Debug, Clone, Copy, Builder)]
 #[builder(derive(Debug, Clone))]
 pub struct PruneOpts {
+    #[builder(default)]
     pub all: bool,
+
+    #[builder(default)]
     pub volumes: bool,
 }
 

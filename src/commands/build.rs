@@ -135,8 +135,9 @@ pub struct BuildCommand {
     #[builder(default = DEFAULT_MAX_LAYERS)]
     max_layers: NonZeroU32,
 
-    /// Removes the base image from local storage after the image is built, but
-    /// before running build-chunked-oci. This frees up additional disk space.
+    /// Removes the base image from local storage and prunes unused podman containers
+    /// and volumes after the image is built, but before running build-chunked-oci.
+    /// This frees up additional disk space.
     #[arg(long, env = BB_BUILD_REMOVE_BASE_IMAGE, requires = "build_chunked_oci")]
     #[builder(default)]
     remove_base_image: bool,
