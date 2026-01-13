@@ -54,7 +54,11 @@ COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
   {%- for stage in stages_ext.stages %}
     {%- if let Some(stage) = stage.required_fields %}
 # {{ stage.name|capitalize }} stage
-FROM {{ stage.from }} AS {{ stage.name }}
+FROM \
+      {%- if let Some(platform) = stage.platform %}
+  --platform="{{ platform }}" \
+      {%- endif %}
+  {{ stage.from }} AS {{ stage.name }}
 
 ARG TARGETARCH
       {%- if self::should_color() %}
