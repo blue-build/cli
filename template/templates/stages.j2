@@ -56,7 +56,7 @@ COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
 # {{ stage.name|capitalize }} stage
 FROM \
       {%- if let Some(platform) = stage.platform %}
-  --platform="{{ platform }}" \
+  --platform={{ platform }} \
       {%- endif %}
   {{ stage.from }} AS {{ stage.name }}
 
