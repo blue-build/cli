@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.29] - 2026-01-15
+
+### Bug Fixes
+
+- Remove quotes around platform value
+- Cargo.lock file
+
+### Features
+
+- Add option to remove base image after building new image (#663)
+- Add the ability to set the platform for a stage (#653)
+
+### Miscellaneous Tasks
+
+- Bump cosign to v3.0.3 (#665)
+- Bump cosign to v3.0.4 (#666)
+- Prune after removing base image when rechunking (#667)
+
 ## [0.9.28] - 2025-12-29
 
 ### Bug Fixes
@@ -22,6 +40,7 @@ All notable changes to this project will be documented in this file.
 
 - Use special logging for pushing manifest
 - Add concurrency limits for all jobs (#651)
+- Release
 
 ## [0.9.27] - 2025-11-26
 
