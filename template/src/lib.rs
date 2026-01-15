@@ -179,13 +179,16 @@ fn should_color() -> bool {
 }
 
 mod filters {
+    #![expect(clippy::unnecessary_wraps)]
     use askama::Values;
 
-    #[expect(clippy::unnecessary_wraps)]
-    pub fn replace<T>(input: T, _: &dyn Values, from: char, to: &str) -> askama::Result<String>
-    where
-        T: std::fmt::Display,
-    {
+    #[askama::filter_fn]
+    pub fn replace<T: std::fmt::Display>(
+        input: T,
+        _: &dyn Values,
+        from: char,
+        to: &str,
+    ) -> askama::Result<String> {
         Ok(format!("{input}").replace(from, to))
     }
 }
