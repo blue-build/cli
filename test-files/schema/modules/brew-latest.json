@@ -1,61 +1,260 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "/modules/brew.json",
-  "type": "object",
-  "properties": {
-    "type": {
-      "type": "string",
-      "const": "brew",
-      "description": "The brew module installs Homebrew / Linuxbrew at build time and ensures the package manager remains up-to-date.\nhttps://blue-build.org/reference/modules/brew/"
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "/modules/brew-latest.json",
+    "type": "object",
+    "properties": {
+        "type": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "brew"
+                },
+                {
+                    "type": "string",
+                    "const": "brew@v1"
+                },
+                {
+                    "type": "string",
+                    "const": "brew@latest"
+                }
+            ],
+            "description": "The brew module installs Homebrew / Linuxbrew at build time and ensures the package manager remains up-to-date.\nhttps://blue-build.org/reference/modules/brew/"
+        },
+        "no-cache": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
+        },
+        "env": {
+            "$ref": "#/$defs/RecordString",
+            "description": "Environment variables to add for the module call."
+        },
+        "secrets": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/Secret"
+            },
+            "description": "Secrets to mount for this module call."
+        },
+        "auto-update": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to auto-update the Brew binary using a systemd service."
+        },
+        "update-interval": {
+            "type": "string",
+            "default": "6h",
+            "description": "Defines how often the Brew update service should run. The string is passed directly to `OnUnitInactiveSec` in systemd timer. (Syntax: ['1d', '6h', '10m'])."
+        },
+        "update-wait-after-boot": {
+            "type": "string",
+            "default": "10min",
+            "description": "Time delay after system boot before the first Brew update runs. The string is passed directly to `OnBootSec` in systemd timer. (Syntax: ['1d', '6h', '10m'])."
+        },
+        "auto-upgrade": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to auto-upgrade all installed Brew packages using a systemd service."
+        },
+        "upgrade-interval": {
+            "type": "string",
+            "default": "8h",
+            "description": "Defines how often the Brew upgrade service should run. The string is passed directly to `OnUnitInactiveSec` in systemd timer. (Syntax: ['1d', '6h', '10m'])."
+        },
+        "upgrade-wait-after-boot": {
+            "type": "string",
+            "default": "30min",
+            "description": "Time delay after system boot before the first Brew package upgrade runs. The string is passed directly to `OnBootSec` in systemd timer. (Syntax: ['1d', '6h', '10m'])."
+        },
+        "nofile-limits": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether to increase nofile limits (limits for number of open files) for Brew installations.\nWhen set to true, it increases the nofile limits to prevent certain \"I/O heavy\" Brew packages from failing due to \"too many open files\" error.\nHowever, it's important to note that increasing nofile limits can have potential security implications for malicious applications which would try to abuse storage I/O.\nDefaults to false for security purposes.\n\nhttps://serverfault.com/questions/577437/what-is-the-impact-of-increasing-nofile-limits-in-etc-security-limits-conf"
+        },
+        "brew-analytics": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to enable Brew analytics.\nThe Homebrew project uses analytics to anonymously collect the information about Brew usage & your system in order to improve the experience of Brew users."
+        },
+        "direct-pull": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether to skip ublue's cache and directly install from Homebrew using the official installer.\nUblue provides a tarball cache of a Homebrew installation."
+        },
+        "installer-commit": {
+            "type": "string",
+            "default": "HEAD",
+            "description": "The commit to use when directly pulling the Homebrew install script.\nDefaults to \"HEAD\"."
+        }
     },
-    "no-cache": {
-      "type": "boolean",
-      "default": false,
-      "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
-    },
-    "auto-update": {
-      "type": "boolean",
-      "default": true,
-      "description": "Whether to auto-update the Brew binary using a systemd service."
-    },
-    "update-interval": {
-      "type": "string",
-      "default": "6h",
-      "description": "Defines how often the Brew update service should run. The string is passed directly to `OnUnitInactiveSec` in systemd timer. (Syntax: ['1d', '6h', '10m'])."
-    },
-    "update-wait-after-boot": {
-      "type": "string",
-      "default": "10min",
-      "description": "Time delay after system boot before the first Brew update runs. The string is passed directly to `OnBootSec` in systemd timer. (Syntax: ['1d', '6h', '10m'])."
-    },
-    "auto-upgrade": {
-      "type": "boolean",
-      "default": true,
-      "description": "Whether to auto-upgrade all installed Brew packages using a systemd service."
-    },
-    "upgrade-interval": {
-      "type": "string",
-      "default": "8h",
-      "description": "Defines how often the Brew upgrade service should run. The string is passed directly to `OnUnitInactiveSec` in systemd timer. (Syntax: ['1d', '6h', '10m'])."
-    },
-    "upgrade-wait-after-boot": {
-      "type": "string",
-      "default": "30min",
-      "description": "Time delay after system boot before the first Brew package upgrade runs. The string is passed directly to `OnBootSec` in systemd timer. (Syntax: ['1d', '6h', '10m'])."
-    },
-    "nofile-limits": {
-      "type": "boolean",
-      "default": false,
-      "description": "Whether to increase nofile limits (limits for number of open files) for Brew installations.\nWhen set to true, it increases the nofile limits to prevent certain \"I/O heavy\" Brew packages from failing due to \"too many open files\" error.\nHowever, it's important to note that increasing nofile limits can have potential security implications for malicious applications which would try to abuse storage I/O.\nDefaults to false for security purposes.\n\nhttps://serverfault.com/questions/577437/what-is-the-impact-of-increasing-nofile-limits-in-etc-security-limits-conf"
-    },
-    "brew-analytics": {
-      "type": "boolean",
-      "default": true,
-      "description": "Whether to enable Brew analytics. \nThe Homebrew project uses analytics to anonymously collect the information about Brew usage & your system in order to improve the experience of Brew users."
+    "required": [
+        "type"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+        "RecordString": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "Secret": {
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/SecretEnv"
+                },
+                {
+                    "$ref": "#/$defs/SecretFile"
+                },
+                {
+                    "$ref": "#/$defs/SecretExec"
+                },
+                {
+                    "$ref": "#/$defs/SecretSsh"
+                }
+            ]
+        },
+        "SecretEnv": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "env",
+                    "description": "A secret pulled from an environment variable."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The name of the environment variable"
+                },
+                "mount": {
+                    "$ref": "#/$defs/SecretMount",
+                    "description": "Defines the mount type for the result of the command into the build."
+                }
+            },
+            "required": [
+                "type",
+                "name",
+                "mount"
+            ],
+            "additionalProperties": false
+        },
+        "SecretFile": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "file",
+                    "description": "A secret pulled from a file."
+                },
+                "source": {
+                    "type": "string",
+                    "description": "The source file containing the secret.\n\nNOTE: Relative paths are relative to the root of the repository."
+                },
+                "mount": {
+                    "$ref": "#/$defs/SecretMount",
+                    "description": "Defines the mount type for the result of the command into the build."
+                }
+            },
+            "required": [
+                "type",
+                "source",
+                "mount"
+            ],
+            "additionalProperties": false
+        },
+        "SecretExec": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "exec",
+                    "description": "A secret pulled from the stdout of a command."
+                },
+                "command": {
+                    "type": "string",
+                    "description": "The command that will be executed."
+                },
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Arguments for the command being executed."
+                },
+                "mount": {
+                    "$ref": "#/$defs/SecretMount",
+                    "description": "Defines the mount type for the result of the command into the build."
+                }
+            },
+            "required": [
+                "type",
+                "command",
+                "mount"
+            ],
+            "additionalProperties": false
+        },
+        "SecretSsh": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "ssh",
+                    "description": "Mount the SSH socket to use the hosts SSH socket."
+                }
+            },
+            "required": [
+                "type"
+            ],
+            "additionalProperties": false
+        },
+        "SecretMount": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/SecretMountEnv"
+                },
+                {
+                    "$ref": "#/$defs/SecretMountFile"
+                }
+            ]
+        },
+        "SecretMountEnv": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "env",
+                    "description": "A secret pulled from a file on the host system."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The environment variable where the secret will be set."
+                }
+            },
+            "required": [
+                "type",
+                "name"
+            ],
+            "additionalProperties": false
+        },
+        "SecretMountFile": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "file",
+                    "description": "A secret pulled from a file on the host system."
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "The destination path in the build to mount the secret."
+                }
+            },
+            "required": [
+                "type",
+                "destination"
+            ],
+            "additionalProperties": false
+        }
     }
-  },
-  "required": [
-    "type"
-  ],
-  "additionalProperties": false
 }

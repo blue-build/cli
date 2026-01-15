@@ -1,24 +1,24 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "/modules/systemd-v1.json",
+    "$id": "/modules/kargs-v1.json",
     "type": "object",
     "properties": {
         "type": {
             "anyOf": [
                 {
                     "type": "string",
-                    "const": "systemd"
+                    "const": "kargs"
                 },
                 {
                     "type": "string",
-                    "const": "systemd@v1"
+                    "const": "kargs@v1"
                 },
                 {
                     "type": "string",
-                    "const": "systemd@latest"
+                    "const": "kargs@latest"
                 }
             ],
-            "description": "The systemd module streamlines the management of systemd units during image building.\nhttps://blue-build.org/reference/modules/systemd/"
+            "description": "The kargs module injects kernel arguments into the image.\nhttps://blue-build.org/reference/modules/kargs/"
         },
         "no-cache": {
             "type": "boolean",
@@ -36,17 +36,21 @@
             },
             "description": "Secrets to mount for this module call."
         },
-        "system": {
-            "$ref": "#/$defs/UnitConfig",
-            "description": "System unit configuration."
+        "arch": {
+            "type": "string",
+            "description": "Defines on which OS architectures are kargs applied. Defaults to all architectures if omitted."
         },
-        "user": {
-            "$ref": "#/$defs/UnitConfig",
-            "description": "User unit configuration (with --global to make changes for all users)."
+        "kargs": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Kargs to inject in the image."
         }
     },
     "required": [
-        "type"
+        "type",
+        "kargs"
     ],
     "additionalProperties": false,
     "$defs": {
@@ -72,40 +76,6 @@
                     "$ref": "#/$defs/SecretSsh"
                 }
             ]
-        },
-        "UnitConfig": {
-            "type": "object",
-            "properties": {
-                "enabled": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to enable. (runs on system boot)"
-                },
-                "disabled": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to disable. (does not run on system boot, unless another unit strictly requires it)"
-                },
-                "masked": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to mask. (does not run on system boot, under any circumstances)"
-                },
-                "unmasked": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to unmask. (runs on system boot, even if previously masked)"
-                }
-            },
-            "additionalProperties": false
         },
         "SecretEnv": {
             "type": "object",
