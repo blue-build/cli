@@ -88,7 +88,7 @@ SHELL ["bash", "-c"]
         {%- endif %}
       {%- endif %}
 
-      {% call modules::stage_modules_run(stage.modules_ext, os_version) %}
+      {% call modules::stage_modules_run(stage.modules_ext, os_version) %}{% endcall %}
     {%- endif %}
   {%- endfor %}
 {%- endif %}
