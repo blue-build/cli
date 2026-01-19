@@ -33,7 +33,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 serde_yaml = { version = "0.10.0", package = "serde_yaml_ng" }
 syntect = { version = "5.3.0", default-features = false, features = ["default-fancy"] }
-tempfile = "3.23.0"
+tempfile = "3.24.0"
 tokio = { version = "1.49.0", features = ["rt", "rt-multi-thread"] }
 uuid = { version = "1.19.0", features = ["v4"] }
 which = "8.0.0"
