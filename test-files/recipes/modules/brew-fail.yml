@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://schema.blue-build.org/modules/brew.json
+# yaml-language-server: $schema=https://schema.blue-build.org/modules/brew-v1.json
 type: brew
 auto-update: true
 update-interval: "6h"
