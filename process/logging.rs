@@ -4,7 +4,10 @@ use std::{
     io::{BufRead, BufReader, Result, Write as IoWrite},
     path::{Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
-    sync::Mutex,
+    sync::{
+        LazyLock, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
     thread,
     time::Duration,
 };
@@ -32,7 +35,7 @@ use log4rs::{
 };
 use nu_ansi_term::Color;
 use private::Private;
-use rand::Rng;
+use rand::seq::SliceRandom;
 
 use crate::signal_handler::{add_pid, remove_pid};
 
@@ -478,14 +481,36 @@ where
     }
 }
 
+// ANSI extended color range:
+// https://www.ditig.com/publications/256-colors-cheat-sheet
+//
+// The following ANSI color codes are exactly the color codes that have a contrast ratio of
+// at least 4.0 on both white and black backgrounds, as defined by WCAG 2.2:
+// https://www.w3.org/TR/WCAG22/#dfn-contrast-ratio
+// This ensures that the colors are legible in both light and dark mode.
+// (WCAG 2.2 requires a contrast ratio of 4.5 for accessibility, but there are too few colors
+// that meet that requirement on both white and black backgrounds.)
+const MID_COLORS: [u8; 22] = [
+    27, 28, 29, 30, 31, 62, 63, 64, 65, 96, 97, 98, 99, 129, 130, 131, 132, 133, 161, 162, 163, 164,
+];
+
+/// Generate random ANSI colors that are legible on both light and dark backgrounds.
+///
+/// More precisely, all generated colors have a contrast ratio of at least 4.0 (as defined by
+/// WCAG 2.2) on both white and black backgrounds.
+///
+/// This function internally keeps track of state and will cycle through all such colors in a
+/// random order before repeating colors.
 #[must_use]
 pub fn gen_random_ansi_color() -> u8 {
-    // ANSI extended color range
-    // https://www.ditig.com/publications/256-colors-cheat-sheet
-    const LOW_END: u8 = 21; // Blue1 #0000ff rgb(0,0,255) hsl(240,100%,50%)
-    const HIGH_END: u8 = 230; // Cornsilk1 #ffffd7 rgb(255,255,215) hsl(60,100%,92%)
-
-    rand::rng().random_range(LOW_END..=HIGH_END)
+    static SHUFFLED_COLORS: LazyLock<[u8; MID_COLORS.len()]> = LazyLock::new(|| {
+        let mut colors = MID_COLORS;
+        colors.shuffle(&mut rand::rng());
+        colors
+    });
+    static COUNTER: AtomicUsize = AtomicUsize::new(0);
+    let index = COUNTER.fetch_add(1, Ordering::Relaxed) % MID_COLORS.len();
+    SHUFFLED_COLORS[index]
 }
 
 pub fn color_str<T>(text: T, ansi_color: u8) -> String
