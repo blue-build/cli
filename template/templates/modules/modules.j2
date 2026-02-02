@@ -1,4 +1,4 @@
-{% macro main_modules_run(modules_ext, os_version) %}
+{% macro modules_run(modules_ext, os_version, stage_name) %}
 # Module RUNs
   {%- for module in modules_ext.modules %}
     {%- if let Some(module) = module.required_fields %}
@@ -6,20 +6,26 @@
 ARG CACHEBUST="{{ build_id }}"
       {%- endif %}
 
+      {#- Builtin modules #}
       {%- if module.module_type.typ() == "containerfile" %}
         {%- include "modules/containerfile/containerfile.j2" %}
       {%- else if module.module_type.typ() == "copy" %}
         {%- include "modules/copy/copy.j2" %}
       {%- else %}
 RUN \
+        {#- Secret mounts #}
         {%- for secret_mount in module.secrets.mounts() %}
   {{ secret_mount }} \
         {%- endfor %}
+
+        {#- Files mount #}
         {%- if self::files_dir_exists() %}
   --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,rw \
         {%- else if self::config_dir_exists() %}
   --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
         {%- endif %}
+
+        {#- Module source mount #}
         {%- if let Some(source) = module.get_non_local_source() %}
   --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
         {%- else if module.is_local_source() %}
@@ -27,64 +33,42 @@ RUN \
         {%- else %}
   --mount=type=bind,from={{ module.get_module_image() }},src=/modules,dst=/tmp/modules,rw \
         {%- endif %}
+
+        {#- Nushell bin mount #}
         {%- if !should_install_nu() %}
   --mount=type=bind,from={{ blue_build_utils::constants::NUSHELL_IMAGE }}:{{ get_nu_version() }},src=/nu,dst=/usr/libexec/bluebuild/nu \
         {%- endif %}
+
+        {#- Akmods mount #}
+        {#- TODO: Needs to be deprecated #}
         {%- if module.module_type.typ() == "akmods" %}
   --mount=type=bind,from=stage-akmods-{{ module.generate_akmods_info(os_version).stage_name }},src=/rpms,dst=/tmp/rpms,rw \
         {%- endif %}
+
+        {#- Build scripts mount #}
   {{ scripts_mount("/tmp/scripts/") }} \
-  --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
-  --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-{{ recipe.name }}-{{ recipe.image_version }},sharing=locked \
+
+        {#- Package cache mounts #}
+        {%- let cache_mount = "--mount=type=cache,sharing=locked" %}
+        {%- let cache_name = self::package_cache_mount_name(recipe.name, recipe.image_version, stage_name) %}
+  {{ cache_mount }},dst=/var/cache/rpm-ostree,id=rpm-ostree-{{ cache_name }} \
+  {{ cache_mount }},dst=/var/cache/libdnf5,id=dnf-{{ cache_name }} \
+  {{ cache_mount }},dst=/var/cache/zypp,id=zypper-{{ cache_name }} \
+  {{ cache_mount }},dst=/var/cache/apk,id=apk-{{ cache_name }} \
+  {{ cache_mount }},dst=/var/cache/apt,id=apt-{{ cache_name }} \
+  {{ cache_mount }},dst=/var/cache/pacman,id=pacman-{{ cache_name }} \
+
+        {#- Secret environment variables #}
         {%- for secret_var in module.secrets.envs() %}
   {{ secret_var }} \
         {%- endfor %}
+
+        {#- Environment variables #}
         {%- for (key, value) in module.get_env() %}
   {{ key }}="{{ value | replace('"', "\\\"") }}" \
         {%- endfor %}
-  /tmp/scripts/run_module.sh '{{ module.module_type.typ() }}' '{{ module|json|safe }}'
-      {%- endif %}
-    {%- endif %}
-  {%- endfor %}
-{% endmacro %}
 
-{% macro stage_modules_run(modules_ext, os_version) %}
-# Module RUNs
-  {%- for module in modules_ext.modules %}
-    {%- if let Some(module) = module.required_fields %}
-
-      {%- if module.no_cache %}
-ARG CACHEBUST="{{ build_id }}"
-      {%- endif %}
-
-      {%- if module.module_type.typ() == "containerfile" %}
-        {%- include "modules/containerfile/containerfile.j2" %}
-      {%- else if module.module_type.typ() == "copy" %}
-        {%- include "modules/copy/copy.j2" %}
-      {%- else %}
-RUN \
-        {%- for secret_mount in module.secrets.mounts() %}
-  {{ secret_mount }} \
-        {%- endfor %}
-        {%- if self::files_dir_exists() %}
-  --mount=type=bind,from=stage-files,src=/files,dst=/tmp/files,rw \
-        {%- else if self::config_dir_exists() %}
-  --mount=type=bind,from=stage-config,src=/config,dst=/tmp/config,rw \
-        {%- endif %}
-        {%- if let Some(source) = module.get_non_local_source() %}
-  --mount=type=bind,from={{ source }},src=/modules,dst=/tmp/modules,rw \
-        {%- else if module.is_local_source() %}
-  --mount=type=bind,from=stage-modules,src=/modules,dst=/tmp/modules,rw \
-        {%- else %}
-  --mount=type=bind,from={{ module.get_module_image() }},src=/modules,dst=/tmp/modules,rw \
-        {%- endif %}
-  {{ scripts_mount("/tmp/scripts/") }} \
-        {%- for secret_var in module.secrets.envs() %}
-  {{ secret_var }} \
-        {%- endfor %}
-        {%- for (key, value) in module.get_env() %}
-  {{ key }}="{{ value | replace('"', "\\\"") }}" \
-        {%- endfor %}
+  {#- Run the module #}
   /tmp/scripts/run_module.sh '{{ module.module_type.typ() }}' '{{ module|json|safe }}'
       {%- endif %}
     {%- endif %}

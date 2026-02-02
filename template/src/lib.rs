@@ -3,6 +3,7 @@ use std::{borrow::Cow, collections::BTreeMap, fs, path::Path, process};
 use blue_build_recipe::{MaybeVersion, Recipe};
 use blue_build_utils::{
     constants::{CONFIG_PATH, CONTAINER_FILE, CONTAINERFILES_PATH, COSIGN_PUB_PATH, FILES_PATH},
+    container::Tag,
     secret::SecretMounts,
 };
 use bon::Builder;
@@ -176,6 +177,11 @@ fn config_dir_exists() -> bool {
 
 fn should_color() -> bool {
     ShouldColorize::from_env().should_colorize()
+}
+
+#[must_use]
+fn package_cache_mount_name(recipe_name: &str, image_version: &Tag, stage_name: &str) -> String {
+    format!("cache-{recipe_name}-{image_version}-stage-{stage_name}")
 }
 
 mod filters {
