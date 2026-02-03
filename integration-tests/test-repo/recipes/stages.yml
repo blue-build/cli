@@ -6,7 +6,6 @@ stages:
     modules:
       - from-file: stages.yml
       - type: apt
-        source: ghcr.io/blue-build/modules/apt:pr-523
         install:
           packages:
             - git
@@ -15,7 +14,6 @@ stages:
     modules:
       - from-file: stages.yml
       - type: apt
-        source: ghcr.io/blue-build/modules/apt:pr-523
         install:
           packages:
             - git
@@ -32,7 +30,6 @@ stages:
     modules:
       - from-file: stages.yml
       - type: apk
-        source: ghcr.io/blue-build/modules/apk:pr-523
         install:
           packages:
             - git
@@ -42,7 +39,6 @@ stages:
     modules:
       - from-file: stages.yml
       - type: pacman
-        source: ghcr.io/blue-build/modules/pacman:pr-523
         install:
           packages:
             - git
@@ -51,7 +47,6 @@ stages:
     modules:
       - from-file: stages.yml
       - type: zypper
-        source: ghcr.io/blue-build/modules/zypper:pr-523
         install:
           packages:
             - git
