@@ -11,7 +11,7 @@ default:
   @just --list
 
 # Clean up development files and images
-clean:
+clean: clean_container_build_scripts
   cargo clean
   command -v docker \
     && docker buildx --builder bluebuild prune -f \
@@ -23,6 +23,10 @@ clean:
   command -v earthly \
     && earthly prune --reset \
     || true
+
+# Cleans build scripts generated from container testing which can be root
+clean_container_build_scripts:
+  sudo rm -fr integration-tests/test-repo/.bluebuild-scripts_*
 
 # Install bluebuild using cargo with release optimization
 install:
