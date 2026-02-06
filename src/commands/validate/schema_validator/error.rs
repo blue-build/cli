@@ -32,9 +32,13 @@ pub enum SchemaValidateBuilderError {
 
 #[derive(Error, Diagnostic, Debug)]
 pub enum SchemaValidateError {
-    #[error("Failed to deserialize file {}", .1.display().to_string().bold().italic())]
+    #[error("Failed to deserialize file {}:\n{}", .1.display().to_string().bold().italic(), .0)]
     #[diagnostic()]
     SerdeYaml(serde_yaml::Error, PathBuf),
+
+    #[error("Failed to deserialize schema errors:\n{}", .0)]
+    #[diagnostic()]
+    SerdeJson(#[from] serde_json::Error),
 
     #[error(
         "{} error{} encountered",
