@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    ops::Not,
     sync::{Arc, LazyLock, RwLock},
     thread::{self, ThreadId},
 };
@@ -33,6 +34,12 @@ where
             .ok_or_else(|| miette!("Failed to retrieve env var '{key:?}'"))
     }
     inner(key.as_ref())
+}
+
+/// Checks if an environment variable is set and isn't empty.
+#[must_use]
+pub fn has_env_var(key: &str) -> bool {
+    get_env_var(key).is_ok_and(|v| v.is_empty().not())
 }
 
 pub fn set_env_var<S, T>(key: S, value: T)
