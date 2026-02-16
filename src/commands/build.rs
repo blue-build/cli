@@ -214,7 +214,7 @@ impl BlueBuildCommand for BuildCommand {
             bail!("You cannot use '--rechunk' and '--build-chunked-oci' at the same time");
         }
 
-        if self.push {
+        if self.push && !self.no_sign {
             blue_build_utils::check_command_exists("cosign")?;
             Driver::check_signing_files(CheckKeyPairOpts::builder().dir(Path::new(".")).build())?;
         }
