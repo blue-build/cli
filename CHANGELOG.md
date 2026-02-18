@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.31] - 2026-02-18
+
+### Bug Fixes
+
+- Ensure generated ANSI colors have adequate contrast (#683)
+- Verification checks correct pub file
+- Ensure --no-sign doesn't check cosign keys
+
+### Features
+
+- Add support for new package managers (#649)
+
+### Miscellaneous Tasks
+
+- Add clean script for container build tests
+
 ## [0.9.30] - 2026-01-15
 
 ### Bug Fixes
@@ -19,6 +35,7 @@ All notable changes to this project will be documented in this file.
 - Bump cosign to v3.0.3 (#665)
 - Bump cosign to v3.0.4 (#666)
 - Prune after removing base image when rechunking (#667)
+- Release
 - Release
 
 ## [0.9.28] - 2025-12-29
