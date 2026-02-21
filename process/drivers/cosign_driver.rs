@@ -12,11 +12,13 @@ use miette::{Context, IntoDiagnostic, Result, bail};
 use semver::VersionReq;
 use serde::Deserialize;
 
-use crate::drivers::{DriverVersion, opts::VerifyType};
+use crate::drivers::{
+    DriverVersion,
+    opts::{PrivateKey, VerifyType},
+};
 
 use super::{
     SigningDriver,
-    functions::get_private_key,
     opts::{CheckKeyPairOpts, GenerateKeyPairOpts, SignOpts, VerifyOpts},
 };
 
@@ -86,7 +88,7 @@ impl SigningDriver for CosignDriver {
 
     fn check_signing_files(opts: CheckKeyPairOpts) -> Result<()> {
         let path = opts.dir.unwrap_or_else(|| Path::new("."));
-        let priv_key = get_private_key(path)?;
+        let priv_key = PrivateKey::new(path)?;
 
         let output = {
             let c = cmd!(
@@ -156,14 +158,14 @@ impl SigningDriver for CosignDriver {
         Ok(())
     }
 
-    fn sign(opts: SignOpts) -> Result<()> {
-        if opts.image.digest().is_none() {
-            bail!(
-                "Image ref {} is not a digest ref",
-                opts.image.to_string().bold().red(),
-            );
-        }
-
+    fn sign(
+        SignOpts {
+            image,
+            metadata,
+            key,
+        }: SignOpts,
+    ) -> Result<()> {
+        let image = image.clone_with_digest(metadata.digest().into());
         let status = {
             let c = cmd!(
                 env {
@@ -172,13 +174,13 @@ impl SigningDriver for CosignDriver {
                 };
                 "cosign",
                 "sign",
-                if let Some(key) = opts.key => format!("--key={key}"),
+                if let Some(key) = key => format!("--key={key}"),
                 if Self::is_v3() => [
                     "--new-bundle-format=false",
                     "--use-signing-config=false",
                 ],
                 "--recursive",
-                opts.image.to_string(),
+                image.to_string(),
             );
             trace!("{c:?}");
             c
@@ -187,7 +189,7 @@ impl SigningDriver for CosignDriver {
         .into_diagnostic()?;
 
         if !status.success() {
-            bail!("Failed to sign {}", opts.image.to_string().bold().red());
+            bail!("Failed to sign {}", image.to_string().bold().red());
         }
 
         Ok(())

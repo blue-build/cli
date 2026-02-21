@@ -3,16 +3,75 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use blue_build_utils::{get_env_var, platform::Platform};
+use blue_build_utils::{
+    constants::{BB_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PRIVATE_KEY, COSIGN_PUB_PATH},
+    get_env_var,
+    platform::Platform,
+    string,
+};
 use bon::Builder;
-use miette::{IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, bail};
 use oci_client::Reference;
 use zeroize::{Zeroize, Zeroizing};
+
+use crate::drivers::types::ImageMetadata;
 
 #[derive(Debug)]
 pub enum PrivateKey {
     Env(String),
     Path(PathBuf),
+}
+
+impl PrivateKey {
+    /// Create a `PrivateKey` object that tracks where the public key is.
+    ///
+    /// Contents of the `PrivateKey` are lazy loaded when `PrivateKey::contents` is called.
+    ///
+    /// # Errors
+    ///
+    /// Will error if the private key location cannot be found.
+    pub fn new<P>(path: P) -> Result<Self>
+    where
+        P: AsRef<Path>,
+    {
+        let path = path.as_ref();
+
+        Ok(
+            match (
+                path.join(COSIGN_PUB_PATH).exists(),
+                get_env_var(BB_PRIVATE_KEY).ok(),
+                get_env_var(COSIGN_PRIVATE_KEY).ok(),
+                path.join(COSIGN_PRIV_PATH),
+            ) {
+                (true, Some(private_key), _, _) if !private_key.is_empty() => {
+                    Self::Env(string!(BB_PRIVATE_KEY))
+                }
+                (true, _, Some(cosign_priv_key), _) if !cosign_priv_key.is_empty() => {
+                    Self::Env(string!(COSIGN_PRIVATE_KEY))
+                }
+                (true, _, _, cosign_priv_key_path) if cosign_priv_key_path.exists() => {
+                    Self::Path(cosign_priv_key_path)
+                }
+                _ => {
+                    bail!(
+                        help = format!(
+                            "{}{}{}{}{}{}",
+                            format_args!("Make sure you have a `{COSIGN_PUB_PATH}`\n"),
+                            format_args!(
+                                "in the root of your repo and have either {COSIGN_PRIVATE_KEY}\n"
+                            ),
+                            format_args!("set in your env variables or a `{COSIGN_PRIV_PATH}`\n"),
+                            "file in the root of your repo.\n\n",
+                            "See https://blue-build.org/how-to/cosign/ for more information.\n\n",
+                            "If you don't want to sign your image, use the `--no-sign` flag.",
+                        ),
+                        "{}",
+                        "Unable to find private/public key pair",
+                    )
+                }
+            },
+        )
+    }
 }
 
 impl std::fmt::Display for PrivateKey {
@@ -70,8 +129,8 @@ pub struct CheckKeyPairOpts<'scope> {
 #[builder(derive(Debug, Clone))]
 pub struct SignOpts<'scope> {
     pub image: &'scope Reference,
+    pub metadata: &'scope ImageMetadata,
     pub key: Option<&'scope PrivateKey>,
-    pub dir: Option<&'scope Path>,
 }
 
 #[derive(Debug, Clone, Copy)]

@@ -61,7 +61,6 @@ mod bootc_driver;
 mod buildah_driver;
 mod cosign_driver;
 mod docker_driver;
-mod functions;
 mod github_driver;
 mod gitlab_driver;
 mod local_driver;
