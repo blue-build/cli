@@ -8,13 +8,18 @@ fn main() {
 
     Logger::new()
         .filter_level(args.verbosity.log_level_filter())
-        .filter_modules([
-            ("hyper::proto", LevelFilter::Off),
-            ("hyper_util", LevelFilter::Off),
-            ("reqwest", LevelFilter::Off),
-            ("oci_client", LevelFilter::Off),
-            ("rustls", LevelFilter::Off),
-        ])
+        .filter_modules(if args.no_log_filter {
+            vec![]
+        } else {
+            vec![
+                ("hyper::proto", LevelFilter::Off),
+                ("hyper_util", LevelFilter::Off),
+                ("reqwest", LevelFilter::Off),
+                ("oci_client", LevelFilter::Off),
+                ("rustls", LevelFilter::Off),
+                ("mio", LevelFilter::Off),
+            ]
+        })
         .log_out_dir(args.log_out.clone())
         .init();
     log::trace!("Parsed arguments: {args:#?}");

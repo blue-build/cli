@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use blue_build_utils::constants::BB_NO_LOG_FILTER;
 use log::error;
 
 use clap::{Parser, Subcommand, crate_authors};
@@ -48,6 +49,13 @@ pub trait BlueBuildCommand {
 pub struct BlueBuildArgs {
     #[command(subcommand)]
     pub command: CommandArgs,
+
+    /// Allows printing logs from all crates.
+    ///
+    /// WARNING: This can print sensitive information.
+    /// Be sure to run this in a non-public setting.
+    #[arg(long, env = BB_NO_LOG_FILTER)]
+    pub no_log_filter: bool,
 
     /// The directory to output build logs.
     #[arg(long)]

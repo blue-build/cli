@@ -42,6 +42,7 @@ pub const BB_GENISO_SECURE_BOOT_URL: &str = "BB_GENISO_SECURE_BOOT_URL";
 pub const BB_GENISO_VARIANT: &str = "BB_GENISO_VARIANT";
 pub const BB_GENISO_WEB_UI: &str = "BB_GENISO_WEB_UI";
 pub const BB_INSPECT_DRIVER: &str = "BB_INSPECT_DRIVER";
+pub const BB_NO_LOG_FILTER: &str = "BB_NO_LOG_FILTER";
 pub const BB_PASSWORD: &str = "BB_PASSWORD";
 pub const BB_PRIVATE_KEY: &str = "BB_PRIVATE_KEY";
 pub const BB_REGISTRY: &str = "BB_REGISTRY";
