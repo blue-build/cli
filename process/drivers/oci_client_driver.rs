@@ -2,7 +2,7 @@ use blue_build_utils::credentials::Credentials;
 use cached::proc_macro::cached;
 use log::trace;
 use miette::{IntoDiagnostic, Result};
-use oci_client::{Reference, client::ClientConfig, secrets::RegistryAuth};
+use oci_client::{Reference, client::ClientConfig, manifest::OciManifest, secrets::RegistryAuth};
 
 use crate::{
     ASYNC_RUNTIME,
@@ -29,20 +29,47 @@ impl InspectDriver for OciClientDriver {
             let (manifest, digest) = ASYNC_RUNTIME
                 .block_on(client.pull_manifest(image, &auth))
                 .into_diagnostic()?;
-            let (image_manifest, _image_digest) = ASYNC_RUNTIME
-                .block_on(client.pull_image_manifest(image, &auth))
-                .into_diagnostic()?;
-            let config = {
-                let mut c: Vec<u8> = vec![];
-                ASYNC_RUNTIME
-                    .block_on(client.pull_blob(image, &image_manifest.config, &mut c))
-                    .into_diagnostic()?;
-                c
+
+            let manifest_digests = match &manifest {
+                OciManifest::Image(_) => vec![&digest],
+                OciManifest::ImageIndex(index) => {
+                    index.manifests.iter().map(|entry| &entry.digest).collect()
+                }
             };
+
+            trace!("Found digests: {manifest_digests:#?}");
+
+            let configs = manifest_digests
+                .into_iter()
+                .map(|digest| {
+                    let image = &image.clone_with_digest(digest.clone());
+                    let (image_manifest, _) = ASYNC_RUNTIME
+                        .block_on(client.pull_image_manifest(image, &auth))
+                        .into_diagnostic()?;
+
+                    let config = {
+                        let mut c: Vec<u8> = vec![];
+                        ASYNC_RUNTIME
+                            .block_on(client.pull_blob(image, &image_manifest.config, &mut c))
+                            .into_diagnostic()?;
+                        c
+                    };
+                    Ok((
+                        image_manifest.config.digest,
+                        serde_json::from_slice(&config).into_diagnostic()?,
+                    ))
+                })
+                .collect::<Result<Vec<_>>>()?;
+
+            trace!(
+                "Config digests: {:#?}",
+                configs.iter().map(|(digest, _)| digest)
+            );
+
             Ok(ImageMetadata::builder()
                 .manifest(manifest)
                 .digest(digest)
-                .config(serde_json::from_slice(&config).into_diagnostic()?)
+                .configs(configs)
                 .build())
         }
         trace!("OciClientDriver::get_metadata({opts:?})");
