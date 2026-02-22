@@ -1,44 +1,44 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "module-stage-list-v1.json",
-  "type": "object",
-  "properties": {
-    "modules": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/ModuleEntry"
-      },
-      "description": "A list of [modules](https://blue-build.org/reference/module/) that is executed in order. Multiple of the same module can be included.\n\nEach item in this list should have at least a `type:` or be specified to be included from an external file in the `recipes/` directory with `from-file:`."
-    },
-    "stages": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/StageEntry"
-      },
-      "description": "A list of [stages](https://blue-build.org/reference/stages/) that are executed before the build of the final image.\nThis is useful for compiling programs from source without polluting the final bootable image."
-    }
-  },
-  "additionalProperties": false,
-  "$defs": {
-    "ModuleEntry": {
-      "anyOf": [
-        {
-          "$ref": "module-v1.json"
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "module-stage-list-v1.json",
+    "type": "object",
+    "properties": {
+        "modules": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/ModuleEntry"
+            },
+            "description": "A list of [modules](https://blue-build.org/reference/module/) that is executed in order. Multiple of the same module can be included.\n\nEach item in this list should have at least a `type:` or be specified to be included from an external file in the `recipes/` directory with `from-file:`."
         },
-        {
-          "$ref": "import-v1.json"
+        "stages": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/StageEntry"
+            },
+            "description": "A list of [stages](https://blue-build.org/reference/stages/) that are executed before the build of the final image.\nThis is useful for compiling programs from source without polluting the final bootable image."
         }
-      ]
     },
-    "StageEntry": {
-      "anyOf": [
-        {
-          "$ref": "stage-v1.json"
+    "additionalProperties": false,
+    "$defs": {
+        "ModuleEntry": {
+            "oneOf": [
+                {
+                    "$ref": "module-v1.json"
+                },
+                {
+                    "$ref": "import-v1.json"
+                }
+            ]
         },
-        {
-          "$ref": "import-v1.json"
+        "StageEntry": {
+            "oneOf": [
+                {
+                    "$ref": "stage-v1.json"
+                },
+                {
+                    "$ref": "import-v1.json"
+                }
+            ]
         }
-      ]
     }
-  }
 }

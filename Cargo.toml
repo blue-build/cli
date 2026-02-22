@@ -78,7 +78,7 @@ clap-verbosity-flag = "3.0.4"
 clap_complete = "4.5.59"
 clap_complete_nushell = "4.5.9"
 fuzzy-matcher = "0.3.7"
-jsonschema = "0.30.0"
+jsonschema = "0.37.4"
 open = "5.3.2"
 os_info = "3.12.0"
 requestty = { version = "0.6.1", features = ["macros", "termion"] }
@@ -123,6 +123,7 @@ vendored-libgit2 = ["dep:git2", "git2/vendored-libgit2"]
 rusty-hook = "0.11"
 
 rstest.workspace = true
+pretty_assertions.workspace = true
 
 [build-dependencies]
 git2 = { version = "0.20.0", default-features = false, optional = true }

@@ -37,6 +37,8 @@ pub struct ValidateCommand {
     /// bluebuild repository.
     pub recipe: PathBuf,
 
+    /// DEPRECATED
+    ///
     /// Display all errors that failed
     /// validation of the recipe.
     #[arg(short, long)]
@@ -104,21 +106,11 @@ impl BlueBuildCommand for ValidateCommand {
 impl ValidateCommand {
     async fn setup_validators(&mut self) -> Result<(), Report> {
         let (rv, sv, mv, mslv) = tokio::try_join!(
-            SchemaValidator::builder()
-                .url(RECIPE_V1_SCHEMA_URL)
-                .all_errors(self.all_errors)
-                .build(),
-            SchemaValidator::builder()
-                .url(STAGE_V1_SCHEMA_URL)
-                .all_errors(self.all_errors)
-                .build(),
-            SchemaValidator::builder()
-                .url(MODULE_V1_SCHEMA_URL)
-                .all_errors(self.all_errors)
-                .build(),
+            SchemaValidator::builder().url(RECIPE_V1_SCHEMA_URL).build(),
+            SchemaValidator::builder().url(STAGE_V1_SCHEMA_URL).build(),
+            SchemaValidator::builder().url(MODULE_V1_SCHEMA_URL).build(),
             SchemaValidator::builder()
                 .url(MODULE_STAGE_LIST_V1_SCHEMA_URL)
-                .all_errors(self.all_errors)
                 .build(),
         )?;
         self.recipe_validator = Some(rv);

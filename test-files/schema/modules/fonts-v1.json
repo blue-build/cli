@@ -1,41 +1,259 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "/modules/fonts.json",
-  "type": "object",
-  "properties": {
-    "type": {
-      "type": "string",
-      "const": "fonts",
-      "description": "The fonts module can be used to install fonts from Nerd Fonts or Google Fonts. \nhttps://blue-build.org/reference/modules/fonts/"
-    },
-    "no-cache": {
-      "type": "boolean",
-      "default": false,
-      "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
-    },
-    "fonts": {
-      "type": "object",
-      "properties": {
-        "nerd-fonts": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "List of Nerd Fonts to install (without the \"Nerd Font\" suffix)."
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "/modules/fonts-v1.json",
+    "type": "object",
+    "properties": {
+        "type": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "fonts"
+                },
+                {
+                    "type": "string",
+                    "const": "fonts@v1"
+                },
+                {
+                    "type": "string",
+                    "const": "fonts@latest"
+                }
+            ],
+            "description": "The fonts module can be used to install fonts from Nerd Fonts, Google Fonts, or custom URLs.\nhttps://blue-build.org/reference/modules/fonts/"
         },
-        "google-fonts": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "List of Google Fonts to install."
+        "no-cache": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
+        },
+        "env": {
+            "$ref": "#/$defs/RecordString",
+            "description": "Environment variables to add for the module call."
+        },
+        "secrets": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/Secret"
+            },
+            "description": "Secrets to mount for this module call."
+        },
+        "fonts": {
+            "$ref": "#/$defs/Fonts"
         }
-      }
+    },
+    "required": [
+        "type",
+        "fonts"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+        "RecordString": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "Secret": {
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/SecretEnv"
+                },
+                {
+                    "$ref": "#/$defs/SecretFile"
+                },
+                {
+                    "$ref": "#/$defs/SecretExec"
+                },
+                {
+                    "$ref": "#/$defs/SecretSsh"
+                }
+            ]
+        },
+        "Fonts": {
+            "type": "object",
+            "properties": {
+                "nerd-fonts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "List of Nerd Fonts to install (without the \"Nerd Font\" suffix)."
+                },
+                "google-fonts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "List of Google Fonts to install."
+                },
+                "url-fonts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/UrlFont"
+                    },
+                    "description": "List of custom URL fonts to install."
+                }
+            },
+            "additionalProperties": false
+        },
+        "SecretEnv": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "env",
+                    "description": "A secret pulled from an environment variable."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The name of the environment variable"
+                },
+                "mount": {
+                    "$ref": "#/$defs/SecretMount",
+                    "description": "Defines the mount type for the result of the command into the build."
+                }
+            },
+            "required": [
+                "type",
+                "name",
+                "mount"
+            ],
+            "additionalProperties": false
+        },
+        "SecretFile": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "file",
+                    "description": "A secret pulled from a file."
+                },
+                "source": {
+                    "type": "string",
+                    "description": "The source file containing the secret.\n\nNOTE: Relative paths are relative to the root of the repository."
+                },
+                "mount": {
+                    "$ref": "#/$defs/SecretMount",
+                    "description": "Defines the mount type for the result of the command into the build."
+                }
+            },
+            "required": [
+                "type",
+                "source",
+                "mount"
+            ],
+            "additionalProperties": false
+        },
+        "SecretExec": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "exec",
+                    "description": "A secret pulled from the stdout of a command."
+                },
+                "command": {
+                    "type": "string",
+                    "description": "The command that will be executed."
+                },
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Arguments for the command being executed."
+                },
+                "mount": {
+                    "$ref": "#/$defs/SecretMount",
+                    "description": "Defines the mount type for the result of the command into the build."
+                }
+            },
+            "required": [
+                "type",
+                "command",
+                "mount"
+            ],
+            "additionalProperties": false
+        },
+        "SecretSsh": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "ssh",
+                    "description": "Mount the SSH socket to use the hosts SSH socket."
+                }
+            },
+            "required": [
+                "type"
+            ],
+            "additionalProperties": false
+        },
+        "UrlFont": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Name for the font (will be used as directory name)."
+                },
+                "url": {
+                    "type": "string",
+                    "description": "URL to download the font from (supports .otf, .ttf files and archives)."
+                }
+            },
+            "required": [
+                "name",
+                "url"
+            ],
+            "additionalProperties": false
+        },
+        "SecretMount": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/SecretMountEnv"
+                },
+                {
+                    "$ref": "#/$defs/SecretMountFile"
+                }
+            ]
+        },
+        "SecretMountEnv": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "env",
+                    "description": "A secret pulled from a file on the host system."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The environment variable where the secret will be set."
+                }
+            },
+            "required": [
+                "type",
+                "name"
+            ],
+            "additionalProperties": false
+        },
+        "SecretMountFile": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "file",
+                    "description": "A secret pulled from a file on the host system."
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "The destination path in the build to mount the secret."
+                }
+            },
+            "required": [
+                "type",
+                "destination"
+            ],
+            "additionalProperties": false
+        }
     }
-  },
-  "required": [
-    "type",
-    "fonts"
-  ],
-  "additionalProperties": false
 }
