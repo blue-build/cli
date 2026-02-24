@@ -22,7 +22,6 @@ use semver::VersionReq;
 
 use super::{
     Driver,
-    functions::get_private_key,
     opts::{
         BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts,
         CheckKeyPairOpts, ContainerOpts, CopyOciOpts, CreateContainerOpts, GenerateImageNameOpts,
@@ -38,7 +37,9 @@ use super::{
         SigningDriverType,
     },
 };
-use crate::{logging::CommandLogging, signal_handler::DetachedContainer};
+use crate::{
+    drivers::opts::PrivateKey, logging::CommandLogging, signal_handler::DetachedContainer,
+};
 
 trait PrivateDriver {}
 
@@ -945,7 +946,7 @@ pub trait SigningDriver: PrivateDriver {
             .map_or_else(|| PathBuf::from("."), |d| d.to_path_buf());
         let cosign_file_path = path.join(COSIGN_PUB_PATH);
 
-        let image_digest = Driver::get_metadata(
+        let metadata = Driver::get_metadata(
             GetMetadataOpts::builder()
                 .image(opts.image)
                 .no_cache(true)
@@ -954,11 +955,11 @@ pub trait SigningDriver: PrivateDriver {
         let image_digest = Reference::with_digest(
             opts.image.resolve_registry().into(),
             opts.image.repository().into(),
-            image_digest.digest().into(),
+            metadata.digest().into(),
         );
         let issuer = Driver::oidc_provider();
         let identity = Driver::keyless_cert_identity();
-        let priv_key = get_private_key(&path);
+        let priv_key = PrivateKey::new(&path);
 
         let (sign_opts, verify_opts) =
             match (Driver::get_ci_driver(), &priv_key, &issuer, &identity) {
@@ -966,8 +967,8 @@ pub trait SigningDriver: PrivateDriver {
                 (_, Ok(priv_key), _, _) => (
                     SignOpts::builder()
                         .image(&image_digest)
-                        .dir(&path)
                         .key(priv_key)
+                        .metadata(&metadata)
                         .build(),
                     VerifyOpts::builder()
                         .image(&image_digest)
@@ -976,7 +977,10 @@ pub trait SigningDriver: PrivateDriver {
                 ),
                 // Gitlab keyless
                 (CiDriverType::Github | CiDriverType::Gitlab, _, Ok(issuer), Ok(identity)) => (
-                    SignOpts::builder().dir(&path).image(&image_digest).build(),
+                    SignOpts::builder()
+                        .metadata(&metadata)
+                        .image(&image_digest)
+                        .build(),
                     VerifyOpts::builder()
                         .image(&image_digest)
                         .verify_type(VerifyType::Keyless { issuer, identity })
