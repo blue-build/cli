@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.32] - 2026-02-24
+
+### Bug Fixes
+
+- Only run setup if required programs don't exist (#712)
+- Get all the digests in the image ref and sign them (#705)
+
+### Miscellaneous Tasks
+
+- Bump cosign to v3.0.5 (#703)
+- Update log filter list and add arg to disable filter
+
 ## [0.9.31] - 2026-02-18
 
 ### Bug Fixes
@@ -17,6 +29,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Add clean script for container build tests
+- Release
 
 ## [0.9.30] - 2026-01-15
 
