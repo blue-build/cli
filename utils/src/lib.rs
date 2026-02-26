@@ -1,3 +1,4 @@
+pub mod colors;
 pub mod command_output;
 pub mod constants;
 pub mod container;

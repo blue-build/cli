@@ -15,10 +15,11 @@ use blue_build_process_management::{
         },
         types::{BuildDriverType, RunDriverType},
     },
-    logging::{color_str, gen_random_ansi_color},
+    logging::color_str,
 };
 use blue_build_recipe::Recipe;
 use blue_build_utils::{
+    colors::gen_random_ansi_color,
     constants::{
         ARCHIVE_SUFFIX, BB_BUILD_ARCHIVE, BB_BUILD_CHUNKED_OCI, BB_BUILD_CHUNKED_OCI_MAX_LAYERS,
         BB_BUILD_NO_SIGN, BB_BUILD_PLATFORM, BB_BUILD_PUSH, BB_BUILD_RECHUNK,
