@@ -117,7 +117,7 @@
           "type": "string",
           "description": "The destination path to mount to."
         },
-        "readOnly": {
+        "readonly": {
           "type": "boolean",
           "description": "Whether the mount should be read-only."
         }

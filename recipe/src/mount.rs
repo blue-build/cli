@@ -35,8 +35,8 @@ pub enum Mount {
         /// The destination path in the container.
         destination: String,
         /// Whether the mount is read-only.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        read_only: Option<bool>,
+        #[serde(default, rename = "readonly")]
+        readonly: bool,
     },
 
     /// A tmpfs mount, which mounts a temporary file system in memory.
@@ -69,12 +69,10 @@ impl std::fmt::Display for Mount {
             Self::Bind {
                 source,
                 destination,
-                read_only,
+                readonly,
             } => {
                 write!(f, "type=bind,source={source},dst={destination}")?;
-                if let Some(read_only) = read_only
-                    && *read_only
-                {
+                if *readonly {
                     write!(f, ",readonly")?;
                 }
             }
