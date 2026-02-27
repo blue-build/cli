@@ -59,8 +59,8 @@ RUN \
   {{ cache_mount }},dst=/var/cache/pacman,id=pacman-{{ cache_name }} \
   {{ cache_mount }},dst=/usr/lib/sysimage/cache/pacman,id=pacman-sysimage-{{ cache_name }} \
 
-        {#- Recipe defined mounts #}
-        {%- for mount in recipe.mounts.iter().flatten() %}
+        {#- User defined mounts #}
+        {%- for mount in recipe.mounts.iter().chain(module.mounts.iter()) %}
   --mount={{ mount.to_string() }} \
         {%- endfor %}
 

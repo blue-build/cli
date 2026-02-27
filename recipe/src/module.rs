@@ -11,7 +11,7 @@ use miette::{Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 
-use crate::{AkmodsInfo, ModuleExt, base_recipe_path};
+use crate::{AkmodsInfo, ModuleExt, base_recipe_path, mount::Mount};
 
 mod type_ver;
 
@@ -38,6 +38,10 @@ pub struct ModuleRequiredFields {
     #[builder(into, default)]
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub secrets: Vec<Secret>,
+
+    #[builder(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub mounts: Vec<Mount>,
 
     #[serde(flatten)]
     #[builder(default, into)]
