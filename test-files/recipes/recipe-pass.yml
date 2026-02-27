@@ -58,6 +58,11 @@ modules:
     from: fedora-test
     src: /test.txt
     dest: /
+  - type: test-module
+    source: local
+    mounts:
+      - type: tmpfs
+        destination: /tmp/test
 mounts:
   - type: cache
     id: downloads-cli-test-43
