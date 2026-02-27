@@ -92,8 +92,9 @@ pub struct Recipe {
     pub labels: Option<HashMap<String, String>>,
 
     /// The mounts to add to the image.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mounts: Option<Vec<Mount>>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[builder(default)]
+    pub mounts: Vec<Mount>,
 }
 
 impl Recipe {
