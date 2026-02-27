@@ -100,3 +100,13 @@ impl std::fmt::Display for Mount {
         Ok(())
     }
 }
+
+impl Mount {
+    #[must_use]
+    pub const fn oci_suffix(&self) -> &'static str {
+        match self {
+            Self::Bind { .. } => ",z",
+            _ => "",
+        }
+    }
+}

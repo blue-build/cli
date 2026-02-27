@@ -16,6 +16,7 @@ pub use akmods_info::*;
 pub use maybe_version::*;
 pub use module::*;
 pub use module_ext::*;
+pub use mount::*;
 pub use recipe::*;
 pub use stage::*;
 pub use stages_ext::*;
