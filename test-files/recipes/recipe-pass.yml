@@ -58,3 +58,10 @@ modules:
     from: fedora-test
     src: /test.txt
     dest: /
+mounts:
+  - type: cache
+    id: downloads-cli-test-43
+    destination: /var/cache/downloads
+    sharing: locked
+  - type: tmpfs
+    destination: /tmp

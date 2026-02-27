@@ -15,7 +15,7 @@ use miette::{Context, IntoDiagnostic, Result};
 use oci_client::Reference;
 use serde::{Deserialize, Serialize};
 
-use crate::{Module, ModuleExt, StagesExt, maybe_version::MaybeVersion};
+use crate::{Module, ModuleExt, StagesExt, maybe_version::MaybeVersion, mount::Mount};
 
 /// The build recipe.
 ///
@@ -90,6 +90,10 @@ pub struct Recipe {
     /// This hashmap provides custom labels from ther use to the image
     #[serde(skip_serializing_if = "Option::is_none")]
     pub labels: Option<HashMap<String, String>>,
+
+    /// The mounts to add to the image.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mounts: Option<Vec<Mount>>,
 }
 
 impl Recipe {
