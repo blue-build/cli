@@ -50,6 +50,13 @@
         "$ref": "#/$defs/ModuleEntry"
       },
       "description": "A list of [modules](https://blue-build.org/reference/module/) that is executed in order. Multiple of the same module can be included.\n\nEach item in this list should have at least a `type:` or be specified to be included from an external file in the `recipes/` directory with `from-file:`."
+    },
+    "mounts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Mount"
+      },
+      "description": "A list of mounts that will be mounted in each RUN stage."
     }
   },
   "required": [
@@ -79,6 +86,102 @@
         {
           "$ref": "#/$defs/ImportedModule"
         }
+      ]
+    },
+    "Mount": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/MountBind"
+        },
+        {
+          "$ref": "#/$defs/MountTmpFs"
+        },
+        {
+          "$ref": "#/$defs/MountCache"
+        }
+      ]
+    },
+    "MountBind": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "bind",
+          "description": "A bind mount from the host system."
+        },
+        "source": {
+          "type": "string",
+          "description": "The source path on the host system to mount."
+        },
+        "destination": {
+          "type": "string",
+          "description": "The destination path to mount to."
+        },
+        "readOnly": {
+          "type": "boolean",
+          "description": "Whether the mount should be read-only."
+        }
+      },
+      "required": [
+        "type",
+        "source",
+        "destination"
+      ]
+    },
+    "MountTmpFs": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "tmpfs",
+          "description": "A temporary file system mount."
+        },
+        "destination": {
+          "type": "string",
+          "description": "The destination path to mount to."
+        },
+        "size": {
+          "type": "string",
+          "description": "The size of the tmpfs mount."
+        }
+      },
+      "required": [
+        "type",
+        "destination"
+      ]
+    },
+    "MountCache": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "cache",
+          "description": "A cache mount."
+        },
+        "destination": {
+          "type": "string",
+          "description": "The destination path to mount to."
+        },
+        "id": {
+          "type": "string",
+          "description": "An identifier for the cache."
+        },
+        "sharing": {
+          "$ref": "#/$defs/MountCacheSharing",
+          "description": "The sharing mode of the cache."
+        }
+      },
+      "required": [
+        "type",
+        "destination"
+      ]
+    },
+    "MountCacheSharing": {
+      "type": "string",
+      "enum": [
+        "shared",
+        "private",
+        "locked"
       ]
     },
     "ImportedModule": {

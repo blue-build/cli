@@ -58,6 +58,11 @@ RUN \
   {{ cache_mount }},dst=/var/cache/apt,id=apt-{{ cache_name }} \
   {{ cache_mount }},dst=/var/cache/pacman,id=pacman-{{ cache_name }} \
 
+        {#- Recipe defined mounts #}
+        {%- for mount in recipe.mounts.iter().flatten() %}
+  --mount={{ mount.to_string() }} \
+        {%- endfor %}
+
         {#- Secret environment variables #}
         {%- for secret_var in module.secrets.envs() %}
   {{ secret_var }} \

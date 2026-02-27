@@ -2,6 +2,7 @@ mod akmods_info;
 mod maybe_version;
 mod module;
 mod module_ext;
+mod mount;
 mod recipe;
 mod stage;
 mod stages_ext;
