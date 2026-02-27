@@ -85,6 +85,19 @@
         },
         {
           "$ref": "#/$defs/ImportedModule"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mounts": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Mount"
+              },
+              "description": "A list of mounts that will be mounted for this module."
+            }
+          }
         }
       ]
     },
