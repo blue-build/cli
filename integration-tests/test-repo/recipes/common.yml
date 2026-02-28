@@ -147,3 +147,56 @@ modules:
     snippets:
       - '[ "$(cat /tmp/test-secret)" == "TEST_PASS" ]'
 
+  # test tmpfs mounts and is writable
+  - type: script
+    mounts:
+      - type: tmpfs
+        destination: /tmp/test-tmpfs
+    snippets:
+      - '[ -d /tmp/test-tmpfs ]'
+      - 'echo "Hello, World!" > /tmp/test-tmpfs/hello.txt'
+      - '[ "$(cat /tmp/test-tmpfs/hello.txt)" == "Hello, World!" ]'
+
+  # tmpfs should no longer be available in later module runs
+  - type: script
+    snippets:
+      - '[ ! -d /tmp/test-tmpfs ]'
+
+  # cache mount defined at recipe should be available in all module runs with shared content
+  - type: script
+    snippets:
+      - '[ -d /var/cache/private ]'
+      - 'echo "Cache Test" > /var/cache/private/cache_test.txt'
+
+  - type: script
+    snippets:
+      - '[ "$(cat /var/cache/private/cache_test.txt)" == "Cache Test" ]'
+
+  # test bind mounts
+  - type: script
+    mounts:
+      - type: bind
+        source: files/bind
+        destination: /var/bind-test
+    snippets:
+      - '[ -d /var/bind-test ]'
+      - '[ "$(cat /var/bind-test/test-file.txt)" == "Test Content" ]'
+      # test writing to bind mount
+      - 'echo "New Content" > /var/bind-test/new-file.txt'
+      - '[ "$(cat /var/bind-test/new-file.txt)" == "New Content" ]'
+      - 'rm /var/bind-test/new-file.txt'
+
+  # test readonly bind mounts
+  - type: script
+    mounts:
+      - type: bind
+        source: files/bind
+        destination: /var/readonly-bind-test
+        readonly: true
+    snippets:
+      - '[ -d /var/readonly-bind-test ]'
+      - '[ "$(cat /var/readonly-bind-test/test-file.txt)" == "Test Content" ]'
+      # test that writing to readonly bind mount fails
+      - 'if echo "New Content" > /var/readonly-bind-test/new-file.txt 2>/dev/null; then exit 1; else exit 0; fi'
+
+
