@@ -1,24 +1,24 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "/modules/systemd-v1.json",
+    "$id": "/modules/soar-v1.json",
     "type": "object",
     "properties": {
         "type": {
             "anyOf": [
                 {
                     "type": "string",
-                    "const": "systemd"
+                    "const": "soar"
                 },
                 {
                     "type": "string",
-                    "const": "systemd@v1"
+                    "const": "soar@v1"
                 },
                 {
                     "type": "string",
-                    "const": "systemd@latest"
+                    "const": "soar@latest"
                 }
             ],
-            "description": "The systemd module streamlines the management of systemd units during image building.\nhttps://blue-build.org/reference/modules/systemd/"
+            "description": "The soar module installs & integrates soar package manager, as an alternative to Homebrew / Linuxbrew.\nhttps://blue-build.org/reference/modules/soar/"
         },
         "no-cache": {
             "type": "boolean",
@@ -36,13 +36,20 @@
             },
             "description": "Secrets to mount for this module call."
         },
-        "system": {
-            "$ref": "#/$defs/UnitConfig",
-            "description": "System unit configuration."
+        "auto-upgrade": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to auto-upgrade all installed `soar` packages using a systemd service."
         },
-        "user": {
-            "$ref": "#/$defs/UnitConfig",
-            "description": "User unit configuration (with --global to make changes for all users)."
+        "upgrade-interval": {
+            "type": "string",
+            "default": "8h",
+            "description": "Defines how often the `soar` upgrade service should run. The string is passed directly to `OnUnitInactiveSec` in systemd timer. (Syntax: ['1d', '6h', '10m'])."
+        },
+        "additional-repos": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether to enable all additional repos, including official `soar` & external repos like `AM`, for installing portable AppImages & other similar formats."
         }
     },
     "required": [
@@ -72,40 +79,6 @@
                     "$ref": "#/$defs/SecretSsh"
                 }
             ]
-        },
-        "UnitConfig": {
-            "type": "object",
-            "properties": {
-                "enabled": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to enable. (runs on system boot)"
-                },
-                "disabled": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to disable. (does not run on system boot, unless another unit strictly requires it)"
-                },
-                "masked": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to mask. (does not run on system boot, under any circumstances)"
-                },
-                "unmasked": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to unmask. (runs on system boot, even if previously masked)"
-                }
-            },
-            "additionalProperties": false
         },
         "SecretEnv": {
             "type": "object",

@@ -1,24 +1,24 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "/modules/systemd-v1.json",
+    "$id": "/modules/os-release-v1.json",
     "type": "object",
     "properties": {
         "type": {
             "anyOf": [
                 {
                     "type": "string",
-                    "const": "systemd"
+                    "const": "os-release"
                 },
                 {
                     "type": "string",
-                    "const": "systemd@v1"
+                    "const": "os-release@v1"
                 },
                 {
                     "type": "string",
-                    "const": "systemd@latest"
+                    "const": "os-release@latest"
                 }
             ],
-            "description": "The systemd module streamlines the management of systemd units during image building.\nhttps://blue-build.org/reference/modules/systemd/"
+            "description": "The `os-release` module offers a way to modify and set values in the `/etc/os-release` file in your image.\nhttps://blue-build.org/reference/modules/os-release/"
         },
         "no-cache": {
             "type": "boolean",
@@ -36,17 +36,14 @@
             },
             "description": "Secrets to mount for this module call."
         },
-        "system": {
-            "$ref": "#/$defs/UnitConfig",
-            "description": "System unit configuration."
-        },
-        "user": {
-            "$ref": "#/$defs/UnitConfig",
-            "description": "User unit configuration (with --global to make changes for all users)."
+        "properties": {
+            "$ref": "#/$defs/RecordString",
+            "description": "The properties of the `/etc/os-release` file to set."
         }
     },
     "required": [
-        "type"
+        "type",
+        "properties"
     ],
     "additionalProperties": false,
     "$defs": {
@@ -72,40 +69,6 @@
                     "$ref": "#/$defs/SecretSsh"
                 }
             ]
-        },
-        "UnitConfig": {
-            "type": "object",
-            "properties": {
-                "enabled": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to enable. (runs on system boot)"
-                },
-                "disabled": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to disable. (does not run on system boot, unless another unit strictly requires it)"
-                },
-                "masked": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to mask. (does not run on system boot, under any circumstances)"
-                },
-                "unmasked": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of systemd units to unmask. (runs on system boot, even if previously masked)"
-                }
-            },
-            "additionalProperties": false
         },
         "SecretEnv": {
             "type": "object",
