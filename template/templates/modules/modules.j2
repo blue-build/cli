@@ -57,6 +57,7 @@ RUN \
   {{ cache_mount }},dst=/var/cache/apk,id=apk-{{ cache_name }} \
   {{ cache_mount }},dst=/var/cache/apt,id=apt-{{ cache_name }} \
   {{ cache_mount }},dst=/var/cache/pacman,id=pacman-{{ cache_name }} \
+  {{ cache_mount }},dst=/usr/lib/sysimage/cache/pacman,id=pacman-sysimage-{{ cache_name }} \
 
         {#- Secret environment variables #}
         {%- for secret_var in module.secrets.envs() %}
