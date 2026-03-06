@@ -21,6 +21,7 @@ pub const BUILD_ID_LABEL: &str = "org.blue-build.build-id";
 pub const IMAGE_VERSION_LABEL: &str = "org.opencontainers.image.version";
 
 // BlueBuild vars
+pub const BB_ALLOW_HOST_EXEC: &str = "BB_ALLOW_HOST_EXEC";
 pub const BB_CACHE_LAYERS: &str = "BB_CACHE_LAYERS";
 pub const BB_BOOT_DRIVER: &str = "BB_BOOT_DRIVER";
 pub const BB_BUILD_ARCHIVE: &str = "BB_BUILD_ARCHIVE";
@@ -125,7 +126,8 @@ pub const GITHUB_CHAR_LIMIT: usize = 8100; // Magic number accepted by Github
 pub const DEFAULT_MAX_LAYERS: NonZeroU32 = NonZeroU32::new(128).unwrap();
 
 // Schema
-pub const SCHEMA_BASE_URL: &str = "https://schema.blue-build.org";
+// pub const SCHEMA_BASE_URL: &str = "https://schema.blue-build.org";
+pub const SCHEMA_BASE_URL: &str = "https://module-if.schema-e29.pages.dev";
 pub const RECIPE_V1_SCHEMA_URL: &str = concat!(SCHEMA_BASE_URL, "/recipe-v1.json");
 pub const STAGE_V1_SCHEMA_URL: &str = concat!(SCHEMA_BASE_URL, "/stage-v1.json");
 pub const MODULE_V1_SCHEMA_URL: &str = concat!(SCHEMA_BASE_URL, "/module-v1.json");

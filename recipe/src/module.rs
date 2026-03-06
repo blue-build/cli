@@ -7,14 +7,16 @@ use bon::Builder;
 use colored::Colorize;
 use indexmap::IndexMap;
 use log::trace;
-use miette::{Result, bail};
+use miette::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 
 use crate::{AkmodsInfo, ModuleExt, base_recipe_path};
 
+mod module_if;
 mod type_ver;
 
+pub use module_if::*;
 pub use type_ver::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Builder)]
@@ -39,6 +41,10 @@ pub struct ModuleRequiredFields {
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub secrets: Vec<Secret>,
 
+    #[serde(rename = "if")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub if_check: Option<ModuleIf>,
+
     #[serde(flatten)]
     #[builder(default, into)]
     pub config: IndexMap<String, Value>,
@@ -50,6 +56,13 @@ const fn is_false(b: &bool) -> bool {
 }
 
 impl ModuleRequiredFields {
+    #[must_use]
+    pub fn should_template(&self, allow_host_exec: bool) -> bool {
+        self.if_check
+            .as_ref()
+            .is_none_or(|if_check| if_check.should_template(allow_host_exec))
+    }
+
     #[must_use]
     pub fn get_module_type_list(&self, typ: &str, list_key: &str) -> Option<Vec<String>> {
         if self.module_type.typ() == typ {
@@ -264,7 +277,8 @@ impl Module {
                         Self::get_modules(
                             &ModuleExt::try_from(&file_name)?.modules,
                             Some(traversed_files),
-                        )?
+                        )
+                        .with_context(|| format!("Reading from-file {}", file_name.display()))?
                     }
                     _ => {
                         let from_example = Self::builder().from_file("test.yml").build();

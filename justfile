@@ -1,7 +1,9 @@
 export RUST_BACKTRACE := "1"
 export BB_CACHE_LAYERS := "true"
 export TEST_SECRET := "test123"
-export BB_SKIP_VALIDATION := "true"
+export SOME_TEST_VAR := "something"
+export BB_ALLOW_HOST_EXEC := "true"
+# export BB_SKIP_VALIDATION := "true"
 
 set dotenv-load := true
 set positional-arguments := true
@@ -331,6 +333,8 @@ exec-cli-container +args: build-local-cli-image
   docker run -i{{ tty_arg }} --privileged --rm \
     -v ./integration-tests/test-repo:/bluebuild \
     -e TEST_SECRET="$TEST_SECRET" \
+    -e SOME_TEST_VAR="$SOME_TEST_VAR" \
+    -e BB_ALLOW_HOST_EXEC="$BB_ALLOW_HOST_EXEC" \
     ghcr.io/blue-build/cli:{{ git_sha }} \
     {{ args }}
 
