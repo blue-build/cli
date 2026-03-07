@@ -7,6 +7,11 @@ image-version: latest
 platforms:
   - linux/amd64
   - linux/arm64
+mounts:
+  - type: cache
+    sharing: private
+    id: private-cache
+    destination: /var/cache/private
 stages:
   - from-file: stages.yml
 modules:
