@@ -70,7 +70,7 @@ You can install BlueBuild to your global package environment on non-nixos system
 
 ```shell
 # you can replace "*" with a specific tag
-nix profile install https://flakehub.com/f/bluebuild/cli/*.tar.gz#bluebuild
+nix profile install https://flakehub.com/f/blue-build/cli/*.tar.gz#bluebuild
 ```
 
 #### NixOS
