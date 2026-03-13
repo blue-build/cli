@@ -303,6 +303,15 @@ test-generate-iso-image: generate-test-secret install-debug-all-features
   set -eu
   ISO_OUT=$(mktemp -d)
   bluebuild generate-iso -vv --output-dir "$ISO_OUT" image ghcr.io/blue-build/cli/test:latest
+  rm -fr "$ISO_OUT"
+
+# Run ISO generator for images with podman
+test-generate-iso-image-podman: generate-test-secret install-debug-all-features
+  #!/usr/bin/env bash
+  set -eu
+  ISO_OUT=$(mktemp -d)
+  bluebuild generate-iso -B podman -vv --output-dir "$ISO_OUT" image ghcr.io/blue-build/cli/test:latest
+  rm -fr "$ISO_OUT"
 
 # Run ISO generator for images using web-ui
 test-generate-iso-web-ui: generate-test-secret install-debug-all-features
@@ -310,6 +319,7 @@ test-generate-iso-web-ui: generate-test-secret install-debug-all-features
   set -eu
   ISO_OUT=$(mktemp -d)
   bluebuild generate-iso -vv --output-dir "$ISO_OUT" --web-ui image ghcr.io/blue-build/cli/test:latest
+  rm -fr "$ISO_OUT"
 
 # Run ISO generator for images
 test-generate-iso-recipe: generate-test-secret install-debug-all-features
@@ -318,6 +328,16 @@ test-generate-iso-recipe: generate-test-secret install-debug-all-features
   ISO_OUT=$(mktemp -d)
   cd integration-tests/test-repo
   bluebuild generate-iso -vv --output-dir "$ISO_OUT" recipe recipes/recipe.yml
+  rm -fr "$ISO_OUT"
+
+# Run ISO generator for images with podman
+test-generate-iso-recipe-podman: generate-test-secret install-debug-all-features
+  #!/usr/bin/env bash
+  set -eu
+  ISO_OUT=$(mktemp -d)
+  cd integration-tests/test-repo
+  bluebuild generate-iso -B podman -vv --output-dir "$ISO_OUT" recipe recipes/recipe.yml
+  rm -fr "$ISO_OUT"
 
 # Build a local cli image
 build-local-cli-image:
