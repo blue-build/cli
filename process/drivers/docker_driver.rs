@@ -190,14 +190,27 @@ impl DriverVersion for DockerDriver {
 }
 
 impl BuildDriver for DockerDriver {
-    fn build(opts: BuildOpts) -> Result<()> {
+    fn build(
+        opts @ BuildOpts {
+            image,
+            squash,
+            containerfile,
+            platform,
+            host_network,
+            privileged,
+            cache_from,
+            cache_to,
+            secrets,
+            allow_host_exec,
+        }: BuildOpts,
+    ) -> Result<()> {
         trace!("DockerDriver::build({opts:#?})");
 
         let temp_dir = TempDir::new()
             .into_diagnostic()
             .wrap_err("Failed to create temporary directory for secrets")?;
 
-        if opts.squash {
+        if squash {
             warn!("Squash is deprecated for docker so this build will not squash");
         }
 
@@ -205,16 +218,18 @@ impl BuildDriver for DockerDriver {
             let c = cmd!(
                 "docker",
                 "build",
-                if let Some(platform) = opts.platform => [
+                if let Some(platform) = platform => [
                     "--platform",
                     platform.to_string(),
                 ],
                 "-t",
-                opts.image.to_string(),
+                image.to_string(),
                 "-f",
-                for opts.secrets.args(&temp_dir)?,
-                if opts.secrets.ssh() => "--ssh",
-                if let Some(cache_from) = opts.cache_from.as_ref() => [
+                for secrets.args(&temp_dir, allow_host_exec)?,
+                if secrets.ssh() => "--ssh",
+                if host_network => "--network=host",
+                if privileged => "--privileged",
+                if let Some(cache_from) = cache_from.as_ref() => [
                     "--cache-from",
                     format!(
                         "type=registry,ref={registry}/{repository}",
@@ -222,7 +237,7 @@ impl BuildDriver for DockerDriver {
                         repository = cache_from.repository(),
                     ),
                 ],
-                if let Some(cache_to) = opts.cache_to.as_ref() => [
+                if let Some(cache_to) = cache_to.as_ref() => [
                     "--cache-to",
                     format!(
                         "type=registry,ref={registry}/{repository},mode=max",
@@ -230,7 +245,7 @@ impl BuildDriver for DockerDriver {
                         repository = cache_to.repository(),
                     ),
                 ],
-                opts.containerfile,
+                containerfile,
                 ".",
             );
             trace!("{c:?}");
@@ -240,9 +255,9 @@ impl BuildDriver for DockerDriver {
         .into_diagnostic()?;
 
         if status.success() {
-            info!("Successfully built {}", opts.image);
+            info!("Successfully built {image}");
         } else {
-            bail!("Failed to build {}", opts.image);
+            bail!("Failed to build {image}");
         }
         Ok(())
     }
@@ -522,7 +537,22 @@ impl BuildDriver for DockerDriver {
 }
 
 fn build_tag_push_cmd(
-    opts: BuildTagPushOpts<'_>,
+    BuildTagPushOpts {
+        image,
+        containerfile,
+        tags,
+        push,
+        retry_push: _,
+        retry_count: _,
+        compression,
+        squash: _,
+        platform,
+        privileged: _,
+        cache_from,
+        cache_to,
+        secrets,
+        allow_host_exec,
+    }: BuildTagPushOpts<'_>,
     first_image: &str,
     temp_dir: &TempDir,
 ) -> Result<Command> {
@@ -532,27 +562,27 @@ fn build_tag_push_cmd(
         format!("--builder={BLUE_BUILD}"),
         "build",
         ".",
-        for opts.secrets.args(temp_dir)?,
-        if opts.secrets.ssh() => "--ssh",
-        match &opts.image {
-            ImageRef::Remote(_remote) if opts.push => [
+        for secrets.args(temp_dir, allow_host_exec)?,
+        if secrets.ssh() => "--ssh",
+        match image {
+            ImageRef::Remote(_remote) if push => [
                 "--output",
                 format!(
                     "type=image,name={first_image},push=true,compression={},oci-mediatypes=true",
-                    opts.compression
+                    compression
                 ),
             ],
             ImageRef::Remote(_remote)
                 if get_env_var(GITHUB_ACTIONS).is_err()
-                && opts.platform.len() <= 1 => "--load",
+                && platform.len() <= 1 => "--load",
             ImageRef::LocalTar(archive_path) => [
                 "--output",
                 format!("type=oci,dest={}", archive_path.display()),
             ],
             _ => [],
         },
-        for opts.image.remote_ref().map_or_else(Vec::new, |image| {
-                opts.tags.iter().flat_map(|tag| {
+        for image.remote_ref().map_or_else(Vec::new, |image| {
+                tags.iter().flat_map(|tag| {
                     vec![
                         "-t".to_string(),
                         format!("{}/{}:{tag}", image.resolve_registry(), image.repository())
@@ -560,19 +590,19 @@ fn build_tag_push_cmd(
                 }).collect()
             }),
         "--pull",
-        for platform in opts.platform => [
+        for platform in platform => [
             "--platform",
             platform.to_string(),
         ],
         "-f",
-        opts.containerfile,
-        if let Some(cache_from) = opts.cache_from.as_ref() => [
+        containerfile,
+        if let Some(cache_from) = cache_from.as_ref() => [
             "--cache-from",
             format!(
                 "type=registry,ref={cache_from}",
             ),
         ],
-        if let Some(cache_to) = opts.cache_to.as_ref() => [
+        if let Some(cache_to) = cache_to.as_ref() => [
             "--cache-to",
             format!(
                 "type=registry,ref={cache_to},mode=max",
