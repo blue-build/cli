@@ -1,37 +1,217 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "/modules/yafti.json",
-  "type": "object",
-  "properties": {
-    "type": {
-      "type": "string",
-      "const": "yafti",
-      "description": "The yafti module can be used to install yafti and set it up to run on first boot.\nhttps://blue-build.org/reference/modules/yafti/"
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "/modules/yafti-latest.json",
+    "type": "object",
+    "properties": {
+        "type": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "yafti"
+                },
+                {
+                    "type": "string",
+                    "const": "yafti@v1"
+                },
+                {
+                    "type": "string",
+                    "const": "yafti@latest"
+                }
+            ],
+            "description": "The yafti module can be used to install yafti and set it up to run on first boot.\nhttps://blue-build.org/reference/modules/yafti/"
+        },
+        "no-cache": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
+        },
+        "env": {
+            "$ref": "#/$defs/RecordString",
+            "description": "Environment variables to add for the module call."
+        },
+        "secrets": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/Secret"
+            },
+            "description": "Secrets to mount for this module call."
+        },
+        "custom-flatpaks": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/RecordString"
+            },
+            "description": "List of custom Flatpaks to inject to the default yafti.yml. Format is: `PrettyName: org.example.flatpak_id`"
+        }
     },
-    "no-cache": {
-      "type": "boolean",
-      "default": false,
-      "description": "Whether to disabling caching for this layer.\nhttps://blue-build.org/reference/module/#no-cache-optional"
-    },
-    "custom-flatpaks": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/RecordString"
-      },
-      "description": "List of custom Flatpaks to inject to the default yafti.yml. Format is: `PrettyName: org.example.flatpak_id`"
+    "required": [
+        "type"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+        "RecordString": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "Secret": {
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/SecretEnv"
+                },
+                {
+                    "$ref": "#/$defs/SecretFile"
+                },
+                {
+                    "$ref": "#/$defs/SecretExec"
+                },
+                {
+                    "$ref": "#/$defs/SecretSsh"
+                }
+            ]
+        },
+        "SecretEnv": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "env",
+                    "description": "A secret pulled from an environment variable."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The name of the environment variable"
+                },
+                "mount": {
+                    "$ref": "#/$defs/SecretMount",
+                    "description": "Defines the mount type for the result of the command into the build."
+                }
+            },
+            "required": [
+                "type",
+                "name",
+                "mount"
+            ],
+            "additionalProperties": false
+        },
+        "SecretFile": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "file",
+                    "description": "A secret pulled from a file."
+                },
+                "source": {
+                    "type": "string",
+                    "description": "The source file containing the secret.\n\nNOTE: Relative paths are relative to the root of the repository."
+                },
+                "mount": {
+                    "$ref": "#/$defs/SecretMount",
+                    "description": "Defines the mount type for the result of the command into the build."
+                }
+            },
+            "required": [
+                "type",
+                "source",
+                "mount"
+            ],
+            "additionalProperties": false
+        },
+        "SecretExec": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "exec",
+                    "description": "A secret pulled from the stdout of a command."
+                },
+                "command": {
+                    "type": "string",
+                    "description": "The command that will be executed."
+                },
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Arguments for the command being executed."
+                },
+                "mount": {
+                    "$ref": "#/$defs/SecretMount",
+                    "description": "Defines the mount type for the result of the command into the build."
+                }
+            },
+            "required": [
+                "type",
+                "command",
+                "mount"
+            ],
+            "additionalProperties": false
+        },
+        "SecretSsh": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "ssh",
+                    "description": "Mount the SSH socket to use the hosts SSH socket."
+                }
+            },
+            "required": [
+                "type"
+            ],
+            "additionalProperties": false
+        },
+        "SecretMount": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/SecretMountEnv"
+                },
+                {
+                    "$ref": "#/$defs/SecretMountFile"
+                }
+            ]
+        },
+        "SecretMountEnv": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "env",
+                    "description": "A secret pulled from a file on the host system."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The environment variable where the secret will be set."
+                }
+            },
+            "required": [
+                "type",
+                "name"
+            ],
+            "additionalProperties": false
+        },
+        "SecretMountFile": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "const": "file",
+                    "description": "A secret pulled from a file on the host system."
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "The destination path in the build to mount the secret."
+                }
+            },
+            "required": [
+                "type",
+                "destination"
+            ],
+            "additionalProperties": false
+        }
     }
-  },
-  "required": [
-    "type"
-  ],
-  "additionalProperties": false,
-  "$defs": {
-    "RecordString": {
-      "type": "object",
-      "properties": {},
-      "additionalProperties": {
-        "type": "string"
-      }
-    }
-  }
 }
