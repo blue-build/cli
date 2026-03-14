@@ -4,6 +4,11 @@ name: cli/test-build-chunked-oci
 description: This is my personal OS image.
 base-image: quay.io/fedora/fedora-bootc
 image-version: latest
+mounts:
+  - type: cache
+    sharing: private
+    id: private-cache
+    destination: /var/cache/private
 stages:
   - from-file: stages.yml
 modules:
