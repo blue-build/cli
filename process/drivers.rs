@@ -28,7 +28,7 @@ use clap::Args;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
-use miette::{Context, Result};
+use miette::{Context, Result, bail};
 use oci_client::Reference;
 use uuid::Uuid;
 
@@ -305,6 +305,24 @@ fn get_version_run_image(oci_ref: &Reference) -> Result<Version> {
             .remove(true)
             .build(),
     )?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if stderr.contains("docker: failed to register layer: max depth exceeded") {
+            bail!(
+                help = format!(
+                    "Try using podman as your container runtime with `{}`",
+                    "--run-driver=podman".bright_yellow()
+                ),
+                "Docker cannot handle images with too many layers!"
+            );
+        }
+        bail!(
+            "Failed to run version script on the base image {}:\n{}",
+            oci_ref.to_string().cyan(),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 
     if should_remove {
         Driver::remove_image(RemoveImageOpts::builder().image(oci_ref).build())?;
