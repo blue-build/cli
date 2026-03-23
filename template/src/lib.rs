@@ -186,6 +186,7 @@ fn package_cache_mount_name(recipe_name: &str, image_version: &Tag, stage_name: 
 
 mod filters {
     #![expect(clippy::unnecessary_wraps)]
+    #![expect(clippy::inline_always)]
     use askama::Values;
 
     #[askama::filter_fn]
