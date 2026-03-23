@@ -1,5 +1,3 @@
-#![expect(unused_assignments)]
-
 use std::{path::PathBuf, sync::Arc};
 
 use colored::Colorize;

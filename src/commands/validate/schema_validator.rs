@@ -72,11 +72,12 @@ impl SchemaValidator {
                         jsonschema::options()
                             .with_retriever(ModuleSchemaRetriever)
                             .build(&schema)
+                            .map_err(Box::new)
                     }
                 })
                 .await
                 .expect("Should join blocking thread")
-                .map_err(|e| SchemaValidateBuilderError::JsonSchemaBuild(url.into(), e))?,
+                .map_err(|e| SchemaValidateBuilderError::JsonSchemaBuild(url.into(), *e))?,
             );
 
             Ok(Self {
