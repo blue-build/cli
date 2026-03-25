@@ -22,6 +22,16 @@ fi
 rm -rf /tmp/* /var/* /opt
 ln -fs /var/opt /opt
 
+# Relink rpm-ostree-base-db to rpmdb to ensure it correctly reflects the system
+# image's rpmdb and doesn't carry over package info from the base image.
+# See: https://github.com/coreos/rpm-ostree/issues/4554
+for file in rpmdb.sqlite rpmdb.sqlite-shm rpmdb.sqlite-wal; do
+    if [[ -f "/usr/share/rpm/${file}" ]]; then
+        # Note, this needs to be a hardlink, not a symbolic link.
+        ln -f "/usr/share/rpm/${file}" "/usr/lib/sysimage/rpm-ostree-base-db/${file}"
+    fi
+done
+
 # if feature_enabled "bootc" && command -v bootc > /dev/null; then
 #   bootc container lint
 # fi
