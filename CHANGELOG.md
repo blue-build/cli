@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.33] - 2026-03-27
+
+### Bug Fixes
+
+- Add another path for pacman cache (#714)
+- Fix clippy lints due to rust compiler upgrade
+- Update to the latest stable nixpkgs from flakehub (#726)
+- Fix link to nix flake on flakehub (#727)
+- Check if container run fails when checking version (#729)
+- Relink rpm-ostree-base-db to system rpmdb (#732)
+
+### Features
+
+- Ensure consecutive colors aren't too similar (#715)
+
+### Miscellaneous Tasks
+
+- Fix clippy lints
+
 ## [0.9.32] - 2026-02-24
 
 ### Bug Fixes
@@ -13,6 +32,7 @@ All notable changes to this project will be documented in this file.
 
 - Bump cosign to v3.0.5 (#703)
 - Update log filter list and add arg to disable filter
+- Release
 
 ## [0.9.31] - 2026-02-18
 
