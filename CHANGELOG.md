@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.34] - 2026-03-29
+
+### Bug Fixes
+
+- Check for existence of rpm-ostree-base-db (#733)
+
 ## [0.9.33] - 2026-03-27
 
 ### Bug Fixes
@@ -20,6 +26,7 @@ All notable changes to this project will be documented in this file.
 ### Miscellaneous Tasks
 
 - Fix clippy lints
+- Release
 
 ## [0.9.32] - 2026-02-24
 
