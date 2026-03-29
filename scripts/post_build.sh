@@ -26,9 +26,11 @@ ln -fs /var/opt /opt
 # image's rpmdb and doesn't carry over package info from the base image.
 # See: https://github.com/coreos/rpm-ostree/issues/4554
 for file in rpmdb.sqlite rpmdb.sqlite-shm rpmdb.sqlite-wal; do
-    if [[ -f "/usr/share/rpm/${file}" ]]; then
+    target="/usr/share/rpm/${file}"
+    link_path="/usr/lib/sysimage/rpm-ostree-base-db/${file}"
+    if [[ -f "${target}" && -f "${link_path}" ]]; then
         # Note, this needs to be a hardlink, not a symbolic link.
-        ln -f "/usr/share/rpm/${file}" "/usr/lib/sysimage/rpm-ostree-base-db/${file}"
+        ln -f "${target}" "${link_path}"
     fi
 done
 
