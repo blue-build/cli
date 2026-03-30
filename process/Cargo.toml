@@ -11,7 +11,7 @@ version.workspace = true
 path = "process.rs"
 
 [dependencies]
-anyhow = "1.0.101"
+anyhow = "1.0.102"
 blue-build-utils = { version = "=0.9.35", path = "../utils" }
 indicatif-log-bridge = "0.2.3"
 log4rs = { version = "1.4.0", features = ["background_rotation"] }
