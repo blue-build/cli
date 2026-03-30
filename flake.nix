@@ -36,7 +36,7 @@
         default = bluebuild;
         bluebuild = pkgs.rustPlatform.buildRustPackage {
           pname = "bluebuild";
-          version = "v0.9.34";
+          version = "v0.9.35";
 
           src = pkgs.lib.cleanSource ./.;
           cargoLock.lockFile = ./Cargo.lock;

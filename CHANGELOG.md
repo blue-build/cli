@@ -2,11 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.35] - 2026-03-30
+
+### Bug Fixes
+
+- Remove tty_only for ConsoleAppender and use dumb-init correctly
+- Remove COPY for entrypoint.sh
+
 ## [0.9.34] - 2026-03-29
 
 ### Bug Fixes
 
 - Check for existence of rpm-ostree-base-db (#733)
+
+### Miscellaneous Tasks
+
+- Release
 
 ## [0.9.33] - 2026-03-27
 
