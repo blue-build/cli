@@ -154,10 +154,8 @@ blue-build-cli-prebuild:
         && rm -rf /var/cache /var/log/dnf* /var/log/yum.*
 
     COPY image_files/containers.conf /etc/containers/
-    COPY image_files/entrypoint.sh /entrypoint.sh
 
-    RUN chmod 644 /etc/containers/containers.conf \
-        && chmod +x /entrypoint.sh
+    RUN chmod 644 /etc/containers/containers.conf
 
     RUN sed -e 's|^#mount_program|mount_program|g' \
         -e '/additionalimage.*/a "/var/lib/shared",' \
