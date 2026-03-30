@@ -115,7 +115,6 @@ impl Logger {
                     .build(),
             ))
             .target(log4rs::append::console::Target::Stderr)
-            .tty_only(true)
             .build();
 
         let config =

@@ -190,7 +190,7 @@ blue-build-cli-prebuild:
     ENV _CONTAINERS_USERNS_CONFIGURED=""
     ENV BUILDAH_ISOLATION="chroot"
 
-    ENTRYPOINT ["/entrypoint.sh"]
+    ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
     ARG EARTHLY_GIT_HASH
     ARG TARGETARCH
