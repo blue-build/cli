@@ -48,11 +48,33 @@ impl CiDriver for GitlabDriver {
     }
 
     fn generate_tags(opts: GenerateTagsOpts) -> Result<Vec<Tag>> {
+        use blue_build_utils::tagging::{TagMetadata, apply_tagging_policies, resolve_tag_template};
+
+        let metadata = TagMetadata {
+            tag: None,
+            os_version: opts.os_version,
+            timestamp: opts.timestamp,
+            short_sha: opts.short_sha,
+        };
+
+        // 1. Manual Tags (Verbatim + Template Resolution)
+        if let Some(tags) = opts.tags {
+            return tags
+                .iter()
+                .map(|t| resolve_tag_template(t, &metadata).parse())
+                .collect::<Result<Vec<Tag>>>();
+        }
+
+        // 2. Tagging Policies (if provided)
+        if let (Some(alt_tags), Some(policies)) = (opts.alt_tags, opts.tagging) {
+            return apply_tagging_policies(alt_tags, policies, &metadata);
+        }
+
+        // 3. Fallback (Legacy uBlue Logic)
         const MR_EVENT: &str = "merge_request_event";
-        let os_version = Driver::get_os_version().oci_ref(opts.oci_ref).call()?;
-        let timestamp = blue_build_utils::get_tag_timestamp();
-        let short_sha =
-            get_env_var(CI_COMMIT_SHORT_SHA).inspect(|v| trace!("{CI_COMMIT_SHORT_SHA}={v}"))?;
+        let os_version = opts.os_version;
+        let timestamp = opts.timestamp;
+        let short_sha = opts.short_sha.unwrap_or_default();
         let ref_name = get_env_var(CI_COMMIT_REF_NAME)
             .inspect(|v| trace!("{CI_COMMIT_REF_NAME}={v}"))?
             .replace('/', "_");
@@ -66,7 +88,7 @@ impl CiDriver for GitlabDriver {
             (true, None, _, _) => {
                 string_vec![
                     "latest",
-                    &timestamp,
+                    timestamp,
                     format!("{os_version}"),
                     format!("{timestamp}-{os_version}"),
                     format!("{short_sha}-{os_version}"),
@@ -315,6 +337,9 @@ mod test {
             GenerateTagsOpts::builder()
                 .oci_ref(&oci_ref)
                 .maybe_alt_tags(alt_tags.as_deref())
+                .os_version("41")
+                .timestamp(&*TIMESTAMP)
+                .short_sha(COMMIT_SHA)
                 .platform(Platform::LinuxAmd64)
                 .build(),
         )

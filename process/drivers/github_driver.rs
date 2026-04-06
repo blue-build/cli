@@ -39,20 +39,36 @@ impl CiDriver for GithubDriver {
     }
 
     fn generate_tags(opts: GenerateTagsOpts) -> Result<Vec<Tag>> {
+        use blue_build_utils::tagging::{TagMetadata, apply_tagging_policies, resolve_tag_template};
+
+        let metadata = TagMetadata {
+            tag: None,
+            os_version: opts.os_version,
+            timestamp: opts.timestamp,
+            short_sha: opts.short_sha,
+        };
+
+        // 1. Manual Tags (Verbatim + Template Resolution)
+        if let Some(tags) = opts.tags {
+            return tags
+                .iter()
+                .map(|t| resolve_tag_template(t, &metadata).parse())
+                .collect::<Result<Vec<Tag>>>();
+        }
+
+        // 2. Tagging Policies (if provided)
+        if let (Some(alt_tags), Some(policies)) = (opts.alt_tags, opts.tagging) {
+            return apply_tagging_policies(alt_tags, policies, &metadata);
+        }
+
+        // 3. Fallback (Legacy uBlue Logic)
         const PR_EVENT: &str = "pull_request";
-        let timestamp = blue_build_utils::get_tag_timestamp();
-        let os_version = Driver::get_os_version()
-            .oci_ref(opts.oci_ref)
-            .call()
-            .inspect(|v| trace!("os_version={v}"))?;
         let ref_name = get_env_var(GITHUB_REF_NAME)
             .inspect(|v| trace!("{GITHUB_REF_NAME}={v}"))?
             .replace('/', "_");
-        let short_sha = {
-            let mut short_sha = get_env_var(GITHUB_SHA).inspect(|v| trace!("{GITHUB_SHA}={v}"))?;
-            short_sha.truncate(7);
-            short_sha
-        };
+        let short_sha = opts.short_sha.unwrap_or_default();
+        let os_version = opts.os_version;
+        let timestamp = opts.timestamp;
 
         let tags = match (
             Self::on_default_branch(),
@@ -63,7 +79,7 @@ impl CiDriver for GithubDriver {
             (true, None, _, _) => {
                 string_vec![
                     "latest",
-                    &timestamp,
+                    timestamp,
                     format!("{os_version}"),
                     format!("{timestamp}-{os_version}"),
                     format!("{short_sha}-{os_version}"),
@@ -310,11 +326,48 @@ mod test {
             GenerateTagsOpts::builder()
                 .oci_ref(&oci_ref)
                 .maybe_alt_tags(alt_tags.as_deref())
+                .os_version("41")
+                .timestamp(&*TIMESTAMP)
+                .short_sha(COMMIT_SHA)
                 .platform(Platform::LinuxAmd64)
                 .build(),
         )
         .unwrap();
         tags.sort();
+
+        assert_eq!(tags, expected);
+    }
+
+    #[test]
+    fn generate_tags_policy() {
+        use blue_build_utils::tagging::TaggingPolicy;
+
+        setup_default_branch();
+        let oci_ref: Reference = "ghcr.io/ublue-os/silverblue-main".parse().unwrap();
+        let alt_tags = vec!["stable".parse::<Tag>().unwrap()];
+        let policies = vec![TaggingPolicy {
+            match_tag: "stable".to_string(),
+            tags: vec!["{tag}-{os_version}".to_string(), "{timestamp}".to_string()],
+        }];
+
+        let mut tags = GithubDriver::generate_tags(
+            GenerateTagsOpts::builder()
+                .oci_ref(&oci_ref)
+                .alt_tags(&alt_tags)
+                .tagging(&policies)
+                .os_version("41")
+                .timestamp("20240101")
+                .platform(Platform::LinuxAmd64)
+                .build(),
+        )
+        .unwrap();
+        tags.sort();
+
+        let mut expected = vec![
+            "stable-41".parse::<Tag>().unwrap(),
+            "20240101".parse::<Tag>().unwrap(),
+        ];
+        expected.sort();
 
         assert_eq!(tags, expected);
     }

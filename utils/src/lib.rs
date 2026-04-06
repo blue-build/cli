@@ -8,6 +8,7 @@ pub mod platform;
 pub mod secret;
 pub mod semver;
 pub mod syntax_highlighting;
+pub mod tagging;
 #[cfg(feature = "test")]
 pub mod test_utils;
 pub mod traits;
