@@ -37,7 +37,7 @@ syntect = { version = "5.3.0", default-features = false, features = ["default-fa
 tempfile = "3.24.0"
 tokio = { version = "1.49.0", features = ["rt", "rt-multi-thread"] }
 uuid = { version = "1.21.0", features = ["v4"] }
-which = "8.0.0"
+which = "8.0.2"
 zeroize = { version = "1.8.2", features = ["aarch64", "derive", "std", "serde"] }
 
 [workspace.lints.rust]
