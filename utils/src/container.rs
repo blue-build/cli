@@ -11,7 +11,7 @@ use miette::miette;
 use oci_client::Reference;
 use serde::{Deserialize, Serialize};
 
-use crate::platform::Platform;
+use crate::{env_str::EnvString, platform::Platform};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContainerId(pub String);
@@ -274,7 +274,7 @@ impl PartialEq<Reference> for ImageRef<'_> {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Tag(String);
+pub struct Tag(EnvString);
 
 impl Tag {
     #[must_use]
@@ -283,15 +283,18 @@ impl Tag {
     }
 }
 
+fn eval_tag(haystack: &EnvString) -> bool {
+    regex!(r"[\w][\w.-]{0,127}").is_match(haystack)
+}
+
 impl FromStr for Tag {
     type Err = miette::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let regex = regex!(r"[\w][\w.-]{0,127}");
-        regex
-            .is_match(s)
-            .then(|| Self(s.into()))
-            .ok_or_else(|| miette!("Invalid tag: {s}"))
+        let expanded = EnvString::from(s);
+        eval_tag(&expanded)
+            .then(|| Self(expanded.clone()))
+            .ok_or_else(|| miette!("Invalid tag: {expanded}"))
     }
 }
 
@@ -317,24 +320,27 @@ impl<'de> Deserialize<'de> for Tag {
     where
         D: serde::Deserializer<'de>,
     {
-        Self::from_str(&String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+        let expanded = EnvString::deserialize(deserializer)?;
+        eval_tag(&expanded)
+            .then(|| Self(expanded.clone()))
+            .ok_or_else(|| serde::de::Error::custom(format!("Invalid tag: {expanded}")))
     }
 }
 
 impl Default for Tag {
     fn default() -> Self {
-        Self(String::from("latest"))
+        Self(String::from("latest").into())
     }
 }
 
 impl From<Tag> for String {
     fn from(value: Tag) -> Self {
-        value.0
+        value.0.to_string()
     }
 }
 
 impl From<&Tag> for String {
     fn from(value: &Tag) -> Self {
-        value.0.clone()
+        value.0.to_string()
     }
 }
