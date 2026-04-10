@@ -6,7 +6,8 @@ use std::{
 };
 
 use blue_build_utils::{
-    constants::COSIGN_IMAGE_VERSION, container::Tag, platform::Platform, secret::Secret,
+    constants::COSIGN_IMAGE_VERSION, container::Tag, env_str::EnvString, platform::Platform,
+    secret::Secret,
 };
 use bon::Builder;
 use cached::proc_macro::cached;
@@ -24,21 +25,22 @@ use crate::{Module, ModuleExt, StagesExt, maybe_version::MaybeVersion};
 /// base image to assist with building the Containerfile
 /// and tagging the image appropriately.
 #[derive(Default, Serialize, Clone, Deserialize, Debug, Builder)]
-#[builder(on(String, into))]
+#[allow(clippy::duplicated_attributes)]
+#[builder(on(EnvString, into), on(String, into))]
 pub struct Recipe {
     /// The name of the user's image.
     ///
     /// This will be set on the `org.opencontainers.image.title` label.
-    pub name: String,
+    pub name: EnvString,
 
     /// The description of the user's image.
     ///
     /// This will be set on the `org.opencontainers.image.description` label.
-    pub description: String,
+    pub description: EnvString,
 
     /// The base image from which to build the user's image.
     #[serde(alias = "base-image")]
-    pub base_image: String,
+    pub base_image: EnvString,
 
     /// The version/tag of the base image.
     #[serde(alias = "image-version")]

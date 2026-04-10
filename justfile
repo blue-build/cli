@@ -166,6 +166,18 @@ test-empty-files-build: generate-test-secret install-debug-all-features
     {{ should_push }} \
     -vv
 
+test-env-expansion-build: generate-test-secret install-debug-all-features
+  cd integration-tests/test-repo \
+  && DESC_EXT="Test description" \
+  VERSION="43" \
+  bluebuild build \
+    --retry-push \
+    -B docker \
+    -S sigstore \
+    {{ should_push }} \
+    -vv \
+    recipes/recipe-env-expansion.yml
+
 test-bluefin-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && bluebuild build \
