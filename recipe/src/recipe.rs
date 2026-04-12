@@ -37,15 +37,15 @@ pub struct Recipe {
     pub description: String,
 
     /// The base image from which to build the user's image.
-    #[serde(alias = "base-image")]
+    #[serde(rename = "base-image")]
     pub base_image: String,
 
     /// The version/tag of the base image.
-    #[serde(alias = "image-version")]
+    #[serde(rename = "image-version")]
     pub image_version: Tag,
 
     /// The version of `bluebuild` to install in the image
-    #[serde(alias = "blue-build-tag", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "blue-build-tag", skip_serializing_if = "Option::is_none")]
     pub blue_build_tag: Option<MaybeVersion>,
 
     /// Alternate tags to the `latest` tag to add to the image.
@@ -55,7 +55,7 @@ pub struct Recipe {
     /// timestamp with no version (e.g. `20240429`).
     ///
     /// Any user input will override the `latest` and timestamp tags.
-    #[serde(alias = "alt-tags", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "alt-tags", skip_serializing_if = "Option::is_none")]
     #[builder(into)]
     pub alt_tags: Option<Vec<Tag>>,
 
