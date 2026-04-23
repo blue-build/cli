@@ -115,7 +115,20 @@ impl DriverVersion for PodmanDriver {
 }
 
 impl BuildDriver for PodmanDriver {
-    fn build(opts: BuildOpts) -> Result<()> {
+    fn build(
+        opts @ BuildOpts {
+            image,
+            squash,
+            containerfile,
+            platform,
+            host_network,
+            privileged,
+            cache_from,
+            cache_to,
+            secrets,
+            allow_host_exec,
+        }: BuildOpts,
+    ) -> Result<()> {
         trace!("PodmanDriver::build({opts:#?})");
 
         let temp_dir = TempDir::new()
@@ -124,15 +137,15 @@ impl BuildDriver for PodmanDriver {
 
         let command = sudo_cmd!(
             prompt = SUDO_PROMPT,
-            sudo_check = opts.privileged,
+            sudo_check = privileged,
             "podman",
             "build",
-            if let Some(platform) = opts.platform => [
+            if let Some(platform) = platform => [
                 "--platform",
                 platform.to_string(),
             ],
-            match opts.cache_from.as_ref() {
-                Some(cache_from) if !opts.squash => [
+            match cache_from.as_ref() {
+                Some(cache_from) if !squash => [
                     "--cache-from",
                     format!(
                         "{}/{}",
@@ -142,8 +155,8 @@ impl BuildDriver for PodmanDriver {
                 ],
                 _ => [],
             },
-            match opts.cache_from.as_ref() {
-                Some(cache_to) if !opts.squash => [
+            match cache_to.as_ref() {
+                Some(cache_to) if !squash => [
                     "--cache-to",
                     format!(
                         "{}/{}",
@@ -154,26 +167,26 @@ impl BuildDriver for PodmanDriver {
                 _ => [],
             },
             "--pull=true",
-            if opts.host_network => "--net=host",
-            format!("--layers={}", !opts.squash),
+            if host_network => "--net=host",
+            format!("--layers={}", !squash),
             "-f",
-            opts.containerfile,
+            containerfile,
             "-t",
-            opts.image.to_string(),
-            for opts.secrets.args(&temp_dir)?,
-            if opts.secrets.ssh() => "--ssh",
+            image.to_string(),
+            for secrets.args(&temp_dir, allow_host_exec)?,
+            if secrets.ssh() => "--ssh",
             ".",
         );
 
         trace!("{command:?}");
         let status = command
-            .build_status(opts.image.to_string(), "Building Image")
+            .build_status(image.to_string(), "Building Image")
             .into_diagnostic()?;
 
         if status.success() {
-            info!("Successfully built {}", opts.image);
+            info!("Successfully built {image}");
         } else {
-            bail!("Failed to build {}", opts.image);
+            bail!("Failed to build {image}");
         }
         Ok(())
     }

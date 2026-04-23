@@ -168,28 +168,50 @@ pub trait BuildDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if building, tagging, or pushing fails.
-    fn build_tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
+    fn build_tag_push(
+        opts @ BuildTagPushOpts {
+            image,
+            containerfile,
+            tags,
+            push,
+            retry_push,
+            retry_count,
+            compression,
+            squash,
+            platform,
+            privileged,
+            cache_from,
+            cache_to,
+            secrets,
+            allow_host_exec,
+        }: BuildTagPushOpts,
+    ) -> Result<Vec<String>> {
         trace!("BuildDriver::build_tag_push({opts:#?})");
 
-        assert!(
-            opts.platform.is_empty().not(),
-            "Must have at least 1 platform"
-        );
+        assert!(platform.is_empty().not(), "Must have at least 1 platform");
         let platform_images: Vec<(ImageRef<'_>, Platform)> = opts
             .platform
             .iter()
-            .map(|&platform| (opts.image.with_platform(platform), platform))
+            .map(|&platform| (image.with_platform(platform), platform))
             .collect();
 
         let build_opts = BuildOpts::builder()
-            .containerfile(opts.containerfile.as_ref())
-            .squash(opts.squash)
-            .maybe_cache_from(opts.cache_from)
-            .maybe_cache_to(opts.cache_to)
-            .secrets(opts.secrets);
+            .containerfile(containerfile.as_ref())
+            .squash(squash)
+            .maybe_cache_from(cache_from)
+            .maybe_cache_to(cache_to)
+            .privileged(privileged)
+            .secrets(secrets);
         let build_opts = platform_images
             .iter()
-            .map(|(image, platform)| build_opts.clone().image(image).platform(*platform).build())
+            .map(|(image, platform)| {
+                build_opts
+                    .clone()
+                    .image(image)
+                    .platform(*platform)
+                    .allow_host_exec(allow_host_exec)
+                    .build()
+            })
             .collect::<Vec<_>>();
 
         build_opts
@@ -200,18 +222,18 @@ pub trait BuildDriver: PrivateDriver {
                 Self::build(build_opts)
             })?;
 
-        let image_list: Vec<String> = match &opts.image {
-            ImageRef::Remote(image) if !opts.tags.is_empty() => {
+        let image_list: Vec<String> = match &image {
+            ImageRef::Remote(image) if !tags.is_empty() => {
                 debug!("Tagging all images");
 
-                let mut image_list = Vec::with_capacity(opts.tags.len());
+                let mut image_list = Vec::with_capacity(tags.len());
                 let platform_images = opts
                     .platform
                     .iter()
                     .map(|&platform| platform.tagged_image(image))
                     .collect::<Vec<_>>();
 
-                for tag in opts.tags {
+                for tag in tags {
                     debug!("Tagging {} with {tag}", &image);
                     let tagged_image = Reference::with_tag(
                         image.registry().into(),
@@ -227,8 +249,8 @@ pub trait BuildDriver: PrivateDriver {
                     )?;
                     image_list.push(tagged_image.to_string());
 
-                    if opts.push {
-                        let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
+                    if push {
+                        let retry_count = if retry_push { retry_count } else { 0 };
 
                         // Push images with retries (1s delay between retries)
                         blue_build_utils::retry(retry_count, 5, || {
@@ -237,7 +259,7 @@ pub trait BuildDriver: PrivateDriver {
                             Self::manifest_push(
                                 ManifestPushOpts::builder()
                                     .final_image(&tagged_image)
-                                    .compression_type(opts.compression)
+                                    .compression_type(compression)
                                     .build(),
                             )
                         })?;
@@ -247,7 +269,7 @@ pub trait BuildDriver: PrivateDriver {
                 image_list
             }
             _ => {
-                string_vec![opts.image]
+                string_vec![image]
             }
         };
 
@@ -456,6 +478,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + ImageStorageDriver {
                         .clone()
                         .image(&unchunked_image)
                         .platform(platform)
+                        .allow_host_exec(btp_opts.allow_host_exec)
                         .build(),
                 )?;
                 Ok((unchunked_image, image, platform))
@@ -677,6 +700,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                     .squash(true)
                     .host_network(true)
                     .secrets(opts.secrets)
+                    .allow_host_exec(opts.allow_host_exec)
                     .build()
             })
             .collect::<Vec<_>>();

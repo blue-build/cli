@@ -42,6 +42,7 @@ pub struct ContainerFileTemplate<'a> {
     #[builder(default)]
     build_features: &'a [String],
     build_engine: BuildEngine,
+    allow_host_exec: bool,
 
     labels: &'a BTreeMap<String, String>,
 }

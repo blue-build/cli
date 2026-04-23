@@ -6,7 +6,10 @@ use blue_build_process_management::drivers::{
     types::{BuildDriverType, RunDriverType},
 };
 use blue_build_recipe::Recipe;
-use blue_build_utils::{constants::BB_SKIP_VALIDATION, container::ImageRef};
+use blue_build_utils::{
+    constants::{BB_ALLOW_HOST_EXEC, BB_SKIP_VALIDATION},
+    container::ImageRef,
+};
 use bon::Builder;
 use clap::Args;
 use log::trace;
@@ -38,6 +41,17 @@ pub struct SwitchCommand {
     #[arg(long, env = BB_SKIP_VALIDATION)]
     #[builder(default)]
     skip_validation: bool,
+
+    /// Allow running `host-exec` checks.
+    ///
+    /// This is a precautionary measure to prevent
+    /// running arbitrary code on the host machine.
+    ///
+    /// Any module with a `host-exec` or `not-host-exec`
+    /// check will by default be skipped without this flag.
+    #[arg(long, env = BB_ALLOW_HOST_EXEC)]
+    #[builder(default)]
+    allow_host_exec: bool,
 
     #[clap(flatten)]
     #[builder(default)]
@@ -88,6 +102,7 @@ impl BlueBuildCommand for SwitchCommand {
                 .image(&ImageRef::from(&image_name))
                 .containerfile(&containerfile)
                 .secrets(&recipe.get_secrets())
+                .allow_host_exec(self.allow_host_exec)
                 .build(),
         )?;
         PodmanDriver::copy_image_to_root_store(&image_name)?;

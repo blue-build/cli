@@ -11,7 +11,7 @@ use blue_build_process_management::drivers::{
 use blue_build_recipe::Recipe;
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
-    constants::{BB_SKIP_VALIDATION, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH},
+    constants::{BB_ALLOW_HOST_EXEC, BB_SKIP_VALIDATION, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH},
     current_timestamp,
     platform::Platform,
     syntax_highlighting::{self, DefaultThemes},
@@ -79,6 +79,17 @@ pub struct GenerateCommand {
     #[arg(long, env = BB_SKIP_VALIDATION)]
     #[builder(default)]
     skip_validation: bool,
+
+    /// Allow running `host-exec` checks.
+    ///
+    /// This is a precautionary measure to prevent
+    /// running arbitrary code on the host machine.
+    ///
+    /// Any module with a `host-exec` or `not-host-exec`
+    /// check will by default be skipped without this flag.
+    #[arg(long, env = BB_ALLOW_HOST_EXEC)]
+    #[builder(default)]
+    allow_host_exec: bool,
 
     #[clap(flatten)]
     #[builder(default)]
@@ -176,6 +187,7 @@ impl GenerateCommand {
             .maybe_nushell_version(recipe.nushell_version.as_ref())
             .build_features(build_features)
             .build_engine(Driver::get_build_driver().build_engine())
+            .allow_host_exec(self.allow_host_exec)
             .labels(&labels)
             .build();
 

@@ -119,7 +119,8 @@ impl Recipe {
                 .into_diagnostic()
                 .wrap_err_with(|| format!("Failed to parse recipe file {}", file_path.display()))?;
 
-            recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules, None)?;
+            recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules, None)
+                .with_context(|| format!("Reading recipe file {}", file_path.display()))?;
 
             if let Some(ref mut stages_ext) = recipe.stages_ext {
                 stages_ext.stages = crate::Stage::get_stages(&stages_ext.stages, None)?;

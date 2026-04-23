@@ -59,6 +59,7 @@ pub struct RechunkOpts<'scope> {
 
     #[builder(default)]
     pub secrets: &'scope [&'scope Secret],
+    pub allow_host_exec: bool,
 }
 
 #[derive(Debug, Clone, Copy, Builder)]

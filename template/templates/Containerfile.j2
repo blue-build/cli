@@ -49,7 +49,7 @@ RUN \
   {{ scripts_mount("/scripts/") }} \
   /scripts/pre_build.sh
 
-{{ modules::modules_run(recipe.modules_ext, os_version, main_stage) }}
+{{ modules::modules_run(recipe.modules_ext, os_version, main_stage, allow_host_exec) }}
 
 RUN \
   {{ scripts_mount("/scripts/") }} \

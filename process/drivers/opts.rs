@@ -1,3 +1,4 @@
+#![allow(clippy::struct_excessive_bools)]
 use clap::ValueEnum;
 
 pub use boot::*;
