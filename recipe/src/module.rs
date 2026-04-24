@@ -239,47 +239,44 @@ impl Module {
         let traversed_files = traversed_files.unwrap_or_default();
 
         for module in modules {
-            found_modules.extend(
-                match &module {
-                    Self {
-                        required_fields: Some(_),
-                        from_file: None,
-                    } => vec![module.clone()],
-                    Self {
-                        required_fields: None,
-                        from_file: Some(file_name),
-                    } => {
-                        let file_name = PathBuf::from(&**file_name);
-                        if traversed_files.contains(&file_name) {
-                            bail!(
-                                "{} File {} has already been parsed:\n{traversed_files:?}",
-                                "Circular dependency detected!".bright_red(),
-                                file_name.display().to_string().bold(),
-                            );
-                        }
-
-                        let mut traversed_files = traversed_files.clone();
-                        traversed_files.push(file_name.clone());
-
-                        Self::get_modules(
-                            &ModuleExt::try_from(&file_name)?.modules,
-                            Some(traversed_files),
-                        )?
-                    }
-                    _ => {
-                        let from_example = Self::builder().from_file("test.yml").build();
-                        let module_example = Self::example();
-
+            found_modules.extend(match &module {
+                Self {
+                    required_fields: Some(_),
+                    from_file: None,
+                } => vec![module.clone()],
+                Self {
+                    required_fields: None,
+                    from_file: Some(file_name),
+                } => {
+                    let file_name = PathBuf::from(&**file_name);
+                    if traversed_files.contains(&file_name) {
                         bail!(
-                            "Improper format for module. Must be in the format like:\n{}\n{}\n\n{}",
-                            highlight_ser(&module_example, "yaml", None)?,
-                            "or".bold(),
-                            highlight_ser(&from_example, "yaml", None)?
+                            "{} File {} has already been parsed:\n{traversed_files:?}",
+                            "Circular dependency detected!".bright_red(),
+                            file_name.display().to_string().bold(),
                         );
                     }
+
+                    let mut traversed_files = traversed_files.clone();
+                    traversed_files.push(file_name.clone());
+
+                    Self::get_modules(
+                        &ModuleExt::try_from(&file_name)?.modules,
+                        Some(traversed_files),
+                    )?
                 }
-                .into_iter(),
-            );
+                _ => {
+                    let from_example = Self::builder().from_file("test.yml").build();
+                    let module_example = Self::example();
+
+                    bail!(
+                        "Improper format for module. Must be in the format like:\n{}\n{}\n\n{}",
+                        highlight_ser(&module_example, "yaml", None)?,
+                        "or".bold(),
+                        highlight_ser(&from_example, "yaml", None)?
+                    );
+                }
+            });
         }
         Ok(found_modules)
     }

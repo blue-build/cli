@@ -103,43 +103,40 @@ impl Stage {
         let traversed_files = traversed_files.unwrap_or_default();
 
         for stage in stages {
-            found_stages.extend(
-                match stage {
-                    Self {
-                        required_fields: Some(_),
-                        from_file: None,
-                    } => vec![stage.clone()],
-                    Self {
-                        required_fields: None,
-                        from_file: Some(file_name),
-                    } => {
-                        let file_name = PathBuf::from(file_name);
-                        if traversed_files.contains(&file_name) {
-                            bail!(
-                                "{} File {} has already been parsed:\n{traversed_files:?}",
-                                "Circular dependency detected!".bright_red(),
-                                file_name.display().to_string().bold(),
-                            );
-                        }
-                        let mut tf = traversed_files.clone();
-                        tf.push(file_name.clone());
-
-                        Self::get_stages(&StagesExt::try_from(&file_name)?.stages, Some(tf))?
-                    }
-                    _ => {
-                        let from_example = Self::builder().from_file("path/to/stage.yml").build();
-                        let stage_example = Self::example();
-
+            found_stages.extend(match stage {
+                Self {
+                    required_fields: Some(_),
+                    from_file: None,
+                } => vec![stage.clone()],
+                Self {
+                    required_fields: None,
+                    from_file: Some(file_name),
+                } => {
+                    let file_name = PathBuf::from(file_name);
+                    if traversed_files.contains(&file_name) {
                         bail!(
-                            "Improper format for stage. Must be in the format like:\n{}\n{}\n\n{}",
-                            highlight_ser(&stage_example, "yaml", None)?,
-                            "or".bold(),
-                            highlight_ser(&from_example, "yaml", None)?
+                            "{} File {} has already been parsed:\n{traversed_files:?}",
+                            "Circular dependency detected!".bright_red(),
+                            file_name.display().to_string().bold(),
                         );
                     }
+                    let mut tf = traversed_files.clone();
+                    tf.push(file_name.clone());
+
+                    Self::get_stages(&StagesExt::try_from(&file_name)?.stages, Some(tf))?
                 }
-                .into_iter(),
-            );
+                _ => {
+                    let from_example = Self::builder().from_file("path/to/stage.yml").build();
+                    let stage_example = Self::example();
+
+                    bail!(
+                        "Improper format for stage. Must be in the format like:\n{}\n{}\n\n{}",
+                        highlight_ser(&stage_example, "yaml", None)?,
+                        "or".bold(),
+                        highlight_ser(&from_example, "yaml", None)?
+                    );
+                }
+            });
         }
         Ok(found_stages)
     }

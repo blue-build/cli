@@ -238,7 +238,7 @@ impl GenerateIsoCommand {
                 };
 
                 args.extend([
-                    format!("IMAGE_NAME={image_name}",),
+                    format!("IMAGE_NAME={image_name}"),
                     format!("IMAGE_REPO={image_repo}"),
                     format!("IMAGE_TAG={}", image.tag().unwrap_or("latest")),
                     format!(

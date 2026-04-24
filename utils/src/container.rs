@@ -183,7 +183,7 @@ impl<'scope> ImageRef<'scope> {
                     && let Some(extension) = path.extension()
                 {
                     Self::LocalTar(Cow::Owned(
-                        path.with_file_name(format!("{}_{value}", file_stem.display(),))
+                        path.with_file_name(format!("{}_{value}", file_stem.display()))
                             .with_extension(extension),
                     ))
                 } else {

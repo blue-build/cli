@@ -120,9 +120,7 @@ pub struct GitlabCiTemplate<'a> {
 
 fn has_cosign_file() -> bool {
     trace!("has_cosign_file()");
-    std::env::current_dir()
-        .map(|p| p.join(COSIGN_PUB_PATH).exists())
-        .unwrap_or(false)
+    std::env::current_dir().is_ok_and(|p| p.join(COSIGN_PUB_PATH).exists())
 }
 
 #[must_use]
