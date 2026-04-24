@@ -20,11 +20,12 @@ impl BootStatus for Status {
 
     /// Get the booted image's reference.
     fn booted_image(&self) -> Option<ImageRef<'_>> {
-        (&self
+        (self
             .deployments
             .iter()
             .find(|deployment| deployment.booted)?
             .container_image_reference)
+            .as_ref()?
             .try_into()
             .inspect_err(|e| {
                 log::warn!("{e}");
@@ -34,11 +35,12 @@ impl BootStatus for Status {
 
     /// Get the booted image's reference.
     fn staged_image(&self) -> Option<ImageRef<'_>> {
-        (&self
+        (self
             .deployments
             .iter()
             .find(|deployment| deployment.staged)?
             .container_image_reference)
+            .as_ref()?
             .try_into()
             .inspect_err(|e| {
                 log::warn!("{e}");
@@ -50,7 +52,8 @@ impl BootStatus for Status {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 struct Deployment {
-    container_image_reference: DeploymentImageRef,
+    #[serde(default)]
+    container_image_reference: Option<DeploymentImageRef>,
     booted: bool,
     staged: bool,
 }
@@ -72,20 +75,20 @@ mod test {
         Status {
             deployments: vec![
                 Deployment {
-                    container_image_reference: format!(
-                        "{OSTREE_IMAGE_SIGNED}:docker://ghcr.io/blue-build/cli/test"
-                    )
-                    .try_into()
-                    .unwrap(),
+                    container_image_reference: Some(
+                        format!("{OSTREE_IMAGE_SIGNED}:docker://ghcr.io/blue-build/cli/test")
+                            .try_into()
+                            .unwrap(),
+                    ),
                     booted: true,
                     staged: false,
                 },
                 Deployment {
-                    container_image_reference: format!(
-                        "{OSTREE_IMAGE_SIGNED}:docker://ghcr.io/blue-build/cli/test:last"
-                    )
-                    .try_into()
-                    .unwrap(),
+                    container_image_reference: Some(
+                        format!("{OSTREE_IMAGE_SIGNED}:docker://ghcr.io/blue-build/cli/test:last")
+                            .try_into()
+                            .unwrap(),
+                    ),
                     booted: false,
                     staged: false,
                 },
@@ -98,20 +101,20 @@ mod test {
         Status {
             deployments: vec![
                 Deployment {
-                    container_image_reference: format!(
-                        "{OSTREE_IMAGE_SIGNED}:docker://ghcr.io/blue-build/cli/test"
-                    )
-                    .try_into()
-                    .unwrap(),
+                    container_image_reference: Some(
+                        format!("{OSTREE_IMAGE_SIGNED}:docker://ghcr.io/blue-build/cli/test")
+                            .try_into()
+                            .unwrap(),
+                    ),
                     booted: true,
                     staged: false,
                 },
                 Deployment {
-                    container_image_reference: format!(
-                        "{OSTREE_IMAGE_SIGNED}:docker://ghcr.io/blue-build/cli/test:last"
-                    )
-                    .try_into()
-                    .unwrap(),
+                    container_image_reference: Some(
+                        format!("{OSTREE_IMAGE_SIGNED}:docker://ghcr.io/blue-build/cli/test:last")
+                            .try_into()
+                            .unwrap(),
+                    ),
                     booted: false,
                     staged: false,
                 },
@@ -124,23 +127,21 @@ mod test {
         Status {
             deployments: vec![
                 Deployment {
-                    container_image_reference: format!(
+                    container_image_reference: Some(format!(
                         "{OSTREE_UNVERIFIED_IMAGE}:{OCI_ARCHIVE}:{LOCAL_BUILD}/cli_test.{ARCHIVE_SUFFIX}"
-                    ).try_into().unwrap(),
+                    ).try_into().unwrap()),
                     booted: false,
                     staged: true,
                 },
                 Deployment {
-                    container_image_reference: format!(
+                    container_image_reference: Some(format!(
                         "{OSTREE_UNVERIFIED_IMAGE}:{OCI_ARCHIVE}:{LOCAL_BUILD}/cli_test.{ARCHIVE_SUFFIX}"
-                    ).try_into().unwrap(),
+                    ).try_into().unwrap()),
                     booted: true,
                     staged: false,
                 },
                 Deployment {
-                    container_image_reference: format!(
-                        "{OSTREE_IMAGE_SIGNED}:docker://ghcr.io/blue-build/cli/test:last"
-                    ).try_into().unwrap(),
+                    container_image_reference: None,
                     booted: false,
                     staged: false,
                 },
