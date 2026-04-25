@@ -73,7 +73,7 @@ impl BuildDriver for BuildahDriver {
                 platform.to_string(),
             ],
             "--pull=true",
-            format!("--layers={}", !opts.squash),
+            if !opts.squash => "--layers",
             if opts.squash => "--squash",
             match opts.cache_from.as_ref() {
                 Some(cache_from) if !opts.squash => [

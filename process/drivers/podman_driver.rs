@@ -155,7 +155,7 @@ impl BuildDriver for PodmanDriver {
             },
             "--pull=true",
             if opts.host_network => "--net=host",
-            format!("--layers={}", !opts.squash),
+            if !opts.squash => "--layers",
             if opts.squash => "--squash",
             "-f",
             opts.containerfile,
