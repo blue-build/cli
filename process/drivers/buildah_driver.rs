@@ -74,6 +74,7 @@ impl BuildDriver for BuildahDriver {
             ],
             "--pull=true",
             format!("--layers={}", !opts.squash),
+            if opts.squash => "--squash",
             match opts.cache_from.as_ref() {
                 Some(cache_from) if !opts.squash => [
                     "--cache-from",
