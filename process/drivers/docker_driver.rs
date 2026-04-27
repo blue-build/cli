@@ -11,7 +11,7 @@ use blue_build_utils::{
     get_env_var,
     secret::SecretArgs,
     semver::Version,
-    string_vec,
+    string_vec, tempdir,
 };
 use cached::proc_macro::once;
 use colored::Colorize;
@@ -193,9 +193,7 @@ impl BuildDriver for DockerDriver {
     fn build(opts: BuildOpts) -> Result<()> {
         trace!("DockerDriver::build({opts:#?})");
 
-        let temp_dir = TempDir::new()
-            .into_diagnostic()
-            .wrap_err("Failed to create temporary directory for secrets")?;
+        let temp_dir = tempdir().wrap_err("Failed to create temporary directory for secrets")?;
 
         if opts.squash {
             warn!("Squash is deprecated for docker so this build will not squash");
@@ -490,9 +488,7 @@ impl BuildDriver for DockerDriver {
     fn build_tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
         trace!("DockerDriver::build_tag_push({opts:#?})");
 
-        let temp_dir = TempDir::new()
-            .into_diagnostic()
-            .wrap_err("Failed to create temporary directory for secrets")?;
+        let temp_dir = tempdir().wrap_err("Failed to create temporary directory for secrets")?;
 
         if opts.squash {
             warn!("Squash is deprecated for docker so this build will not squash");
@@ -609,7 +605,7 @@ impl RunDriver for DockerDriver {
     fn run(opts: RunOpts) -> Result<ExitStatus> {
         trace!("DockerDriver::run({opts:#?})");
 
-        let cid_path = TempDir::new().into_diagnostic()?;
+        let cid_path = tempdir()?;
         let cid_file = cid_path.path().join("cid");
         let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Docker, false);
 
@@ -627,7 +623,7 @@ impl RunDriver for DockerDriver {
     fn run_output(opts: RunOpts) -> Result<std::process::Output> {
         trace!("DockerDriver::run_output({opts:#?})");
 
-        let cid_path = TempDir::new().into_diagnostic()?;
+        let cid_path = tempdir()?;
         let cid_file = cid_path.path().join("cid");
         let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Docker, false);
 
@@ -645,7 +641,7 @@ impl RunDriver for DockerDriver {
     fn run_detached(opts: RunOpts) -> Result<DetachedContainer> {
         trace!("DockerDriver::run_detached({opts:#?})");
 
-        let cid_path = TempDir::new().into_diagnostic()?;
+        let cid_path = tempdir()?;
         let cid_file = cid_path.path().join("cid");
 
         let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Docker, opts.privileged);

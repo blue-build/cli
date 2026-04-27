@@ -1,5 +1,6 @@
 use blue_build_utils::{
-    container::ContainerId, credentials::Credentials, secret::SecretArgs, semver::Version, sudo_cmd,
+    container::ContainerId, credentials::Credentials, secret::SecretArgs, semver::Version,
+    sudo_cmd, tempdir,
 };
 use colored::Colorize;
 use comlexr::{cmd, pipe};
@@ -7,7 +8,6 @@ use log::{debug, error, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_client::Reference;
 use serde::Deserialize;
-use tempfile::TempDir;
 
 use crate::logging::CommandLogging;
 
@@ -57,9 +57,7 @@ impl BuildDriver for BuildahDriver {
     fn build(opts: BuildOpts) -> Result<()> {
         trace!("BuildahDriver::build({opts:#?})");
 
-        let temp_dir = TempDir::new()
-            .into_diagnostic()
-            .wrap_err("Failed to create temporary directory for secrets")?;
+        let temp_dir = tempdir().wrap_err("Failed to create temporary directory for secrets")?;
 
         let command = sudo_cmd!(
             prompt = SUDO_PROMPT,

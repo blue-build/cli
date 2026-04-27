@@ -13,8 +13,9 @@ pub mod test_utils;
 pub mod traits;
 
 use std::{
+    fs::Permissions,
     ops::{AsyncFnMut, Not},
-    os::unix::ffi::OsStrExt,
+    os::unix::{ffi::OsStrExt, fs::PermissionsExt},
     path::{Path, PathBuf},
     thread,
     time::Duration,
@@ -155,4 +156,32 @@ pub fn running_as_root() -> bool {
 #[must_use]
 pub fn current_timestamp() -> String {
     Utc::now().to_rfc3339()
+}
+
+/// Create a temporary directory readable only by the current user (0700
+/// permissions).
+///
+/// # Errors
+/// Will error if creating the temporary directory fails.
+pub fn tempdir() -> Result<tempfile::TempDir> {
+    tempfile::Builder::new()
+        .prefix("bluebuild-tmp-")
+        .permissions(Permissions::from_mode(0o700))
+        .rand_bytes(10) // this is the default for `mktemp`
+        .tempdir()
+        .into_diagnostic()
+}
+
+/// Create a temporary directory inside of `dir`, readable only by the current
+/// user (0700 permissions).
+///
+/// # Errors
+/// Will error if creating the temporary directory fails.
+pub fn tempdir_in<P: AsRef<Path>>(dir: P) -> Result<tempfile::TempDir> {
+    tempfile::Builder::new()
+        .prefix("bluebuild-tmp-")
+        .permissions(Permissions::from_mode(0o700))
+        .rand_bytes(10) // this is the default for `mktemp`
+        .tempdir_in(dir)
+        .into_diagnostic()
 }
