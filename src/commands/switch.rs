@@ -6,12 +6,11 @@ use blue_build_process_management::drivers::{
     types::{BuildDriverType, RunDriverType},
 };
 use blue_build_recipe::Recipe;
-use blue_build_utils::{constants::BB_SKIP_VALIDATION, container::ImageRef};
+use blue_build_utils::{constants::BB_SKIP_VALIDATION, container::ImageRef, tempdir, tempdir_in};
 use bon::Builder;
 use clap::Args;
 use log::trace;
-use miette::{IntoDiagnostic, Result, bail};
-use tempfile::TempDir;
+use miette::{Result, bail};
 
 use crate::commands::generate::GenerateCommand;
 
@@ -70,9 +69,9 @@ impl BlueBuildCommand for SwitchCommand {
                 .build(),
         )?;
         let tempdir = if let Some(ref dir) = self.tempdir {
-            TempDir::new_in(dir).into_diagnostic()?
+            tempdir_in(dir)?
         } else {
-            TempDir::new().into_diagnostic()?
+            tempdir()?
         };
         let containerfile = tempdir
             .path()

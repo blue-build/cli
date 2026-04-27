@@ -11,7 +11,7 @@ use blue_build_utils::{
     get_env_var,
     secret::SecretArgs,
     semver::Version,
-    sudo_cmd,
+    sudo_cmd, tempdir,
 };
 use colored::Colorize;
 use comlexr::{cmd, pipe};
@@ -19,7 +19,6 @@ use log::{debug, error, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_client::Reference;
 use serde::Deserialize;
-use tempfile::TempDir;
 
 use super::{
     BuildChunkedOciDriver, BuildDriver, ContainerMountDriver, DriverVersion, ImageStorageDriver,
@@ -118,9 +117,7 @@ impl BuildDriver for PodmanDriver {
     fn build(opts: BuildOpts) -> Result<()> {
         trace!("PodmanDriver::build({opts:#?})");
 
-        let temp_dir = TempDir::new()
-            .into_diagnostic()
-            .wrap_err("Failed to create temporary directory for secrets")?;
+        let temp_dir = tempdir().wrap_err("Failed to create temporary directory for secrets")?;
 
         let command = sudo_cmd!(
             prompt = SUDO_PROMPT,
@@ -619,7 +616,7 @@ impl RunDriver for PodmanDriver {
     fn run(opts: RunOpts) -> Result<ExitStatus> {
         trace!("PodmanDriver::run({opts:#?})");
 
-        let cid_path = TempDir::new().into_diagnostic()?;
+        let cid_path = tempdir()?;
         let cid_file = cid_path.path().join("cid");
 
         let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Podman, opts.privileged);
@@ -638,7 +635,7 @@ impl RunDriver for PodmanDriver {
     fn run_output(opts: RunOpts) -> Result<std::process::Output> {
         trace!("PodmanDriver::run_output({opts:#?})");
 
-        let cid_path = TempDir::new().into_diagnostic()?;
+        let cid_path = tempdir()?;
         let cid_file = cid_path.path().join("cid");
 
         let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Podman, opts.privileged);
@@ -657,7 +654,7 @@ impl RunDriver for PodmanDriver {
     fn run_detached(opts: RunOpts) -> Result<DetachedContainer> {
         trace!("PodmanDriver::run_detached({opts:#?})");
 
-        let cid_path = TempDir::new().into_diagnostic()?;
+        let cid_path = tempdir()?;
         let cid_file = cid_path.path().join("cid");
 
         let cid = ContainerSignalId::new(&cid_file, ContainerRuntime::Podman, opts.privileged);

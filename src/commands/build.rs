@@ -30,14 +30,14 @@ use blue_build_utils::{
     container::{ImageRef, Tag},
     credentials::{Credentials, CredentialsArgs},
     platform::Platform,
+    tempdir, tempdir_in,
 };
 use bon::Builder;
 use clap::Args;
 use log::{debug, info, trace, warn};
-use miette::{IntoDiagnostic, Result, bail};
+use miette::{Result, bail};
 use oci_client::Reference;
 use rayon::prelude::*;
-use tempfile::TempDir;
 
 use crate::commands::generate::{GenerateCommand, generate_default_labels};
 
@@ -221,9 +221,9 @@ impl BlueBuildCommand for BuildCommand {
         }
 
         let tempdir = if let Some(ref dir) = self.tempdir {
-            TempDir::new_in(dir).into_diagnostic()?
+            tempdir_in(dir)?
         } else {
-            TempDir::new().into_diagnostic()?
+            tempdir()?
         };
         let recipe_paths = self.recipe.clone().map_or_else(|| {
                 let legacy_path = Path::new(CONFIG_PATH);

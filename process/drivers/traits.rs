@@ -11,7 +11,7 @@ use blue_build_utils::{
     platform::Platform,
     retry,
     semver::Version,
-    string_vec,
+    string_vec, tempdir, tempdir_in,
 };
 use comlexr::cmd;
 use log::{debug, info, trace, warn};
@@ -642,9 +642,9 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         );
 
         let temp_dir = if let Some(dir) = opts.tempdir {
-            &tempfile::TempDir::new_in(dir).into_diagnostic()?
+            tempdir_in(dir)?
         } else {
-            &tempfile::TempDir::new().into_diagnostic()?
+            tempdir()?
         };
         let ostree_cache_id = &uuid::Uuid::new_v4().to_string();
         let image = &ImageRef::from(
@@ -702,9 +702,9 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
             Self::prune_image(mount, container, image, opts)?;
             Self::create_ostree_commit(mount, ostree_cache_id, container, image, opts)?;
 
-            let temp_dir_str = &*temp_dir.path().to_string_lossy();
+            let temp_dir_str = temp_dir.path().to_string_lossy();
 
-            Self::rechunk_image(ostree_cache_id, temp_dir_str, current_dir, opts)
+            Self::rechunk_image(ostree_cache_id, &temp_dir_str, current_dir, opts)
         })?;
 
         let mut image_list = Vec::with_capacity(opts.tags.len());

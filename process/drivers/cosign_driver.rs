@@ -229,8 +229,10 @@ impl SigningDriver for CosignDriver {
 mod test {
     use std::{fs, path::Path};
 
-    use blue_build_utils::constants::{COSIGN_PRIV_PATH, COSIGN_PUB_PATH};
-    use tempfile::TempDir;
+    use blue_build_utils::{
+        constants::{COSIGN_PRIV_PATH, COSIGN_PUB_PATH},
+        tempdir,
+    };
 
     use crate::drivers::{
         SigningDriver,
@@ -241,7 +243,7 @@ mod test {
 
     #[test]
     fn generate_key_pair() {
-        let tempdir = TempDir::new().unwrap();
+        let tempdir = tempdir().unwrap();
 
         CosignDriver::generate_key_pair(GenerateKeyPairOpts::builder().dir(tempdir.path()).build())
             .unwrap();
@@ -270,7 +272,7 @@ mod test {
     fn compatibility() {
         use crate::drivers::sigstore_driver::SigstoreDriver;
 
-        let tempdir = TempDir::new().unwrap();
+        let tempdir = tempdir().unwrap();
 
         CosignDriver::generate_key_pair(GenerateKeyPairOpts::builder().dir(tempdir.path()).build())
             .unwrap();

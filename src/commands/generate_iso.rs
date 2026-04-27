@@ -11,13 +11,12 @@ use blue_build_utils::{
         JASONN3_INSTALLER_IMAGE,
     },
     platform::Platform,
-    string_vec,
+    string_vec, tempdir, tempdir_in,
 };
 use bon::Builder;
 use clap::{Args, Subcommand, ValueEnum};
 use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_client::Reference;
-use tempfile::TempDir;
 
 use blue_build_process_management::{
     drivers::{Driver, DriverArgs, RunDriver, opts::RunOpts},
@@ -150,9 +149,9 @@ impl BlueBuildCommand for GenerateIsoCommand {
         Driver::init(self.drivers);
 
         let image_out_dir = if let Some(ref dir) = self.tempdir {
-            TempDir::new_in(dir).into_diagnostic()?
+            tempdir_in(dir)?
         } else {
-            TempDir::new().into_diagnostic()?
+            tempdir()?
         };
 
         let output_dir = if let Some(output_dir) = self.output_dir.clone() {
