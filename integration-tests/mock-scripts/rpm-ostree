@@ -24,6 +24,10 @@ elif [ "$1" = "status" ]; then
       "container-image-reference": "ostree-image-signed:docker://ghcr.io/blue-build/cli/test:last",
       "booted": false,
       "staged": false
+    },
+    {
+      "booted": false,
+      "staged": false
     }
   ]
 }
