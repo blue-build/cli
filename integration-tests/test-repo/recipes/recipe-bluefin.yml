@@ -6,6 +6,11 @@ base-image: ghcr.io/ublue-os/bluefin
 blue-build-tag: none
 cosign-version: none
 image-version: stable
+mounts:
+  - type: cache
+    sharing: private
+    id: private-cache
+    destination: /var/cache/private
 stages:
   - from-file: stages.yml
 modules:
