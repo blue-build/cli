@@ -24,10 +24,32 @@ impl CiDriver for LocalDriver {
     }
 
     fn generate_tags(opts: GenerateTagsOpts) -> Result<Vec<Tag>> {
+        use blue_build_utils::tagging::{TagMetadata, apply_tagging_policies, resolve_tag_template};
+
+        let short_sha = opts.short_sha.map(|s| s.to_string()).or_else(commit_sha);
+        let metadata = TagMetadata {
+            tag: None,
+            os_version: opts.os_version,
+            timestamp: opts.timestamp,
+            short_sha: short_sha.as_deref(),
+        };
+
+        // 1. Manual Tags (Verbatim + Template Resolution)
+        if let Some(tags) = opts.tags {
+            return tags
+                .iter()
+                .map(|t| resolve_tag_template(t, &metadata).parse())
+                .collect::<Result<Vec<Tag>>>();
+        }
+
+        // 2. Tagging Policies (if provided)
+        if let (Some(alt_tags), Some(policies)) = (opts.alt_tags, opts.tagging) {
+            return apply_tagging_policies(alt_tags, policies, &metadata);
+        }
+
         trace!("LocalDriver::generate_tags({opts:?})");
-        let os_version = Driver::get_os_version().oci_ref(opts.oci_ref).call()?;
-        let timestamp = blue_build_utils::get_tag_timestamp();
-        let short_sha = commit_sha();
+        let os_version = opts.os_version;
+        let timestamp = opts.timestamp;
 
         opts.alt_tags
             .as_ref()
@@ -35,7 +57,7 @@ impl CiDriver for LocalDriver {
                 || {
                     let mut tags = string_vec![
                         "latest",
-                        &timestamp,
+                        timestamp,
                         format!("{os_version}"),
                         format!("{timestamp}-{os_version}"),
                     ];

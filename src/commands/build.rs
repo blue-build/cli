@@ -301,10 +301,32 @@ impl BuildCommand {
         );
 
         let recipe = &Recipe::parse(recipe_path)?;
+        let timestamp = &blue_build_utils::get_tag_timestamp();
+        let os_version = &Driver::get_os_version()
+            .oci_ref(&recipe.base_image_ref()?)
+            .call()
+            .inspect(|v| trace!("os_version={v}"))?;
+        let short_sha = {
+            let mut short_sha = blue_build_utils::get_env_var("GITHUB_SHA")
+                .or_else(|_| blue_build_utils::get_env_var("CI_COMMIT_SHA"))
+                .unwrap_or_default();
+            short_sha.truncate(7);
+            if short_sha.is_empty() {
+                None
+            } else {
+                Some(short_sha)
+            }
+        };
+
         let tags = &Driver::generate_tags(
             GenerateTagsOpts::builder()
                 .oci_ref(&recipe.base_image_ref()?)
                 .maybe_alt_tags(recipe.alt_tags.as_deref())
+                .maybe_tags(recipe.tags.as_deref())
+                .maybe_tagging(recipe.tagging.as_deref())
+                .os_version(os_version)
+                .timestamp(timestamp)
+                .maybe_short_sha(short_sha.as_deref())
                 .maybe_platform(self.platform.first().copied())
                 .build(),
         )?;

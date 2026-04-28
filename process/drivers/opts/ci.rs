@@ -1,4 +1,4 @@
-use blue_build_utils::{container::Tag, platform::Platform};
+use blue_build_utils::{container::Tag, platform::Platform, tagging::TaggingPolicy};
 use bon::Builder;
 use oci_client::Reference;
 
@@ -9,6 +9,16 @@ pub struct GenerateTagsOpts<'scope> {
 
     #[builder(into)]
     pub alt_tags: Option<&'scope [Tag]>,
+
+    #[builder(into)]
+    pub tags: Option<&'scope [String]>,
+
+    #[builder(into)]
+    pub tagging: Option<&'scope [TaggingPolicy]>,
+
+    pub os_version: &'scope str,
+    pub timestamp: &'scope str,
+    pub short_sha: Option<&'scope str>,
 
     pub platform: Option<Platform>,
 }

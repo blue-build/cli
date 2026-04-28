@@ -7,6 +7,7 @@ use std::{
 
 use blue_build_utils::{
     constants::COSIGN_IMAGE_VERSION, container::Tag, platform::Platform, secret::Secret,
+    tagging::TaggingPolicy,
 };
 use bon::Builder;
 use cached::proc_macro::cached;
@@ -58,6 +59,17 @@ pub struct Recipe {
     #[serde(rename = "alt-tags", skip_serializing_if = "Option::is_none")]
     #[builder(into)]
     pub alt_tags: Option<Vec<Tag>>,
+
+    /// Exact tags to add to the image.
+    ///
+    /// This will override any automatic tagging logic in the drivers.
+    #[serde(alias = "tags", skip_serializing_if = "Option::is_none")]
+    #[builder(into)]
+    pub tags: Option<Vec<String>>,
+
+    /// Custom tagging policies for expanding alt-tags.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tagging: Option<Vec<TaggingPolicy>>,
 
     /// The version of nushell to use for modules.
     #[serde(skip_serializing_if = "Option::is_none", rename = "nushell-version")]
