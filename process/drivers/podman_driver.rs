@@ -150,7 +150,7 @@ impl BuildDriver for PodmanDriver {
                 ],
                 _ => [],
             },
-            "--pull=true",
+            "--pull=always",
             if opts.host_network => "--net=host",
             if !opts.squash => "--layers",
             if opts.squash => "--squash",
