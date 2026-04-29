@@ -70,7 +70,7 @@ impl BuildDriver for BuildahDriver {
                 "--platform",
                 platform.to_string(),
             ],
-            "--pull=true",
+            "--pull=always",
             if !opts.squash => "--layers",
             if opts.squash => "--squash",
             match opts.cache_from.as_ref() {
