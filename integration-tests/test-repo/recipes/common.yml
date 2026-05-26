@@ -13,7 +13,7 @@ modules:
 
   - type: script
     snippets:
-      - '[ -z "$TEST_ARG" ]'
+      - '[ -z "${TEST_ARG:-}" ]'
 
   - type: script
     env:
@@ -23,7 +23,7 @@ modules:
 
   - type: script
     snippets:
-      - '[ -z "$TEST_ARG" ]'
+      - '[ -z "${TEST_ARG:-}" ]'
 
   - type: dnf
     repos:
