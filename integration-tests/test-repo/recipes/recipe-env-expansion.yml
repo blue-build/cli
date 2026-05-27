@@ -1,0 +1,12 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
+name: cli/test-${NAME_EXT:-env-expansion}
+description: This is my personal OS image. ${DESC_EXT}
+base-image: ${BASE_REGISTRY:-quay.io}/fedora/fedora-bootc
+blue-build-tag: none
+cosign-version: none
+image-version: ${VERSION}
+stages:
+  - from-file: stages.yml
+modules:
+  - from-file: common.yml

@@ -3,6 +3,7 @@ pub mod command_output;
 pub mod constants;
 pub mod container;
 pub mod credentials;
+pub mod env_str;
 mod macros;
 pub mod platform;
 pub mod secret;
