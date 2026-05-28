@@ -1,3 +1,5 @@
+use std::{fs::File, process::Stdio};
+
 use blue_build_utils::{
     container::ContainerId, credentials::Credentials, secret::SecretArgs, semver::Version,
     sudo_cmd, tempdir,
@@ -14,8 +16,8 @@ use crate::logging::CommandLogging;
 use super::{
     BuildDriver, DriverVersion, ImageStorageDriver,
     opts::{
-        BuildOpts, ManifestCreateOpts, ManifestPushOpts, PruneOpts, PullOpts, PushOpts, TagOpts,
-        UntagOpts,
+        BuildOpts, InspectImageOpts, ManifestCreateOpts, ManifestPushOpts, PruneOpts, PullOpts,
+        PushOpts, TagOpts, UntagOpts,
     },
 };
 
@@ -343,6 +345,25 @@ impl BuildDriver for BuildahDriver {
 }
 
 impl ImageStorageDriver for BuildahDriver {
+    fn inspect_image(opts: InspectImageOpts) -> Result<Option<Vec<u8>>> {
+        let stdout = if let Some(output_path) = opts.output_path {
+            Stdio::from(File::create(output_path).into_diagnostic()?)
+        } else {
+            Stdio::piped()
+        };
+        let output = cmd!("buildah", "inspect", "--type", "image", "--", opts.image)
+            .stdout(stdout)
+            .output()
+            .into_diagnostic()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            bail!("Failed to inspect image {}:\n{}", opts.image, stderr);
+        }
+
+        Ok(opts.output_path.is_none().then_some(output.stdout))
+    }
+
     fn remove_image(opts: super::opts::RemoveImageOpts) -> Result<()> {
         trace!("BuildahDriver::remove_image({opts:?})");
 
@@ -352,6 +373,7 @@ impl ImageStorageDriver for BuildahDriver {
                 sudo_check = opts.privileged,
                 "buildah",
                 "rmi",
+                "--",
                 opts.image.to_string(),
             );
             trace!("{c:?}");

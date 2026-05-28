@@ -460,7 +460,6 @@ dependencies = [
  "fuzzy-matcher",
  "git2",
  "indexmap 2.13.0",
- "indicatif",
  "jsonschema",
  "log",
  "miette",
@@ -478,8 +477,6 @@ dependencies = [
  "serde",
  "serde_json",
  "shadow-rs",
- "syntect",
- "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "urlencoding",
@@ -499,7 +496,6 @@ dependencies = [
  "clap",
  "colored",
  "comlexr",
- "indexmap 2.13.0",
  "indicatif",
  "indicatif-log-bridge",
  "lazy-regex",
@@ -509,10 +505,8 @@ dependencies = [
  "nix 0.31.2",
  "nu-ansi-term",
  "oci-client",
- "os_pipe",
  "pretty_assertions",
  "rayon",
- "reqwest",
  "rstest",
  "semver",
  "serde",
@@ -538,10 +532,8 @@ dependencies = [
  "log",
  "miette",
  "oci-client",
- "reqwest",
  "rstest",
  "serde",
- "serde_json",
  "structstruck",
  "yaml_serde",
 ]
@@ -556,7 +548,6 @@ dependencies = [
  "bon",
  "colored",
  "log",
- "oci-client",
  "uuid",
 ]
 
@@ -581,11 +572,9 @@ dependencies = [
  "oci-client",
  "process_control",
  "rand 0.10.1",
- "reqwest",
  "rstest",
  "semver",
  "serde",
- "serde_json",
  "shellexpand",
  "syntect",
  "tempfile",
@@ -3381,16 +3370,6 @@ dependencies = [
  "objc2-foundation",
  "objc2-ui-kit",
  "serde",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "os_pipe"
-version = "1.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d8fae84b431384b68627d0f9b3b1245fcf9f46f6c0e3dc902e9dce64edd1967"
-dependencies = [
- "libc",
  "windows-sys 0.61.2",
 ]
 

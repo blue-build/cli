@@ -12,4 +12,7 @@ pub struct CopyOciOpts<'scope> {
 
     #[builder(default)]
     pub retry_count: u8,
+
+    #[builder(default)]
+    pub podman_unshare: bool,
 }

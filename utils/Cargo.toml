@@ -28,10 +28,8 @@ miette.workspace = true
 nix = { workspace = true, features = ["user"] }
 oci-client.workspace = true
 rand.workspace = true
-reqwest.workspace = true
 semver = { workspace = true, features = ["serde"] }
 serde.workspace = true
-serde_json.workspace = true
 serde_yaml.workspace = true
 syntect.workspace = true
 tempfile.workspace = true

@@ -1,7 +1,8 @@
 use std::{
+    fs::File,
     ops::Not,
     path::Path,
-    process::{Command, ExitStatus},
+    process::{Command, ExitStatus, Stdio},
 };
 
 use blue_build_utils::{
@@ -29,9 +30,9 @@ use crate::{
 
 use super::{
     opts::{
-        BuildOpts, BuildTagPushOpts, CreateContainerOpts, ManifestCreateOpts, ManifestPushOpts,
-        PruneOpts, PullOpts, PushOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, RunOptsEnv,
-        RunOptsVolume, TagOpts, UntagOpts,
+        BuildOpts, BuildTagPushOpts, CreateContainerOpts, InspectImageOpts, ManifestCreateOpts,
+        ManifestPushOpts, PruneOpts, PullOpts, PushOpts, RemoveContainerOpts, RemoveImageOpts,
+        RunOpts, RunOptsEnv, RunOptsVolume, TagOpts, UntagOpts,
     },
     traits::{BuildDriver, DriverVersion, ImageStorageDriver, RunDriver},
 };
@@ -700,11 +701,30 @@ impl RunDriver for DockerDriver {
 }
 
 impl ImageStorageDriver for DockerDriver {
+    fn inspect_image(opts: InspectImageOpts) -> Result<Option<Vec<u8>>> {
+        let stdout = if let Some(output_path) = opts.output_path {
+            Stdio::from(File::create(output_path).into_diagnostic()?)
+        } else {
+            Stdio::piped()
+        };
+        let output = cmd!("docker", "image", "inspect", "--", opts.image)
+            .stdout(stdout)
+            .output()
+            .into_diagnostic()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            bail!("Failed to inspect image {}:\n{}", opts.image, stderr);
+        }
+
+        Ok(opts.output_path.is_none().then_some(output.stdout))
+    }
+
     fn remove_image(opts: RemoveImageOpts) -> Result<()> {
         trace!("DockerDriver::remove_image({opts:?})");
 
         let output = {
-            let c = cmd!("docker", "rmi", opts.image.to_string());
+            let c = cmd!("docker", "rmi", "--", opts.image.to_string());
             trace!("{c:?}");
             c
         }
