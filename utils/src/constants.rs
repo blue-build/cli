@@ -104,6 +104,7 @@ pub const SUDO_ASKPASS: &str = "SUDO_ASKPASS";
 // Misc
 pub const BLUE_BUILD: &str = "bluebuild";
 pub const BUILD_SCRIPTS_IMAGE_REF: &str = "ghcr.io/blue-build/cli/build-scripts";
+pub const BLUE_BUILD_DEFAULT_IMAGE: &str = "ghcr.io/blue-build/base-images/fedora-base:latest";
 pub const BLUE_BUILD_IMAGE_REF: &str = "ghcr.io/blue-build/cli";
 pub const BLUE_BUILD_MODULE_IMAGE_REF: &str = "ghcr.io/blue-build/modules";
 pub const BLUE_BUILD_SCRIPTS_DIR_IGNORE: &str = "/.bluebuild-scripts_*";
@@ -125,7 +126,8 @@ pub const GITHUB_CHAR_LIMIT: usize = 8100; // Magic number accepted by Github
 pub const DEFAULT_MAX_LAYERS: NonZeroU32 = NonZeroU32::new(128).unwrap();
 
 // Schema
-pub const SCHEMA_BASE_URL: &str = "https://schema.blue-build.org";
+// pub const SCHEMA_BASE_URL: &str = "https://schema.blue-build.org";
+pub const SCHEMA_BASE_URL: &str = "https://recipe-v2.schema-e29.pages.dev";
 pub const RECIPE_V1_SCHEMA_URL: &str = concat!(SCHEMA_BASE_URL, "/recipe-v1.json");
 pub const STAGE_V1_SCHEMA_URL: &str = concat!(SCHEMA_BASE_URL, "/stage-v1.json");
 pub const MODULE_V1_SCHEMA_URL: &str = concat!(SCHEMA_BASE_URL, "/module-v1.json");

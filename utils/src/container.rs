@@ -10,6 +10,7 @@ use lazy_regex::regex;
 use miette::miette;
 use oci_client::Reference;
 use serde::{Deserialize, Serialize};
+use serde_yaml::Value;
 
 use crate::{env_str::EnvString, platform::Platform};
 
@@ -320,7 +321,15 @@ impl<'de> Deserialize<'de> for Tag {
     where
         D: serde::Deserializer<'de>,
     {
-        let expanded = EnvString::deserialize(deserializer)?;
+        let value = Value::deserialize(deserializer)?;
+
+        let expanded = match value {
+            Value::Number(num) => num.to_string(),
+            Value::String(string) => string,
+            _ => return Err(serde::de::Error::custom("Value was not a string or number")),
+        }
+        .parse()
+        .map_err(serde::de::Error::custom)?;
         eval_tag(&expanded)
             .then(|| Self(expanded.clone()))
             .ok_or_else(|| serde::de::Error::custom(format!("Invalid tag: {expanded}")))
@@ -329,7 +338,7 @@ impl<'de> Deserialize<'de> for Tag {
 
 impl Default for Tag {
     fn default() -> Self {
-        Self(String::from("latest").into())
+        Self(EnvString::from("latest"))
     }
 }
 

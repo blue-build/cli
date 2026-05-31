@@ -157,6 +157,15 @@ test-docker-build: generate-test-secret install-debug-all-features
     -vv \
     recipes/recipe.yml recipes/recipe-gts.yml
 
+test-recipe-v2-build: generate-test-secret install-debug-all-features
+  cd integration-tests/test-repo \
+  && bluebuild build \
+    --retry-push \
+    -S sigstore \
+    {{ should_push }} \
+    -vv \
+    recipes/recipe-v2.yml
+
 test-empty-files-build: generate-test-secret install-debug-all-features
   cd integration-tests/empty-files-repo \
   && bluebuild build \

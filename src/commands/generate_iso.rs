@@ -3,7 +3,7 @@ use std::{
     path::{self, Path, PathBuf},
 };
 
-use blue_build_recipe::Recipe;
+use blue_build_recipe::{Recipe, RecipeGetters};
 use blue_build_utils::{
     constants::{
         ARCHIVE_SUFFIX, BB_GENISO_ENROLLMENT_PASSWORD, BB_GENISO_ISO_NAME,
@@ -255,7 +255,7 @@ impl GenerateIsoCommand {
                 args.extend([
                     format!(
                         "IMAGE_SRC=oci-archive:/img_src/{}.{ARCHIVE_SUFFIX}",
-                        recipe.name.replace('/', "_"),
+                        recipe.get_name().replace('/', "_"),
                     ),
                     format!(
                         "VERSION={}",
