@@ -1,6 +1,6 @@
-use std::{borrow::Cow, collections::BTreeMap, fs, path::Path, process};
+use std::{borrow::Cow, collections::BTreeMap, fmt::Write, fs, path::Path, process};
 
-use blue_build_recipe::{MaybeVersion, Recipe};
+use blue_build_recipe::{MaybeVersion, ModuleRequiredFields, Recipe};
 use blue_build_utils::{
     constants::{CONFIG_PATH, CONTAINER_FILE, CONTAINERFILES_PATH, COSIGN_PUB_PATH, FILES_PATH},
     container::Tag,
@@ -79,6 +79,23 @@ impl ContainerFileTemplate<'_> {
                 BuildEngine::Docker => "ro",
             }
         )
+    }
+
+    fn user_mounts(&self, module: &ModuleRequiredFields) -> String {
+        let mut s = self.recipe.mounts.iter().chain(module.mounts.iter()).fold(
+            String::new(),
+            |mut acc, mount| {
+                let suffix: &str = match self.build_engine {
+                    BuildEngine::Oci => mount.oci_suffix(),
+                    BuildEngine::Docker => "",
+                };
+
+                writeln!(acc, "--mount={mount}{suffix} \\").unwrap();
+                acc
+            },
+        );
+        s.pop(); // Avoid trailing newline
+        s
     }
 }
 
