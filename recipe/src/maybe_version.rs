@@ -1,10 +1,11 @@
+use blue_build_utils::container::Tag;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Clone, Debug)]
 pub enum MaybeVersion {
     #[default]
     None,
-    VersionOrBranch(String),
+    VersionOrBranch(Tag),
 }
 
 impl std::fmt::Display for MaybeVersion {
@@ -13,8 +14,8 @@ impl std::fmt::Display for MaybeVersion {
             f,
             "{}",
             match self {
-                Self::None => "none".to_string(),
-                Self::VersionOrBranch(version) => version.clone(),
+                Self::None => "none",
+                Self::VersionOrBranch(version) => version.as_str(),
             }
         )
     }
@@ -25,10 +26,10 @@ impl<'de> Deserialize<'de> for MaybeVersion {
     where
         D: serde::Deserializer<'de>,
     {
-        let val = String::deserialize(deserializer)?;
+        let val = Tag::deserialize(deserializer)?;
 
         Ok(match val {
-            none if none.to_lowercase() == "none" => Self::None,
+            none if none.as_str().to_lowercase() == "none" => Self::None,
             version => Self::VersionOrBranch(version),
         })
     }

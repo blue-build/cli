@@ -1,15 +1,13 @@
 use std::{
-    collections::HashSet,
     fs,
     path::{Path, PathBuf},
 };
 
 use bon::Builder;
-use log::trace;
 use miette::{Context, IntoDiagnostic, Report, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{AkmodsInfo, FromFileList, Module, base_recipe_path};
+use crate::{FromFileList, Module, base_recipe_path};
 
 #[derive(Default, Serialize, Clone, Deserialize, Debug, Builder)]
 pub struct ModuleExt {
@@ -57,33 +55,5 @@ impl TryFrom<&Path> for ModuleExt {
             },
             Ok,
         )
-    }
-}
-
-impl ModuleExt {
-    #[must_use]
-    pub fn get_akmods_info_list(&self, os_version: &u64) -> Vec<AkmodsInfo> {
-        trace!("get_akmods_image_list({self:#?}, {os_version})");
-
-        let mut seen = HashSet::new();
-
-        self.modules
-            .iter()
-            .filter(|module| {
-                module
-                    .required_fields
-                    .as_ref()
-                    .is_some_and(|rf| rf.module_type.typ() == "akmods")
-            })
-            .filter_map(|module| {
-                Some(
-                    module
-                        .required_fields
-                        .as_ref()?
-                        .generate_akmods_info(os_version),
-                )
-            })
-            .filter(|image| seen.insert(image.clone()))
-            .collect()
     }
 }

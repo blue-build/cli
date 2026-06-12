@@ -1,9 +1,8 @@
 use std::{borrow::Cow, collections::BTreeMap, fs, path::Path, process};
 
-use blue_build_recipe::{MaybeVersion, Recipe};
+use blue_build_recipe::{Recipe, RecipeGetters};
 use blue_build_utils::{
     constants::{CONFIG_PATH, CONTAINER_FILE, CONTAINERFILES_PATH, COSIGN_PUB_PATH, FILES_PATH},
-    container::Tag,
     secret::SecretMounts,
 };
 use bon::Builder;
@@ -37,7 +36,6 @@ pub struct ContainerFileTemplate<'a> {
     registry: &'a str,
     build_scripts_dir: &'a Path,
     base_digest: &'a str,
-    nushell_version: Option<&'a MaybeVersion>,
 
     #[builder(default)]
     build_features: &'a [String],
@@ -47,20 +45,6 @@ pub struct ContainerFileTemplate<'a> {
 }
 
 impl ContainerFileTemplate<'_> {
-    const fn should_install_nu(&self) -> bool {
-        match self.nushell_version {
-            None | Some(MaybeVersion::VersionOrBranch(_)) => true,
-            Some(MaybeVersion::None) => false,
-        }
-    }
-
-    fn get_nu_version(&self) -> String {
-        match self.nushell_version {
-            Some(MaybeVersion::None) | None => "default".to_string(),
-            Some(MaybeVersion::VersionOrBranch(version)) => version.replace('/', "_"),
-        }
-    }
-
     #[must_use]
     fn get_features(&self) -> String {
         self.build_features
@@ -178,7 +162,8 @@ fn should_color() -> bool {
 }
 
 #[must_use]
-fn package_cache_mount_name(recipe_name: &str, image_version: &Tag, stage_name: &str) -> String {
+#[expect(clippy::trivially_copy_pass_by_ref)] // Askama always passes by reference, no choice here
+fn package_cache_mount_name(recipe_name: &str, image_version: &u64, stage_name: &str) -> String {
     format!("cache-{recipe_name}-{image_version}-stage-{stage_name}")
 }
 

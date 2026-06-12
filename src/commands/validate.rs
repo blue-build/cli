@@ -7,7 +7,7 @@ use std::{
 };
 
 use blue_build_process_management::ASYNC_RUNTIME;
-use blue_build_recipe::{FromFileList, ModuleExt, Recipe, StagesExt};
+use blue_build_recipe::{FromFileList, ModuleExt, RecipeV1, StagesExt};
 use blue_build_utils::constants::{
     MODULE_STAGE_LIST_V1_SCHEMA_URL, MODULE_V1_SCHEMA_URL, RECIPE_V1_SCHEMA_URL,
     STAGE_V1_SCHEMA_URL,
@@ -241,7 +241,7 @@ impl ValidateCommand {
         if let Some(err) = err {
             Err(vec![err.into()])
         } else {
-            let recipe: Recipe = serde_yaml::from_str(&recipe_str)
+            let recipe: RecipeV1 = serde_yaml::from_str(&recipe_str)
                 .into_diagnostic()
                 .with_context(|| {
                     format!("Unable to convert Value to Recipe for {recipe_path_display}")

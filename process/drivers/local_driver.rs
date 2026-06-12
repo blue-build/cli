@@ -30,7 +30,6 @@ impl CiDriver for LocalDriver {
         let short_sha = commit_sha();
 
         opts.alt_tags
-            .as_ref()
             .map_or_else(
                 || {
                     let mut tags = string_vec![

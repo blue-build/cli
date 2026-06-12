@@ -1,0 +1,18 @@
+---
+# yaml-language-server: $schema=https://recipe-v2.schema-e29.pages.dev/recipe-v2.json
+version: 2
+base:
+  image:
+    registry: quay.io
+    repository: fedora/fedora-bootc
+    tag: latest
+metadata:
+  name: cli/test-recipe-v2
+  description: This is my personal OS image.
+spec:
+  tool-versions:
+    blue-build-tag: none
+stages:
+  - from-file: stages.yml
+modules:
+  - from-file: common.yml

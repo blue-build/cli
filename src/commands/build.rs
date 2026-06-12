@@ -17,7 +17,7 @@ use blue_build_process_management::{
     },
     logging::color_str,
 };
-use blue_build_recipe::Recipe;
+use blue_build_recipe::{Recipe, RecipeGetters};
 use blue_build_utils::{
     colors::gen_random_ansi_color,
     constants::{
@@ -304,7 +304,7 @@ impl BuildCommand {
         let tags = &Driver::generate_tags(
             GenerateTagsOpts::builder()
                 .oci_ref(&recipe.base_image_ref()?)
-                .maybe_alt_tags(recipe.alt_tags.as_deref())
+                .maybe_alt_tags(recipe.get_alt_tags())
                 .maybe_platform(self.platform.first().copied())
                 .build(),
         )?;
@@ -315,7 +315,7 @@ impl BuildCommand {
 
         let image = &Driver::generate_image_name(
             GenerateImageNameOpts::builder()
-                .name(recipe.name.trim())
+                .name(recipe.get_name())
                 .maybe_registry(self.credentials.registry.as_deref())
                 .maybe_registry_namespace(self.registry_namespace.as_deref())
                 .maybe_tag(tags.first())
@@ -341,12 +341,10 @@ impl BuildCommand {
         });
         let cache_image = cache_image.as_ref();
 
-        let platforms = match &recipe.platforms {
-            None if self.platform.is_empty() => &vec![Platform::default()],
-            Some(platform) if platform.is_empty().not() && self.platform.is_empty() => {
-                &platform.clone()
-            }
-            _ => &self.platform.clone(),
+        let platforms = match recipe.get_platforms() {
+            [] => &[Platform::default()],
+            platforms if self.platform.is_empty() => platforms,
+            _ => &self.platform,
         };
         assert!(
             platforms.is_empty().not(),
@@ -361,7 +359,7 @@ impl BuildCommand {
                 ImageRef::from(PathBuf::from(format!(
                     "{}/{}.{ARCHIVE_SUFFIX}",
                     archive_dir.to_string_lossy().trim_end_matches('/'),
-                    recipe.name.to_lowercase().replace('/', "_"),
+                    recipe.get_name().to_lowercase().replace('/', "_"),
                 )))
             },
         );
@@ -468,8 +466,8 @@ impl BuildCommand {
                 .compression(self.compression_format)
                 .base_digest(base_digest)
                 .repo(&Driver::get_repo_url()?)
-                .name(&recipe.name)
-                .description(&recipe.description)
+                .name(recipe.get_name())
+                .description(recipe.get_description())
                 .base_image(&base_image)
                 .maybe_tempdir(self.tempdir.as_deref())
                 .clear_plan(self.rechunk_clear_plan)

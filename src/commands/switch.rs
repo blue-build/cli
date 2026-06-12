@@ -5,7 +5,7 @@ use blue_build_process_management::drivers::{
     opts::{BuildOpts, GenerateImageNameOpts, RemoveImageOpts, SwitchOpts},
     types::{BuildDriverType, RunDriverType},
 };
-use blue_build_recipe::Recipe;
+use blue_build_recipe::{Recipe, RecipeGetters};
 use blue_build_utils::{constants::BB_SKIP_VALIDATION, container::ImageRef, tempdir, tempdir_in};
 use bon::Builder;
 use clap::Args;
@@ -65,7 +65,7 @@ impl BlueBuildCommand for SwitchCommand {
         let recipe = Recipe::parse(&self.recipe)?;
         let image_name = Driver::generate_image_name(
             GenerateImageNameOpts::builder()
-                .name(recipe.name.trim())
+                .name(recipe.get_name().trim())
                 .build(),
         )?;
         let tempdir = if let Some(ref dir) = self.tempdir {
