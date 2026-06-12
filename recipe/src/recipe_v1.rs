@@ -1,22 +1,16 @@
-use std::{
-    collections::HashSet,
-    collections::{BTreeMap, HashMap},
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{borrow::Cow, collections::HashMap};
 
 use blue_build_utils::{
     constants::COSIGN_IMAGE_VERSION, container::Tag, env_str::EnvString, platform::Platform,
-    secret::Secret,
 };
 use bon::Builder;
-use cached::proc_macro::cached;
-use log::{debug, trace, warn};
 use miette::{Context, IntoDiagnostic, Result};
 use oci_client::Reference;
 use serde::{Deserialize, Serialize};
 
-use crate::{Module, ModuleExt, StagesExt, maybe_version::MaybeVersion};
+use crate::{
+    Module, ModuleExt, RecipeGetters, RecipeSetters, Stage, StagesExt, maybe_version::MaybeVersion,
+};
 
 /// The build recipe.
 ///
@@ -27,7 +21,7 @@ use crate::{Module, ModuleExt, StagesExt, maybe_version::MaybeVersion};
 #[derive(Default, Serialize, Clone, Deserialize, Debug, Builder)]
 #[allow(clippy::duplicated_attributes)]
 #[builder(on(EnvString, into), on(String, into))]
-pub struct Recipe {
+pub struct RecipeV1 {
     /// The name of the user's image.
     ///
     /// This will be set on the `org.opencontainers.image.title` label.
@@ -91,52 +85,32 @@ pub struct Recipe {
     ///
     /// This hashmap provides custom labels from ther use to the image
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub labels: Option<HashMap<String, String>>,
+    #[builder(into)]
+    pub labels: Option<HashMap<String, EnvString>>,
 }
 
-impl Recipe {
-    /// Parse a recipe file
-    ///
-    /// # Errors
-    /// Errors when a yaml file cannot be deserialized,
-    /// or a linked module yaml file does not exist.
-    pub fn parse<P: AsRef<Path>>(path: P) -> Result<Self> {
-        #[cached(result = true, key = "PathBuf", convert = r"{ path.into() }")]
-        fn inner(path: &Path) -> Result<Recipe> {
-            trace!("Recipe::parse({})", path.display());
-
-            let file_path = if path.is_absolute() {
-                path.to_path_buf()
-            } else {
-                std::env::current_dir().into_diagnostic()?.join(path)
-            };
-
-            let file = fs::read_to_string(&file_path)
-                .into_diagnostic()
-                .with_context(|| format!("Failed to read {}", file_path.display()))?;
-
-            debug!("Recipe contents: {file}");
-
-            let mut recipe = serde_yaml::from_str::<Recipe>(&file)
-                .into_diagnostic()
-                .wrap_err_with(|| format!("Failed to parse recipe file {}", file_path.display()))?;
-
-            recipe.modules_ext.modules = Module::get_modules(&recipe.modules_ext.modules, None)?;
-
-            if let Some(ref mut stages_ext) = recipe.stages_ext {
-                stages_ext.stages = crate::Stage::get_stages(&stages_ext.stages, None)?;
-            }
-
-            Ok(recipe)
-        }
-        inner(path.as_ref())
+impl RecipeGetters for RecipeV1 {
+    fn get_modules(&self) -> &[Module] {
+        &self.modules_ext.modules
     }
 
-    /// Get a `Reference` object of the `base_image`.
-    ///
-    /// # Errors
-    /// Will error if it fails to parse the `base_image`.
-    pub fn base_image_ref(&self) -> Result<Reference> {
+    fn get_stages(&self) -> &[Stage] {
+        self.stages_ext.as_ref().map_or(&[], |ext| &ext.stages)
+    }
+
+    fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    fn get_description(&self) -> &str {
+        &self.description
+    }
+
+    fn get_base_image(&self) -> Cow<'_, str> {
+        Cow::Borrowed(&**self.base_image)
+    }
+
+    fn base_image_ref(&self) -> Result<Reference> {
         let base_image = format!("{}:{}", self.base_image, self.image_version);
         base_image
             .parse()
@@ -144,109 +118,70 @@ impl Recipe {
             .with_context(|| format!("Unable to parse base image {base_image}"))
     }
 
-    #[must_use]
-    pub const fn should_install_bluebuild(&self) -> bool {
-        match self.blue_build_tag {
-            None | Some(MaybeVersion::VersionOrBranch(_)) => true,
-            Some(MaybeVersion::None) => false,
-        }
-    }
-
-    #[must_use]
-    pub const fn should_install_cosign(&self) -> bool {
-        match self.cosign_version {
-            None | Some(MaybeVersion::VersionOrBranch(_)) => true,
-            Some(MaybeVersion::None) => false,
-        }
-    }
-
-    #[must_use]
-    pub const fn should_install_bins(&self) -> bool {
-        self.should_install_bluebuild() || self.should_install_cosign()
-    }
-
-    #[must_use]
-    pub fn get_bluebuild_version(&self) -> String {
-        match &self.blue_build_tag {
-            Some(MaybeVersion::None) | None => "latest-installer".to_string(),
-            Some(MaybeVersion::VersionOrBranch(version)) => {
-                format!("{}-installer", version.replace('/', "_"))
-            }
-        }
-    }
-
-    #[must_use]
-    pub fn get_cosign_version(&self) -> String {
-        match &self.cosign_version {
-            Some(MaybeVersion::None) | None => format!("v{COSIGN_IMAGE_VERSION}"),
-            Some(MaybeVersion::VersionOrBranch(version)) => format!("v{version}"),
-        }
-    }
-
-    #[must_use]
-    pub fn get_secrets(&self) -> Vec<&Secret> {
-        self.modules_ext
-            .modules
+    fn get_labels(&self) -> HashMap<&String, &String> {
+        self.labels
             .iter()
-            .filter_map(|module| Some(&module.required_fields.as_ref()?.secrets))
             .flatten()
-            .chain(
-                self.stages_ext
-                    .as_ref()
-                    .map_or_else(Vec::new, |stage| stage.stages.iter().collect())
-                    .iter()
-                    .filter_map(|stage| Some(&stage.required_fields.as_ref()?.modules_ext.modules))
-                    .flatten()
-                    .filter_map(|module| Some(&module.required_fields.as_ref()?.secrets))
-                    .flatten(),
-            )
-            .collect::<HashSet<_>>()
-            .into_iter()
+            .map(|(key, value)| (key, &**value))
             .collect()
     }
 
-    #[must_use]
-    pub fn generate_labels(
-        &self,
-        default_labels: &BTreeMap<String, String>,
-    ) -> BTreeMap<String, String> {
-        #[expect(clippy::option_if_let_else)] // map_or_else won't work with returning ref
-        let labels = if let Some(labels) = &self.labels {
-            labels
-        } else {
-            &HashMap::new()
-        };
+    fn get_alt_tags(&self) -> Option<&[Tag]> {
+        self.alt_tags.as_deref()
+    }
 
-        let mut labels = default_labels.iter().chain(labels).fold(
-            BTreeMap::new(),
-            |mut acc, (k, v)| {
-                if let Some(existing_value) = acc.get(k) {
-                    warn!("Found conflicting values for label: {k}, contains: {existing_value}, overwritten by: {v}");
-                }
-                acc.insert(k.clone(), v.clone());
-                acc
-            },
-        );
+    fn get_platforms(&self) -> &[Platform] {
+        self.platforms.as_deref().unwrap_or(&[])
+    }
 
-        if !labels.contains_key("io.artifacthub.package.readme-url") {
-            // adding this if not included in the custom labeling to maintain backwards compatibility since this was hardcoded into the old template
-            labels.insert(
-                "io.artifacthub.package.readme-url".to_string(),
-                "https://raw.githubusercontent.com/blue-build/cli/main/README.md".to_string(),
-            );
+    fn get_bluebuild_version(&self) -> Option<String> {
+        match &self.blue_build_tag {
+            None => Some("latest-installer".to_string()),
+            Some(MaybeVersion::None) => None,
+            Some(MaybeVersion::VersionOrBranch(ver)) => Some(format!("{ver}-installer")),
         }
+    }
 
-        labels
+    fn get_cosign_version(&self) -> Option<String> {
+        match &self.cosign_version {
+            Some(MaybeVersion::None) => None,
+            None => Some(format!("v{COSIGN_IMAGE_VERSION}")),
+            Some(MaybeVersion::VersionOrBranch(version)) => Some(format!("v{version}")),
+        }
+    }
+
+    fn get_nushell_version(&self) -> Option<String> {
+        match &self.nushell_version {
+            Some(MaybeVersion::None) => None,
+            None => Some("default".to_string()),
+            Some(MaybeVersion::VersionOrBranch(version)) => Some(version.to_string()),
+        }
+    }
+}
+
+impl RecipeSetters for RecipeV1 {
+    fn set_modules(&mut self, modules: Vec<Module>) {
+        self.modules_ext.modules = modules;
+    }
+
+    fn set_stages(&mut self, stages: Vec<Stage>) {
+        if let Some(ext) = self.stages_ext.as_mut() {
+            ext.stages = stages;
+        } else {
+            self.stages_ext = Some(StagesExt::builder().stages(stages).build());
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use super::*;
 
     fn generate_test_recipe(
-        custom_labels: HashMap<String, String>,
-    ) -> (BTreeMap<String, String>, Recipe) {
+        custom_labels: HashMap<String, EnvString>,
+    ) -> (BTreeMap<String, String>, RecipeV1) {
         let default_labels = BTreeMap::from([
             (
                 blue_build_utils::constants::BUILD_ID_LABEL.to_string(),
@@ -279,7 +214,7 @@ mod tests {
         ]);
         (
             default_labels,
-            Recipe::builder()
+            RecipeV1::builder()
                 .name("title".to_string())
                 .description("description".to_string())
                 .base_image("base_name".to_string())
@@ -296,35 +231,35 @@ mod tests {
         let labels = recipe.generate_labels(&built_in_labels);
         assert_eq!(
             labels.get(blue_build_utils::constants::BUILD_ID_LABEL),
-            Some(&"build_id".to_string())
+            Some(&"build_id".into())
         );
         assert_eq!(
             labels.get("org.opencontainers.image.title"),
-            Some(&"title".to_string())
+            Some(&"title".into())
         );
         assert_eq!(
             labels.get("org.opencontainers.image.description"),
-            Some(&"description".to_string())
+            Some(&"description".into())
         );
         assert_eq!(
             labels.get("org.opencontainers.image.source"),
-            Some(&"source".to_string())
+            Some(&"source".into())
         );
         assert_eq!(
             labels.get("org.opencontainers.image.base.digest"),
-            Some(&"digest".to_string())
+            Some(&"digest".into())
         );
         assert_eq!(
             labels.get("org.opencontainers.image.base.name"),
-            Some(&"base_name".to_string())
+            Some(&"base_name".into())
         );
         assert_eq!(
             labels.get("org.opencontainers.image.created"),
-            Some(&"today 15:30".to_string())
+            Some(&"today 15:30".into())
         );
         assert_eq!(
             labels.get("io.artifacthub.package.readme-url"),
-            Some(&"https://raw.githubusercontent.com/blue-build/cli/main/README.md".to_string())
+            Some(&"https://raw.githubusercontent.com/blue-build/cli/main/README.md".into())
         );
 
         assert_eq!(labels.len(), 8);
@@ -333,27 +268,26 @@ mod tests {
     #[test]
     fn test_custom_label_overwrite_generation() {
         let custom_labels = HashMap::from([(
-            "io.artifacthub.package.readme-url".to_string(),
-            "https://test.html".to_string(),
+            "io.artifacthub.package.readme-url".into(),
+            "https://test.html".into(),
         )]);
         let (built_in_labels, recipe) = generate_test_recipe(custom_labels);
         let labels = recipe.generate_labels(&built_in_labels);
 
         assert_eq!(
             labels.get("io.artifacthub.package.readme-url"),
-            Some(&"https://test.html".to_string())
+            Some(&"https://test.html".into())
         );
         assert_eq!(labels.len(), 8);
     }
 
     #[test]
     fn test_custom_label_addition_generation() {
-        let custom_labels =
-            HashMap::from([("org.container.test".to_string(), "test1".to_string())]);
+        let custom_labels = HashMap::from([("org.container.test".into(), "test1".into())]);
         let (built_in_labels, recipe) = generate_test_recipe(custom_labels);
         let labels = recipe.generate_labels(&built_in_labels);
 
-        assert_eq!(labels.get("org.container.test"), Some(&"test1".to_string()));
+        assert_eq!(labels.get("org.container.test"), Some(&"test1".into()));
         assert_eq!(labels.len(), 9);
     }
 }

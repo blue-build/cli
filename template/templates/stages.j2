@@ -27,12 +27,12 @@ COPY ./modules /modules
 # stage process so that adding the bins into the image
 # can be added to the ostree commits.
 FROM scratch AS stage-bins
-  {%- if recipe.should_install_cosign() %}
-COPY --from={{ blue_build_utils::constants::COSIGN_IMAGE_REF }}:{{ recipe.get_cosign_version() }} \
+  {%- if let Some(version) = recipe.get_cosign_version() %}
+COPY --from={{ blue_build_utils::constants::COSIGN_IMAGE_REF }}:{{ version }} \
   /ko-app/cosign /bins/cosign
   {%- endif %}
-  {%- if recipe.should_install_bluebuild() %}
-COPY --from={{ blue_build_utils::constants::BLUE_BUILD_IMAGE_REF }}:{{ recipe.get_bluebuild_version() }} \
+  {%- if let Some(version) = recipe.get_bluebuild_version() %}
+COPY --from={{ blue_build_utils::constants::BLUE_BUILD_IMAGE_REF }}:{{ version }} \
   /out/bluebuild /bins/bluebuild
   {%- endif %}
 {%- endif %}
@@ -45,50 +45,47 @@ COPY --from={{ blue_build_utils::constants::BLUE_BUILD_IMAGE_REF }}:{{ recipe.ge
 # public key.
 FROM scratch AS stage-keys
 {%- if self::has_cosign_file() %}
-COPY cosign.pub /keys/{{ recipe.name|replace('/', "_") }}.pub
+COPY cosign.pub /keys/{{ recipe.get_name()|replace('/', "_") }}.pub
 {% endif %}
 
 {%- include "modules/akmods/akmods.j2" %}
 
-{%~ if let Some(stages_ext) = recipe.stages_ext %}
-  {%- for stage in stages_ext.stages %}
-    {%- if let Some(stage) = stage.required_fields %}
+{%- for stage in recipe.get_processed_stages() %}
 # {{ stage.name|capitalize }} stage
 FROM \
-      {%- if let Some(platform) = stage.platform %}
+  {%- if let Some(platform) = stage.platform %}
   --platform={{ platform }} \
-      {%- endif %}
+    {%- endif %}
   {{ stage.from }} AS {{ stage.name }}
 
 ARG TARGETARCH
-      {%- if self::should_color() %}
+  {%- if self::should_color() %}
 ARG FORCE_COLOR=1
 ARG CLICOLOR_FORCE=1
 ARG RUST_LOG_STYLE=always
-      {%- endif %}
+  {%- endif %}
 
-      {%- if stage.from != "scratch" %}
-COPY --from={{ blue_build_utils::constants::NUSHELL_IMAGE }}:{{ get_nu_version() }} /nu/* /usr/libexec/bluebuild/nu/
-
+  {%- if stage.from != "scratch" %}
+    {%- if let Some(version) = recipe.get_nushell_version() %}
+COPY --from={{ blue_build_utils::constants::NUSHELL_IMAGE }}:{{ version }} /nu/* /usr/libexec/bluebuild/nu/
+    {%- endif %}
 # Add compatibility for modules
 RUN {{ scripts_mount("/tmp/scripts/") }} \
   /tmp/scripts/setup.sh
 
-        {%- if self::config_dir_exists() %}
+    {%- if self::config_dir_exists() %}
 ARG CONFIG_DIRECTORY="/tmp/config"
-        {%- else %}
+    {%- else %}
 ARG CONFIG_DIRECTORY="/tmp/files"
-        {%- endif %}
+    {%- endif %}
 ARG MODULE_DIRECTORY="/tmp/modules"
 
-        {%- if let Some(shell_args) = stage.shell %}
+    {%- if let Some(shell_args) = stage.shell %}
 SHELL [{% for arg in shell_args %}"{{ arg }}"{% if !loop.last %}, {% endif %}{% endfor %}]
-        {%- else %}
+    {%- else %}
 SHELL ["bash", "-c"]
-        {%- endif %}
-      {%- endif %}
-
-{{ modules::modules_run(stage.modules_ext, os_version, stage.name) }}
     {%- endif %}
-  {%- endfor %}
-{%- endif %}
+  {%- endif %}
+
+{{ modules::modules_run(stage.get_processed_modules(), stage.name) }}
+{%- endfor %}

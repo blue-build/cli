@@ -6,7 +6,7 @@ use colored::Colorize;
 use miette::{Result, bail};
 use serde::{Deserialize, Serialize};
 
-use crate::{Module, ModuleExt, StagesExt, base_recipe_path};
+use crate::{Module, ModuleExt, ModuleRequiredFields, StagesExt, base_recipe_path};
 
 /// Contains the required fields for a stage.
 #[derive(Serialize, Deserialize, Debug, Clone, Builder)]
@@ -37,6 +37,17 @@ pub struct StageRequiredFields {
     /// The modules extension for the stage
     #[serde(flatten)]
     pub modules_ext: ModuleExt,
+}
+
+impl StageRequiredFields {
+    #[must_use]
+    pub fn get_processed_modules(&self) -> Vec<&ModuleRequiredFields> {
+        self.modules_ext
+            .modules
+            .iter()
+            .filter_map(|module| module.required_fields.as_ref())
+            .collect()
+    }
 }
 
 /// Corresponds to a stage in a Containerfile
@@ -145,7 +156,7 @@ impl Stage {
     pub fn get_from_file_path(&self) -> Option<PathBuf> {
         self.from_file
             .as_ref()
-            .map(|path| base_recipe_path().join(&**path))
+            .map(|path| base_recipe_path().join(path))
     }
 
     #[must_use]

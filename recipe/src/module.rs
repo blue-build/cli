@@ -248,7 +248,7 @@ impl Module {
                     required_fields: None,
                     from_file: Some(file_name),
                 } => {
-                    let file_name = PathBuf::from(&**file_name);
+                    let file_name = PathBuf::from(file_name);
                     if traversed_files.contains(&file_name) {
                         bail!(
                             "{} File {} has already been parsed:\n{traversed_files:?}",
@@ -285,7 +285,7 @@ impl Module {
     pub fn get_from_file_path(&self) -> Option<PathBuf> {
         self.from_file
             .as_ref()
-            .map(|path| base_recipe_path().join(&**path))
+            .map(|path| base_recipe_path().join(path))
     }
 
     #[must_use]

@@ -8,7 +8,7 @@ use crate::{BuildScripts, DriverTemplate, commands::validate::ValidateCommand};
 use blue_build_process_management::drivers::{
     CiDriver, Driver, DriverArgs, InspectDriver, opts::GetMetadataOpts,
 };
-use blue_build_recipe::Recipe;
+use blue_build_recipe::{Recipe, RecipeGetters};
 use blue_build_template::{ContainerFileTemplate, Template};
 use blue_build_utils::{
     constants::{BB_SKIP_VALIDATION, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH},
@@ -22,7 +22,6 @@ use clap::Args;
 use colored::Colorize;
 use log::{debug, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Result};
-use oci_client::Reference;
 
 use super::BlueBuildCommand;
 
@@ -139,16 +138,7 @@ impl GenerateCommand {
 
         info!("Templating for recipe at {}", recipe_path.display());
 
-        let base_image: Reference = format!("{}:{}", &recipe.base_image, &recipe.image_version)
-            .parse()
-            .into_diagnostic()
-            .wrap_err_with(|| {
-                format!(
-                    "Failed to parse image with base {} and version {}",
-                    recipe.base_image.bright_blue(),
-                    recipe.image_version.to_string().bright_yellow()
-                )
-            })?;
+        let base_image = recipe.base_image_ref()?;
         let base_digest =
             &Driver::get_metadata(GetMetadataOpts::builder().image(&base_image).build())?;
         let base_digest = base_digest.digest();
@@ -173,7 +163,6 @@ impl GenerateCommand {
             .registry(&registry)
             .build_scripts_dir(&build_scripts_dir)
             .base_digest(base_digest)
-            .maybe_nushell_version(recipe.nushell_version.as_ref())
             .build_features(build_features)
             .build_engine(Driver::get_build_driver().build_engine())
             .labels(&labels)
@@ -224,20 +213,17 @@ pub fn generate_default_labels(recipe: &Recipe) -> Result<BTreeMap<String, Strin
     #[cached(
         result = true,
         key = "String",
-        convert = r"{ recipe.name.to_string() }"
+        convert = r"{ recipe.get_name().into() }"
     )]
     fn inner(recipe: &Recipe) -> Result<BTreeMap<String, String>> {
-        trace!("Generate LABELS for recipe: ({})", recipe.name);
+        trace!("Generate LABELS for recipe: ({})", recipe.get_name());
 
         let build_id = Driver::get_build_id().to_string();
         let source = Driver::get_repo_url()?;
-        let image_metada = Driver::get_metadata(
-            GetMetadataOpts::builder()
-                .image(&recipe.base_image_ref()?)
-                .build(),
-        )?;
+        let base_name = recipe.base_image_ref()?;
+        let image_metada =
+            Driver::get_metadata(GetMetadataOpts::builder().image(&base_name).build())?;
         let base_digest = image_metada.digest().to_string();
-        let base_name = format!("{}:{}", recipe.base_image, recipe.image_version);
         let current_timestamp = current_timestamp();
 
         // use btree here to have nice sorting by key,
@@ -249,18 +235,21 @@ pub fn generate_default_labels(recipe: &Recipe) -> Result<BTreeMap<String, Strin
             ),
             (
                 "org.opencontainers.image.title".to_string(),
-                recipe.name.to_string(),
+                recipe.get_name().to_string(),
             ),
             (
                 "org.opencontainers.image.description".to_string(),
-                recipe.description.to_string(),
+                recipe.get_description().to_string(),
             ),
             ("org.opencontainers.image.source".to_string(), source),
             (
                 "org.opencontainers.image.base.digest".to_string(),
                 base_digest,
             ),
-            ("org.opencontainers.image.base.name".to_string(), base_name),
+            (
+                "org.opencontainers.image.base.name".to_string(),
+                base_name.to_string(),
+            ),
             (
                 "org.opencontainers.image.created".to_string(),
                 current_timestamp,

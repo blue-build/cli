@@ -32,7 +32,8 @@ rstest = "0.26.1"
 semver = "1.0.28"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-serde_yaml = { version = "0.10.0", package = "serde_yaml_ng" }
+serde_yaml = { version = "0.10.4", package = "yaml_serde" }
+structstruck = "0.5.1"
 syntect = { version = "5.3.0", default-features = false, features = ["default-fancy"] }
 tempfile = "3.27.0"
 tokio = { version = "1.49.0", features = ["rt", "rt-multi-thread"] }
