@@ -61,10 +61,10 @@ trait RecipeSetters: RecipeGetters {
 
 pub trait RecipeGetters {
     fn get_name(&self) -> &str;
-    fn get_description(&self) -> &str;
+    fn get_description(&self) -> Option<&str>;
     fn get_modules(&self) -> &[Module];
     fn get_stages(&self) -> &[Stage];
-    fn get_labels(&self) -> HashMap<&String, &String>;
+    fn get_labels(&self) -> HashMap<&str, &str>;
     fn get_alt_tags(&self) -> Option<&[Tag]>;
     fn get_platforms(&self) -> &[Platform];
     fn get_base_image(&self) -> Cow<'_, str>;
@@ -86,13 +86,13 @@ pub trait RecipeGetters {
         &self,
         default_labels: &BTreeMap<String, String>,
     ) -> BTreeMap<String, String> {
-        let mut labels = default_labels.iter().chain(self.get_labels()).fold(
+        let mut labels = default_labels.iter().map(|(key, value)| (&**key, &**value)).chain(self.get_labels()).fold(
             BTreeMap::new(),
             |mut acc, (k, v)| {
                 if let Some(existing_value) = acc.get(k) {
                     warn!("Found conflicting values for label: {k}, contains: {existing_value}, overwritten by: {v}");
                 }
-                acc.insert(k.clone(), v.clone());
+                acc.insert(k.to_owned(), v.to_owned());
                 acc
             },
         );
@@ -100,7 +100,7 @@ pub trait RecipeGetters {
         if !labels.contains_key("io.artifacthub.package.readme-url") {
             // adding this if not included in the custom labeling to maintain backwards compatibility since this was hardcoded into the old template
             labels.insert(
-                "io.artifacthub.package.readme-url".to_string(),
+                "io.artifacthub.package.readme-url".into(),
                 "https://raw.githubusercontent.com/blue-build/cli/main/README.md".into(),
             );
         }
@@ -209,6 +209,21 @@ impl Recipe {
         inner(path.as_ref())
     }
 
+    #[must_use]
+    #[cfg_attr(not(feature = "recipe-v2"), expect(clippy::missing_const_for_fn))]
+    pub fn upgrade(self) -> Self {
+        match self {
+            #[cfg(feature = "recipe-v2")]
+            Self::V1(recipe) => Self::V2(Box::new(RecipeV2::from(*recipe))),
+
+            #[cfg(feature = "recipe-v2")]
+            recipe @ Self::V2(_) => recipe,
+
+            #[cfg(not(feature = "recipe-v2"))]
+            recipe @ Self::V1(_) => recipe,
+        }
+    }
+
     fn version_number(&self) -> Number {
         match self {
             Self::V1(_) => 1,
@@ -275,7 +290,7 @@ impl RecipeGetters for Recipe {
         impl_recipe!(self, get_name())
     }
 
-    fn get_description(&self) -> &str {
+    fn get_description(&self) -> Option<&str> {
         impl_recipe!(self, get_description())
     }
 
@@ -287,7 +302,7 @@ impl RecipeGetters for Recipe {
         impl_recipe!(self, get_stages())
     }
 
-    fn get_labels(&self) -> HashMap<&String, &String> {
+    fn get_labels(&self) -> HashMap<&str, &str> {
         impl_recipe!(self, get_labels())
     }
 

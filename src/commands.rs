@@ -16,6 +16,8 @@ pub mod generate_iso;
 pub mod init;
 pub mod login;
 pub mod prune;
+#[cfg(feature = "recipe-v2")]
+pub mod recipe;
 pub mod switch;
 pub mod validate;
 
@@ -114,6 +116,10 @@ pub enum CommandArgs {
 
     /// Generate shell completions for your shell to stdout
     Completions(completions::CompletionsCommand),
+
+    /// Perform operations on recipe files
+    #[cfg(feature = "recipe-v2")]
+    Recipe(recipe::RecipeCommand),
 }
 
 #[cfg(test)]

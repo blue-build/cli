@@ -113,7 +113,7 @@ bon.workspace = true
 # Top level features
 default = []
 
-v0_10_0 = [
+v1_0_0 = [
     "bootc",
     "recipe-v2"
 ]

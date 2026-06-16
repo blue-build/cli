@@ -282,6 +282,11 @@ impl Tag {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    #[must_use]
+    pub fn unexpanded(&self) -> &str {
+        self.0.unexpanded()
+    }
 }
 
 fn eval_tag(haystack: &EnvString) -> bool {
@@ -323,16 +328,16 @@ impl<'de> Deserialize<'de> for Tag {
     {
         let value = Value::deserialize(deserializer)?;
 
-        let expanded = match value {
+        let expanded = EnvString::from(match value {
             Value::Number(num) => num.to_string(),
             Value::String(string) => string,
             _ => return Err(serde::de::Error::custom("Value was not a string or number")),
+        });
+        if eval_tag(&expanded) {
+            Ok(Self(expanded))
+        } else {
+            Err(serde::de::Error::custom(format!("Invalid tag: {expanded}")))
         }
-        .parse()
-        .map_err(serde::de::Error::custom)?;
-        eval_tag(&expanded)
-            .then(|| Self(expanded.clone()))
-            .ok_or_else(|| serde::de::Error::custom(format!("Invalid tag: {expanded}")))
     }
 }
 

@@ -517,7 +517,7 @@ impl BuildCommand {
                 .base_digest(base_digest)
                 .repo(&Driver::get_repo_url()?)
                 .name(recipe.get_name())
-                .description(recipe.get_description())
+                .maybe_description(recipe.get_description())
                 .base_image(&base_image)
                 .maybe_tempdir(self.tempdir.as_deref())
                 .clear_plan(self.rechunk_clear_plan)

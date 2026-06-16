@@ -224,7 +224,7 @@ pub fn generate_default_labels(recipe: &Recipe) -> Result<BTreeMap<String, Strin
 
         // use btree here to have nice sorting by key,
         // makes it easier to read and analyze resulting labels
-        Ok(BTreeMap::from([
+        let mut labels = BTreeMap::from([
             (
                 blue_build_utils::constants::BUILD_ID_LABEL.to_string(),
                 build_id,
@@ -232,10 +232,6 @@ pub fn generate_default_labels(recipe: &Recipe) -> Result<BTreeMap<String, Strin
             (
                 "org.opencontainers.image.title".to_string(),
                 recipe.get_name().to_string(),
-            ),
-            (
-                "org.opencontainers.image.description".to_string(),
-                recipe.get_description().to_string(),
             ),
             ("org.opencontainers.image.source".to_string(), source),
             (
@@ -250,7 +246,14 @@ pub fn generate_default_labels(recipe: &Recipe) -> Result<BTreeMap<String, Strin
                 "org.opencontainers.image.created".to_string(),
                 current_timestamp,
             ),
-        ]))
+        ]);
+
+        if let Some(description) = recipe.get_description() {
+            labels
+                .entry("org.opencontainers.image.description".to_string())
+                .or_insert_with(|| description.to_string());
+        }
+        Ok(labels)
     }
     inner(recipe)
 }
