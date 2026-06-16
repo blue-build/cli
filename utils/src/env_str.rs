@@ -1,6 +1,3 @@
-use std::str::FromStr;
-
-use miette::{Context, IntoDiagnostic};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Eq)]
@@ -9,13 +6,19 @@ pub struct EnvString {
     expanded: String,
 }
 
+impl EnvString {
+    #[must_use]
+    pub fn unexpanded(&self) -> &str {
+        &self.unexpanded
+    }
+}
+
 impl<'de> Deserialize<'de> for EnvString {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let unexpanded = String::deserialize(deserializer)?;
-        unexpanded.parse().map_err(serde::de::Error::custom)
+        String::deserialize(deserializer).map(Self::from)
     }
 }
 
@@ -28,22 +31,6 @@ impl Serialize for EnvString {
     }
 }
 
-impl FromStr for EnvString {
-    type Err = miette::Report;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let expanded = shellexpand::env(s)
-            .into_diagnostic()
-            .wrap_err_with(|| format!("Unable to expand environment variables in string: {s}"))?
-            .into();
-
-        Ok(Self {
-            unexpanded: s.into(),
-            expanded,
-        })
-    }
-}
-
 impl std::fmt::Display for EnvString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.expanded)
@@ -51,7 +38,7 @@ impl std::fmt::Display for EnvString {
 }
 
 impl std::ops::Deref for EnvString {
-    type Target = String;
+    type Target = str;
 
     fn deref(&self) -> &Self::Target {
         &self.expanded

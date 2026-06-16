@@ -1,16 +1,49 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, ops::Deref};
 
 use blue_build_utils::{
     constants::BLUE_BUILD_DEFAULT_IMAGE, container::Tag, env_str::EnvString, platform::Platform,
 };
 use bon::Builder;
+use miette::{Context, IntoDiagnostic};
 use oci_client::Reference;
 use serde::{Deserialize, Serialize};
 use structstruck::strike;
 
-use crate::{Module, RecipeGetters, RecipeSetters, Stage};
+use crate::{Module, RecipeGetters, RecipeSetters, RecipeV1, Stage};
 
 use super::{MaybeVersion, ModuleExt, StagesExt};
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RecipeV2BaseImageStr(EnvString);
+
+impl From<Reference> for RecipeV2BaseImageStr {
+    fn from(value: Reference) -> Self {
+        Self(EnvString::from(value.to_string()))
+    }
+}
+
+impl<'de> Deserialize<'de> for RecipeV2BaseImageStr {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let image = EnvString::deserialize(deserializer)?;
+
+        if let Err(e) = image.parse::<Reference>() {
+            return Err(serde::de::Error::custom(e));
+        }
+
+        Ok(Self(image))
+    }
+}
+
+impl Deref for RecipeV2BaseImageStr {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 strike! {
     /// The build recipe.
@@ -35,7 +68,7 @@ strike! {
                 #![serde(untagged)]
 
                 /// String representation of an image ref.
-                Str(Reference),
+                Str(RecipeV2BaseImageStr),
 
                 /// Object representation of an image ref.
                 Obj {
@@ -69,6 +102,7 @@ strike! {
             /// This will validate the image before building with it.
             ///
             /// URLs are supported. Paths are relative to the root of the project.
+            #[serde(default, skip_serializing_if = "Option::is_none")]
             pub public_key: Option<EnvString>,
         },
 
@@ -78,7 +112,12 @@ strike! {
             pub name: EnvString,
 
             /// The image description. Published to GHCR in the image metadata.
-            pub description: EnvString,
+            pub description: Option<EnvString>,
+
+            /// Allows setting custom tags on the recipe’s final image.
+            /// Adding tags to this property will override the `latest` and timestamp tags.
+            #[serde(default, skip_serializing_if = "Vec::is_empty")]
+            pub tags: Vec<Tag>,
 
             /// A collection of custom labels that will be applied to the image.
             ///
@@ -90,11 +129,6 @@ strike! {
         /// Specifications for the image that modifies how it is built and published.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub spec: Option<pub struct {
-            /// Allows setting custom tags on the recipe’s final image.
-            /// Adding tags to this property will override the `latest` and timestamp tags.
-            #[serde(default, skip_serializing_if = "Vec::is_empty")]
-            pub tags: Vec<Tag>,
-
            /// Specify a list of the platforms to build for your image.
            /// The resulting images will be added to a manifest list that
            /// allows your host’s container runtime to pull the correct
@@ -159,13 +193,63 @@ strike! {
     }
 }
 
+impl From<RecipeV1> for RecipeV2 {
+    fn from(value: RecipeV1) -> Self {
+        Self {
+            base: RecipeV2Base {
+                image: RecipeV2BaseImage::Str(RecipeV2BaseImageStr(EnvString::from(format!(
+                    "{}:{}",
+                    value.base_image.unexpanded(),
+                    value.image_version.unexpanded(),
+                )))),
+                public_key: None,
+            },
+            metadata: RecipeV2Metadata {
+                name: value.name,
+                description: Some(value.description),
+                tags: value.alt_tags.unwrap_or_default(),
+                labels: value.labels,
+            },
+            spec: {
+                let has_versions = value.blue_build_tag.is_some()
+                    || value.cosign_version.is_some()
+                    || value.nushell_version.is_some();
+                let tool_versions = has_versions.then_some(RecipeV2SpecToolVersions {
+                    bluebuild: value.blue_build_tag,
+                    nushell: match value.nushell_version {
+                        None | Some(MaybeVersion::None) => None,
+                        Some(MaybeVersion::VersionOrBranch(tag)) => Some(tag),
+                    },
+                    cosign: match value.cosign_version {
+                        None | Some(MaybeVersion::None) => None,
+                        Some(MaybeVersion::VersionOrBranch(tag)) => Some(tag),
+                    },
+                });
+                match (value.platforms, has_versions) {
+                    (None, false) => None,
+                    (Some(platforms), false) => Some(RecipeV2Spec {
+                        platforms,
+                        tool_versions: None,
+                    }),
+                    (Some(platforms), true) => Some(RecipeV2Spec {
+                        platforms,
+                        tool_versions,
+                    }),
+                    (None, true) => Some(RecipeV2Spec {
+                        platforms: Vec::default(),
+                        tool_versions,
+                    }),
+                }
+            },
+            stages_ext: value.stages_ext,
+            modules_ext: value.modules_ext,
+        }
+    }
+}
+
 impl Default for RecipeV2BaseImage {
     fn default() -> Self {
-        Self::Str(
-            BLUE_BUILD_DEFAULT_IMAGE
-                .try_into()
-                .expect("Should be a valid image ref"),
-        )
+        Self::Str(RecipeV2BaseImageStr(BLUE_BUILD_DEFAULT_IMAGE.into()))
     }
 }
 
@@ -182,22 +266,21 @@ impl RecipeGetters for RecipeV2 {
         &self.metadata.name
     }
 
-    fn get_description(&self) -> &str {
-        &self.metadata.description
+    fn get_description(&self) -> Option<&str> {
+        self.metadata.description.as_deref()
     }
 
-    fn get_labels(&self) -> HashMap<&String, &String> {
+    fn get_labels(&self) -> HashMap<&str, &str> {
         self.metadata
             .labels
             .iter()
             .flatten()
-            .map(|(key, value)| (key, &**value))
+            .map(|(key, value)| (&**key, &**value))
             .collect()
     }
 
     fn get_alt_tags(&self) -> Option<&[Tag]> {
-        let spec = self.spec.as_ref()?;
-        match &spec.tags[..] {
+        match &self.metadata.tags[..] {
             [] => None,
             tags => Some(tags),
         }
@@ -209,11 +292,13 @@ impl RecipeGetters for RecipeV2 {
 
     fn get_base_image(&self) -> Cow<'_, str> {
         match &self.base.image {
-            RecipeV2BaseImage::Str(image) => Cow::Owned(format!(
-                "{}/{}",
-                image.resolve_registry(),
-                image.repository()
-            )),
+            RecipeV2BaseImage::Str(image) => Cow::Borrowed(
+                image
+                    .split_once(':') // Split at tag start
+                    .or_else(|| image.split_once('@')) // or digest start
+                    .unwrap_or((image, "")) // or the image without a tag
+                    .0,
+            ),
             RecipeV2BaseImage::Obj {
                 registry,
                 repository,
@@ -256,7 +341,10 @@ impl RecipeGetters for RecipeV2 {
 
     fn base_image_ref(&self) -> miette::Result<Reference> {
         Ok(match &self.base.image {
-            RecipeV2BaseImage::Str(image) => image.clone(),
+            RecipeV2BaseImage::Str(RecipeV2BaseImageStr(image)) => image
+                .parse()
+                .into_diagnostic()
+                .wrap_err_with(|| format!("Failed to parse base image ref {image}"))?,
             RecipeV2BaseImage::Obj {
                 registry,
                 repository,

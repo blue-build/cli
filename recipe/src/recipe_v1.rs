@@ -102,12 +102,12 @@ impl RecipeGetters for RecipeV1 {
         &self.name
     }
 
-    fn get_description(&self) -> &str {
-        &self.description
+    fn get_description(&self) -> Option<&str> {
+        Some(&self.description)
     }
 
     fn get_base_image(&self) -> Cow<'_, str> {
-        Cow::Borrowed(&**self.base_image)
+        Cow::Borrowed(&self.base_image)
     }
 
     fn base_image_ref(&self) -> Result<Reference> {
@@ -118,11 +118,11 @@ impl RecipeGetters for RecipeV1 {
             .with_context(|| format!("Unable to parse base image {base_image}"))
     }
 
-    fn get_labels(&self) -> HashMap<&String, &String> {
+    fn get_labels(&self) -> HashMap<&str, &str> {
         self.labels
             .iter()
             .flatten()
-            .map(|(key, value)| (key, &**value))
+            .map(|(key, value)| (&**key, &**value))
             .collect()
     }
 
