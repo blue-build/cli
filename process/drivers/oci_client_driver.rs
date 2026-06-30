@@ -17,7 +17,18 @@ impl InspectDriver for OciClientDriver {
     fn get_metadata(opts: GetMetadataOpts) -> Result<ImageMetadata> {
         #[cached(result = true, key = "String", convert = r"{image.to_string()}")]
         fn inner(image: &Reference) -> Result<ImageMetadata> {
-            let client = oci_client::Client::new(ClientConfig::default());
+            // Speak plain HTTP to loopback registries (localhost, 127.0.0.0/8,
+            // ::1 — any port), matching the convention of cosign, containerd,
+            // and docker. Everything else stays HTTPS. No configuration needed.
+            let protocol = if is_loopback_registry(image.registry()) {
+                oci_client::client::ClientProtocol::Http
+            } else {
+                oci_client::client::ClientProtocol::default()
+            };
+            let client = oci_client::Client::new(ClientConfig {
+                protocol,
+                ..ClientConfig::default()
+            });
             let auth = match Credentials::get(image.registry()) {
                 Some(Credentials::Basic { username, password }) => {
                     RegistryAuth::Basic(username, password.value().into())
@@ -78,6 +89,69 @@ impl InspectDriver for OciClientDriver {
             inner_prime_cache(opts.image)
         } else {
             inner(opts.image)
+        }
+    }
+}
+
+/// Returns `true` when `registry` refers to a loopback host — `localhost`, an
+/// IPv4 address in `127.0.0.0/8`, or `::1` — optionally with a `:port` suffix
+/// and `[...]` brackets around an IPv6 literal.
+///
+/// Loopback registries are served over plain HTTP (matching cosign,
+/// containerd, and docker); every other registry uses HTTPS.
+fn is_loopback_registry(registry: &str) -> bool {
+    // Strip an optional `:port` suffix, but leave an unbracketed IPv6 literal
+    // (which itself contains `:`) intact.
+    let host = registry
+        .rsplit_once(':')
+        .filter(|(h, _)| !h.contains(':') || h.ends_with(']'))
+        .map_or(registry, |(h, _)| h);
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    host == "localhost"
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback())
+}
+
+#[cfg(test)]
+mod test {
+    use super::is_loopback_registry;
+
+    #[test]
+    fn loopback_registries_use_http() {
+        for registry in [
+            "localhost",
+            "localhost:5000",
+            "127.0.0.1",
+            "127.0.0.1:5000",
+            "127.5.6.7", // anywhere in 127.0.0.0/8
+            "::1",
+            "[::1]",
+            "[::1]:5000",
+        ] {
+            assert!(
+                is_loopback_registry(registry),
+                "{registry} should be treated as loopback"
+            );
+        }
+    }
+
+    #[test]
+    fn remote_registries_use_https() {
+        for registry in [
+            "ghcr.io",
+            "registry.example.com",
+            "registry.example.com:5000",
+            "192.168.1.10",
+            "192.168.1.10:5000",
+            "8.8.8.8",
+            "[2001:db8::1]:5000",
+            "localhost.example.com", // not the loopback host
+        ] {
+            assert!(
+                !is_loopback_registry(registry),
+                "{registry} should not be treated as loopback"
+            );
         }
     }
 }
