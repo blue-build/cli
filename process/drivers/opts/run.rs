@@ -92,12 +92,3 @@ pub struct RemoveContainerOpts<'scope> {
     #[builder(default)]
     pub privileged: bool,
 }
-
-#[derive(Debug, Clone, Copy, Builder)]
-#[builder(derive(Debug, Clone))]
-pub struct RemoveImageOpts<'scope> {
-    pub image: &'scope Reference,
-
-    #[builder(default)]
-    pub privileged: bool,
-}

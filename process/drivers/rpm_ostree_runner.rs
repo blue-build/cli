@@ -82,12 +82,12 @@ impl RpmOstreeContainer {
     const IMAGE_REF: &str = "ghcr.io/blue-build/rpm-ostree-container:latest";
 
     fn start() -> Result<Self> {
-        let podman_storage_dir = get_podman_info("{{.Store.GraphRoot}}")?;
+        let podman_storage_dir = PodmanDriver::get_podman_info("{{.Store.GraphRoot}}")?;
         let podman_storage_mount = RunOptsVolume::builder()
             .path_or_vol_name(&podman_storage_dir)
             .container_path(&podman_storage_dir)
             .build();
-        let runtime_container_dir = get_podman_info("{{.Store.RunRoot}}")?;
+        let runtime_container_dir = PodmanDriver::get_podman_info("{{.Store.RunRoot}}")?;
         let runtime_container_mount = RunOptsVolume::builder()
             .path_or_vol_name(&runtime_container_dir)
             .container_path("/run/containers")
@@ -175,16 +175,4 @@ impl OciCopy for RpmOstreeContainer {
 
         Ok(())
     }
-}
-
-fn get_podman_info(fmt: &str) -> Result<String> {
-    let output = cmd!("podman", "info", format!("--format={fmt}"))
-        .output()
-        .into_diagnostic()?;
-    if !output.status.success() {
-        bail!("Failed to find podman info {fmt}");
-    }
-    let mut stdout = output.stdout;
-    while stdout.pop_if(|byte| byte.is_ascii_whitespace()).is_some() {}
-    String::from_utf8(stdout).into_diagnostic()
 }

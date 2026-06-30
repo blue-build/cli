@@ -1,9 +1,8 @@
 use std::{
-    borrow::Cow,
     fs::OpenOptions,
     io::{BufRead, BufReader, Result, Write as IoWrite},
     path::{Path, PathBuf},
-    process::{Command, ExitStatus, Stdio},
+    process::{Child, Command, ExitStatus, Stdio},
     sync::Mutex,
     thread,
     time::Duration,
@@ -208,7 +207,7 @@ pub trait CommandLogging: Private {
     fn message_status<S, D>(self, header: S, message: D) -> Result<ExitStatus>
     where
         S: AsRef<str>,
-        D: Into<Cow<'static, str>>;
+        D: Into<String>;
 }
 
 impl CommandLogging for Command {
@@ -221,64 +220,26 @@ impl CommandLogging for Command {
             let ansi_color = gen_random_ansi_color();
             let name = color_str(image_ref, ansi_color);
             let short_name = color_str(shorten_name(image_ref), ansi_color);
-            let (reader, writer) = os_pipe::pipe()?;
+            let (reader, writer) = std::io::pipe()?;
+            let reader = Box::new(BufReader::new(reader));
 
             command
                 .stdout(writer.try_clone()?)
                 .stderr(writer)
                 .stdin(Stdio::piped());
 
-            let progress = Logger::multi_progress()
-                .add(ProgressBar::new_spinner().with_message(format!("{message} {name}")));
-            progress.enable_steady_tick(Duration::from_millis(100));
-
-            let mut child = command.spawn()?;
-
-            let child_pid = child.id();
-            add_pid(child_pid);
-
+            let child = command.spawn()?;
             // We drop the `Command` to prevent blocking on writer
-            // https://docs.rs/os_pipe/latest/os_pipe/#examples
             drop(command);
 
-            let reader = BufReader::new(reader);
-            let log_file_path = {
-                let lock = LOG_DIR.lock().expect("Should lock LOG_DIR");
-                lock.join(format!("{}.log", image_ref.replace(['/', ':', '.'], "_")))
-            };
-            let log_file = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(log_file_path.as_path())?;
-
-            thread::spawn(move || {
-                let mp = Logger::multi_progress();
-                reader.lines().for_each(|line| {
-                    if let Ok(l) = line {
-                        let text =
-                            format!("{log_prefix} {l}", log_prefix = log_header(&short_name));
-                        if mp.is_hidden() {
-                            eprintln!("{text}");
-                        } else {
-                            mp.println(text).unwrap();
-                        }
-                        if let Err(e) = writeln!(&log_file, "{l}") {
-                            warn!(
-                                "Failed to write to log for build {}: {e:?}",
-                                log_file_path.display()
-                            );
-                        }
-                    }
-                });
-            });
-
-            let status = child.wait()?;
-            remove_pid(child_pid);
-
-            progress.finish();
-            Logger::multi_progress().remove(&progress);
-
-            Ok(status)
+            let log_filename = format!("{}.log", image_ref.replace(['/', ':', '.'], "_"));
+            log_child_output_from_reader(
+                reader,
+                child,
+                short_name,
+                format!("{message} {name}"),
+                Some(&log_filename),
+            )
         }
         inner(self, image_ref.as_ref(), message.as_ref())
     }
@@ -286,58 +247,24 @@ impl CommandLogging for Command {
     fn message_status<S, D>(self, header: S, message: D) -> Result<ExitStatus>
     where
         S: AsRef<str>,
-        D: Into<Cow<'static, str>>,
+        D: Into<String>,
     {
-        fn inner(
-            mut command: Command,
-            header: &str,
-            message: Cow<'static, str>,
-        ) -> Result<ExitStatus> {
+        fn inner(mut command: Command, header: &str, message: String) -> Result<ExitStatus> {
             let ansi_color = gen_random_ansi_color();
             let header = color_str(header, ansi_color);
-            let (reader, writer) = os_pipe::pipe()?;
+            let (reader, writer) = std::io::pipe()?;
+            let reader = Box::new(BufReader::new(reader));
 
             command
                 .stdout(writer.try_clone()?)
                 .stderr(writer)
                 .stdin(Stdio::piped());
 
-            let progress =
-                Logger::multi_progress().add(ProgressBar::new_spinner().with_message(message));
-            progress.enable_steady_tick(Duration::from_millis(100));
-
-            let mut child = command.spawn()?;
-
-            let child_pid = child.id();
-            add_pid(child_pid);
-
+            let child = command.spawn()?;
             // We drop the `Command` to prevent blocking on writer
-            // https://docs.rs/os_pipe/latest/os_pipe/#examples
             drop(command);
 
-            let reader = BufReader::new(reader);
-
-            thread::spawn(move || {
-                let mp = Logger::multi_progress();
-                reader.lines().for_each(|line| {
-                    if let Ok(l) = line {
-                        let text = format!("{log_prefix} {l}", log_prefix = log_header(&header));
-                        if mp.is_hidden() {
-                            eprintln!("{text}");
-                        } else {
-                            mp.println(text).unwrap();
-                        }
-                    }
-                });
-            });
-
-            let status = child.wait()?;
-            remove_pid(child_pid);
-
-            progress.finish();
-            Logger::multi_progress().remove(&progress);
-
-            Ok(status)
+            log_child_output_from_reader(reader, child, header, message, None)
         }
         inner(self, header.as_ref(), message.into())
     }
@@ -400,6 +327,62 @@ impl Encode for CustomPatternEncoder {
     }
 }
 
+pub(crate) fn log_child_output_from_reader(
+    reader: Box<dyn BufRead + Send>,
+    mut child: Child,
+    header: String,
+    message: String,
+    log_filename: Option<&str>,
+) -> Result<ExitStatus> {
+    let progress = Logger::multi_progress().add(ProgressBar::new_spinner().with_message(message));
+    progress.enable_steady_tick(Duration::from_millis(100));
+
+    let child_pid = child.id();
+    add_pid(child_pid);
+
+    let log_file_path = log_filename.map(|filename| {
+        let lock = LOG_DIR.lock().expect("Should lock LOG_DIR");
+        lock.join(filename)
+    });
+    let mut log_file = log_file_path
+        .as_ref()
+        .map(|log_file_path| {
+            OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(log_file_path)
+        })
+        .transpose()?;
+
+    thread::spawn(move || {
+        let mp = Logger::multi_progress();
+        for line in reader.lines().map_while(Result::ok) {
+            let text = format!("{log_prefix} {line}", log_prefix = log_header(&header));
+            if mp.is_hidden() {
+                eprintln!("{text}");
+            } else {
+                mp.println(text).unwrap();
+            }
+            if let Some(log_file) = log_file.as_mut()
+                && let Err(e) = writeln!(log_file, "{line}")
+            {
+                warn!(
+                    "Failed to write to log for build {}: {e:?}",
+                    log_file_path.as_ref().unwrap().display()
+                );
+            }
+        }
+    });
+
+    let status = child.wait()?;
+    remove_pid(child_pid);
+
+    progress.finish();
+    Logger::multi_progress().remove(&progress);
+
+    Ok(status)
+}
+
 /// Used to keep the style of logs consistent between
 /// normal log use and command output.
 fn log_header<T>(text: T) -> String
@@ -431,7 +414,7 @@ where
 /// `ghcr.io/blue-build/cli:latest` -> `g.i/b/cli:latest`
 /// `registry.gitlab.com/some/namespace/image:latest` -> `r.g.c/s/n/image:latest`
 #[must_use]
-fn shorten_name<T>(text: T) -> String
+pub(crate) fn shorten_name<T>(text: T) -> String
 where
     T: AsRef<str>,
 {

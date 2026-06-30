@@ -36,9 +36,9 @@ use crate::{logging::Logger, signal_handler::DetachedContainer};
 use opts::{
     BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts, CheckKeyPairOpts,
     ContainerOpts, CopyOciOpts, CreateContainerOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
-    GenerateTagsOpts, GetMetadataOpts, ManifestCreateOpts, ManifestPushOpts, PruneOpts, PullOpts,
-    PushOpts, RechunkOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SwitchOpts,
-    TagOpts, UntagOpts, VerifyOpts, VolumeOpts,
+    GenerateTagsOpts, GetMetadataOpts, InspectImageOpts, ManifestCreateOpts, ManifestPushOpts,
+    PostBuildDriverOpts, PruneOpts, PullOpts, PushOpts, RechunkOpts, RemoveContainerOpts,
+    RemoveImageOpts, RunOpts, SignOpts, SwitchOpts, TagOpts, UntagOpts, VerifyOpts, VolumeOpts,
 };
 use types::{
     BootDriverType, BuildDriverType, CiDriverType, ImageMetadata, InspectDriverType, RunDriverType,
@@ -67,6 +67,7 @@ mod local_driver;
 mod oci_client_driver;
 pub mod opts;
 mod podman_driver;
+pub mod post_build;
 mod rpm_ostree_driver;
 mod rpm_ostree_runner;
 mod sigstore_driver;
@@ -345,6 +346,10 @@ macro_rules! impl_build_driver {
 }
 
 impl ImageStorageDriver for Driver {
+    fn inspect_image(opts: InspectImageOpts) -> Result<Option<Vec<u8>>> {
+        impl_build_driver!(inspect_image(opts))
+    }
+
     fn remove_image(opts: RemoveImageOpts) -> Result<()> {
         impl_build_driver!(remove_image(opts))
     }
@@ -393,6 +398,15 @@ impl BuildDriver for Driver {
 
     fn build_tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
         impl_build_driver!(build_tag_push(opts))
+    }
+}
+
+impl PostBuildDriver for Driver {
+    fn build_tag_push_with_post_build(
+        opts: BuildTagPushOpts,
+        pb_opts: PostBuildDriverOpts,
+    ) -> Result<Vec<String>> {
+        PodmanDriver::build_tag_push_with_post_build(opts, pb_opts)
     }
 }
 

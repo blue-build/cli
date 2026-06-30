@@ -1,31 +1,35 @@
 use std::{
+    fs::File,
     ops::Not,
     path::Path,
-    process::{Command, ExitStatus},
+    process::{Command, ExitStatus, Stdio},
 };
 
 use blue_build_utils::{
     constants::USER,
-    container::{ContainerId, MountId},
+    container::{ContainerId, ImageRef, MountId},
     credentials::Credentials,
     get_env_var,
+    platform::Platform,
     secret::SecretArgs,
     semver::Version,
-    sudo_cmd, tempdir,
+    string_vec, sudo_cmd, tempdir,
 };
 use colored::Colorize;
 use comlexr::{cmd, pipe};
 use log::{debug, error, info, trace, warn};
 use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_client::Reference;
+use rayon::prelude::*;
 use serde::Deserialize;
 
 use super::{
     BuildChunkedOciDriver, BuildDriver, ContainerMountDriver, DriverVersion, ImageStorageDriver,
-    RechunkDriver, RunDriver,
+    PostBuildDriver, RechunkDriver, RunDriver,
     opts::{
-        BuildOpts, ContainerOpts, CreateContainerOpts, ManifestCreateOpts, ManifestPushOpts,
-        PruneOpts, PullOpts, PushOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, RunOptsEnv,
+        BuildOpts, BuildTagPushOpts, ContainerOpts, CreateContainerOpts, InspectImageOpts,
+        ManifestCreateOpts, ManifestPushOpts, PostBuildDriverOpts, PostBuildOpts, PruneOpts,
+        PullOpts, PushOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, RunOptsEnv,
         RunOptsVolume, TagOpts, UntagOpts, VolumeOpts,
     },
     rpm_ostree_runner::RpmOstreeRunner,
@@ -82,6 +86,76 @@ impl PodmanDriver {
                 "Failed to copy image {} to root container store",
                 image.bold()
             );
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn get_podman_info(fmt: &str) -> Result<String> {
+        let output = cmd!("podman", "info", format!("--format={fmt}"))
+            .output()
+            .into_diagnostic()?;
+        if !output.status.success() {
+            bail!("Failed to find podman info {fmt}");
+        }
+        let mut stdout = output.stdout;
+        while stdout.pop_if(|byte| byte.is_ascii_whitespace()).is_some() {}
+        String::from_utf8(stdout).into_diagnostic()
+    }
+
+    /// Push a manifest list to a remote registry, applying workarounds for the following bug:
+    /// https://github.com/containers/podman/issues/27796
+    /// This ensures that layer annotations are preserved by pushing.
+    ///
+    /// Currently the following workaround steps are applied:
+    ///
+    /// * To ensure the pushing is done by a newer podman version, a container allowing
+    ///   podman-in-podman operations to be run can be provided.
+    /// * The manifest list is pushed twice.
+    ///
+    /// This is a hack, and at the time of writing, it's not clear why this works (if we knew, we
+    /// could probably fix the bug in podman).
+    ///
+    /// # Errors
+    /// Returns an error if any of the container operations fails.
+    pub(crate) fn manifest_push_with_layer_annotation_bug_workaround(
+        opts: ManifestPushOpts,
+        podman_in_podman_container: Option<&DetachedContainer>,
+        podman_storage_dir: &str,
+    ) -> Result<()> {
+        let Some(container) = podman_in_podman_container else {
+            return Self::manifest_push(opts).and_then(|()| Self::manifest_push(opts));
+        };
+
+        for i in 0..2 {
+            let status = {
+                let c = cmd!(
+                    "podman",
+                    "exec",
+                    container.id(),
+                    "podman",
+                    format!("--root={podman_storage_dir}"),
+                    "manifest",
+                    "push",
+                    "--authfile=/run/containers/auth.json",
+                    if let Some(compression_fmt) = opts.compression_type => format!(
+                        "--compression-format={compression_fmt}"
+                    ),
+                    if i != 0 => "--quiet",
+                    opts.final_image.to_string(),
+                    format!("docker://{}", opts.final_image),
+                );
+                trace!("{c:?}");
+                c
+            }
+            .build_status(
+                opts.final_image.to_string(),
+                format!("Pushing manifest {}...", opts.final_image),
+            )
+            .into_diagnostic()?;
+            if !status.success() {
+                bail!("Failed to push manifest for {}", opts.final_image);
+            }
         }
 
         Ok(())
@@ -267,7 +341,6 @@ impl BuildDriver for PodmanDriver {
             "podman",
             "pull",
             "--quiet",
-            if let Some(retries) = opts.retry_count => format!("--retry={retries}"),
             if let Some(platform) = opts.platform => format!("--platform={platform}"),
             &image_str,
         );
@@ -275,11 +348,18 @@ impl BuildDriver for PodmanDriver {
         info!("Pulling image {image_str}...");
 
         trace!("{command:?}");
-        let output = command.output().into_diagnostic()?;
-
-        if !output.status.success() {
-            bail!("Failed to pull image {}", image_str.bold().red());
-        }
+        let output = blue_build_utils::retry(opts.retry_count.unwrap_or(1), 5, || {
+            let output = command.output().into_diagnostic()?;
+            if !output.status.success() {
+                let err_out = String::from_utf8_lossy(&output.stderr);
+                bail!(
+                    "Failed to pull image {}:\n{}",
+                    image_str.bold().red(),
+                    err_out
+                );
+            }
+            Ok(output)
+        })?;
         info!("Successfully pulled image {}", image_str.bold().green());
         let container_id = {
             let mut stdout = output.stdout;
@@ -411,6 +491,164 @@ impl BuildDriver for PodmanDriver {
         }
 
         Ok(())
+    }
+}
+
+impl PostBuildDriver for PodmanDriver {
+    #[expect(clippy::too_many_lines)]
+    fn build_tag_push_with_post_build(
+        opts: BuildTagPushOpts,
+        pb_opts: PostBuildDriverOpts,
+    ) -> Result<Vec<String>> {
+        trace!("PostBuildDriver::build_tag_push_with_post_build({opts:#?}, {pb_opts:#?})");
+
+        assert!(
+            opts.platform.is_empty().not(),
+            "Must have at least 1 platform"
+        );
+
+        pb_opts.post_build.check_driver_requirements()?;
+
+        let build_opts_base = BuildOpts::builder()
+            .containerfile(opts.containerfile.as_ref())
+            .squash(true)
+            .secrets(opts.secrets)
+            .privileged(opts.privileged);
+
+        let images_to_process: Vec<(ImageRef, ImageRef, Platform)> = opts
+            .platform
+            .par_iter()
+            .map(|&platform| {
+                let final_image = opts.image.with_platform(platform);
+                let raw_image =
+                    final_image.append_tag(&"raw".parse().expect("Should be a valid tag"));
+                info!("Building image {final_image}");
+                Self::build(
+                    build_opts_base
+                        .clone()
+                        .image(&raw_image)
+                        .platform(platform)
+                        .build(),
+                )?;
+                Ok((raw_image, final_image, platform))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        if let Some(base_image) = pb_opts.remove_base_image {
+            Self::remove_image(
+                RemoveImageOpts::builder()
+                    .image(base_image)
+                    .privileged(opts.privileged)
+                    .build(),
+            )?;
+            Self::prune(PruneOpts::builder().volumes(true).build())?;
+        }
+
+        let post_build_runner = pb_opts.post_build.init()?;
+        let previous_image = pb_opts.use_previous_image.then_some(opts.image);
+        for (input_image, output_image, platform) in images_to_process {
+            post_build_runner.post_build(
+                PostBuildOpts::builder()
+                    .input_image(&input_image)
+                    .output_image(&output_image)
+                    .maybe_previous_image(previous_image)
+                    .platform(platform)
+                    .build(),
+            )?;
+            if let ImageRef::Remote(input_image) = input_image {
+                Self::remove_image(RemoveImageOpts::builder().image(&input_image).build())?;
+            }
+        }
+
+        let podman_storage_dir = Self::get_podman_info("{{.Store.GraphRoot}}")?;
+        let runtime_container_dir = Self::get_podman_info("{{.Store.RunRoot}}")?;
+        // This is to ensure a recent podman version is used when applying workarounds for the
+        // following podman bug that prevents layer annotations from being pushed:
+        // https://github.com/containers/podman/issues/27796
+        let podman_in_podman_container = if *Self::version()? < semver::Version::new(5, 0, 0) {
+            let podman_storage_mount = RunOptsVolume::builder()
+                .path_or_vol_name(&podman_storage_dir)
+                .container_path(&podman_storage_dir)
+                .build();
+            let runtime_container_mount = RunOptsVolume::builder()
+                .path_or_vol_name(&runtime_container_dir)
+                .container_path("/run/containers")
+                .build();
+
+            let container = Self::run_detached(
+                RunOpts::builder()
+                    .image("quay.io/podman/stable:latest")
+                    .pull(true)
+                    .privileged(true)
+                    .rootless(true)
+                    .remove(true)
+                    .volumes(&[podman_storage_mount, runtime_container_mount])
+                    .args(&[
+                        "/bin/sh".to_owned(),
+                        "-c".to_owned(),
+                        "while true; do sleep 86400; done".to_owned(),
+                    ])
+                    .build(),
+            )?;
+            Some(container)
+        } else {
+            None
+        };
+
+        let image_list: Vec<String> = match &opts.image {
+            ImageRef::Remote(image) if !opts.tags.is_empty() => {
+                debug!("Tagging all images");
+
+                let mut image_list = Vec::with_capacity(opts.tags.len());
+                let platform_images = opts
+                    .platform
+                    .iter()
+                    .map(|&platform| platform.tagged_image(image))
+                    .collect::<Vec<_>>();
+
+                for tag in opts.tags {
+                    debug!("Tagging {} with {tag}", &image);
+                    let tagged_image = Reference::with_tag(
+                        image.registry().into(),
+                        image.repository().into(),
+                        tag.to_string(),
+                    );
+
+                    Self::manifest_create(
+                        ManifestCreateOpts::builder()
+                            .final_image(&tagged_image)
+                            .image_list(&platform_images)
+                            .build(),
+                    )?;
+                    image_list.push(tagged_image.to_string());
+
+                    if opts.push {
+                        let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
+
+                        // Push images with retries (1s delay between retries)
+                        blue_build_utils::retry(retry_count, 5, || {
+                            debug!("Pushing image {tagged_image}");
+
+                            Self::manifest_push_with_layer_annotation_bug_workaround(
+                                ManifestPushOpts::builder()
+                                    .final_image(&tagged_image)
+                                    .compression_type(opts.compression)
+                                    .build(),
+                                podman_in_podman_container.as_ref(),
+                                &podman_storage_dir,
+                            )
+                        })?;
+                    }
+                }
+
+                image_list
+            }
+            _ => {
+                string_vec![opts.image]
+            }
+        };
+
+        Ok(image_list)
     }
 }
 
@@ -726,6 +964,25 @@ impl RunDriver for PodmanDriver {
 }
 
 impl ImageStorageDriver for PodmanDriver {
+    fn inspect_image(opts: InspectImageOpts) -> Result<Option<Vec<u8>>> {
+        let stdout = if let Some(output_path) = opts.output_path {
+            Stdio::from(File::create(output_path).into_diagnostic()?)
+        } else {
+            Stdio::piped()
+        };
+        let output = cmd!("podman", "image", "inspect", "--", opts.image)
+            .stdout(stdout)
+            .output()
+            .into_diagnostic()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            bail!("Failed to inspect image {}:\n{}", opts.image, stderr);
+        }
+
+        Ok(opts.output_path.is_none().then_some(output.stdout))
+    }
+
     fn remove_image(opts: RemoveImageOpts) -> Result<()> {
         trace!("PodmanDriver::remove_image({opts:?})");
 
@@ -735,7 +992,8 @@ impl ImageStorageDriver for PodmanDriver {
                 sudo_check = opts.privileged,
                 "podman",
                 "rmi",
-                opts.image.to_string()
+                "--",
+                opts.image.to_string(),
             );
             trace!("{c:?}");
             c

@@ -16,7 +16,6 @@ blue-build-utils = { version = "=0.9.35", path = "../utils" }
 indicatif-log-bridge = "0.2.3"
 log4rs = { version = "1.4.0", features = ["background_rotation"] }
 nu-ansi-term = { version = "0.50.3", features = ["gnu_legacy"] }
-os_pipe = { version = "1.2.3", features = ["io_safety"] }
 signal-hook = { version = "0.4.4", features = ["extended-siginfo"] }
 sigstore = { version = "0.13.0", features = ["rustls-tls", "cached-client", "sigstore-trust-root", "sign", "cosign"], default-features = false }
 
@@ -26,7 +25,6 @@ chrono.workspace = true
 clap = { workspace = true, features = ["derive", "env"] }
 colored.workspace = true
 comlexr.workspace = true
-indexmap.workspace = true
 indicatif.workspace = true
 lazy-regex.workspace = true
 log.workspace = true
@@ -34,7 +32,6 @@ miette.workspace = true
 nix = { workspace = true, features = ["signal"] }
 rayon.workspace = true
 oci-client.workspace = true
-reqwest.workspace = true
 semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true

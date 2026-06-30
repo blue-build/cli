@@ -22,7 +22,7 @@ lazy-regex = "3.6.0"
 log = "0.4.29"
 miette = "7.6.0"
 nix = { version = "0.31.2" }
-oci-client = { version = "0.15.0", default-features = false }
+oci-client = { version = "0.15.0", default-features = false, features = ["rustls-tls"] }
 pretty_assertions = "1.4.1"
 rand = "0.10.1"
 rayon = "1.12.0"
@@ -95,7 +95,6 @@ clap = { workspace = true, features = ["derive", "cargo", "unicode", "env"] }
 colored.workspace = true
 comlexr.workspace = true
 indexmap.workspace = true
-indicatif.workspace = true
 log.workspace = true
 miette = { workspace = true, features = ["fancy"] }
 oci-client.workspace = true
@@ -106,8 +105,6 @@ semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
-syntect.workspace = true
-tempfile.workspace = true
 tokio.workspace = true
 bon.workspace = true
 

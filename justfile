@@ -197,6 +197,14 @@ test-bluefin-build: generate-test-secret install-debug-all-features
     -vv \
     recipes/recipe-bluefin.yml
 
+test-chunkah-build: generate-test-secret install-debug-all-features
+  cd integration-tests/test-repo \
+  && bluebuild build \
+    {{ should_push }} \
+    -vv \
+    --chunkah \
+    recipes/recipe-chunkah.yml
+
 test-build-chunked-oci-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && bluebuild build \
@@ -265,7 +273,7 @@ test-buildah-build: generate-test-secret install-debug-all-features
     recipes/recipe-buildah.yml
 
 # Run the multi-platform builds
-test-multiplatform: test-multiplatform-docker test-multiplatform-podman test-multiplatform-buildah test-multiplatform-build-chunked-oci test-multiplatform-rechunk
+test-multiplatform: test-multiplatform-docker test-multiplatform-podman test-multiplatform-buildah test-multiplatform-chunkah test-multiplatform-build-chunked-oci test-multiplatform-rechunk
 
 test-multiplatform-docker: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
@@ -296,6 +304,17 @@ test-multiplatform-buildah: generate-test-secret install-debug-all-features
     {{ should_push }} \
     -vv \
     recipes/recipe-multiplatform-buildah.yml
+
+test-multiplatform-chunkah: generate-test-secret install-debug-all-features
+  cd integration-tests/test-repo \
+  && bluebuild build \
+    --retry-push \
+    --chunkah \
+    --remove-base-image \
+    -S sigstore \
+    {{ should_push }} \
+    -vv \
+    recipes/recipe-multiplatform-chunkah.yml
 
 test-multiplatform-build-chunked-oci: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
@@ -359,6 +378,12 @@ exec-cli-container +args: build-local-cli-image
 test-container-podman-build: \
   generate-test-secret \
   (exec-cli-container "bluebuild" "build" "-B" "podman" "--squash" "-vv")
+
+# Run a cli container using the podman build driver with chunkah
+test-container-podman-chunkah: \
+  generate-test-secret \
+  (exec-cli-container "bluebuild" "build" "-B" \
+    "podman" "-vv" "--chunkah" "recipes/recipe-chunkah.yml")
 
 # Run a cli container using the podman build driver with build-chunked-oci
 test-container-podman-build-chunked-oci: \
