@@ -39,6 +39,18 @@ pub const BB_BUILD_RECHUNK: &str = "BB_BUILD_RECHUNK";
 pub const BB_BUILD_RECHUNK_CLEAR_PLAN: &str = "BB_BUILD_RECHUNK_CLEAR_PLAN";
 pub const BB_BUILD_REMOVE_BASE_IMAGE: &str = "BB_BUILD_REMOVE_BASE_IMAGE";
 pub const BB_BUILD_SQUASH: &str = "BB_BUILD_SQUASH";
+/// Extra whitespace-separated flags appended to the `cosign sign` command.
+///
+/// Unset by default (no change). Useful for offline/private registries that
+/// cannot reach the public transparency log, e.g.
+/// `BB_COSIGN_SIGN_ARGS="--tlog-upload=false"`.
+pub const BB_COSIGN_SIGN_ARGS: &str = "BB_COSIGN_SIGN_ARGS";
+/// Extra whitespace-separated flags appended to the `cosign verify` command.
+///
+/// Unset by default (no change). Counterpart to [`BB_COSIGN_SIGN_ARGS`] for
+/// verifying images signed without a transparency-log entry, e.g.
+/// `BB_COSIGN_VERIFY_ARGS="--insecure-ignore-tlog=true"`.
+pub const BB_COSIGN_VERIFY_ARGS: &str = "BB_COSIGN_VERIFY_ARGS";
 pub const BB_GENISO_ENROLLMENT_PASSWORD: &str = "BB_GENISO_ENROLLMENT_PASSWORD";
 pub const BB_GENISO_ISO_NAME: &str = "BB_GENISO_ISO_NAME";
 pub const BB_GENISO_SECURE_BOOT_URL: &str = "BB_GENISO_SECURE_BOOT_URL";
