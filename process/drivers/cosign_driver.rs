@@ -1,7 +1,9 @@
 use std::{fmt::Debug, fs, path::Path};
 
 use blue_build_utils::{
-    constants::{COSIGN_PASSWORD, COSIGN_PUB_PATH, COSIGN_YES},
+    constants::{
+        BB_COSIGN_SIGN_ARGS, BB_COSIGN_VERIFY_ARGS, COSIGN_PASSWORD, COSIGN_PUB_PATH, COSIGN_YES,
+    },
     credentials::Credentials,
     semver::Version,
 };
@@ -167,7 +169,7 @@ impl SigningDriver for CosignDriver {
     ) -> Result<()> {
         let image = image.clone_with_digest(metadata.digest().into());
         let status = {
-            let c = cmd!(
+            let mut c = cmd!(
                 env {
                     COSIGN_PASSWORD: "",
                     COSIGN_YES: "true",
@@ -182,6 +184,11 @@ impl SigningDriver for CosignDriver {
                 "--recursive",
                 image.to_string(),
             );
+            // Append operator-supplied flags to `cosign sign`, e.g.
+            // BB_COSIGN_SIGN_ARGS="--tlog-upload=false". Unset => no change.
+            if let Ok(extra) = std::env::var(BB_COSIGN_SIGN_ARGS) {
+                c.args(split_extra_args(&extra));
+            }
             trace!("{c:?}");
             c
         }
@@ -197,7 +204,7 @@ impl SigningDriver for CosignDriver {
 
     fn verify(opts: VerifyOpts) -> Result<()> {
         let status = {
-            let c = cmd!(
+            let mut c = cmd!(
                 "cosign",
                 "verify",
                 match &opts.verify_type {
@@ -211,6 +218,11 @@ impl SigningDriver for CosignDriver {
                 },
                 opts.image.to_string(),
             );
+            // Append operator-supplied flags to `cosign verify`, e.g.
+            // BB_COSIGN_VERIFY_ARGS="--insecure-ignore-tlog=true". Unset => none.
+            if let Ok(extra) = std::env::var(BB_COSIGN_VERIFY_ARGS) {
+                c.args(split_extra_args(&extra));
+            }
             trace!("{c:?}");
             c
         }
@@ -223,6 +235,18 @@ impl SigningDriver for CosignDriver {
 
         Ok(())
     }
+}
+
+/// Split an operator-supplied list of extra cosign flags (the value of
+/// [`BB_COSIGN_SIGN_ARGS`]/[`BB_COSIGN_VERIFY_ARGS`]) into individual
+/// arguments.
+///
+/// Tokens are separated by any run of ASCII whitespace, so a blank or
+/// whitespace-only value yields no arguments. This intentionally does not
+/// support shell quoting; each flag must be a single whitespace-free token
+/// (e.g. `--tlog-upload=false`).
+fn split_extra_args(raw: &str) -> Vec<String> {
+    raw.split_whitespace().map(ToString::to_string).collect()
 }
 
 #[cfg(test)]
@@ -239,7 +263,26 @@ mod test {
         opts::{CheckKeyPairOpts, GenerateKeyPairOpts},
     };
 
-    use super::CosignDriver;
+    use super::{CosignDriver, split_extra_args};
+
+    #[test]
+    fn split_extra_args_parses_tokens() {
+        // Unset/blank values contribute no arguments.
+        assert!(split_extra_args("").is_empty());
+        assert!(split_extra_args("   \t \n").is_empty());
+
+        // A single flag.
+        assert_eq!(
+            split_extra_args("--tlog-upload=false"),
+            ["--tlog-upload=false"]
+        );
+
+        // Multiple flags separated by arbitrary whitespace.
+        assert_eq!(
+            split_extra_args("  --insecure-ignore-tlog=true   --foo=bar\t--baz "),
+            ["--insecure-ignore-tlog=true", "--foo=bar", "--baz"]
+        );
+    }
 
     #[test]
     fn generate_key_pair() {
