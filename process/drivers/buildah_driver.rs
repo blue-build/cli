@@ -59,6 +59,20 @@ impl BuildDriver for BuildahDriver {
     fn build(opts: BuildOpts) -> Result<()> {
         trace!("BuildahDriver::build({opts:#?})");
 
+        if let Some(base_image) = &opts.base_image {
+            debug!("Pulling image {base_image}");
+            // Pull with retries to reduce the chance of network/server issues causing an early
+            // build failure:
+            Self::pull(
+                PullOpts::builder()
+                    .image(base_image)
+                    .maybe_platform(opts.platform)
+                    .retry_count(3)
+                    .privileged(opts.privileged)
+                    .build(),
+            )?;
+        }
+
         let temp_dir = tempdir().wrap_err("Failed to create temporary directory for secrets")?;
 
         let command = sudo_cmd!(
@@ -72,7 +86,6 @@ impl BuildDriver for BuildahDriver {
                 "--platform",
                 platform.to_string(),
             ],
-            "--pull=always",
             if !opts.squash => "--layers",
             if opts.squash => "--squash",
             match opts.cache_from.as_ref() {

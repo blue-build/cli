@@ -578,6 +578,7 @@ dependencies = [
  "shellexpand",
  "syntect",
  "tempfile",
+ "tokio",
  "uuid",
  "which",
  "yaml_serde",

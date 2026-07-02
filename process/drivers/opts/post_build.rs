@@ -1,6 +1,5 @@
 use blue_build_utils::{container::ImageRef, platform::Platform};
 use bon::Builder;
-use oci_client::Reference;
 
 use crate::drivers::PostBuild;
 
@@ -32,8 +31,8 @@ pub struct PostBuildDriverOpts<'scope> {
     /// Post-build hook (e.g. for rechunking)
     pub post_build: &'scope dyn PostBuild,
 
-    /// Base image to remove after building.
-    pub remove_base_image: Option<&'scope Reference>,
+    /// Whether to remove the base image after building
+    pub remove_base_image: bool,
 
     /// Whether to take a previous image into account.
     #[builder(default)]

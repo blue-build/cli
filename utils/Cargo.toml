@@ -33,6 +33,7 @@ serde.workspace = true
 serde_yaml.workspace = true
 syntect.workspace = true
 tempfile.workspace = true
+tokio = { workspace = true, features = ["time"] }
 uuid.workspace = true
 which.workspace = true
 zeroize.workspace = true

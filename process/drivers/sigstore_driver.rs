@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fs, path::Path};
+use std::{collections::BTreeMap, fs, path::Path, time::Duration};
 
 use crate::{
     ASYNC_RUNTIME,
@@ -217,15 +217,16 @@ impl SigningDriver for SigstoreDriver {
 
         debug!("Triangulating image");
         let auth = Auth::Anonymous;
-        let (cosign_signature_image, source_image_digest) = retry(2, 5, || {
-            ASYNC_RUNTIME
-                .block_on(client.triangulate(&image_digest, &auth))
-                .into_diagnostic()
-                .with_context(|| format!("Failed to triangulate image {image_digest}"))
-        })?;
+        let (cosign_signature_image, source_image_digest) =
+            retry(2, Duration::from_secs(5), || {
+                ASYNC_RUNTIME
+                    .block_on(client.triangulate(&image_digest, &auth))
+                    .into_diagnostic()
+                    .with_context(|| format!("Failed to triangulate image {image_digest}"))
+            })?;
         trace!("{cosign_signature_image}, {source_image_digest}");
 
-        let trusted_layers = retry(2, 5, || {
+        let trusted_layers = retry(2, Duration::from_secs(5), || {
             ASYNC_RUNTIME
                 .block_on(client.trusted_signature_layers(
                     &auth,

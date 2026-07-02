@@ -16,6 +16,9 @@ use super::CompressionType;
 pub struct BuildOpts<'scope> {
     pub image: &'scope ImageRef<'scope>,
 
+    /// Base image to pull before building
+    pub base_image: Option<&'scope Reference>,
+
     #[builder(default)]
     pub squash: bool,
 
@@ -111,8 +114,11 @@ pub struct ManifestPushOpts<'scope> {
 #[derive(Debug, Clone, Copy, Builder)]
 #[builder(derive(Debug, Clone))]
 pub struct BuildTagPushOpts<'scope> {
-    /// The base image name.
+    /// The image name.
     pub image: &'scope ImageRef<'scope>,
+
+    /// Base image to pull before building
+    pub base_image: Option<&'scope Reference>,
 
     /// The path to the Containerfile to build.
     pub containerfile: &'scope Path,

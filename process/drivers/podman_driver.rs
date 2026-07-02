@@ -3,6 +3,7 @@ use std::{
     ops::Not,
     path::Path,
     process::{Command, ExitStatus, Stdio},
+    time::Duration,
 };
 
 use blue_build_utils::{
@@ -191,6 +192,20 @@ impl BuildDriver for PodmanDriver {
     fn build(opts: BuildOpts) -> Result<()> {
         trace!("PodmanDriver::build({opts:#?})");
 
+        if let Some(base_image) = opts.base_image {
+            debug!("Pulling image {base_image}");
+            // Pull with retries to reduce the chance of network/server issues causing an early
+            // build failure:
+            Self::pull(
+                PullOpts::builder()
+                    .image(base_image)
+                    .maybe_platform(opts.platform)
+                    .retry_count(3)
+                    .privileged(opts.privileged)
+                    .build(),
+            )?;
+        }
+
         let temp_dir = tempdir().wrap_err("Failed to create temporary directory for secrets")?;
 
         let command = sudo_cmd!(
@@ -224,7 +239,6 @@ impl BuildDriver for PodmanDriver {
                 ],
                 _ => [],
             },
-            "--pull=always",
             if opts.host_network => "--net=host",
             if !opts.squash => "--layers",
             if opts.squash => "--squash",
@@ -348,18 +362,22 @@ impl BuildDriver for PodmanDriver {
         info!("Pulling image {image_str}...");
 
         trace!("{command:?}");
-        let output = blue_build_utils::retry(opts.retry_count.unwrap_or(1), 5, || {
-            let output = command.output().into_diagnostic()?;
-            if !output.status.success() {
-                let err_out = String::from_utf8_lossy(&output.stderr);
-                bail!(
-                    "Failed to pull image {}:\n{}",
-                    image_str.bold().red(),
-                    err_out
-                );
-            }
-            Ok(output)
-        })?;
+        let output = blue_build_utils::retry(
+            opts.retry_count.unwrap_or(1),
+            Duration::from_secs(5),
+            || {
+                let output = command.output().into_diagnostic()?;
+                if !output.status.success() {
+                    let err_out = String::from_utf8_lossy(&output.stderr);
+                    bail!(
+                        "Failed to pull image {}:\n{}",
+                        image_str.bold().red(),
+                        err_out
+                    );
+                }
+                Ok(output)
+            },
+        )?;
         info!("Successfully pulled image {}", image_str.bold().green());
         let container_id = {
             let mut stdout = output.stdout;
@@ -534,7 +552,9 @@ impl PostBuildDriver for PodmanDriver {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        if let Some(base_image) = pb_opts.remove_base_image {
+        if pb_opts.remove_base_image
+            && let Some(base_image) = opts.base_image
+        {
             Self::remove_image(
                 RemoveImageOpts::builder()
                     .image(base_image)
@@ -625,8 +645,8 @@ impl PostBuildDriver for PodmanDriver {
                     if opts.push {
                         let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
 
-                        // Push images with retries (1s delay between retries)
-                        blue_build_utils::retry(retry_count, 5, || {
+                        // Push images with retries
+                        blue_build_utils::retry(retry_count, Duration::from_secs(5), || {
                             debug!("Pushing image {tagged_image}");
 
                             Self::manifest_push_with_layer_annotation_bug_workaround(
