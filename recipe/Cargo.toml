@@ -27,3 +27,6 @@ rstest.workspace = true
 
 [lints]
 workspace = true
+
+[features]
+recipe-v2 = []

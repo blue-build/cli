@@ -32,6 +32,7 @@ pub use maybe_version::*;
 pub use module::*;
 pub use module_ext::*;
 pub use recipe_v1::*;
+#[cfg(feature = "recipe-v2")]
 pub use recipe_v2::*;
 pub use stage::*;
 pub use stages_ext::*;
@@ -168,6 +169,7 @@ pub trait RecipeGetters {
 #[derive(Clone, Debug)]
 pub enum Recipe {
     V1(Box<RecipeV1>),
+    #[cfg(feature = "recipe-v2")]
     V2(Box<RecipeV2>),
 }
 
@@ -210,6 +212,7 @@ impl Recipe {
     fn version_number(&self) -> Number {
         match self {
             Self::V1(_) => 1,
+            #[cfg(feature = "recipe-v2")]
             Self::V2(_) => 2,
         }
         .into()
@@ -227,6 +230,7 @@ impl<'de> Deserialize<'de> for Recipe {
             Some(1) | None => Self::V1(Box::new(
                 serde_yaml::from_value(obj).map_err(serde::de::Error::custom)?,
             )),
+            #[cfg(feature = "recipe-v2")]
             Some(2) => Self::V2(Box::new(
                 serde_yaml::from_value(obj).map_err(serde::de::Error::custom)?,
             )),
@@ -247,6 +251,7 @@ impl Serialize for Recipe {
         let version = Value::Number(self.version_number());
         let mut obj = match self {
             Self::V1(recipe) => serde_yaml::to_value(recipe),
+            #[cfg(feature = "recipe-v2")]
             Self::V2(recipe) => serde_yaml::to_value(recipe),
         }
         .map_err(serde::ser::Error::custom)?;
@@ -259,6 +264,7 @@ macro_rules! impl_recipe {
     ($self:ident, $func:ident($($args:expr),*)) => {
         match $self {
             Self::V1(recipe) => recipe.$func($($args,)*),
+            #[cfg(feature = "recipe-v2")]
             Self::V2(recipe) => recipe.$func($($args,)*),
         }
     };
@@ -326,7 +332,14 @@ impl RecipeSetters for Recipe {
 
 impl Default for Recipe {
     fn default() -> Self {
-        Self::V2(RecipeV2::default().into())
+        #[cfg(feature = "recipe-v2")]
+        {
+            Self::V2(RecipeV2::default().into())
+        }
+        #[cfg(not(feature = "recipe-v2"))]
+        {
+            Self::V1(RecipeV1::default().into())
+        }
     }
 }
 
@@ -359,8 +372,8 @@ mod test {
     pub const REPO_PATH: &str = "../integration-tests/test-repo";
 
     #[rstest]
-    #[case("recipes/recipe.yml")]
-    #[case("recipes/recipe-v2.yml")]
+    #[case::recipe_v1("recipes/recipe.yml")]
+    #[cfg_attr(feature = "recipe-v2", case::recipe_v2("recipes/recipe-v2.yml"))]
     fn parse_recipe(#[case] recipe_path: &str) {
         // serialize
         let recipe = Recipe::parse(recipe_path).unwrap();
