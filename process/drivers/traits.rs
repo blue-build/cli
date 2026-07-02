@@ -4,6 +4,7 @@ use std::{
     ops::Not,
     path::PathBuf,
     process::{ExitStatus, Output},
+    time::Duration,
 };
 
 use blue_build_utils::{
@@ -179,6 +180,7 @@ pub trait BuildDriver: ImageStorageDriver {
 
         let build_opts_base = BuildOpts::builder()
             .containerfile(opts.containerfile.as_ref())
+            .maybe_base_image(opts.base_image)
             .squash(opts.squash)
             .maybe_cache_from(opts.cache_from)
             .maybe_cache_to(opts.cache_to)
@@ -227,8 +229,8 @@ pub trait BuildDriver: ImageStorageDriver {
                     if opts.push {
                         let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
 
-                        // Push images with retries (1s delay between retries)
-                        blue_build_utils::retry(retry_count, 5, || {
+                        // Push images with retries
+                        blue_build_utils::retry(retry_count, Duration::from_secs(5), || {
                             debug!("Pushing image {tagged_image}");
 
                             Self::manifest_push(
@@ -601,8 +603,8 @@ pub trait BuildChunkedOciDriver: BuildDriver + ImageStorageDriver {
                             0
                         };
 
-                        // Push images with retries (1s delay between retries)
-                        blue_build_utils::retry(retry_count, 5, || {
+                        // Push images with retries
+                        blue_build_utils::retry(retry_count, Duration::from_secs(5), || {
                             debug!("Pushing image {tagged_image}");
 
                             // We push twice due to a (very strange) bug in podman where layer
@@ -762,7 +764,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                     tag.to_string(),
                 );
 
-                blue_build_utils::retry(opts.retry_count, 5, || {
+                blue_build_utils::retry(opts.retry_count, Duration::from_secs(5), || {
                     debug!("Pushing image {tagged_image}");
 
                     Driver.copy_oci(
@@ -1034,7 +1036,7 @@ pub trait SigningDriver: PrivateDriver {
 
         let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
 
-        retry(retry_count, 5, || {
+        retry(retry_count, Duration::from_secs(5), || {
             Self::sign(sign_opts)?;
             Self::verify(verify_opts)
         })?;

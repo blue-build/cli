@@ -376,8 +376,16 @@ impl BuildCommand {
             },
         );
 
+        let base_image = recipe.base_image_ref()?;
+        let base_digest =
+            Driver::get_metadata(GetMetadataOpts::builder().image(&base_image).build())?
+                .digest()
+                .to_owned();
+        let base_image_with_digest = base_image.clone_with_digest(base_digest);
+
         let build_tag_opts = BuildTagPushOpts::builder()
             .image(&image_ref)
+            .base_image(&base_image_with_digest)
             .containerfile(containerfile)
             .platform(platforms)
             .squash(self.squash)
@@ -398,15 +406,6 @@ impl BuildCommand {
         };
 
         let images = if self.chunkah {
-            let base_image = recipe.base_image_ref()?;
-            let base_digest =
-                Driver::get_metadata(GetMetadataOpts::builder().image(&base_image).build())?
-                    .digest()
-                    .to_owned();
-            let remove_base_image = self
-                .remove_base_image
-                .then_some(base_image.clone_with_digest(base_digest));
-
             let (chunkah_tag, chunkah_digest) =
                 self.chunkah_version
                     .as_deref()
@@ -432,7 +431,7 @@ impl BuildCommand {
                 opts,
                 PostBuildDriverOpts::builder()
                     .post_build(&post_build)
-                    .maybe_remove_base_image(remove_base_image.as_ref())
+                    .remove_base_image(self.remove_base_image)
                     .use_previous_image(!self.rechunk_clear_plan)
                     .build(),
             )?

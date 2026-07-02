@@ -36,7 +36,7 @@ serde_yaml = { version = "0.10.4", package = "yaml_serde" }
 structstruck = "0.5.1"
 syntect = { version = "5.3.0", default-features = false, features = ["default-fancy"] }
 tempfile = "3.27.0"
-tokio = { version = "1.49.0", features = ["rt", "rt-multi-thread"] }
+tokio = { version = "1.49.0", default-features = false }
 uuid = { version = "1.23.1", features = ["v4"] }
 which = "8.0.2"
 zeroize = { version = "1.8.2", features = ["aarch64", "derive", "std", "serde"] }
@@ -105,7 +105,7 @@ semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
 bon.workspace = true
 
 [features]

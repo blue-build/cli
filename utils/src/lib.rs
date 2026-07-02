@@ -18,7 +18,6 @@ use std::{
     ops::{AsyncFnMut, Not},
     os::unix::{ffi::OsStrExt, fs::PermissionsExt},
     path::{Path, PathBuf},
-    thread,
     time::Duration,
 };
 
@@ -58,11 +57,11 @@ pub fn check_command_exists(command: &str) -> Result<()> {
     }
 }
 
-/// Performs a retry on a given closure with a given nubmer of attempts and delay.
+/// Performs a retry on a given closure with a given number of attempts and delay.
 ///
 /// # Errors
 /// Will error when retries have been expended.
-pub fn retry<V, F>(mut retries: u8, delay_secs: u64, mut f: F) -> miette::Result<V>
+pub fn retry<V, F>(mut retries: u8, delay: Duration, mut f: F) -> miette::Result<V>
 where
     F: FnMut() -> miette::Result<V> + Send,
 {
@@ -73,17 +72,17 @@ where
             Err(e) => {
                 retries -= 1;
                 warn!("Failed operation, will retry {retries} more time(s). Error:\n{e:?}");
-                thread::sleep(Duration::from_secs(delay_secs));
+                std::thread::sleep(delay);
             }
         }
     }
 }
 
-/// Performs a retry on a given closure with a given nubmer of attempts and delay.
+/// Performs a retry on a given async closure with a given number of attempts and delay.
 ///
 /// # Errors
 /// Will error when retries have been expended.
-pub async fn retry_async<V, F>(mut retries: u8, delay_secs: u64, mut f: F) -> miette::Result<V>
+pub async fn retry_async<V, F>(mut retries: u8, delay: Duration, mut f: F) -> miette::Result<V>
 where
     F: AsyncFnMut() -> miette::Result<V>,
 {
@@ -94,7 +93,7 @@ where
             Err(e) => {
                 retries -= 1;
                 warn!("Failed operation, will retry {retries} more time(s). Error:\n{e:?}");
-                thread::sleep(Duration::from_secs(delay_secs));
+                tokio::time::sleep(delay).await;
             }
         }
     }
