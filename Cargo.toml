@@ -11,7 +11,7 @@ version = "0.9.35"
 
 [workspace.dependencies]
 bon = "3.8.2"
-cached = { version = "0.56.0", features = ["async"]}
+cached = { version = "2.0.2", features = ["async"]}
 chrono = "0.4.43"
 clap = "4.6.1"
 colored = "3.1.1"
