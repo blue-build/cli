@@ -20,7 +20,7 @@ pub struct RechunkOpts<'scope> {
     pub platform: &'scope [Platform],
     pub version: &'scope str,
     pub name: &'scope str,
-    pub description: &'scope str,
+    pub description: Option<&'scope str>,
     pub base_digest: &'scope str,
     pub base_image: &'scope Reference,
     pub repo: &'scope str,

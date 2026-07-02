@@ -58,5 +58,6 @@ fn main() {
         CommandArgs::Prune(mut command) => command.run(),
         CommandArgs::BugReport(mut command) => command.run(),
         CommandArgs::Completions(mut command) => command.run(),
+        CommandArgs::Recipe(mut command) => command.run(),
     });
 }

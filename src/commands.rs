@@ -16,6 +16,7 @@ pub mod generate_iso;
 pub mod init;
 pub mod login;
 pub mod prune;
+pub mod recipe;
 pub mod switch;
 pub mod validate;
 
@@ -114,6 +115,8 @@ pub enum CommandArgs {
 
     /// Generate shell completions for your shell to stdout
     Completions(completions::CompletionsCommand),
+
+    Recipe(recipe::RecipeCommand),
 }
 
 #[cfg(test)]
