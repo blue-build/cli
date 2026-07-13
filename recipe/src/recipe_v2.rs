@@ -237,7 +237,7 @@ impl From<RecipeV1> for RecipeV2 {
                         tool_versions,
                     }),
                     (None, true) => Some(RecipeV2Spec {
-                        platforms: Vec::default(),
+                        platforms: Vec::new(),
                         tool_versions,
                     }),
                 }
