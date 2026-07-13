@@ -131,7 +131,7 @@ jobs:
             --TAGGED="true" --LATEST="$LATEST"
 
       - name: Install regctl
-        uses: regclient/actions/regctl-installer@c70ad64367908075211b10dcd2ab9fad4bfa1816 # main # zizmor: ignore[stale-action-refs] regctl does not publish tags
+        uses: regclient/actions/regctl-installer@39bf30ced4be9d147faaabbde2682e9725fb8bd1 # main # zizmor: ignore[stale-action-refs] regctl does not publish tags
 
       - name: Store image digest info
         id: image_manifest_metadata
