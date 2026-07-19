@@ -228,11 +228,7 @@ impl SigningDriver for SigstoreDriver {
 
         let trusted_layers = retry(2, Duration::from_secs(5), || {
             ASYNC_RUNTIME
-                .block_on(client.trusted_signature_layers(
-                    &auth,
-                    &source_image_digest,
-                    &cosign_signature_image,
-                ))
+                .block_on(client.trusted_signature_layers(&auth, &cosign_signature_image))
                 .into_diagnostic()
         })?;
 
