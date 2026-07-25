@@ -12,7 +12,10 @@ pub mod bug_report;
 pub mod build;
 pub mod completions;
 pub mod generate;
+#[cfg(feature = "titanoboa-iso")]
 pub mod generate_iso;
+#[cfg(not(feature = "titanoboa-iso"))]
+pub mod generate_iso_old;
 pub mod init;
 pub mod login;
 pub mod prune;
@@ -20,6 +23,9 @@ pub mod prune;
 pub mod recipe;
 pub mod switch;
 pub mod validate;
+
+#[cfg(not(feature = "titanoboa-iso"))]
+pub use generate_iso_old as generate_iso;
 
 pub trait BlueBuildCommand {
     /// Runs the command and returns a result
