@@ -28,8 +28,10 @@ use clap::Args;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{info, trace, warn};
+use miette::IntoDiagnostic;
 use miette::{Context, Result, bail};
 use oci_client::Reference;
+use oci_client::manifest::{OciDescriptor, OciImageManifest, OciManifest};
 use uuid::Uuid;
 
 use crate::{logging::Logger, signal_handler::DetachedContainer};
@@ -442,6 +444,38 @@ impl SigningDriver for Driver {
 
 impl InspectDriver for Driver {
     fn get_metadata(opts: GetMetadataOpts) -> Result<ImageMetadata> {
+        match Self::inspect_image(
+            InspectImageOpts::builder()
+                .image(&opts.image.to_string())
+                .build(),
+        ) {
+            Ok(Some(inspect_data)) => match parse_local_inspect(opts.image, &inspect_data) {
+                Ok(local_metadata) => {
+                    trace!(
+                        "Successfully got metadata for {} from local storage",
+                        opts.image
+                    );
+                    return Ok(local_metadata);
+                }
+                Err(err) => {
+                    warn!(
+                        "Failed to parse local inspect data for {}, falling back to registry: {err:?}",
+                        opts.image
+                    );
+                }
+            },
+            Ok(None) => {
+                trace!("inspect_image returned no data for {}", opts.image);
+            }
+            Err(err) => {
+                trace!(
+                    "Image {} not found in local storage, falling back to registry: {err:?}",
+                    opts.image
+                );
+            }
+        }
+
+        trace!("Fetching metadata for {} from registry", opts.image);
         OciClientDriver::get_metadata(opts)
     }
 }
@@ -607,4 +641,66 @@ impl BootDriver for Driver {
     fn upgrade(opts: SwitchOpts) -> Result<()> {
         impl_boot_driver!(upgrade(opts))
     }
+}
+
+fn parse_local_inspect(_image: &Reference, inspect_data: &[u8]) -> Result<ImageMetadata> {
+    let json: serde_json::Value = serde_json::from_slice(inspect_data)
+        .into_diagnostic()
+        .wrap_err("Failed to parse image inspect output")?;
+
+    let image_info = json
+        .as_array()
+        .and_then(|arr| arr.first())
+        .ok_or_else(|| miette::miette!("Invalid inspect output format"))?;
+
+    let digest = image_info
+        .get("Digest")
+        .and_then(|d| d.as_str())
+        .or_else(|| {
+            image_info
+                .get("RepoDigests")
+                .and_then(|rd| rd.as_array())
+                .and_then(|arr| arr.first())
+                .and_then(|d| d.as_str())
+                .and_then(|d| d.split('@').next_back())
+        })
+        .or_else(|| image_info.get("Id").and_then(|d| d.as_str()))
+        .ok_or_else(|| miette::miette!("No digest found in local image"))?
+        .to_string();
+
+    let config_digest = image_info
+        .get("Config")
+        .and_then(|c| c.get("Digest"))
+        .and_then(|d| d.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let manifest = OciManifest::Image(OciImageManifest {
+        schema_version: 2,
+        media_type: Some("application/vnd.oci.image.manifest.v1+json".to_string()),
+        config: OciDescriptor {
+            media_type: "application/vnd.oci.image.config.v1+json".to_string(),
+            digest: config_digest.clone(),
+            size: 0, // We don't know the size from local inspect
+            urls: None,
+            annotations: None,
+            artifact_type: None,
+        },
+        layers: vec![],
+        annotations: None,
+        subject: None,
+        artifact_type: None,
+    });
+
+    let image_config = image_info
+        .get("Config")
+        .and_then(|c| serde_json::from_value(c.clone()).ok())
+        .map(types::ImageConfig::from_config)
+        .unwrap_or_else(types::ImageConfig::new);
+
+    Ok(ImageMetadata::builder()
+        .manifest(manifest)
+        .digest(digest)
+        .configs(vec![(config_digest, image_config)])
+        .build())
 }

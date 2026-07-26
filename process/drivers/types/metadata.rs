@@ -6,9 +6,20 @@ use miette::{Context, Result, miette};
 use oci_client::{config::Config, manifest::OciManifest};
 use serde::Deserialize;
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Default, Deserialize, Debug, Clone)]
 pub struct ImageConfig {
-    config: Config,
+    pub(crate) config: Config,
+}
+
+impl ImageConfig {
+    /// Create a new ImageConfig with minimal defaults
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn from_config(config: Config) -> Self {
+        Self { config }
+    }
 }
 
 #[derive(Debug, Clone, Builder)]
