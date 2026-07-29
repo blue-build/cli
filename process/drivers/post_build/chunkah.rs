@@ -119,6 +119,8 @@ impl PostBuildRunner for ChunkahRunner {
                 ),
                 "--volume",
                 format!("{path}:{path}:Z", path = chunkah_temp_dir.path().display()),
+                "--env",
+                "SOURCE_DATE_EPOCH=0", // for reproducibility
                 "--",
                 &self.chunkah_image_id,
                 "build",
