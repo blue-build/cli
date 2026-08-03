@@ -115,10 +115,12 @@ default = []
 
 v1_0_0 = [
     "bootc",
-    "recipe-v2"
+    "recipe-v2",
+    "titanoboa-iso"
 ]
 bootc = ["blue-build-process-management/bootc"]
 vendored-libgit2 = ["dep:git2", "git2/vendored-libgit2"]
+titanoboa-iso = ["recipe-v2"]
 recipe-v2 = ["blue-build-recipe/recipe-v2"]
 
 [dev-dependencies]
