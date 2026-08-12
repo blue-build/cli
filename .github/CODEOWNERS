@@ -1,1 +1,25 @@
+# Default
 * @gmpinder
+
+# All rust src files
+*.rs @gmpinder @HastD
+
+# All template files
+*.j2 @gmpinder @HastD
+
+# Shell script files
+*.sh @gmpinder @HastD
+
+# All Cargo files
+Cargo.* @gmpinder @HastD
+
+# Integration Tests
+/integration-tests @gmpinder @HastD
+
+# Test files
+/test-files @gmpinder @HastD
+
+# Documentation files
+*.md @gmpinder @HastD @xynydev
+
+LICENSE @gmpinder @HastD @xynydev @fiftydinar
