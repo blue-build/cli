@@ -4,7 +4,9 @@ name: cli/test-arm64
 description: This is my personal OS image.
 base-image: quay.io/fedora/fedora-bootc
 image-version: latest
+platforms:
+  - linux/arm64
 stages:
-  - from-file: stages.yml
+  - from-file: arm-stages.yml
 modules:
-  - from-file: common.yml
+  - from-file: arm-common.yml

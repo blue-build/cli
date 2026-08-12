@@ -1,0 +1,144 @@
+modules:
+  - from-file: akmods.yml
+  - from-file: flatpaks.yml
+
+  - type: files
+    files:
+      - source: usr
+        destination: /usr
+
+  - type: script
+    scripts:
+      - example.sh
+
+  - type: script
+    snippets:
+      - '[ -z "${TEST_ARG:-}" ]'
+
+  - type: script
+    env:
+      TEST_ARG: "test"
+    snippets:
+      - '[ "$TEST_ARG" = "test" ]'
+
+  - type: script
+    snippets:
+      - '[ -z "${TEST_ARG:-}" ]'
+
+  - type: dnf
+    repos:
+      files:
+        - https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-%OS_VERSION%/atim-starship-fedora-%OS_VERSION%.repo
+    install:
+      packages:
+        - micro
+        - starship
+    remove:
+      packages:
+        - firefox
+        - firefox-langpacks
+
+  - type: signing
+
+  - type: test-module
+    source: local
+
+  - type: test-nu-modules
+    source: local
+    test-prop:
+      - this
+      - is
+      - a
+      - test
+
+  - type: containerfile
+    containerfiles:
+      - labels
+    snippets:
+      - RUN echo "This is a snippet"
+
+  - type: copy
+    from: alpine-test
+    src: /test.txt
+    dest: /
+  - type: copy
+    from: ubuntu-test
+    src: /test.txt
+    dest: /
+  - type: copy
+    from: debian-test
+    src: /test.txt
+    dest: /
+  - type: copy
+    from: fedora-test
+    src: /test.txt
+    dest: /
+  - type: copy
+    from: suse-test
+    src: /test.txt
+    dest: /
+
+  # Testing secrets
+  - type: script
+    secrets:
+      - type: env
+        name: TEST_SECRET
+        mount:
+          type: env
+          name: TEST_SECRET
+    snippets:
+      - '[ "$TEST_SECRET" == "test123" ]'
+
+  - type: script
+    secrets:
+      - type: env
+        name: TEST_SECRET
+        mount:
+          type: file
+          destination: /tmp/test-secret
+    snippets:
+      - '[ "$(cat /tmp/test-secret)" == "test123" ]'
+
+  - type: script
+    secrets:
+      - type: file
+        source: ./secrets/test-secret
+        mount:
+          type: file
+          destination: /tmp/test-secret
+    snippets:
+      - '[ "$(cat /tmp/test-secret)" == "321tset" ]'
+
+  - type: script
+    secrets:
+      - type: file
+        source: ./secrets/test-secret
+        mount:
+          type: env
+          name: TEST_SECRET
+    snippets:
+      - '[ "$TEST_SECRET" == "321tset" ]'
+
+  - type: script
+    secrets:
+      - type: exec
+        command: cat
+        args:
+          - ./test_secret_file.txt
+        mount:
+          type: env
+          name: TEST_SECRET
+    snippets:
+      - '[ "$TEST_SECRET" == "TEST_PASS" ]'
+
+  - type: script
+    secrets:
+      - type: exec
+        command: cat
+        args:
+          - ./test_secret_file.txt
+        mount:
+          type: file
+          destination: /tmp/test-secret
+    snippets:
+      - '[ "$(cat /tmp/test-secret)" == "TEST_PASS" ]'
