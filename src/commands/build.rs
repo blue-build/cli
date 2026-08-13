@@ -353,15 +353,7 @@ impl BuildCommand {
         });
         let cache_image = cache_image.as_ref();
 
-        let platforms = match recipe.get_platforms() {
-            [] => &[Platform::default()],
-            platforms if self.platform.is_empty() => platforms,
-            _ => &self.platform,
-        };
-        assert!(
-            platforms.is_empty().not(),
-            "At least one platform must be built"
-        );
+        let platforms = &platforms(&self.platform, recipe.get_platforms());
 
         let secrets = &recipe.get_secrets();
 
@@ -527,5 +519,73 @@ impl BuildCommand {
                 .labels(&labels)
                 .build(),
         )
+    }
+}
+
+fn platforms(cli_platforms: &[Platform], recipe_platforms: &[Platform]) -> Vec<Platform> {
+    let platforms = match (cli_platforms, recipe_platforms) {
+        ([], []) => vec![Platform::default()],
+        ([], recipe) => recipe.to_vec(),
+        (cli, _) => cli.to_vec(),
+    };
+    assert!(
+        platforms.is_empty().not(),
+        "At least one platform must be built"
+    );
+    platforms
+}
+
+#[cfg(test)]
+mod test {
+    use blue_build_utils::platform::Platform;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::no_cli_no_recipe(
+        &[],
+        &[],
+        &[Platform::default()]
+    )]
+    #[case::no_cli_recipe_single(
+        &[],
+        &[Platform::LinuxArm64],
+        &[Platform::LinuxArm64]
+    )]
+    #[case::cli_single_recipe_single(
+        &[Platform::LinuxAmd64],
+        &[Platform::LinuxArm64],
+        &[Platform::LinuxAmd64]
+    )]
+    #[case::cli_single_recipe_multi(
+        &[Platform::LinuxAmd64],
+        &[Platform::LinuxArm64, Platform::LinuxAmd64],
+        &[Platform::LinuxAmd64]
+    )]
+    #[case::cli_multi_recipe_single(
+        &[Platform::LinuxArm64, Platform::LinuxAmd64],
+        &[Platform::LinuxArm64],
+        &[Platform::LinuxArm64, Platform::LinuxAmd64]
+    )]
+    #[case::cli_multi_recipe_multi(
+        &[Platform::LinuxArm64, Platform::LinuxAmd64],
+        &[Platform::LinuxArm64, Platform::Linux386],
+        &[Platform::LinuxArm64, Platform::LinuxAmd64]
+    )]
+    #[case::cli_multi_no_recipe(
+        &[Platform::LinuxArm64, Platform::LinuxAmd64],
+        &[],
+        &[Platform::LinuxArm64, Platform::LinuxAmd64]
+    )]
+    #[case::no_cli_recipe_multi(
+        &[],
+        &[Platform::LinuxArm64, Platform::LinuxAmd64],
+        &[Platform::LinuxArm64, Platform::LinuxAmd64]
+    )]
+    fn platforms(
+        #[case] cli_plat: &[Platform],
+        #[case] recipe_plat: &[Platform],
+        #[case] expected: &[Platform],
+    ) {
+        pretty_assertions::assert_eq!(&*super::platforms(cli_plat, recipe_plat), expected);
     }
 }
