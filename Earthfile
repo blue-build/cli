@@ -1,8 +1,6 @@
 VERSION 0.8
-PROJECT blue-build/cli
 
 IMPORT github.com/blue-build/earthly-lib/rust AS rust
-# IMPORT ../earthly-lib/rust AS rust
 
 FROM alpine
 ARG --global IMAGE=ghcr.io/blue-build/cli
@@ -25,8 +23,8 @@ build-images-all:
         BUILD --platform=linux/amd64 --platform=linux/arm64 +build-images
     END
 
-    ARG EARTHLY_PUSH
-    IF [ "$EARTHLY_PUSH" = "true" ]
+    ARG EARTH_PUSH
+    IF [ "$EARTH_PUSH" = "true" ]
         BUILD --pass-args +sign-all
     END
 
@@ -190,9 +188,9 @@ blue-build-cli-prebuild:
 
     ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
-    ARG EARTHLY_GIT_HASH
+    ARG EARTH_GIT_HASH
     ARG TARGETARCH
-    SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
+    SAVE IMAGE --push "$IMAGE:$EARTH_GIT_HASH-prebuild-$TARGETARCH"
 
 blue-build-cli:
     FROM alpine
@@ -200,8 +198,8 @@ blue-build-cli:
     ARG TARGETARCH
 
     IF [ "$RELEASE" = "true" ]
-        ARG EARTHLY_GIT_HASH
-        FROM "$IMAGE:$EARTHLY_GIT_HASH-prebuild-$TARGETARCH"
+        ARG EARTH_GIT_HASH
+        FROM "$IMAGE:$EARTH_GIT_HASH-prebuild-$TARGETARCH"
     ELSE
         FROM +blue-build-cli-prebuild
     END
@@ -237,14 +235,14 @@ blue-build-cli-distrobox-prebuild:
 
     COPY +cosign/cosign /usr/bin/cosign
 
-    ARG EARTHLY_GIT_HASH
+    ARG EARTH_GIT_HASH
     ARG TARGETARCH
-    SAVE IMAGE --push "$IMAGE:$EARTHLY_GIT_HASH-distrobox-prebuild-$TARGETARCH"
+    SAVE IMAGE --push "$IMAGE:$EARTH_GIT_HASH-distrobox-prebuild-$TARGETARCH"
 
 blue-build-cli-distrobox:
-    ARG EARTHLY_GIT_HASH
+    ARG EARTH_GIT_HASH
     ARG TARGETARCH
-    FROM "$IMAGE:$EARTHLY_GIT_HASH-distrobox-prebuild-$TARGETARCH"
+    FROM "$IMAGE:$EARTH_GIT_HASH-distrobox-prebuild-$TARGETARCH"
 
     DO +INSTALL --OUT_DIR="/usr/bin/" --BUILD_TARGET="$(uname -m)-unknown-linux-musl"
 
@@ -307,8 +305,8 @@ digest-list:
     LET minor_version="$(echo "$version" | cut -d'.' -f2)"
 
     ARG --required SUFFIX_LIST
-    ARG EARTHLY_GIT_HASH
-    ARG EARTHLY_GIT_BRANCH
+    ARG EARTH_GIT_HASH
+    ARG EARTH_GIT_BRANCH
     LET suffix=""
 
     FOR s IN $SUFFIX_LIST
@@ -327,9 +325,9 @@ digest-list:
                 DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:v${major_version}${suffix}"
             END
         ELSE
-            DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:$(echo "${EARTHLY_GIT_BRANCH}" | sed 's|/|_|g')${suffix}"
+            DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:$(echo "${EARTH_GIT_BRANCH}" | sed 's|/|_|g')${suffix}"
         END
-        DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:${EARTHLY_GIT_HASH}${suffix}"
+        DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:${EARTH_GIT_HASH}${suffix}"
     END
 
     SAVE ARTIFACT /digest-list
@@ -398,12 +396,12 @@ SAVE_IMAGE:
             SAVE IMAGE --push "${IMAGE}:v${major_version}${SUFFIX}"
         END
     ELSE
-        ARG EARTHLY_GIT_BRANCH
-        ARG IMAGE_TAG="$(echo "${EARTHLY_GIT_BRANCH}" | sed 's|/|_|g')"
+        ARG EARTH_GIT_BRANCH
+        ARG IMAGE_TAG="$(echo "${EARTH_GIT_BRANCH}" | sed 's|/|_|g')"
         SAVE IMAGE --push "${IMAGE}:${IMAGE_TAG}${SUFFIX}"
     END
-    ARG EARTHLY_GIT_HASH
-    SAVE IMAGE --push "${IMAGE}:${EARTHLY_GIT_HASH}${SUFFIX}"
+    ARG EARTH_GIT_HASH
+    SAVE IMAGE --push "${IMAGE}:${EARTH_GIT_HASH}${SUFFIX}"
 
 LABELS:
     FUNCTION
@@ -423,8 +421,8 @@ LABELS:
     LABEL org.opencontainers.image.documentation="https://raw.githubusercontent.com/blue-build/cli/main/README.md"
 
     IF [ "$TAGGED" = "true" ]
-        ARG EARTHLY_GIT_BRANCH
-        LABEL org.opencontainers.image.ref.name="$EARTHLY_GIT_BRANCH"
+        ARG EARTH_GIT_BRANCH
+        LABEL org.opencontainers.image.ref.name="$EARTH_GIT_BRANCH"
     ELSE
         LABEL org.opencontainers.image.ref.name="v$VERSION"
     END

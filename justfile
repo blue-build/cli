@@ -20,8 +20,8 @@ clean: clean_container_build_scripts
   command -v podman \
     && podman system prune -f \
     || true
-  command -v earthly \
-    && earthly prune --reset \
+  command -v earth \
+    && earth prune --reset \
     || true
 
 # Cleans build scripts generated from container testing which can be root
@@ -105,7 +105,7 @@ release *args:
   #!/usr/bin/env bash
   set -euxo pipefail
 
-  earthly --ci +run-checks
+  earth --ci +run-checks
 
   # --workspace: updating all crates in the workspace
   # --no-tag: do not push tag for each new version
@@ -361,7 +361,7 @@ test-generate-iso-recipe: generate-test-secret install-debug-all-features
 
 # Build a local cli image
 build-local-cli-image:
-  earthly --ci --output -P +blue-build-cli --RELEASE='false'
+  earth --ci --output -P +blue-build-cli --RELEASE='false'
 
 git_sha := `git rev-parse HEAD`
 tty_arg := `[ -t 0 ] && echo "t" || echo ""`

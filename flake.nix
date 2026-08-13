@@ -1,8 +1,8 @@
 {
-  
+
   description = "BlueBuild's command line program that builds Containerfiles and custom images";
 
-  
+
   inputs = {
     flake-schemas.url = "https://flakehub.com/f/DeterminateSystems/flake-schemas/*.tar.gz";
 
@@ -14,7 +14,7 @@
     };
   };
 
-  
+
   outputs = { self, flake-schemas, nixpkgs, rust-overlay }:
     let
       overlays = [
@@ -23,13 +23,13 @@
           rustToolchain = (final.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override { extensions = [ "rust-src"]; };
         })
       ];
-      
+
       supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
       forEachSupportedSystem = f: nixpkgs.lib.genAttrs supportedSystems (system: f rec {
         pkgs = import nixpkgs { inherit overlays system; };
         lib = pkgs.lib;
       });
-    in {      
+    in {
       schemas = flake-schemas.schemas;
 
       packages = forEachSupportedSystem ({ pkgs, lib }: rec {
@@ -48,10 +48,10 @@
           };
         };
       });
-      
+
       devShells = forEachSupportedSystem ({ pkgs, ... }: {
         default = pkgs.mkShell {
-          
+
           packages = with pkgs; [
             rustToolchain
             cargo-bloat
@@ -62,7 +62,7 @@
             cargo
             rustc
             bacon
-            earthly
+            earth
             jq
             nixpkgs-fmt
           ];
