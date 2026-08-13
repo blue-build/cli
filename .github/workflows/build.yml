@@ -26,7 +26,7 @@ jobs:
       packages: write # write pacakges to ghcr
 
     steps:
-      - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
+      - uses: EarthBuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
         with:
           use-cache: false
 
@@ -48,7 +48,7 @@ jobs:
       - name: Run build
         id: build
         run: |
-          earthly --ci --push -P +prebuild
+          earth --ci --push -P +prebuild
 
   amd64-prebuild:
     timeout-minutes: 20
@@ -57,7 +57,7 @@ jobs:
       packages: write # write pacakges to ghcr
 
     steps:
-      - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
+      - uses: EarthBuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
         with:
           use-cache: false
 
@@ -81,7 +81,7 @@ jobs:
       - name: Run build
         id: build
         run: |
-          earthly --ci --push -P +prebuild
+          earth --ci --push -P +prebuild
 
   build-images:
     permissions:
@@ -100,7 +100,7 @@ jobs:
         with:
           skip-if-available: "64G"
 
-      - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1.0.13
+      - uses: EarthBuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
         with:
           use-cache: false
 
@@ -130,12 +130,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
         run: |
-          earthly \
+          earth \
             --secret COSIGN_PRIVATE_KEY \
             --secret GH_ACTOR \
             --secret GH_TOKEN \
             --push --ci -P +build-images-all
-          earthly \
+          earth \
             --artifact +sign-all/digest-list ./digest-list
 
       - name: Store image digest info
