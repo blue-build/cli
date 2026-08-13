@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct ImageConfig {
-    config: Config,
+    config: Option<Config>,
 }
 
 #[derive(Debug, Clone, Builder)]
@@ -53,7 +53,14 @@ impl ImageMetadata {
     pub fn get_version(&self) -> Result<Version> {
         self.configs
             .iter()
-            .find_map(|(_, config)| config.config.labels.as_ref()?.get(IMAGE_VERSION_LABEL))
+            .find_map(|(_, config)| {
+                config
+                    .config
+                    .as_ref()?
+                    .labels
+                    .as_ref()?
+                    .get(IMAGE_VERSION_LABEL)
+            })
             .ok_or_else(|| miette!("No version label found"))
             .and_then(|v| {
                 v.parse::<Version>()

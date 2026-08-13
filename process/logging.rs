@@ -281,7 +281,7 @@ impl Encode for CustomPatternEncoder {
         if record.module_path().is_some_and(|mp| {
             self.filter_modules
                 .iter()
-                .any(|(module, level)| mp.contains(module) && *level <= record.level())
+                .any(|(module, level)| mp.starts_with(module) && *level <= record.level())
         }) {
             Ok(())
         } else {

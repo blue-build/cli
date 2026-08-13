@@ -997,11 +997,16 @@ pub trait SigningDriver: PrivateDriver {
                 .no_cache(true)
                 .build(),
         )?;
+        debug!("Recieved metadata");
+        trace!("{metadata:#?}");
+
         let image_digest = Reference::with_digest(
             opts.image.resolve_registry().into(),
             opts.image.repository().into(),
             metadata.digest().into(),
         );
+        trace!("{image_digest}");
+
         let issuer = Driver::oidc_provider();
         let identity = Driver::keyless_cert_identity();
         let priv_key = PrivateKey::new(&path);

@@ -1,7 +1,7 @@
 use blue_build_utils::credentials::Credentials;
 use cached::cached;
-use log::trace;
-use miette::{IntoDiagnostic, Result};
+use log::{debug, trace};
+use miette::{Context, IntoDiagnostic, Result};
 use oci_client::{Reference, client::ClientConfig, manifest::OciManifest, secrets::RegistryAuth};
 
 use crate::{
@@ -20,19 +20,36 @@ impl InspectDriver for OciClientDriver {
             let client = oci_client::Client::new(ClientConfig::default());
             let auth = match Credentials::get(image.registry()) {
                 Some(Credentials::Basic { username, password }) => {
+                    debug!("Using basic auth");
                     RegistryAuth::Basic(username, password.value().into())
                 }
-                Some(Credentials::Token(token)) => RegistryAuth::Bearer(token.value().into()),
-                None => RegistryAuth::Anonymous,
+                Some(Credentials::Token(token)) => {
+                    debug!("Using bearer token");
+                    RegistryAuth::Bearer(token.value().into())
+                }
+                None => {
+                    debug!("No auth");
+                    RegistryAuth::Anonymous
+                }
             };
 
             let (manifest, digest) = ASYNC_RUNTIME
                 .block_on(client.pull_manifest(image, &auth))
-                .into_diagnostic()?;
+                .into_diagnostic()
+                .wrap_err_with(|| format!("Failed to pull the manifest for {image}"))?;
+            debug!("Found OciManifest for {image}");
+            trace!("digest: {digest}");
+            trace!("{manifest:#?}");
 
             let manifest_digests = match &manifest {
-                OciManifest::Image(_) => vec![&digest],
+                OciManifest::Image(manifest) => {
+                    debug!("Found single image manifest for {image}");
+                    trace!("{manifest}");
+                    vec![&digest]
+                }
                 OciManifest::ImageIndex(index) => {
+                    debug!("Found image index for {image}");
+                    trace!("{index}");
                     index.manifests.iter().map(|entry| &entry.digest).collect()
                 }
             };
@@ -43,23 +60,49 @@ impl InspectDriver for OciClientDriver {
                 .into_iter()
                 .map(|digest| {
                     let image = &image.clone_with_digest(digest.clone());
-                    let (image_manifest, _) = ASYNC_RUNTIME
+                    let (image_manifest, image_manifest_digest) = ASYNC_RUNTIME
                         .block_on(client.pull_image_manifest(image, &auth))
-                        .into_diagnostic()?;
+                        .into_diagnostic()
+                        .wrap_err_with(|| format!("Failed to pull image manifest for {image}"))?;
+                    debug!("Pulled image manifest for {image}");
+                    trace!("digest: {image_manifest_digest}");
+                    trace!("{image_manifest:#?}");
 
                     let config = {
-                        let mut c: Vec<u8> = vec![];
+                        let capacity = image_manifest.config.size;
+                        let mut c: Vec<u8> = Vec::with_capacity(
+                            capacity.try_into().into_diagnostic().wrap_err_with(|| {
+                                format!(
+                                    concat!(
+                                        "Size of image {image} config ",
+                                        "({capacity}) could not be converted to usize"
+                                    ),
+                                    image = image,
+                                    capacity = capacity
+                                )
+                            })?,
+                        );
                         ASYNC_RUNTIME
                             .block_on(client.pull_blob(image, &image_manifest.config, &mut c))
-                            .into_diagnostic()?;
+                            .into_diagnostic()
+                            .wrap_err_with(|| format!("Failed to pull blob for {image}"))?;
                         c
                     };
                     Ok((
                         image_manifest.config.digest,
-                        serde_json::from_slice(&config).into_diagnostic()?,
+                        serde_json::from_slice(&config)
+                            .inspect(|config| trace!("{config:#?}"))
+                            .into_diagnostic()
+                            .wrap_err_with(|| {
+                                format!(
+                                    "Failed to convert config for {image} to ImageConfig:\n{}",
+                                    String::from_utf8_lossy(&config)
+                                )
+                            })?,
                     ))
                 })
                 .collect::<Result<Vec<_>>>()?;
+            debug!("Retrieved configs for {image}");
 
             trace!(
                 "Config digests: {:#?}",
