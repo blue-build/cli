@@ -13,7 +13,7 @@ version = "0.9.37"
 bon = "=3.9.3"
 cached = { version = "=2.0.2", features = ["async"]}
 chrono = "=0.4.45"
-clap = "=4.6.4"
+clap = "=4.6.6"
 colored = "=3.1.1"
 comlexr = "=1.5.0"
 indexmap = { version = "=2.14.0", features = ["serde"] }
