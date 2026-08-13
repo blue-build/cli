@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.37] - 2026-08-13
+
+### Bug Fixes
+
+- Fix arm64 test case (#847)
+- Adjust parsing to handle buildkit changes (#850)
+- Fix bad logic for CLI arg platform overrides (#846)
+
+### Features
+
+- Add recipe upgrade command (#803)
+- Set SOURCE_DATE_EPOCH=0 for reproducibility (#836)
+
+### Miscellaneous Tasks
+
+- Faster free-disk-space action; update empty-files-repo (#811)
+- Fix new clippy lints
+- Update CODEOWNERS file (#848)
+
 ## [0.9.36] - 2026-07-06
 
 ### Bug Fixes
@@ -29,6 +48,7 @@ All notable changes to this project will be documented in this file.
 - Bump cosign to v3.1.1 (#805)
 - Put recipe-v2 behind a feature flag
 - Fix clippy lints
+- Release
 
 ## [0.9.35] - 2026-03-30
 
