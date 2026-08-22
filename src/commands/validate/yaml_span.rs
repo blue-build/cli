@@ -2,7 +2,7 @@
 use std::sync::Arc;
 
 use bon::bon;
-use jsonschema::paths::LocationSegment;
+use jsonschema::paths::{Location, LocationSegment};
 use miette::SourceSpan;
 use yaml_rust2::{
     Event,
@@ -10,14 +10,12 @@ use yaml_rust2::{
     scanner::Marker,
 };
 
-#[cfg(not(test))]
+// #[cfg(not(test))]
 use log::{debug, trace};
-#[cfg(test)]
-use std::eprintln as trace;
-#[cfg(test)]
-use std::eprintln as debug;
-
-use super::location::Location;
+// #[cfg(test)]
+// use std::eprintln as trace;
+// #[cfg(test)]
+// use std::eprintln as debug;
 
 mod error;
 
@@ -106,14 +104,14 @@ where
                     document_start = true;
                 }
                 Event::MappingStart(_, _) if stream_start && document_start => {
-                    break self.key(key)?.into();
+                    break self.key(&key)?.into();
                 }
                 event => return Err(YamlSpanError::UnexpectedEvent(event.to_owned())),
             }
         })
     }
 
-    fn key(&mut self, expected_key: LocationSegment<'_>) -> Result<(usize, usize), YamlSpanError> {
+    fn key(&mut self, expected_key: &LocationSegment<'_>) -> Result<(usize, usize), YamlSpanError> {
         trace!("Looking for location {expected_key:?}");
 
         loop {
@@ -122,13 +120,13 @@ where
 
             match (event, expected_key) {
                 (Event::Scalar(key, _, _, _), LocationSegment::Property(expected_key))
-                    if key == expected_key =>
+                    if key == &**expected_key =>
                 {
                     trace!("Found matching key '{key}'");
                     break self.value();
                 }
                 (Event::Scalar(key, _, _, _), LocationSegment::Property(expected_key))
-                    if key != expected_key =>
+                    if key != &**expected_key =>
                 {
                     trace!("Non-matching key '{key}'");
                     let (event, marker) = self.events.next().unwrap();
@@ -143,11 +141,11 @@ where
                 (Event::Scalar(key, _, _, _), LocationSegment::Index(index)) => {
                     return Err(YamlSpanError::ExpectIndexFoundKey {
                         key: key.to_owned(),
-                        index,
+                        index: *index,
                     });
                 }
                 (Event::SequenceStart(_, _), LocationSegment::Index(index)) => {
-                    break self.sequence(index, 0);
+                    break self.sequence(*index, 0);
                 }
                 (Event::SequenceStart(_, _), _) => {
                     self.skip_sequence(marker.index());
@@ -229,7 +227,7 @@ where
                         let index = marker.index();
                         (index, self.skip_mapping(index) - index)
                     }
-                    Some(key) => self.key(key)?,
+                    Some(key) => self.key(&key)?,
                 }
             }
             Event::SequenceStart(_, _) if index > curr_index => {
@@ -243,7 +241,7 @@ where
                         let index = marker.index();
                         (index, self.skip_sequence(index) - index)
                     }
-                    Some(key) => self.key(key)?,
+                    Some(key) => self.key(&key)?,
                 }
             }
             event => unreachable!("{event:?}"),
@@ -265,7 +263,7 @@ where
                 });
             }
             (Event::MappingStart(_, _), Some(LocationSegment::Property(key))) => {
-                self.key(LocationSegment::Property(key))?
+                self.key(&LocationSegment::Property(key))?
             }
             (Event::MappingStart(_, _), None) => {
                 let index = marker.index();
@@ -287,15 +285,19 @@ where
 mod test {
     use std::sync::Arc;
 
+    use jsonschema::paths::Location;
     use miette::{LabeledSpan, miette};
     use rstest::rstest;
-
-    use crate::commands::validate::location::Location;
 
     use super::YamlSpan;
 
     const RECIPE: &str = include_str!("../../../test-files/recipes/recipe-pass.yml");
     const RECIPE_INVALID: &str = include_str!("../../../test-files/recipes/recipe-fail.yml");
+
+    fn build_location(path: &str) -> Location {
+        path.split('/')
+            .fold(Location::new(), |loc, segment| loc.join(segment))
+    }
 
     #[rstest]
     #[case("test: value", "", (0, 1))]
@@ -308,7 +310,7 @@ mod test {
     fn test_getspan(#[case] file: &str, #[case] path: &str, #[case] expected: (usize, usize)) {
         dbg!(path, expected);
         let file = Arc::new(file.to_owned());
-        let location = Location::try_from(path).unwrap();
+        let location = build_location(path);
         dbg!(&location);
 
         let collector = YamlSpan::builder().file(file.clone()).build().unwrap();
@@ -332,7 +334,7 @@ mod test {
     #[case(RECIPE, "/modules/13")]
     fn test_getspan_err(#[case] file: &str, #[case] path: &str) {
         let file = Arc::new(file.to_owned());
-        let location = Location::try_from(path).unwrap();
+        let location = build_location(path);
         dbg!(&location);
 
         let collector = YamlSpan::builder().file(file).build().unwrap();

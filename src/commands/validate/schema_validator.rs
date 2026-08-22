@@ -1,32 +1,27 @@
 use std::{
-    collections::HashSet,
+    collections::{BTreeSet, HashSet},
     path::Path,
-    sync::{Arc, LazyLock},
+    slice::Iter,
+    sync::Arc,
 };
 
 use blue_build_process_management::ASYNC_RUNTIME;
-use blue_build_recipe::ModuleTypeVersion;
-use blue_build_utils::constants::{
-    CUSTOM_MODULE_SCHEMA, IMPORT_MODULE_SCHEMA, JSON_SCHEMA, STAGE_SCHEMA,
-};
 use bon::bon;
 use cached::cached;
 use colored::Colorize;
-use indexmap::IndexMap;
-use jsonschema::{BasicOutput, Retrieve, Uri, ValidationError, Validator};
-use miette::{Context, IntoDiagnostic, LabeledSpan, NamedSource};
-use regex::Regex;
+use jsonschema::{Retrieve, Uri, ValidationError, Validator, error::ValidationErrorKind};
+use miette::{Context, IntoDiagnostic, LabeledSpan, NamedSource, Report, SourceSpan};
 use serde_json::Value;
 
-use super::{location::Location, yaml_span::YamlSpan};
+use crate::commands::validate::evaluation::EvaluationList;
+
+use super::yaml_span::YamlSpan;
 
 #[cfg(test)]
 use std::eprintln as trace;
-#[cfg(test)]
-use std::eprintln as warn;
 
 #[cfg(not(test))]
-use log::{trace, warn};
+use log::trace;
 
 mod error;
 
@@ -35,8 +30,8 @@ pub use error::*;
 #[derive(Debug, Clone)]
 pub struct SchemaValidator {
     validator: Arc<Validator>,
+    // schema: Arc<Value>,
     url: &'static str,
-    all_errors: bool,
 }
 
 #[bon]
@@ -45,12 +40,9 @@ impl SchemaValidator {
     pub async fn new(
         /// The URL of the schema to validate against
         url: &'static str,
-        /// Produce all errors found
-        #[builder(default)]
-        all_errors: bool,
     ) -> Result<Self, SchemaValidateBuilderError> {
         tokio::spawn(async move {
-            let schema: Value = {
+            let schema: Arc<Value> = Arc::new({
                 #[cfg(not(test))]
                 {
                     reqwest::get(url)
@@ -64,7 +56,7 @@ impl SchemaValidator {
                 {
                     serde_json::from_slice(std::fs::read_to_string(url)?.as_bytes())?
                 }
-            };
+            });
             let validator = Arc::new(
                 tokio::task::spawn_blocking({
                     let schema = schema.clone();
@@ -82,8 +74,8 @@ impl SchemaValidator {
 
             Ok(Self {
                 validator,
+                // schema,
                 url,
-                all_errors,
             })
         })
         .await
@@ -115,11 +107,32 @@ impl SchemaValidator {
             .map_err(|e| SchemaValidateError::SerdeYaml(e, path.to_path_buf()))?;
         trace!("{recipe_path_display}:\n{file}");
 
-        Ok(if self.all_errors {
-            process_basic_output(self.validator.apply(&instance).basic(), &spanner)
-        } else {
-            process_err(self.validator.iter_errors(&instance), &spanner)
-        })
+        let eval = self.validator.evaluate(&instance);
+        let list: EvaluationList = serde_json::to_value(eval.list())
+            // .inspect(|list| {
+            //     dbg!(list);
+            // })
+            .and_then(serde_json::from_value)
+            .unwrap();
+        // dbg!(&list);
+
+        let errors = self.validator.iter_errors(&instance).collect::<Vec<_>>();
+        let errors = errors
+            .iter()
+            .flat_map(|err| list.all_errs(err))
+            .map(|err| {
+                (
+                    err.masked().to_string(),
+                    spanner.get_span(err.instance_path()).unwrap(),
+                )
+            })
+            .collect::<BTreeSet<_>>();
+        // dbg!(&errors);
+        let errors = errors
+            .into_iter()
+            .map(|(label, span)| LabeledSpan::new_primary_with_span(Some(label), span))
+            .collect();
+        Ok(errors)
     }
 
     fn spans_to_report(
@@ -144,171 +157,6 @@ impl SchemaValidator {
     }
 }
 
-fn process_basic_output(out: BasicOutput<'_>, spanner: &YamlSpan) -> Vec<LabeledSpan> {
-    match out {
-        BasicOutput::Valid(_) => Vec::new(),
-        BasicOutput::Invalid(errors) => {
-            let errors = {
-                let mut e = errors.into_iter().collect::<Vec<_>>();
-                e.sort_by(|e1, e2| {
-                    e1.instance_location()
-                        .as_str()
-                        .cmp(e2.instance_location().as_str())
-                });
-                e
-            };
-            let errors: Vec<(Location, String)> = {
-                let e = errors
-                    .into_iter()
-                    .map(|e| {
-                        (
-                            Location::from(e.instance_location()),
-                            remove_json(&e.error_description().to_string()),
-                        )
-                    })
-                    .collect::<HashSet<_>>();
-                let mut e = e.into_iter().collect::<Vec<_>>();
-                e.sort_by(|e1, e2| e1.0.as_str().cmp(e2.0.as_str()));
-                e
-            };
-
-            let mut collection: IndexMap<Location, Vec<String>> = IndexMap::new();
-
-            for (instance_path, err) in errors {
-                collection
-                    .entry(instance_path)
-                    .and_modify(|errs| {
-                        errs.push(format!("- {}", err.bold().red()));
-                    })
-                    .or_insert_with(|| vec![format!("- {}", err.bold().red())]);
-            }
-
-            collection
-                .into_iter()
-                .map(|(key, value)| {
-                    LabeledSpan::new_with_span(
-                        Some(value.into_iter().collect::<Vec<_>>().join("\n")),
-                        spanner.get_span(&key).unwrap(),
-                    )
-                })
-                .collect()
-        }
-    }
-}
-
-fn process_err<'a, I>(errors: I, spanner: &YamlSpan) -> Vec<LabeledSpan>
-where
-    I: Iterator<Item = ValidationError<'a>>,
-{
-    errors
-        .flat_map(|err| process_anyof_error(&err).unwrap_or_else(|| vec![err]))
-        .map(|err| {
-            let masked_err = err.masked();
-            LabeledSpan::new_primary_with_span(
-                Some(masked_err.to_string().bold().red().to_string()),
-                spanner
-                    .get_span(&Location::from(err.instance_path))
-                    .unwrap(),
-            )
-        })
-        .collect()
-}
-
-fn process_anyof_error(err: &ValidationError<'_>) -> Option<Vec<ValidationError<'static>>> {
-    trace!("to_processed_module_err({err:#?})");
-    let ValidationError {
-        instance,
-        kind,
-        instance_path,
-        schema_path: _,
-    } = err;
-
-    let mut path_iter = instance_path.into_iter();
-    let uri = match (kind, path_iter.next_back(), path_iter.next_back()) {
-        (
-            jsonschema::error::ValidationErrorKind::AnyOf,
-            Some(jsonschema::paths::LocationSegment::Index(_)),
-            Some(jsonschema::paths::LocationSegment::Property("modules")),
-        ) => {
-            trace!("FOUND MODULE ANYOF ERROR at {instance_path}");
-            if instance.get("source").is_some() {
-                Uri::parse(CUSTOM_MODULE_SCHEMA.to_string()).ok()?
-            } else if instance.get("from-file").is_some() {
-                Uri::parse(IMPORT_MODULE_SCHEMA.to_string()).ok()?
-            } else {
-                let typ = instance.get("type").and_then(Value::as_str)?;
-                let typ = ModuleTypeVersion::from(typ);
-                trace!("Module type: {typ}");
-                Uri::parse(format!(
-                    "{JSON_SCHEMA}/modules/{}-{}.json",
-                    typ.typ(),
-                    typ.version().unwrap_or("latest")
-                ))
-                .ok()?
-            }
-        }
-        (
-            jsonschema::error::ValidationErrorKind::AnyOf,
-            Some(jsonschema::paths::LocationSegment::Index(_)),
-            Some(jsonschema::paths::LocationSegment::Property("stages")),
-        ) => {
-            trace!("FOUND STAGE ANYOF ERROR at {instance_path}");
-
-            if instance.get("from-file").is_some() {
-                Uri::parse(IMPORT_MODULE_SCHEMA.to_string()).ok()?
-            } else {
-                Uri::parse(STAGE_SCHEMA.to_string()).ok()?
-            }
-        }
-        _ => return None,
-    };
-
-    trace!("Schema URI: {uri}");
-    let schema = ASYNC_RUNTIME.block_on(cache_retrieve(&uri)).ok()?;
-
-    let validator = jsonschema::options()
-        .with_retriever(ModuleSchemaRetriever)
-        .build(&schema)
-        .inspect_err(|e| warn!("{e:#?}"))
-        .ok()?;
-
-    Some(
-        validator
-            .iter_errors(instance)
-            .flat_map(|err| process_anyof_error(&err).unwrap_or_else(|| vec![err]))
-            .map(|err| {
-                let mut err = err.to_owned();
-                err.instance_path = instance_path
-                    .into_iter()
-                    .chain(&err.instance_path)
-                    .collect();
-                err
-            })
-            .inspect(|errs| {
-                trace!("From error: {err:#?}\nTo error list: {errs:#?}");
-            })
-            .collect(),
-    )
-}
-
-fn remove_json<S>(string: &S) -> String
-where
-    S: ToString,
-{
-    static REGEX_OBJECT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\{.*\}\s(.*)$").unwrap());
-    static REGEX_ARRAY: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\[.*\]\s(.*)$").unwrap());
-
-    let string = string.to_string();
-
-    if REGEX_OBJECT.is_match(&string) {
-        REGEX_OBJECT.replace_all(string.trim(), "$1").into_owned()
-    } else if REGEX_ARRAY.is_match(&string) {
-        REGEX_ARRAY.replace_all(string.trim(), "$1").into_owned()
-    } else {
-        string
-    }
-}
-
 struct ModuleSchemaRetriever;
 
 impl Retrieve for ModuleSchemaRetriever {
@@ -316,86 +164,87 @@ impl Retrieve for ModuleSchemaRetriever {
         &self,
         uri: &Uri<String>,
     ) -> Result<serde_json::Value, Box<dyn std::error::Error + Send + Sync>> {
-        Ok(ASYNC_RUNTIME.block_on(cache_retrieve(uri))?)
-    }
-}
+        #[cached(
+            key = "String",
+            convert = r#"{ format!("{uri}") }"#,
+            sync_writes = "by_key"
+        )]
+        async fn inner(uri: &Uri<String>) -> miette::Result<Value> {
+            let scheme = uri.scheme();
+            let path = uri.path();
 
-#[cached(
-    key = "String",
-    convert = r#"{ format!("{uri}") }"#,
-    sync_writes = "by_key"
-)]
-async fn cache_retrieve(uri: &Uri<String>) -> miette::Result<Value> {
-    let scheme = uri.scheme();
-    let path = uri.path();
+            #[cfg(not(test))]
+            {
+                use blue_build_utils::constants::SCHEMA_BASE_URL;
 
-    #[cfg(not(test))]
-    {
-        use blue_build_utils::constants::SCHEMA_BASE_URL;
+                let uri = match scheme.as_str() {
+                    "json-schema" => {
+                        format!("{SCHEMA_BASE_URL}{path}")
+                    }
+                    "https" => uri.to_string(),
+                    scheme => miette::bail!("Unknown scheme {scheme}"),
+                };
+                let client = reqwest::Client::new();
 
-        let uri = match scheme.as_str() {
-            "json-schema" => {
-                format!("{SCHEMA_BASE_URL}{path}")
+                log::debug!("Retrieving schema from {}", uri.bold().italic());
+                tokio::spawn(blue_build_utils::retry_async(
+                    3,
+                    std::time::Duration::from_secs(2),
+                    async move || {
+                        let response = client
+                            .get(&*uri)
+                            .timeout(std::time::Duration::from_secs(10))
+                            .send()
+                            .await
+                            .into_diagnostic()
+                            .with_context(|| format!("Failed to retrieve schema from {uri}"))?;
+                        let raw_output = response.bytes().await.into_diagnostic()?;
+                        serde_json::from_slice(&raw_output)
+                            .into_diagnostic()
+                            .with_context(|| {
+                                format!(
+                                    "Failed to parse json from {uri}, contents:\n{}",
+                                    String::from_utf8_lossy(&raw_output)
+                                )
+                            })
+                            .inspect(|value| trace!("{}:\n{value}", uri.bold().italic()))
+                    },
+                ))
+                .await
+                .expect("Should join task")
             }
-            "https" => uri.to_string(),
-            scheme => miette::bail!("Unknown scheme {scheme}"),
-        };
-        let client = reqwest::Client::new();
 
-        log::debug!("Retrieving schema from {}", uri.bold().italic());
-        tokio::spawn(blue_build_utils::retry_async(
-            3,
-            std::time::Duration::from_secs(2),
-            async move || {
-                let response = client
-                    .get(&*uri)
-                    .timeout(std::time::Duration::from_secs(10))
-                    .send()
-                    .await
-                    .into_diagnostic()
-                    .with_context(|| format!("Failed to retrieve schema from {uri}"))?;
-                let raw_output = response.bytes().await.into_diagnostic()?;
-                serde_json::from_slice(&raw_output)
-                    .into_diagnostic()
-                    .with_context(|| {
-                        format!(
-                            "Failed to parse json from {uri}, contents:\n{}",
-                            String::from_utf8_lossy(&raw_output)
-                        )
-                    })
-                    .inspect(|value| trace!("{}:\n{value}", uri.bold().italic()))
-            },
-        ))
-        .await
-        .expect("Should join task")
-    }
+            #[cfg(test)]
+            {
+                let uri = match scheme.as_str() {
+                    "json-schema" | "https" => {
+                        format!("test-files/schema/{path}")
+                    }
+                    _ => unreachable!(),
+                };
 
-    #[cfg(test)]
-    {
-        let uri = match scheme.as_str() {
-            "json-schema" | "https" => {
-                format!("test-files/schema/{path}")
+                async {
+                    serde_json::from_slice(
+                        std::fs::read_to_string(uri)
+                            .into_diagnostic()
+                            .context("Failed retrieving sub-schema")?
+                            .as_bytes(),
+                    )
+                    .into_diagnostic()
+                    .context("Failed deserializing sub-schema")
+                }
+                .await
             }
-            _ => unreachable!(),
-        };
-
-        async {
-            serde_json::from_slice(
-                std::fs::read_to_string(uri)
-                    .into_diagnostic()
-                    .context("Failed retrieving sub-schema")?
-                    .as_bytes(),
-            )
-            .into_diagnostic()
-            .context("Failed deserializing sub-schema")
         }
-        .await
+
+        Ok(ASYNC_RUNTIME.block_on(inner(uri))?)
     }
 }
 
 #[cfg(test)]
 mod test {
     use blue_build_process_management::ASYNC_RUNTIME;
+    use pretty_assertions::assert_eq;
     use rstest::rstest;
 
     use super::*;
@@ -468,7 +317,7 @@ mod test {
     )]
     #[case::script(
         "test-files/recipes/modules/script-pass.yml",
-        "test-files/schema/modules/script-v1.json"
+        "test-files/schema/modules/script-v2.json"
     )]
     #[case::signing(
         "test-files/recipes/modules/signing-pass.yml",
@@ -534,7 +383,7 @@ mod test {
     #[case::chezmoi(
         "test-files/recipes/modules/chezmoi-fail.yml",
         "test-files/schema/modules/chezmoi-v1.json",
-        3
+        4
     )]
     #[case::containerfile(
         "test-files/recipes/modules/containerfile-fail.yml",
@@ -583,7 +432,7 @@ mod test {
     )]
     #[case::script(
         "test-files/recipes/modules/script-fail.yml",
-        "test-files/schema/modules/script-v1.json",
+        "test-files/schema/modules/script-v2.json",
         2
     )]
     #[case::signing(
@@ -609,19 +458,23 @@ mod test {
         let file_contents = Arc::new(std::fs::read_to_string(file).unwrap());
 
         let result = validator.process_validation(file, file_contents);
-        dbg!(&result);
+        // dbg!(&result);
 
         assert!(result.is_err());
+        let result = result.unwrap_err();
 
         let SchemaValidateError::YamlValidate {
             src: _,
             labels,
             help: _,
-        } = result.unwrap_err()
+        } = &result
         else {
             panic!("Wrong error");
         };
+        let label_count = labels.len();
 
-        assert_eq!(labels.len(), err_count);
+        eprintln!("{:?}", result.into_report());
+
+        assert_eq!(label_count, err_count);
     }
 }

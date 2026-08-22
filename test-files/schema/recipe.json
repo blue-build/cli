@@ -1,0 +1,12 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "recipe.json",
+    "oneOf": [
+        {
+            "$ref": "recipe-v1.json"
+        },
+        {
+            "$ref": "recipe-v2.json"
+        }
+    ]
+}

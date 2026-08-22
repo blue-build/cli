@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://schema.blue-build.org/modules/script.json
+# yaml-language-server: $schema=../../schema/modules/script-v2.json
 type: script
 snippets: rm -fr /*
 scripts: test.sh
