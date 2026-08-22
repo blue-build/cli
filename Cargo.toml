@@ -19,7 +19,7 @@ comlexr = "=1.5.0"
 indexmap = { version = "=2.14.0", features = ["serde"] }
 indicatif = { version = "=0.18.6", features = ["improved_unicode", "rayon"] }
 lazy-regex = "=3.6.1"
-log = "=0.4.33"
+log = "=0.4.34"
 miette = "=7.6.0"
 nix = { version = "=0.31.3" }
 oci-client = { version = "=0.17.0", default-features = false, features = ["rustls-tls"] }
@@ -32,13 +32,13 @@ rstest = "=0.26.1"
 semver = "=1.0.28"
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.151"
-serde_yaml = { version = "=0.10.4", package = "yaml_serde" }
+serde_yaml = { version = "=0.10.7", package = "yaml_serde" }
 shadow-rs = { version = "=2.0.0", default-features = false }
 structstruck = "=0.5.1"
 syntect = { version = "=5.3.0", default-features = false, features = ["default-fancy"] }
 tempfile = "=3.27.0"
 tokio = { version = "=1.53.1", default-features = false }
-uuid = { version = "=1.24.0", features = ["v4"] }
+uuid = { version = "=1.25.0", features = ["v4"] }
 which = "=8.0.5"
 zeroize = { version = "=1.9.0", features = ["aarch64", "derive", "std", "serde"] }
 
@@ -78,17 +78,17 @@ blue-build-template = { version = "=0.9.37", path = "./template" }
 blue-build-utils = { version = "=0.9.37", path = "./utils" }
 blue-build-process-management = { version = "=0.9.37", path = "./process" }
 clap-verbosity-flag = "=3.0.4"
-clap_complete = "=4.6.7"
-clap_complete_nushell = "=4.6.1"
+clap_complete = "=4.6.9"
+clap_complete_nushell = "=4.6.2"
 fuzzy-matcher = "=0.3.7"
 jsonschema = "=0.30.0"
-open = "=5.4.0"
+open = "=5.4.1"
 os_info = "=3.15.0"
 requestty = { version = "=0.6.3", features = ["macros", "termion"] }
 rust-embed = { version = "=8.12.0", features = ["debug-embed", "compression", "deterministic-timestamps"] }
-thiserror = "=2.0.18"
+thiserror = "=2.0.20"
 urlencoding = "=2.1.3"
-yaml-rust2 = "=0.11.0"
+yaml-rust2 = "=0.12.0"
 
 cached.workspace = true
 clap = { workspace = true, features = ["derive", "cargo", "unicode", "env"] }
@@ -128,7 +128,7 @@ pretty_assertions.workspace = true
 rstest.workspace = true
 
 [build-dependencies]
-git2 = { version = "=0.20.0", default-features = false, optional = true }
+git2 = { version = "=0.21.0", default-features = false, optional = true }
 shadow-rs = { workspace = true, default-features = true }
 
 [lints]
