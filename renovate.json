@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update unprefixed Rust dependency versions from v-prefixed GitHub releases",
+      "managerFilePatterns": ["/^utils/src/constants\\.rs$/"],
+      "matchStrings": [
+        "// renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)\\s+pub const [A-Z0-9_]+_VERSION: &str = \"(?<currentValue>[^\"]+)\";"
+      ],
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Update v-prefixed container image tags from GitHub releases",
+      "managerFilePatterns": [
+        "/^utils/src/constants\\.rs$/",
+        "/^process/drivers/traits\\.rs$/"
+      ],
+      "matchStrings": [
+        "// renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)\\s+(?:pub\\s+)?const [A-Z0-9_]+: &str = \"[^\"]+:(?<currentValue>v[0-9][^\"]*)\";"
+      ]
+    }
+  ]
+}
