@@ -107,7 +107,7 @@ pub const SUDO_ASKPASS: &str = "SUDO_ASKPASS";
 // Misc
 pub const BLUE_BUILD: &str = "bluebuild";
 pub const BUILD_SCRIPTS_IMAGE_REF: &str = "ghcr.io/blue-build/cli/build-scripts";
-pub const BLUE_BUILD_DEFAULT_IMAGE: &str = "ghcr.io/blue-build/base-images/fedora-base:latest";
+pub const BLUE_BUILD_DEFAULT_IMAGE: &str = "ghcr.io/blue-build/base-images/fedora-base:latest@sha256:716aad1947dc397bd9019e26b84f1d02472c249be5e6190588c61561d3d1f3cd";
 pub const BLUE_BUILD_IMAGE_REF: &str = "ghcr.io/blue-build/cli";
 pub const BLUE_BUILD_MODULE_IMAGE_REF: &str = "ghcr.io/blue-build/modules";
 pub const BLUE_BUILD_SCRIPTS_DIR_IGNORE: &str = "/.bluebuild-scripts_*";
@@ -121,7 +121,7 @@ pub const NUSHELL_IMAGE: &str = "ghcr.io/blue-build/nushell-image";
 pub const OCI_ARCHIVE: &str = "oci-archive";
 pub const OSTREE_IMAGE_SIGNED: &str = "ostree-image-signed";
 pub const OSTREE_UNVERIFIED_IMAGE: &str = "ostree-unverified-image";
-pub const SKOPEO_IMAGE: &str = "quay.io/skopeo/stable:latest";
+pub const SKOPEO_IMAGE: &str = "quay.io/skopeo/stable:latest@sha256:0f75798d450d0cc0ea3700c79d929ae7609fb7d0e627673c14be8a484587c9b1";
 pub const TEMPLATE_REPO_URL: &str = "https://github.com/blue-build/template.git";
 pub const USER: &str = "USER";
 pub const UNKNOWN_SHELL: &str = "<unknown shell>";

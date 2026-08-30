@@ -2,7 +2,7 @@ VERSION 0.8
 
 IMPORT github.com/blue-build/earthly-lib/rust AS rust
 
-FROM alpine
+FROM docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 ARG --global SUFFIX_LIST="- distrobox installer"
 ARG --global EARTH_GIT_PROJECT_NAME
 ARG --global EARTH_GIT_HASH
@@ -113,7 +113,7 @@ install-all-features:
     END
 
 common:
-    FROM --platform=native ghcr.io/blue-build/earthly-lib/cargo-builder
+    FROM --platform=native ghcr.io/blue-build/earthly-lib/cargo-builder:latest@sha256:165bfd1ef0a0003e43f742f9677eb9e66b47428fde5cf91e0f1462982fc3f015
 
     ENV RUSTUP_PERMIT_COPY_RENAME="true"
     RUN rustup self update && \
@@ -196,7 +196,7 @@ blue-build-cli-prebuild:
     SAVE IMAGE --push "$IMAGE:$EARTH_GIT_HASH-prebuild-$TARGETARCH"
 
 blue-build-cli:
-    FROM alpine
+    FROM docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     ARG RELEASE
     ARG TARGETARCH
 
@@ -213,7 +213,7 @@ blue-build-cli:
     DO --pass-args +SAVE_IMAGE
 
 blue-build-cli-distrobox-prebuild:
-    ARG BASE_IMAGE="alpine"
+    ARG BASE_IMAGE="docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b"
     FROM $BASE_IMAGE
 
     RUN apk update && apk add --no-cache \
@@ -255,7 +255,7 @@ blue-build-cli-distrobox:
     DO --pass-args +SAVE_IMAGE --SUFFIX="-distrobox"
 
 installer:
-    ARG BASE_IMAGE="alpine"
+    ARG BASE_IMAGE="docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b"
     FROM $BASE_IMAGE
 
     COPY --platform=native (+digest/base-image-digest --BASE_IMAGE=$BASE_IMAGE) /base-image-digest
@@ -283,11 +283,12 @@ modify-installer:
     SAVE ARTIFACT /install.sh
 
 cosign:
+    # renovate: datasource=github-releases depName=sigstore/cosign
     FROM ghcr.io/sigstore/cosign/cosign:v3.1.3
     SAVE ARTIFACT /ko-app/cosign
 
 digest:
-    FROM alpine
+    FROM docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     RUN apk update && apk add skopeo jq
 
     ARG --required BASE_IMAGE
@@ -295,7 +296,7 @@ digest:
     SAVE ARTIFACT /base-image-digest
 
 version:
-    FROM rust
+    FROM docker.io/library/rust:latest@sha256:271849e998ffce5776454bbf98c5dc21baafc854ff8e566197908d3aca9a81e8
 
     RUN apt-get update && apt-get install -y jq
 
@@ -309,7 +310,7 @@ version:
     SAVE ARTIFACT /version
 
 digest-list:
-    FROM alpine
+    FROM docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 
     COPY --platform=native +version/version /
     LET version="$(cat /version)"
@@ -343,7 +344,7 @@ digest-list:
     SAVE ARTIFACT /digest-list
 
 sign-images:
-    FROM alpine
+    FROM docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
     COPY +cosign/cosign /usr/bin/
 
     ARG --required SUFFIX_LIST

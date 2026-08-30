@@ -3,16 +3,41 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Update Rust dependency versions from v-prefixed GitHub releases",
+      "description": "Update versions from v-prefixed GitHub releases",
       "managerFilePatterns": [
+        "/^Earthfile$/",
         "/^utils/src/constants\\.rs$/",
         "/^process/drivers/traits\\.rs$/"
       ],
       "matchStrings": [
         "// renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)\\s+pub const [A-Z0-9_]+_VERSION: &str = \"(?<currentValue>[^\"]+)\";",
-        "// renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)\\s+(?:pub\\s+)?const [A-Z0-9_]+: &str = \"[^\"]+:v(?<currentValue>[0-9][^\"]*)\";"
+        "// renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)\\s+(?:pub\\s+)?const [A-Z0-9_]+: &str = \"[^\"]+:v(?<currentValue>[0-9][^\"]*)\";",
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)\\s+FROM [^\\s]+:v(?<currentValue>[0-9][^\\s]+)"
       ],
       "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Update pinned container tags and digests outside supported package files",
+      "managerFilePatterns": [
+        "/^Earthfile$/",
+        "/^utils/src/constants\\.rs$/",
+        "/^process/drivers/podman_driver\\.rs$/",
+        "/^process/drivers/rpm_ostree_runner\\.rs$/"
+      ],
+      "matchStrings": [
+        "(?<depName>[a-zA-Z0-9.-]+(?::[0-9]+)?/[a-zA-Z0-9._/-]+):(?<currentValue>[a-zA-Z0-9_.-]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Allow container updates from registries without release timestamps",
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["docker"],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
     }
   ]
 }
