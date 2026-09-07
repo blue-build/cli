@@ -218,6 +218,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-lock"
+version = "3.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "290f7f2596bd5b78a9fec8088ccd89180d7f9f55b94b0576823bbbdc72ee8311"
+dependencies = [
+ "event-listener",
+ "event-listener-strategy",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "async-recursion"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -477,7 +488,7 @@ dependencies = [
  "blue-build-template",
  "blue-build-utils",
  "bon",
- "cached 2.0.2",
+ "cached 3.1.1",
  "clap",
  "clap-verbosity-flag",
  "clap_complete",
@@ -519,7 +530,7 @@ dependencies = [
  "anyhow",
  "blue-build-utils",
  "bon",
- "cached 2.0.2",
+ "cached 3.1.1",
  "chrono",
  "clap",
  "colored",
@@ -554,7 +565,7 @@ version = "0.9.37"
 dependencies = [
  "blue-build-utils",
  "bon",
- "cached 2.0.2",
+ "cached 3.1.1",
  "colored",
  "indexmap 2.14.0",
  "log",
@@ -586,7 +597,7 @@ dependencies = [
  "base64 0.23.1",
  "blake2",
  "bon",
- "cached 2.0.2",
+ "cached 3.1.1",
  "chrono",
  "clap",
  "comlexr",
@@ -701,17 +712,17 @@ dependencies = [
 
 [[package]]
 name = "cached"
-version = "2.0.2"
+version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc0df7748fe2f601e376916ab19e7bfc2c74461b8abe3bce2ce20036ad8de38f"
+checksum = "133b6b7d6a828c24d5055ef51e67457002b4017ae5ea3d1b1552ca35a44b1119"
 dependencies = [
  "ahash 0.8.12",
- "cached_proc_macro 2.0.0",
- "cached_proc_macro_types 1.0.0",
- "hashbrown 0.16.1",
+ "async-lock",
+ "cached_proc_macro 3.0.1",
+ "cached_proc_macro_types 3.0.0",
+ "hashbrown 0.17.1",
  "parking_lot",
  "thiserror 2.0.20",
- "tokio",
  "web-time",
 ]
 
@@ -729,11 +740,12 @@ dependencies = [
 
 [[package]]
 name = "cached_proc_macro"
-version = "2.0.0"
+version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66e734c52502e6cf54dce2ba07108906b04b8fe57f4f5e3ef7d58267b4abf060"
+checksum = "ece0579b43cf6e927b3370c7d44359c7122e7e52b3ea635bc8484da571442edb"
 dependencies = [
  "darling 0.20.11",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -747,9 +759,9 @@ checksum = "ade8366b8bd5ba243f0a58f036cc0ca8a2f069cff1a2351ef1cac6b083e16fc0"
 
 [[package]]
 name = "cached_proc_macro_types"
-version = "1.0.0"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26cf465651fa6ad902a2d327ba60c3a6bc61c6a2f4ad70d091cf20dfda0074ef"
+checksum = "f5813789573ae815c8b4be58c4428e0e7ae05f0227678ba9de332ded585b9159"
 
 [[package]]
 name = "cbc"
@@ -1628,6 +1640,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "event-listener"
+version = "5.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a23add41df1562121a9393cb065eab5146a1242410f23a644851e90cfd669d2"
+dependencies = [
+ "parking",
+ "pin-project-lite",
+]
+
+[[package]]
+name = "event-listener-strategy"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8be9f3dfaaffdae2972880079a491a1a8bb7cbed0b8dd7a347f668b4150a3b93"
+dependencies = [
+ "event-listener",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "fancy-regex"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2030,6 +2062,8 @@ version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 dependencies = [
+ "allocator-api2",
+ "equivalent",
  "foldhash 0.2.0",
 ]
 
@@ -3685,6 +3719,12 @@ dependencies = [
  "primeorder",
  "sha2 0.10.9",
 ]
+
+[[package]]
+name = "parking"
+version = "2.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f38d5652c16fde515bb1ecef450ab0f6a219d619a7274976324d5e377f7dceba"
 
 [[package]]
 name = "parking_lot"
