@@ -15,7 +15,6 @@ on:
 jobs:
   build:
     uses: ./.github/workflows/build.yml
-    if: github.repository == 'blue-build/cli'
     permissions:
       contents: read # read repo contents
       packages: write # write package to ghcr

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use blue_build_utils::{
     constants::{
-        GITHUB_EVENT_NAME, GITHUB_EVENT_PATH, GITHUB_REF_NAME, GITHUB_SHA, GITHUB_TOKEN_ISSUER_URL,
+        GITHUB_EVENT_NAME, GITHUB_REF_NAME, GITHUB_SHA, GITHUB_TOKEN_ISSUER_URL,
         GITHUB_WORKFLOW_REF, PR_EVENT_NUMBER,
     },
     container::Tag,
@@ -24,10 +24,21 @@ mod event;
 
 pub struct GithubDriver;
 
+impl GithubDriver {
+    fn is_pull_request() -> bool {
+        get_env_var(GITHUB_EVENT_NAME)
+            .inspect(|v| trace!("{GITHUB_EVENT_NAME}={v}"))
+            .is_ok_and(|val| val == "pull_request")
+    }
+
+    fn get_pr_number() -> Result<String> {
+        get_env_var(PR_EVENT_NUMBER).inspect(|v| trace!("{PR_EVENT_NUMBER}={v}"))
+    }
+}
+
 impl CiDriver for GithubDriver {
     fn on_default_branch() -> bool {
-        get_env_var(GITHUB_EVENT_PATH)
-            .is_ok_and(|path| Event::try_new(path).is_ok_and(|e| e.on_default_branch()))
+        Event::read_from_env().is_ok_and(|e| e.on_default_branch())
     }
 
     fn keyless_cert_identity() -> Result<String> {
@@ -39,7 +50,6 @@ impl CiDriver for GithubDriver {
     }
 
     fn generate_tags(opts: GenerateTagsOpts) -> Result<Vec<Tag>> {
-        const PR_EVENT: &str = "pull_request";
         let timestamp = blue_build_utils::get_tag_timestamp();
         let os_version = Driver::get_os_version()
             .oci_ref(opts.oci_ref)
@@ -57,9 +67,24 @@ impl CiDriver for GithubDriver {
         let tags = match (
             Self::on_default_branch(),
             opts.alt_tags.as_ref(),
-            get_env_var(GITHUB_EVENT_NAME).inspect(|v| trace!("{GITHUB_EVENT_NAME}={v}")),
-            get_env_var(PR_EVENT_NUMBER).inspect(|v| trace!("{PR_EVENT_NUMBER}={v}")),
+            Self::is_pull_request(),
+            Self::get_pr_number(),
         ) {
+            (false, None, true, Ok(event_num)) => {
+                vec![
+                    format!("pr-{event_num}-{os_version}"),
+                    format!("{short_sha}-{os_version}"),
+                ]
+            }
+            (false, Some(alt_tags), true, Ok(event_num)) => alt_tags
+                .iter()
+                .flat_map(|alt| {
+                    vec![
+                        format!("pr-{event_num}-{alt}-{os_version}"),
+                        format!("{short_sha}-{alt}-{os_version}"),
+                    ]
+                })
+                .collect(),
             (true, None, _, _) => {
                 string_vec![
                     "latest",
@@ -80,28 +105,11 @@ impl CiDriver for GithubDriver {
                     ]
                 })
                 .collect(),
-            (false, None, Ok(event_name), Ok(event_num)) if event_name == PR_EVENT => {
-                vec![
-                    format!("pr-{event_num}-{os_version}"),
-                    format!("{short_sha}-{os_version}"),
-                ]
-            }
             (false, None, _, _) => {
                 vec![
                     format!("br-{ref_name}-{os_version}"),
                     format!("{short_sha}-{os_version}"),
                 ]
-            }
-            (false, Some(alt_tags), Ok(event_name), Ok(event_num)) if event_name == PR_EVENT => {
-                alt_tags
-                    .iter()
-                    .flat_map(|alt| {
-                        vec![
-                            format!("pr-{event_num}-{alt}-{os_version}"),
-                            format!("{short_sha}-{alt}-{os_version}"),
-                        ]
-                    })
-                    .collect()
             }
             (false, Some(alt_tags), _, _) => alt_tags
                 .iter()
@@ -122,21 +130,18 @@ impl CiDriver for GithubDriver {
     }
 
     fn get_repo_url() -> miette::Result<String> {
-        Ok(Event::try_new(get_env_var(GITHUB_EVENT_PATH)?)?
-            .repository
-            .html_url)
+        Ok(Event::read_from_env()?.repository.html_url)
     }
 
     fn get_registry() -> miette::Result<String> {
-        Ok(format!(
-            "ghcr.io/{}",
-            Event::try_new(get_env_var(GITHUB_EVENT_PATH)?)?
-                .repository
-                .owner
-                .login
-        )
-        .trim()
-        .to_lowercase())
+        let event = Event::read_from_env()?;
+
+        let owner = if let Some(pr) = event.pull_request {
+            pr.head.repo.owner.login
+        } else {
+            event.repository.owner.login
+        };
+        Ok(format!("ghcr.io/{owner}").trim().to_lowercase())
     }
 
     fn default_ci_file_path() -> PathBuf {
@@ -201,12 +206,21 @@ mod test {
     }
 
     #[test]
-    fn get_registry() {
+    fn get_registry_default_branch() {
         setup_default_branch();
 
         let registry = GithubDriver::get_registry().unwrap();
 
         assert_eq!(registry, "ghcr.io/test-owner");
+    }
+
+    #[test]
+    fn get_registry_pr() {
+        setup_pr_branch();
+
+        let registry = GithubDriver::get_registry().unwrap();
+
+        assert_eq!(registry, "ghcr.io/gmpinder");
     }
 
     #[test]

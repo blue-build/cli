@@ -1,6 +1,6 @@
 ---
 # yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
-name: cli/test-legacy
+name: ${BB_TEST_IMAGE_NAME:-cli}/test-legacy
 description: This is my personal OS image.
 base-image: ghcr.io/ublue-os/silverblue-surface
 image-version: gts

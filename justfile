@@ -5,6 +5,7 @@ export BB_SKIP_VALIDATION := "true"
 
 set dotenv-load := true
 set positional-arguments := true
+set lazy
 
 # default recipe to display help information
 default:
@@ -88,6 +89,33 @@ watch-lint:
 watch-lint-all-features:
   cargo watch -c -x 'clippy --all-features'
 
+# Build the images and store locally
+image-build:
+  earth --output --platform native --ci -P +build-images
+
+image-prebuild:
+  earth --ci +prebuild
+
+image-prebuild-publish:
+  earth --ci --push +prebuild
+
+image-publish: && image-digest
+  earth \
+    --push --ci -P +build-images-all \
+    --RELEASE="true"
+
+image-sign-publish: && image-digest
+  earth \
+    --secret COSIGN_PRIVATE_KEY \
+    --secret GH_ACTOR \
+    --secret GH_TOKEN \
+    --push --ci -P +build-images-all \
+    --SIGN="true" \
+    --RELEASE="true"
+
+image-digest:
+  earth +local-digest-list
+
 # Expand the macros of a module for debugging
 expand *args:
   cargo expand $@ > ./expand.rs
@@ -124,7 +152,7 @@ release *args:
   gh release create --generate-notes --latest "v${VERSION}"
 
 should_push := if env('GITHUB_ACTIONS', '') != '' {
-  if env('COSIGN_PRIVATE_KEY', '') != '' {
+  if env('GH_TOKEN', '') != '' {
     '--push'
   } else {
     ''
@@ -133,11 +161,21 @@ should_push := if env('GITHUB_ACTIONS', '') != '' {
   ''
 }
 
-cargo_bin := if env('CARGO_HOME', '') != '' {
-  x"${CARGO_HOME:-}/bin"
+should_not_sign := if env('COSIGN_PRIVATE_KEY', '') == '' {
+  '--no-sign'
 } else {
-  x"$HOME/.cargo/bin"
+  ''
 }
+
+project_path := `git remote get-url origin | sed -E 's|^[^:/]+://[^/]*/||; s|^.*:||; s/\.git$//'`
+
+cargo_bin := if env('CARGO_HOME', '') != '' {
+  x"${CARGO_HOME:-}/bin/bluebuild"
+} else {
+  x"$HOME/.cargo/bin/bluebuild"
+}
+
+export BB_TEST_IMAGE_NAME := file_stem(project_path)
 
 generate-test-secret:
   mkdir -p integration-tests/test-repo/secrets
@@ -149,82 +187,91 @@ integration-tests: generate-test-secret test-docker-build test-empty-files-build
 # Run docker driver integration test
 test-docker-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     --retry-push \
     -B docker \
     -S sigstore \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     recipes/recipe.yml recipes/recipe-gts.yml
 
 test-recipe-v2-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     --retry-push \
     -S sigstore \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     recipes/recipe-v2.yml
 
 test-empty-files-build: generate-test-secret install-debug-all-features
   cd integration-tests/empty-files-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     --retry-push \
     -B docker \
     -S sigstore \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv
 
 test-env-expansion-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
   && DESC_EXT="Test description" \
   VERSION="43" \
-  bluebuild build \
+  {{ cargo_bin }} build \
     --retry-push \
     -B docker \
     -S sigstore \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     recipes/recipe-env-expansion.yml
 
 test-bluefin-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     --retry-push \
     -B docker \
     -S sigstore \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     recipes/recipe-bluefin.yml
 
 test-chunkah-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     --chunkah \
     recipes/recipe-chunkah.yml
 
 test-build-chunked-oci-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     --build-chunked-oci \
     recipes/recipe-build-chunked-oci.yml
 
 test-rechunk-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     --rechunk \
     recipes/recipe-rechunk.yml
 
 test-fresh-rechunk-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     --rechunk \
     --rechunk-clear-plan \
@@ -233,42 +280,46 @@ test-fresh-rechunk-build: generate-test-secret install-debug-all-features
 # Run arm integration test
 test-arm64-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     --retry-push \
     --platform linux/arm64 \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     recipes/recipe-arm64.yml
 
 # Run docker driver external login integration test
 test-docker-build-external-login: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     --retry-push \
     -S sigstore \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     recipes/recipe-docker-external.yml
 
 # Run podman driver integration test
 test-podman-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     --retry-push \
     -B podman \
     -S sigstore \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     recipes/recipe-podman.yml
 
 # Run buildah driver integration test
 test-buildah-build: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     --retry-push \
     -B buildah \
     -S sigstore \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     recipes/recipe-buildah.yml
 
@@ -277,63 +328,69 @@ test-multiplatform: test-multiplatform-docker test-multiplatform-podman test-mul
 
 test-multiplatform-docker: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     --retry-push \
     -B docker \
     -S sigstore \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     recipes/recipe-multiplatform-docker.yml
 
 test-multiplatform-podman: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     --retry-push \
     -B podman \
     -S sigstore \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     recipes/recipe-multiplatform-podman.yml
 
 test-multiplatform-buildah: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     --retry-push \
     -B buildah \
     -S sigstore \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     recipes/recipe-multiplatform-buildah.yml
 
 test-multiplatform-chunkah: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     --retry-push \
     --chunkah \
     --remove-base-image \
     -S sigstore \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     recipes/recipe-multiplatform-chunkah.yml
 
 test-multiplatform-build-chunked-oci: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     --retry-push \
     --build-chunked-oci \
     --remove-base-image \
     -S sigstore \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     recipes/recipe-multiplatform-build-chunked-oci.yml
 
 test-multiplatform-rechunk: generate-test-secret install-debug-all-features
   cd integration-tests/test-repo \
-  && bluebuild build \
+  && {{ cargo_bin }} build \
     --retry-push \
     --rechunk \
     -S sigstore \
     {{ should_push }} \
+    {{ should_not_sign }} \
     -vv \
     recipes/recipe-multiplatform-rechunk.yml
 
@@ -342,14 +399,14 @@ test-generate-iso-image: generate-test-secret install-debug-all-features
   #!/usr/bin/env bash
   set -eu
   ISO_OUT=$(mktemp -d)
-  bluebuild generate-iso -vv --output-dir "$ISO_OUT" image ghcr.io/blue-build/cli/test:latest
+  {{ cargo_bin }} generate-iso -vv --output-dir "$ISO_OUT" image ghcr.io/{{ project_path }}/test:latest
 
 # Run ISO generator for images using web-ui
 test-generate-iso-web-ui: generate-test-secret install-debug-all-features
   #!/usr/bin/env bash
   set -eu
   ISO_OUT=$(mktemp -d)
-  bluebuild generate-iso -vv --output-dir "$ISO_OUT" --web-ui image ghcr.io/blue-build/cli/test:latest
+  {{ cargo_bin }} generate-iso -vv --output-dir "$ISO_OUT" --web-ui image ghcr.io/{{ project_path }}/test:latest
 
 # Run ISO generator for images
 test-generate-iso-recipe: generate-test-secret install-debug-all-features
@@ -357,11 +414,11 @@ test-generate-iso-recipe: generate-test-secret install-debug-all-features
   set -eu
   ISO_OUT=$(mktemp -d)
   cd integration-tests/test-repo
-  bluebuild generate-iso -vv --output-dir "$ISO_OUT" recipe recipes/recipe.yml
+  {{ cargo_bin }} generate-iso -vv --output-dir "$ISO_OUT" recipe recipes/recipe.yml
 
 # Build a local cli image
 build-local-cli-image:
-  earth --ci --output -P +blue-build-cli --RELEASE='false'
+  earth --ci --output -P +blue-build-cli
 
 git_sha := `git rev-parse HEAD`
 tty_arg := `[ -t 0 ] && echo "t" || echo ""`
@@ -371,7 +428,7 @@ exec-cli-container +args: build-local-cli-image
   docker run -i{{ tty_arg }} --privileged --rm \
     -v ./integration-tests/test-repo:/bluebuild \
     -e TEST_SECRET="$TEST_SECRET" \
-    ghcr.io/blue-build/cli:{{ git_sha }} \
+    ghcr.io/{{ project_path }}:{{ git_sha }} \
     {{ args }}
 
 # Run a cli container using the podman build driver

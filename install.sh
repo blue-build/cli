@@ -3,6 +3,7 @@
 set -euo pipefail
 
 VERSION=v0.9.37
+PROJECT="blue-build/cli"
 
 # Container runtime
 function cr() {
@@ -16,12 +17,11 @@ function cr() {
   fi
 }
 
-# We use sudo for podman so that we can copy directly into /usr/local/bin
 function cleanup() {
   echo "Cleaning up image"
   cr rm blue-build-installer
   sleep 2
-  cr image rm ghcr.io/blue-build/cli:${VERSION}-installer
+  cr image rm ghcr.io/${PROJECT}:${VERSION}-installer
 }
 
 trap cleanup SIGINT
@@ -31,21 +31,23 @@ if command -v cosign &> /dev/null
 then
   PUBKEY_DIR=$(mktemp -d)
   PUBKEY_FILE="${PUBKEY_DIR}/cosign.pub"
-  curl -Lo "${PUBKEY_FILE}" https://raw.githubusercontent.com/blue-build/cli/refs/heads/main/cosign.pub
-  cosign verify --key "${PUBKEY_FILE}" "ghcr.io/blue-build/cli:${VERSION}-installer"
+  curl -Lo "${PUBKEY_FILE}" https://raw.githubusercontent.com/${PROJECT}/refs/heads/main/cosign.pub
+  cosign verify --key "${PUBKEY_FILE}" "ghcr.io/${PROJECT}:${VERSION}-installer"
 fi
 
 cr create \
   --pull always \
   --name blue-build-installer \
-  ghcr.io/blue-build/cli:${VERSION}-installer
+  ghcr.io/${PROJECT}:${VERSION}-installer
 
 set +e
+set -x
 cr cp blue-build-installer:/out/bluebuild /tmp/
 
 sudo mv /tmp/bluebuild /usr/local/bin/
 
 RETVAL=$?
+set +x
 set -e
 
 if [ $RETVAL != 0 ]; then

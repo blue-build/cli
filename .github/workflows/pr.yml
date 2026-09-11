@@ -12,7 +12,6 @@ on:
 jobs:
   build:
     uses: ./.github/workflows/build.yml
-    if: github.repository == 'blue-build/cli'
     permissions:
       contents: read # read repo contents
       packages: write # write package to ghcr
@@ -21,6 +20,7 @@ jobs:
     with:
       repo: ${{ github.event.pull_request.head.repo.full_name }}
       ref: ${{ github.event.pull_request.head.ref }}
+      fork_pr: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
     secrets:
       SIGNING_SECRET: ${{ secrets.SIGNING_SECRET }}
   test:
@@ -33,5 +33,6 @@ jobs:
       repo: ${{ github.event.pull_request.head.repo.full_name }}
       ref: ${{ github.event.pull_request.head.ref }}
       pr_event_number: ${{ github.event.number }}
+      fork_pr: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}

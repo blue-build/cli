@@ -90,7 +90,7 @@ init:
         --no-git
 
 legacy-base:
-    FROM ../+blue-build-cli --RELEASE=false
+    FROM ../+blue-build-cli
     ENV BB_TEST_LOCAL_IMAGE=localhost/cli/test:latest
     ENV CLICOLOR_FORCE=1
 
@@ -105,7 +105,7 @@ legacy-base:
     ENV USER=root
 
 test-base:
-    FROM ../+blue-build-cli --RELEASE=false
+    FROM ../+blue-build-cli
     RUN git config --global user.email "you@example.com" && \
         git config --global user.name "Your Name"
 

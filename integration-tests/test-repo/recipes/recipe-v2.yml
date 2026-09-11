@@ -7,7 +7,7 @@ base:
     repository: fedora/fedora-bootc
     tag: latest
 metadata:
-  name: cli/test-recipe-v2
+  name: ${BB_TEST_IMAGE_NAME:-cli}/test-recipe-v2
   description: This is my personal OS image.
 spec:
   tool-versions:
