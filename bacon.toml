@@ -11,13 +11,13 @@ default_job = "clippy-all"
 command = ["cargo", "check", "--tests", "--color", "always"]
 need_stdout = false
 default_watch = false
-watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs"]
+watch = ["src", "next", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs"]
 
 [jobs.check-all]
 command = ["cargo", "check", "--all-features", "--tests", "--color", "always"]
 need_stdout = false
 default_watch = false
-watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs"]
+watch = ["src", "next", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs"]
 
 [jobs.clippy]
 command = [
@@ -26,7 +26,7 @@ command = [
 ]
 need_stdout = false
 default_watch = false
-watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs"]
+watch = ["src", "next", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs"]
 
 [jobs.clippy-all]
 command = [
@@ -36,7 +36,7 @@ command = [
 ]
 need_stdout = false
 default_watch = false
-watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs"]
+watch = ["src", "next", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs"]
 
 [jobs.test]
 command = [
@@ -45,7 +45,7 @@ command = [
 ]
 need_stdout = true
 default_watch = false
-watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs", "test-files", "integration-tests"]
+watch = ["src", "next", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs", "test-files", "integration-tests"]
 
 [jobs.test-all]
 command = [
@@ -54,13 +54,13 @@ command = [
 ]
 need_stdout = true
 default_watch = false
-watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs", "test-files", "integration-tests"]
+watch = ["src", "next", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs", "test-files", "integration-tests"]
 
 [jobs.doc]
 command = ["cargo", "doc", "--color", "always"]
 need_stdout = false
 default_watch = false
-watch = ["src", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs"]
+watch = ["src", "next", "process", "recipe", "template", "utils", "Cargo.toml", "build.rs"]
 
 # If the doc compiles, then it opens in your browser and bacon switches
 # to the previous job
@@ -74,14 +74,14 @@ command = ["cargo", "install", "--path", ".", "--debug", "--locked", "--color", 
 need_stdout = false
 allow_warnings = true
 default_watch = false
-watch = ["src", "process", "recipe", "template", "utils", "scripts", "Cargo.toml", "build.rs"]
+watch = ["src", "next", "process", "recipe", "template", "utils", "scripts", "Cargo.toml", "build.rs"]
 
 [jobs.install-all]
 command = ["cargo", "install", "--all-features", "--path", ".", "--debug", "--locked", "--color", "always"]
 need_stdout = false
 allow_warnings = true
 default_watch = false
-watch = ["src", "process", "recipe", "template", "utils", "scripts", "Cargo.toml", "build.rs"]
+watch = ["src", "next", "process", "recipe", "template", "utils", "scripts", "Cargo.toml", "build.rs"]
 
 # You may define here keybindings that would be specific to
 # a project, for example a shortcut to launch a specific job.

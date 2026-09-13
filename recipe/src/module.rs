@@ -1,13 +1,14 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, process::Command};
 
 use blue_build_utils::{
     constants::BLUE_BUILD_MODULE_IMAGE_REF, secret::Secret, syntax_highlighting::highlight_ser,
 };
 use bon::Builder;
 use colored::Colorize;
+use comlexr::{cmd, cmd_mut};
 use indexmap::IndexMap;
 use log::trace;
-use miette::{Result, bail};
+use miette::{IntoDiagnostic, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 
@@ -211,6 +212,27 @@ impl ModuleRequiredFields {
                 }
             ))
             .build()
+    }
+}
+
+impl TryFrom<&ModuleRequiredFields> for Command {
+    type Error = miette::Report;
+
+    fn try_from(value: &ModuleRequiredFields) -> Result<Self> {
+        let mut c = cmd!(
+            "/tmp/scripts/run_module.sh",
+            value.module_type.typ(),
+            serde_json::to_string(value).into_diagnostic()?,
+        );
+        for (key, value) in value.get_env() {
+            cmd_mut!(
+                env {
+                    key: value,
+                };
+                &mut c
+            );
+        }
+        Ok(c)
     }
 }
 

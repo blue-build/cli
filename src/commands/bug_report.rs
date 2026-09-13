@@ -131,7 +131,7 @@ impl BugReportCommand {
             })
         });
 
-        Recipe::parse(&recipe_path).ok()
+        Recipe::builder().path(&recipe_path).build().ok()
     }
 }
 

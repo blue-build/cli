@@ -312,7 +312,10 @@ impl BuildCommand {
             containerfile.display()
         );
 
-        let recipe = &Recipe::parse(recipe_path)?;
+        let recipe = &Recipe::builder()
+            .path(recipe_path)
+            .platforms(&self.platform)
+            .build()?;
         let tags = &Driver::generate_tags(
             GenerateTagsOpts::builder()
                 .oci_ref(&recipe.base_image_ref()?)
@@ -353,8 +356,6 @@ impl BuildCommand {
         });
         let cache_image = cache_image.as_ref();
 
-        let platforms = &platforms(&self.platform, recipe.get_platforms());
-
         let secrets = &recipe.get_secrets();
 
         let image_ref = self.archive.as_ref().map_or_else(
@@ -374,12 +375,13 @@ impl BuildCommand {
                 .digest()
                 .to_owned();
         let base_image_with_digest = base_image.clone_with_digest(base_digest);
+        let platforms = recipe.get_platforms();
 
         let build_tag_opts = BuildTagPushOpts::builder()
             .image(&image_ref)
             .base_image(&base_image_with_digest)
             .containerfile(containerfile)
-            .platform(platforms)
+            .platform(&platforms)
             .squash(self.squash)
             .maybe_cache_from(cache_image)
             .maybe_cache_to(cache_image)
@@ -449,7 +451,7 @@ impl BuildCommand {
                     .build(),
             )?
         } else if self.rechunk {
-            self.rechunk(containerfile, recipe, tags, image, cache_image, platforms)?
+            self.rechunk(containerfile, recipe, tags, image, cache_image)?
         } else {
             Driver::build_tag_push(opts)?
         };
@@ -460,7 +462,7 @@ impl BuildCommand {
                     .image(image)
                     .retry_push(self.retry_push)
                     .retry_count(self.retry_count)
-                    .platforms(platforms)
+                    .platforms(&recipe.get_platforms())
                     .build(),
             )?;
         }
@@ -475,10 +477,9 @@ impl BuildCommand {
         tags: &[Tag],
         image_name: &Reference,
         cache_image: Option<&Reference>,
-        platforms: &[Platform],
     ) -> Result<Vec<String>, miette::Error> {
         trace!(
-            "BuildCommand::rechunk({}, {recipe:?}, {tags:?}, {image_name}, {cache_image:?}, {platforms:?})",
+            "BuildCommand::rechunk({}, {recipe:?}, {tags:?}, {image_name}, {cache_image:?})",
             containerfile.display()
         );
 
@@ -494,7 +495,7 @@ impl BuildCommand {
             RechunkOpts::builder()
                 .image(image_name)
                 .containerfile(containerfile)
-                .platform(platforms)
+                .platform(&recipe.get_platforms())
                 .tags(tags)
                 .push(self.push)
                 .version(&format!(
@@ -520,19 +521,6 @@ impl BuildCommand {
                 .build(),
         )
     }
-}
-
-fn platforms(cli_platforms: &[Platform], recipe_platforms: &[Platform]) -> Vec<Platform> {
-    let platforms = match (cli_platforms, recipe_platforms) {
-        ([], []) => vec![Platform::default()],
-        ([], recipe) => recipe.to_vec(),
-        (cli, _) => cli.to_vec(),
-    };
-    assert!(
-        platforms.is_empty().not(),
-        "At least one platform must be built"
-    );
-    platforms
 }
 
 #[cfg(test)]
@@ -586,6 +574,9 @@ mod test {
         #[case] recipe_plat: &[Platform],
         #[case] expected: &[Platform],
     ) {
-        pretty_assertions::assert_eq!(&*super::platforms(cli_plat, recipe_plat), expected);
+        pretty_assertions::assert_eq!(
+            &*blue_build_utils::platforms(cli_plat, recipe_plat),
+            expected
+        );
     }
 }
