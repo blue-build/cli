@@ -62,7 +62,7 @@ impl BlueBuildCommand for SwitchCommand {
             bail!("There is a transaction in progress. Please cancel it using `rpm-ostree cancel`");
         }
 
-        let recipe = Recipe::parse(&self.recipe)?;
+        let recipe = Recipe::builder().path(&self.recipe).build()?;
         let image_name = Driver::generate_image_name(
             GenerateImageNameOpts::builder()
                 .name(recipe.get_name().trim())

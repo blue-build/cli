@@ -41,7 +41,8 @@ use super::{
     },
 };
 use crate::{
-    drivers::opts::PrivateKey, logging::CommandLogging, signal_handler::DetachedContainer,
+    ASYNC_RUNTIME, drivers::opts::PrivateKey, logging::CommandLogging,
+    signal_handler::DetachedContainer,
 };
 
 trait PrivateDriver {}
@@ -301,7 +302,7 @@ pub trait InspectDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if it is unable to get the labels.
-    fn get_metadata(opts: GetMetadataOpts) -> Result<ImageMetadata>;
+    fn get_metadata(opts: GetMetadataOpts) -> impl Future<Output = Result<ImageMetadata>> + Send;
 }
 
 /// Allows agnostic running of containers.
@@ -992,12 +993,12 @@ pub trait SigningDriver: PrivateDriver {
             .map_or_else(|| PathBuf::from("."), |d| d.to_path_buf());
         let cosign_file_path = path.join(COSIGN_PUB_PATH);
 
-        let metadata = Driver::get_metadata(
+        let metadata = ASYNC_RUNTIME.block_on(Driver::get_metadata(
             GetMetadataOpts::builder()
                 .image(opts.image)
                 .no_cache(true)
                 .build(),
-        )?;
+        ))?;
         debug!("Recieved metadata");
         trace!("{metadata:#?}");
 

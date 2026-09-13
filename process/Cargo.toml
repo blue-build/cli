@@ -25,6 +25,7 @@ chrono.workspace = true
 clap = { workspace = true, features = ["derive", "env"] }
 colored.workspace = true
 comlexr.workspace = true
+futures.workspace = true
 indicatif.workspace = true
 lazy-regex.workspace = true
 log.workspace = true
