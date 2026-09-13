@@ -135,6 +135,7 @@ common:
         utils/ \
         process/ \
         scripts/ \
+        next/ \
         .git/ \
         /app
 

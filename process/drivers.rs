@@ -32,7 +32,7 @@ use miette::{Context, Result, bail};
 use oci_client::Reference;
 use uuid::Uuid;
 
-use crate::{logging::Logger, signal_handler::DetachedContainer};
+use crate::{ASYNC_RUNTIME, logging::Logger, signal_handler::DetachedContainer};
 use opts::{
     BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts, CheckKeyPairOpts,
     ContainerOpts, CopyOciOpts, CreateContainerOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
@@ -227,7 +227,10 @@ impl Driver {
 
         info!("Retrieving OS version from {oci_ref}");
 
-        let os_version = Self::get_metadata(GetMetadataOpts::builder().image(oci_ref).build())
+        let os_version = ASYNC_RUNTIME
+            .block_on(Self::get_metadata(
+                GetMetadataOpts::builder().image(oci_ref).build(),
+            ))
             .and_then(|inspection| {
                 trace!("{inspection:?}");
                 inspection.get_version().wrap_err_with(|| {
@@ -441,8 +444,8 @@ impl SigningDriver for Driver {
 }
 
 impl InspectDriver for Driver {
-    fn get_metadata(opts: GetMetadataOpts) -> Result<ImageMetadata> {
-        OciClientDriver::get_metadata(opts)
+    async fn get_metadata(opts: GetMetadataOpts<'_>) -> Result<ImageMetadata> {
+        OciClientDriver::get_metadata(opts).await
     }
 }
 
