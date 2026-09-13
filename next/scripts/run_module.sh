@@ -16,7 +16,7 @@ print_banner() {
     padlen=$(( (term_width - ${#text}) / 2 ))
   fi
 
-  printf '%*.*s%s%*.*s\n' 0 "$padlen" "$padding" "$text" 0 "$padlen" "$padding"
+  printf '%*.*s%s%*.*s\n' 0 "$padlen" "$padding" "$text" 0 "$padlen" "$padding" >&2
 }
 
 get_script_path() {

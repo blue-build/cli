@@ -52,7 +52,7 @@ impl TryFrom<PathBuf> for AbsolutePath {
         if value.is_absolute() {
             Ok(Self(value))
         } else {
-            bail!("Path {} is not absolute", value.display())
+            bail!("Path {} is not absolute", value.display());
         }
     }
 }
@@ -91,7 +91,7 @@ impl TryFrom<PathBuf> for RelativePath {
         if value.is_relative() {
             Ok(Self(value))
         } else {
-            bail!("Path {} is not absolute", value.display())
+            bail!("Path {} is not absolute", value.display());
         }
     }
 }

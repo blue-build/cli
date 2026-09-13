@@ -129,7 +129,7 @@ impl TryFrom<&str> for CacheId {
         if regex!("[a-zA-Z0-9_-]+").is_match(value) {
             Ok(Self(value.to_string()))
         } else {
-            bail!("String {value} a valid CacheId")
+            bail!("String {value} a valid CacheId");
         }
     }
 }

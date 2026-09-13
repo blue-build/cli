@@ -223,6 +223,7 @@ async fn add_module<'a>(
                         "ghcr.io/blue-build/cli".to_string(),
                     ),
                     ("BB_BUILD_FEATURES".to_string(), String::new()),
+                    ("FORCE_COLOR".to_string(), "1".to_string()),
                 ])
                 .command(Command::try_from(module)?)
                 .mounts(mounts)
