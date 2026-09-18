@@ -597,7 +597,7 @@ impl PostBuildDriver for PodmanDriver {
 
             let container = Self::run_detached(
                 RunOpts::builder()
-                    .image("quay.io/podman/stable:latest@sha256:f3d0438620587ced908c7f1a77c6bda92a42dfbdaa0507c6d9c48fe51befbd17")
+                    .image("quay.io/podman/stable:latest@sha256:3c99be9108dacd2b25d2f343c91386abd14a5ceaca68aa3e8d7f6ee2ebd50a16")
                     .pull(true)
                     .privileged(true)
                     .rootless(true)
