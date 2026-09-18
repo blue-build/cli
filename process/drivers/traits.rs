@@ -674,6 +674,7 @@ pub trait OciCopy: PrivateDriver {
 
 #[expect(private_bounds)]
 pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
+    // renovate: datasource=github-releases depName=hhd-dev/rechunk
     const RECHUNK_IMAGE: &str = "ghcr.io/hhd-dev/rechunk:v1.0.1";
 
     /// Perform a rechunk build of a recipe.

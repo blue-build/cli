@@ -79,7 +79,7 @@ impl OciCopy for RpmOstreeRunner {
 }
 
 impl RpmOstreeContainer {
-    const IMAGE_REF: &str = "ghcr.io/blue-build/rpm-ostree-container:latest";
+    const IMAGE_REF: &str = "ghcr.io/blue-build/rpm-ostree-container:latest@sha256:219535fd1e526c5eead25e43103348ca5b2e0677679316a1f04af60c2ea003eb";
 
     fn start() -> Result<Self> {
         let podman_storage_dir = PodmanDriver::get_podman_info("{{.Store.GraphRoot}}")?;
