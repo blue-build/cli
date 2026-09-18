@@ -6,6 +6,7 @@ use blue_build_template::BuildEngine;
 
 mod build_scripts;
 pub mod commands;
+pub mod third_party;
 
 pub use build_scripts::*;
 
