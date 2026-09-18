@@ -81,7 +81,7 @@ clap-verbosity-flag = "=3.0.4"
 clap_complete = "=4.6.9"
 clap_complete_nushell = "=4.6.2"
 fuzzy-matcher = "=0.3.7"
-jsonschema = "=0.30.0"
+jsonschema = "=0.50.1"
 open = "=5.4.1"
 os_info = "=3.15.0"
 requestty = { version = "=0.6.3", features = ["macros", "termion"] }

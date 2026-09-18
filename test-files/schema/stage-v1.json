@@ -1,57 +1,69 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "stage-v1.json",
-  "type": "object",
-  "properties": {
-    "name": {
-      "type": "string",
-      "description": "The name of the stage. This is used when referencing\nthe stage when using the from: property in the [`copy` module](https://blue-build.org/reference/modules/copy/)."
-    },
-    "from": {
-      "type": "string",
-      "description": "The full image ref (image name + tag). This will be set in the FROM statement of the stage."
-    },
-    "shell": {
-      "type": "string",
-      "description": "Allows a user to pass in an array of strings that are passed directly into the [`SHELL` instruction](https://docs.docker.com/reference/dockerfile/#shell)."
-    },
-    "modules": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/ModuleEntry"
-      },
-      "description": "The list of modules to execute. The exact same syntax used by the main recipe `modules:` property."
-    }
-  },
-  "required": [
-    "name",
-    "from",
-    "modules"
-  ],
-  "additionalProperties": false,
-  "$defs": {
-    "ModuleEntry": {
-      "anyOf": [
-        {
-          "$ref": "module-v1.json"
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "stage-v1.json",
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string",
+            "description": "The name of the stage. This is used when referencing\nthe stage when using the from: property in the [`copy` module](https://blue-build.org/reference/modules/copy/)."
         },
-        {
-          "$ref": "#/$defs/ImportedModule"
+        "from": {
+            "type": "string",
+            "description": "The full image ref (image name + tag). This will be set in the FROM statement of the stage."
+        },
+        "platform": {
+            "$ref": "#/$defs/Platform",
+            "description": "Defines the platform to run this stage on"
+        },
+        "shell": {
+            "type": "string",
+            "description": "Allows a user to pass in an array of strings that are passed directly into the [`SHELL` instruction](https://docs.docker.com/reference/dockerfile/#shell)."
+        },
+        "modules": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/ModuleEntry"
+            },
+            "description": "The list of modules to execute. The exact same syntax used by the main recipe `modules:` property."
         }
-      ]
     },
-    "ImportedModule": {
-      "type": "object",
-      "properties": {
-        "from-file": {
-          "type": "string",
-          "description": "The path to another file containing module configuration to import here.\nhttps://blue-build.org/how-to/multiple-files/"
+    "required": [
+        "name",
+        "from",
+        "modules"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+        "Platform": {
+            "type": "string",
+            "enum": [
+                "linux/amd64",
+                "linux/amd64/v2",
+                "linux/arm64",
+                "linux/arm",
+                "linux/arm/v6",
+                "linux/arm/v7",
+                "linux/386",
+                "linux/loong64",
+                "linux/mips",
+                "linux/mipsle",
+                "linux/mips64",
+                "linux/mips64le",
+                "linux/ppc64",
+                "linux/ppc64le",
+                "linux/riscv64",
+                "linux/s390x"
+            ]
+        },
+        "ModuleEntry": {
+            "oneOf": [
+                {
+                    "$ref": "module-v1.json"
+                },
+                {
+                    "$ref": "import-v1.json"
+                }
+            ]
         }
-      },
-      "required": [
-        "from-file"
-      ],
-      "additionalProperties": false
     }
-  }
 }
