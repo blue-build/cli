@@ -123,7 +123,7 @@ impl GenerateCommand {
         };
 
         debug!("Deserializing recipe");
-        let recipe = Recipe::parse(&recipe_path)?;
+        let recipe = Recipe::builder().path(&recipe_path).build()?;
         trace!("recipe_de: {recipe:#?}");
 
         if self.display_full_recipe {

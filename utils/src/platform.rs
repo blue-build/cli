@@ -1,4 +1,5 @@
 use std::{
+    ops::Deref,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -7,6 +8,43 @@ use clap::ValueEnum;
 use miette::bail;
 use oci_client::Reference;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone)]
+pub struct PlatformList(Vec<Platform>);
+
+impl<PL> From<PL> for PlatformList
+where
+    PL: AsRef<[Platform]>,
+{
+    fn from(value: PL) -> Self {
+        let value = value.as_ref();
+        if value.is_empty() {
+            Self(vec![Platform::default()])
+        } else {
+            Self(value.to_vec())
+        }
+    }
+}
+
+impl From<PlatformList> for Vec<Platform> {
+    fn from(value: PlatformList) -> Self {
+        value.0
+    }
+}
+
+impl Deref for PlatformList {
+    type Target = [Platform];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Default for PlatformList {
+    fn default() -> Self {
+        Self(vec![Platform::default()])
+    }
+}
 
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Hash)]
 pub enum Platform {
@@ -91,13 +129,18 @@ impl Platform {
         }
     }
 
+    #[must_use]
+    pub fn tag(&self) -> String {
+        self.to_string().replace('/', "_")
+    }
+
     /// Get a tag friendly version of the platform.
     #[must_use]
     pub fn tagged_image(&self, image: &Reference) -> Reference {
         Reference::with_tag(
             image.registry().to_string(),
             image.repository().to_string(),
-            format!("{}_{self}", image.tag().unwrap_or("latest")).replace('/', "_"),
+            format!("{}_{}", image.tag().unwrap_or("latest"), self.tag()),
         )
     }
 

@@ -1,34 +1,31 @@
 [package]
-name = "blue-build-recipe"
-version.workspace = true
-edition.workspace = true
+name = "blue-build-next-builder"
 description.workspace = true
+edition.workspace = true
 repository.workspace = true
-license.workspace = true
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+categories.workspace = true
+version.workspace = true
+license = "LGPL-2.1"
 
 [dependencies]
+blue-build-process-management = { version = "=0.9.37", path = "../process" }
 blue-build-utils = { version = "=0.9.37", path = "../utils" }
+blue-build-recipe = { version = "=0.9.37", path = "../recipe" }
 
+bon.workspace = true
 cached.workspace = true
-colored.workspace = true
 comlexr.workspace = true
+lazy-regex.workspace = true
 log.workspace = true
 miette.workspace = true
 oci-client.workspace = true
-indexmap.workspace = true
+rayon.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-serde_yaml.workspace = true
-structstruck.workspace = true
-bon.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 rstest.workspace = true
 
 [lints]
 workspace = true
-
-[features]
-recipe-v2 = []

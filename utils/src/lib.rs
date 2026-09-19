@@ -32,7 +32,7 @@ use log::{trace, warn};
 use miette::{Context, IntoDiagnostic, Result, miette};
 use uuid::Uuid;
 
-use crate::constants::CONTAINER_FILE;
+use crate::{constants::CONTAINER_FILE, platform::Platform};
 
 pub use command_output::*;
 
@@ -184,4 +184,25 @@ pub fn tempdir_in<P: AsRef<Path>>(dir: P) -> Result<tempfile::TempDir> {
         .rand_bytes(10) // this is the default for `mktemp`
         .tempdir_in(dir)
         .into_diagnostic()
+}
+
+/// Get the list of platforms given
+/// the platforms in the recipe and an
+/// array of overrides.
+///
+/// # Panics
+/// Panics if no platforms are returned. At least
+/// one platform is always expected.
+#[must_use]
+pub fn platforms(override_platforms: &[Platform], recipe_platforms: &[Platform]) -> Vec<Platform> {
+    let platforms = match (override_platforms, recipe_platforms) {
+        ([], []) => vec![Platform::default()],
+        ([], recipe) => recipe.to_vec(),
+        (cli, _) => cli.to_vec(),
+    };
+    assert!(
+        platforms.is_empty().not(),
+        "At least one platform must be built"
+    );
+    platforms
 }

@@ -1,7 +1,10 @@
 use std::{borrow::Cow, collections::HashMap, ops::Deref};
 
 use blue_build_utils::{
-    constants::BLUE_BUILD_DEFAULT_IMAGE, container::Tag, env_str::EnvString, platform::Platform,
+    constants::BLUE_BUILD_DEFAULT_IMAGE,
+    container::Tag,
+    env_str::EnvString,
+    platform::{Platform, PlatformList},
 };
 use bon::Builder;
 use miette::{Context, IntoDiagnostic};
@@ -227,17 +230,17 @@ impl From<RecipeV1> for RecipeV2 {
                     },
                 });
                 match (value.platforms, has_versions) {
-                    (None, false) => None,
-                    (Some(platforms), false) => Some(RecipeV2Spec {
+                    (platforms, false) if platforms.is_empty() => None,
+                    (platforms, true) if platforms.is_empty() => Some(RecipeV2Spec {
+                        platforms: Vec::new(),
+                        tool_versions,
+                    }),
+                    (platforms, false) => Some(RecipeV2Spec {
                         platforms,
                         tool_versions: None,
                     }),
-                    (Some(platforms), true) => Some(RecipeV2Spec {
+                    (platforms, true) => Some(RecipeV2Spec {
                         platforms,
-                        tool_versions,
-                    }),
-                    (None, true) => Some(RecipeV2Spec {
-                        platforms: Vec::new(),
                         tool_versions,
                     }),
                 }
@@ -287,8 +290,10 @@ impl RecipeGetters for RecipeV2 {
         }
     }
 
-    fn get_platforms(&self) -> &[Platform] {
-        self.spec.as_ref().map_or(&[], |spec| &spec.platforms)
+    fn get_platforms(&self) -> PlatformList {
+        self.spec
+            .as_ref()
+            .map_or_default(|spec| PlatformList::from(&spec.platforms))
     }
 
     fn get_base_image(&self) -> Cow<'_, str> {
@@ -382,6 +387,17 @@ impl RecipeSetters for RecipeV2 {
             ext.stages = stages;
         } else {
             self.stages_ext = Some(StagesExt::builder().stages(stages).build());
+        }
+    }
+
+    fn set_platforms(&mut self, platforms: PlatformList) {
+        if let Some(spec) = &mut self.spec {
+            spec.platforms = platforms.into();
+        } else {
+            self.spec = Some(RecipeV2Spec {
+                platforms: platforms.into(),
+                tool_versions: None,
+            });
         }
     }
 }
