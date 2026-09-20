@@ -169,7 +169,7 @@ jobs:
           echo "digests=$digest_list_json" >> $GITHUB_OUTPUT
 
   provenance:
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    if: ${{ ! inputs.fork_pr }}
     needs: [build-images]
     permissions:
       actions: read # for detecting the Github Actions environment.

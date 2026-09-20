@@ -107,6 +107,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       install_docker: true
       run: test-docker-build
 
@@ -119,6 +120,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       run: test-recipe-v2-build
 
   empty-files-build:
@@ -130,6 +132,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       run: test-empty-files-build
 
   env-expand-build:
@@ -141,6 +144,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       run: test-env-expansion-build
 
   bluefin-build:
@@ -152,6 +156,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       run: test-bluefin-build
 
   chunkah-build:
@@ -163,6 +168,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       run: test-chunkah-build
 
   build-chunked-oci-build:
@@ -174,6 +180,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       run: test-build-chunked-oci-build
 
   rechunk-build:
@@ -185,6 +192,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       run: test-rechunk-build
 
   arm64-build:
@@ -196,6 +204,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       run: test-arm64-build
 
   docker-build-external-login:
@@ -207,6 +216,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       registry_login: true
       install_docker: true
       run: test-docker-build-external-login
@@ -220,6 +230,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       run: test-podman-build
 
   buildah-build:
@@ -231,6 +242,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       run: test-buildah-build
 
   multi-platform-docker:
@@ -242,6 +254,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       install_docker: true
       install_qemu: true
       run: test-multiplatform-docker
@@ -255,6 +268,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       install_qemu: true
       run: test-multiplatform-podman
 
@@ -267,6 +281,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       install_qemu: true
       run: test-multiplatform-buildah
 
@@ -279,6 +294,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       install_qemu: true
       run: test-multiplatform-chunkah
 
@@ -291,6 +307,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       install_qemu: true
       run: test-multiplatform-build-chunked-oci
 
@@ -303,6 +320,7 @@ jobs:
       ref: ${{ inputs.ref }}
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
       install_qemu: true
       run: test-multiplatform-rechunk
 
