@@ -296,7 +296,7 @@ digest:
     SAVE ARTIFACT /base-image-digest
 
 version:
-    FROM docker.io/library/rust:latest@sha256:271849e998ffce5776454bbf98c5dc21baafc854ff8e566197908d3aca9a81e8
+    FROM docker.io/library/rust:latest@sha256:a8a5f0a1e5fe7dfe1d352591e4a1c7dd2c08fd70475cae872cf3458ba0df0546
 
     RUN apt-get update && apt-get install -y jq
 
