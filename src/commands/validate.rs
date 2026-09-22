@@ -24,7 +24,7 @@ use serde_json::Value;
 
 use super::BlueBuildCommand;
 
-mod location;
+mod evaluation;
 mod schema_validator;
 mod yaml_span;
 
@@ -41,6 +41,7 @@ pub struct ValidateCommand {
     /// validation of the recipe.
     #[arg(short, long)]
     #[builder(default)]
+    #[cfg(not(feature = "v1_0_0"))]
     pub all_errors: bool,
 
     #[clap(skip)]
@@ -64,6 +65,11 @@ impl BlueBuildCommand for ValidateCommand {
             bail!("File {recipe_path_display} must exist");
         }
 
+        #[cfg(not(feature = "v1_0_0"))]
+        if self.all_errors {
+            log::warn!("--all-errors is deprecated and no longer does anything");
+        }
+
         ASYNC_RUNTIME
             .block_on(self.setup_validators())
             .wrap_err("Failed to setup validators")?;
@@ -78,6 +84,7 @@ impl BlueBuildCommand for ValidateCommand {
             )?;
             let main_err = format!("Recipe {recipe_path_display} failed to validate");
 
+            #[cfg(not(feature = "v1_0_0"))]
             if self.all_errors {
                 return Err(miette!("{errors}").context(main_err));
             }
@@ -104,21 +111,11 @@ impl BlueBuildCommand for ValidateCommand {
 impl ValidateCommand {
     async fn setup_validators(&mut self) -> Result<(), Report> {
         let (rv, sv, mv, mslv) = tokio::try_join!(
-            SchemaValidator::builder()
-                .url(RECIPE_V1_SCHEMA_URL)
-                .all_errors(self.all_errors)
-                .build(),
-            SchemaValidator::builder()
-                .url(STAGE_V1_SCHEMA_URL)
-                .all_errors(self.all_errors)
-                .build(),
-            SchemaValidator::builder()
-                .url(MODULE_V1_SCHEMA_URL)
-                .all_errors(self.all_errors)
-                .build(),
+            SchemaValidator::builder().url(RECIPE_V1_SCHEMA_URL).build(),
+            SchemaValidator::builder().url(STAGE_V1_SCHEMA_URL).build(),
+            SchemaValidator::builder().url(MODULE_V1_SCHEMA_URL).build(),
             SchemaValidator::builder()
                 .url(MODULE_STAGE_LIST_V1_SCHEMA_URL)
-                .all_errors(self.all_errors)
                 .build(),
         )?;
         self.recipe_validator = Some(rv);

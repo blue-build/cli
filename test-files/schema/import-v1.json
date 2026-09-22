@@ -1,15 +1,15 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "import-v1.json",
-  "type": "object",
-  "properties": {
-    "from-file": {
-      "type": "string",
-      "description": "The path to another file containing module configuration to import here.\nhttps://blue-build.org/how-to/multiple-files/"
-    }
-  },
-  "required": [
-    "from-file"
-  ],
-  "additionalProperties": false
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "import-v1.json",
+    "type": "object",
+    "properties": {
+        "from-file": {
+            "type": "string",
+            "description": "The path to another file containing module configuration to import here.\nhttps://blue-build.org/how-to/multiple-files/"
+        }
+    },
+    "required": [
+        "from-file"
+    ],
+    "additionalProperties": false
 }

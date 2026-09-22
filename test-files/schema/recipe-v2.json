@@ -1,0 +1,218 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "recipe-v2.json",
+    "type": "object",
+    "properties": {
+        "version": {
+            "type": "number",
+            "const": 2,
+            "description": "The version of the recipe file schema."
+        },
+        "base": {
+            "$ref": "#/$defs/RecipeV2BaseImage",
+            "description": "Options for the base image like the image and public key."
+        },
+        "metadata": {
+            "$ref": "#/$defs/RecipeV2Metadata",
+            "description": "Metadata for the image like the name, description, and labels."
+        },
+        "spec": {
+            "$ref": "#/$defs/RecipeV2Spec",
+            "description": "Specifications for the image that modifies how it is built and published."
+        },
+        "stages": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/StageEntry"
+            },
+            "description": "A list of [stages](https://blue-build.org/reference/stages/) that are executed before the build of the final image.\nThis is useful for compiling programs from source without polluting the final bootable image."
+        },
+        "modules": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/ModuleEntry"
+            },
+            "description": "A list of [modules](https://blue-build.org/reference/module/) that is executed in order. Multiple of the same module can be included.\n\nEach item in this list needs have at least a `type:` except if the configuration is included from an external file in the `recipes/` directory with [`from-file:`](https://blue-build.org/how-to/multiple-files/).\n\nExample:\n\n```yaml\nmodules:\n - from-file: common-packages.yml # an external module configuration file for installing commong packages\n - type: signing # a module that doesn't require any configuration\n```"
+        }
+    },
+    "required": [
+        "version",
+        "base",
+        "metadata",
+        "modules"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+        "RecipeV2BaseImage": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "$ref": "#/$defs/RecipeV2BaseImageRef",
+                    "description": "The base image ref."
+                },
+                "public-key": {
+                    "type": "string",
+                    "description": "The public key used to verify the base image signature.\nThis will validate the image before building with it.\n\nURLs are supported. Paths are relative to the root of the project."
+                }
+            },
+            "required": [
+                "image"
+            ],
+            "additionalProperties": false
+        },
+        "RecipeV2Metadata": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "The image name. Used when publishing to GHCR as `ghcr.io/user/name`."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "The image description. Published to GHCR in the image metadata."
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Allows setting custom tags on the recipe’s final image.\nAdding tags to this property will override the `latest` and timestamp tags."
+                },
+                "labels": {
+                    "$ref": "#/$defs/RecordString",
+                    "description": "A collection of custom labels that will be applied to the image.\n\nEach item should be a `key: value` pair representing a label name mapping to label value."
+                }
+            },
+            "required": [
+                "name"
+            ],
+            "additionalProperties": false
+        },
+        "RecipeV2Spec": {
+            "type": "object",
+            "properties": {
+                "platforms": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/Platform"
+                    },
+                    "description": "Specify a list of the platforms to build for your image.\nThe resulting images will be added to a manifest list that allows your host’s container runtime to pull the correct image architecture for your hardware. The process of building a multi-architecture image will end up using emulation. Consequently, image builds will take significantly longer and more space will be required on the build host since each platform that is being built is its own image. If `platforms:` is not specified, the build host’s architecture will be used."
+                },
+                "tool-versions": {
+                    "$ref": "#/$defs/RecipeV2SpecToolVersions",
+                    "description": "Extra tooling version overrides."
+                }
+            },
+            "additionalProperties": false
+        },
+        "StageEntry": {
+            "oneOf": [
+                {
+                    "$ref": "stage-v1.json"
+                },
+                {
+                    "$ref": "import-v1.json"
+                }
+            ]
+        },
+        "ModuleEntry": {
+            "oneOf": [
+                {
+                    "$ref": "module-v1.json"
+                },
+                {
+                    "$ref": "import-v1.json"
+                }
+            ]
+        },
+        "RecipeV2BaseImageRef": {
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "$ref": "#/$defs/ImageRef"
+                }
+            ]
+        },
+        "RecordString": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "Platform": {
+            "type": "string",
+            "enum": [
+                "linux/amd64",
+                "linux/amd64/v2",
+                "linux/arm64",
+                "linux/arm",
+                "linux/arm/v6",
+                "linux/arm/v7",
+                "linux/386",
+                "linux/loong64",
+                "linux/mips",
+                "linux/mipsle",
+                "linux/mips64",
+                "linux/mips64le",
+                "linux/ppc64",
+                "linux/ppc64le",
+                "linux/riscv64",
+                "linux/s390x"
+            ]
+        },
+        "RecipeV2SpecToolVersions": {
+            "type": "object",
+            "properties": {
+                "bluebuild": {
+                    "type": "string",
+                    "description": "The tag to pull for the BlueBuild cli. This is mostly used for\ntrying out specific versions of the cli without compiling it locally.\nSupply the tag of the cli release container to pull, see [the list of available tags](https://github.com/blue-build/cli/pkgs/container/cli) for reference.\nDefault: `latest-installer`. Set to to `none` to opt out of installing the CLI into your image."
+                },
+                "cosign": {
+                    "type": "string",
+                    "description": "The version of cosign that will be included in the image.\nThis will override the default version set by the CLI.\nSetting to `none` will prevent installing cosign altogether."
+                },
+                "nushell": {
+                    "type": "string",
+                    "description": "The version of nushell to include at `/usr/libexec/bluebuild/nu/nu` for use by modules in the image.\nThis will override the default BlueBuild Nushell version.\nChange only if you need a specific version of Nushell, changing this might break some BlueBuild modules."
+                }
+            },
+            "additionalProperties": false
+        },
+        "ImageRef": {
+            "type": "object",
+            "properties": {
+                "registry": {
+                    "type": "string",
+                    "description": "The registry hostname.\n\ni.e. `registry.example.com`"
+                },
+                "repository": {
+                    "type": "string",
+                    "description": "The image repository path in the registry.\n\ni.e. `path/to/image`"
+                },
+                "tag": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "integer"
+                        }
+                    ],
+                    "description": "The tag of the image. This is overriden by `digest`.\nDefaults to `latest` if left blank.\n\ni.e. `gts`"
+                },
+                "digest": {
+                    "type": "string",
+                    "description": "The specific digest of the image to pull.\nOverrides the `tag`.\n\ni.e. `sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff`"
+                }
+            },
+            "required": [
+                "registry",
+                "repository"
+            ],
+            "additionalProperties": false
+        }
+    }
+}

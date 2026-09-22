@@ -1,7 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use colored::Colorize;
-use miette::{Diagnostic, LabeledSpan, NamedSource};
+use miette::{Diagnostic, LabeledSpan, NamedSource, Report};
 use thiserror::Error;
 
 use crate::commands::validate::yaml_span::YamlSpanError;
@@ -26,6 +26,12 @@ pub enum SchemaValidateBuilderError {
     #[error("Failed to process schema from URL {}:\n{}", .0, .1)]
     #[diagnostic()]
     JsonSchemaBuild(String, Box<jsonschema::ValidationError<'static>>),
+}
+
+impl SchemaValidateBuilderError {
+    pub fn into_report(self) -> Report {
+        self.into()
+    }
 }
 
 #[derive(Error, Diagnostic, Debug)]
@@ -54,4 +60,10 @@ pub enum SchemaValidateError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     YamlSpan(#[from] YamlSpanError),
+}
+
+impl SchemaValidateError {
+    pub fn into_report(self) -> Report {
+        self.into()
+    }
 }
