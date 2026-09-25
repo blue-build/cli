@@ -116,7 +116,7 @@ pub const COSIGN_IMAGE_REF: &str = "ghcr.io/sigstore/cosign/cosign";
 // renovate: datasource=github-releases depName=sigstore/cosign
 pub const COSIGN_IMAGE_VERSION: &str = "3.1.3";
 // renovate: datasource=github-releases depName=JasonN3/build-container-installer
-pub const JASONN3_INSTALLER_IMAGE: &str = "ghcr.io/jasonn3/build-container-installer:v1.4.0";
+pub const JASONN3_INSTALLER_IMAGE: &str = "ghcr.io/jasonn3/build-container-installer:v1.5.0";
 pub const NUSHELL_IMAGE: &str = "ghcr.io/blue-build/nushell-image";
 pub const OCI_ARCHIVE: &str = "oci-archive";
 pub const OSTREE_IMAGE_SIGNED: &str = "ostree-image-signed";
