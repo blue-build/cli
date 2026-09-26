@@ -472,6 +472,7 @@ dependencies = [
 name = "blue-build"
 version = "0.9.37"
 dependencies = [
+ "blue-build-next-builder",
  "blue-build-process-management",
  "blue-build-recipe",
  "blue-build-template",
@@ -510,6 +511,28 @@ dependencies = [
  "urlencoding",
  "yaml-rust2",
  "yaml_serde",
+]
+
+[[package]]
+name = "blue-build-next-builder"
+version = "0.9.37"
+dependencies = [
+ "blue-build-process-management",
+ "blue-build-recipe",
+ "blue-build-utils",
+ "bon",
+ "cached 2.0.2",
+ "comlexr",
+ "lazy-regex",
+ "log",
+ "miette",
+ "oci-client 0.17.0",
+ "rayon",
+ "rstest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -556,12 +579,14 @@ dependencies = [
  "bon",
  "cached 2.0.2",
  "colored",
+ "comlexr",
  "indexmap 2.14.0",
  "log",
  "miette",
  "oci-client 0.17.0",
  "rstest",
  "serde",
+ "serde_json",
  "structstruck",
  "yaml_serde",
 ]
