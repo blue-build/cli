@@ -167,7 +167,9 @@ should_not_sign := if env('COSIGN_PRIVATE_KEY', '') == '' {
   ''
 }
 
-project_path := `git remote get-url origin | sed -E 's|^[^:/]+://[^/]*/||; s|^.*:||; s/\.git$//'`
+project_path := `git remote get-url origin \
+                  | sed -E 's|^[^:/]+://[^/]*/||; s|^.*:||; s/\.git$//' \
+                  | tr '[:upper:]' '[:lower:]'`
 
 cargo_bin := if env('CARGO_HOME', '') != '' {
   x"${CARGO_HOME:-}/bin/bluebuild"
