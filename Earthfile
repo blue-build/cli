@@ -113,7 +113,7 @@ install-all-features:
     END
 
 common:
-    FROM --platform=native ghcr.io/blue-build/earthly-lib/cargo-builder:latest@sha256:165bfd1ef0a0003e43f742f9677eb9e66b47428fde5cf91e0f1462982fc3f015
+    FROM --platform=native ghcr.io/blue-build/earthly-lib/cargo-builder:latest@sha256:a200a25887553774da6cb3f42420f109e200e94111dca6a8ee76ed8ff809e9c7
 
     ENV RUSTUP_PERMIT_COPY_RENAME="true"
     RUN rustup self update && \
