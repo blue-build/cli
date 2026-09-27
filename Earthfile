@@ -5,10 +5,11 @@ IMPORT github.com/blue-build/earthly-lib/rust AS rust
 FROM docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 ARG --global SUFFIX_LIST="- distrobox installer"
 ARG --global EARTH_GIT_PROJECT_NAME
+ARG --global LOWER_GIT_PROJECT_NAME="$(echo "$EARTH_GIT_PROJECT_NAME" | tr '[:upper:]' '[:lower:]')"
 ARG --global EARTH_GIT_HASH
 ARG --global EARTH_GIT_BRANCH
 ARG --global FEDORA_VERSION="44"
-ARG --global IMAGE="ghcr.io/${EARTH_GIT_PROJECT_NAME}"
+ARG --global IMAGE="ghcr.io/$LOWER_GIT_PROJECT_NAME"
 ARG --global TAGGED="false"
 ARG --global LATEST="false"
 
@@ -279,7 +280,7 @@ installer:
 modify-installer:
     FROM --platform native alpine
     COPY install.sh /install.sh
-    RUN sed -i "s|^PROJECT=\"blue-build/cli\"|PROJECT=\"${EARTH_GIT_PROJECT_NAME}\"|" /install.sh
+    RUN sed -i "s|^PROJECT=\"blue-build/cli\"|PROJECT=\"${LOWER_GIT_PROJECT_NAME}\"|" /install.sh
     SAVE ARTIFACT /install.sh
 
 cosign:
@@ -425,7 +426,7 @@ LABELS:
     LABEL org.opencontainers.image.licenses="Apache-2.0"
     LABEL license="Apache-2.0"
     LABEL org.opencontainers.image.title="BlueBuild CLI tool"
-    LABEL name="${EARTH_GIT_PROJECT_NAME}"
+    LABEL name="${LOWER_GIT_PROJECT_NAME}"
     LABEL org.opencontainers.image.description="A CLI tool built for creating Containerfile templates for ostree based atomic distros"
     LABEL org.opencontainers.image.documentation="https://raw.githubusercontent.com/${EARTH_GIT_PROJECT_NAME}/main/README.md"
 
