@@ -78,7 +78,7 @@ blue-build-template = { version = "=0.9.37", path = "./template" }
 blue-build-utils = { version = "=0.9.37", path = "./utils" }
 blue-build-process-management = { version = "=0.9.37", path = "./process" }
 clap-verbosity-flag = "=3.0.4"
-clap_complete = "=4.6.9"
+clap_complete = "=4.6.11"
 clap_complete_nushell = "=4.6.2"
 fuzzy-matcher = "=0.3.7"
 jsonschema = "=0.30.0"
