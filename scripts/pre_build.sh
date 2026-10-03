@@ -17,5 +17,14 @@ if [ -d /opt ] || [ -h /opt ]; then
     rm -fr /opt
 fi
 
+# Set fixed modification times for preinstalled binaries for layer reproducibility
+for file in /usr/bin/bluebuild /usr/bin/cosign /usr/libexec/bluebuild/nu; do
+    if [ -d "${file}" ]; then
+        find "${file}" -xdev -exec touch -cm -d '1970-01-01T00:00:00Z' '{}' +
+    else
+        touch -cm -d '1970-01-01T00:00:00Z' "${file}"
+    fi
+done
+
 echo "Linking /opt => ${optfix_dir}"
 ln -fs "${optfix_dir}" /opt
