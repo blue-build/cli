@@ -259,6 +259,8 @@ impl BlueBuildCommand for BuildCommand {
                         .path()
                         .join(blue_build_utils::generate_containerfile_path(recipe)?),
                 )
+                .maybe_registry(self.credentials.registry.as_ref())
+                .maybe_registry_namespace(self.registry_namespace.as_ref())
                 .skip_validation(self.skip_validation)
                 .maybe_platform(self.platform.first().copied())
                 .recipe(recipe)
