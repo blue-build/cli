@@ -1,6 +1,7 @@
 name: Earth tag +build
 
-permissions: {}
+permissions:
+  contents: read
 
 on:
   push:
@@ -99,7 +100,10 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - uses: dtolnay/rust-toolchain@5d458579430fc14a04a08a1e7d3694f545e91ce6 # stable
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2
+        with:
+          cache: false
+
       - uses: EarthBuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
         with:
           use-cache: false
@@ -148,7 +152,7 @@ jobs:
     strategy:
       matrix:
         include: ${{ fromJson(needs.build-images.outputs.digests) }}
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
     with:
       image: ${{ matrix.image_ref }}
       digest: ${{ matrix.image_digest }}
