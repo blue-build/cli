@@ -123,7 +123,7 @@ impl SigningDriver for CosignDriver {
             debug!("Cosign files match, continuing build");
             Ok(())
         } else {
-            bail!("Public key '{COSIGN_PUB_PATH}' does not match private key")
+            bail!("Public key '{COSIGN_PUB_PATH}' does not match private key");
         }
     }
 

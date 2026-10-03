@@ -590,7 +590,9 @@ macro_rules! impl_boot_driver {
             #[cfg(feature = "bootc")]
             BootDriverType::Bootc => BootcDriver::$func($($args,)*),
             BootDriverType::RpmOstree => RpmOstreeDriver::$func($($args,)*),
-            BootDriverType::None => ::miette::bail!("Cannot perform boot operation when no boot driver exists."),
+            BootDriverType::None => {
+                ::miette::bail!("Cannot perform boot operation when no boot driver exists.");
+            },
         }
     };
 }

@@ -62,7 +62,9 @@ impl<'a> TryFrom<&'a DeploymentImageRef> for ImageRef<'a> {
             | DeploymentImageRef::ImageSigned(ImageTransport::OciArchive { path, reference: _ }) => {
                 Self::LocalTar(std::borrow::Cow::Borrowed(path))
             }
-            _ => bail!("Failed to convert {value} into an image ref"),
+            _ => {
+                bail!("Failed to convert {value} into an image ref");
+            }
         })
     }
 }
@@ -295,7 +297,9 @@ impl FromStr for RefIndex {
         Ok(match (Reference::try_from(s), s.parse::<usize>()) {
             (_, Ok(index)) => Self::Index(index),
             (Ok(reference), _) => Self::Reference(reference),
-            _ => bail!("Failed to parse '{s}' into a reference or index"),
+            _ => {
+                bail!("Failed to parse '{s}' into a reference or index");
+            }
         })
     }
 }
@@ -348,7 +352,9 @@ impl FromStr for DockerDaemon {
                     digest: digest.into(),
                 },
                 (_, Ok(reference)) => Self::Reference(reference),
-                _ => bail!("Failed to parse '{s}' as a docker daemon reference"),
+                _ => {
+                    bail!("Failed to parse '{s}' as a docker daemon reference");
+                }
             },
         )
     }
@@ -369,7 +375,9 @@ impl FromStr for DigestAlgorithm {
             "sha256" => Self::Sha256,
             "sha384" => Self::Sha384,
             "sha512" => Self::Sha512,
-            _ => bail!("Failed to parse '{s}' as a digest algorithm"),
+            _ => {
+                bail!("Failed to parse '{s}' as a digest algorithm");
+            }
         })
     }
 }

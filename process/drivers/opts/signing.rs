@@ -67,7 +67,7 @@ impl PrivateKey {
                         ),
                         "{}",
                         "Unable to find private/public key pair",
-                    )
+                    );
                 }
             },
         )

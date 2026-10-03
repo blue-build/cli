@@ -105,7 +105,7 @@ impl SigningDriver for SigstoreDriver {
             debug!("Public and private key matches");
             Ok(())
         } else {
-            bail!("Private and public keys do not match.")
+            bail!("Private and public keys do not match.");
         }
     }
 

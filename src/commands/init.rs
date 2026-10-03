@@ -63,7 +63,9 @@ impl TryFrom<&str> for CiProvider {
             "Gitlab" => Self::Gitlab,
             "Github" => Self::Github,
             "None" => Self::None,
-            _ => bail!("Unable to parse for CiProvider"),
+            _ => {
+                bail!("Unable to parse for CiProvider");
+            }
         })
     }
 }

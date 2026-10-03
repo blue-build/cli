@@ -16,11 +16,11 @@ impl CiDriver for LocalDriver {
     }
 
     fn keyless_cert_identity() -> Result<String> {
-        bail!("Unimplemented for local")
+        bail!("Unimplemented for local");
     }
 
     fn oidc_provider() -> miette::Result<String> {
-        bail!("Unimplemented for local")
+        bail!("Unimplemented for local");
     }
 
     fn generate_tags(opts: GenerateTagsOpts) -> Result<Vec<Tag>> {

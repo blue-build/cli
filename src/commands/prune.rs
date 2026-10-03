@@ -63,7 +63,9 @@ impl BlueBuildCommand for PruneCommand {
                     .default(false)
                     .build(),
             ) {
-                Err(e) => bail!("Canceled {e:?}"),
+                Err(e) => {
+                    bail!("Canceled {e:?}");
+                }
                 Ok(answer) => {
                     if answer.as_bool().is_some_and(|a| !a) {
                         return Ok(());

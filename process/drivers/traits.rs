@@ -1037,7 +1037,9 @@ pub trait SigningDriver: PrivateDriver {
                         .verify_type(VerifyType::Keyless { issuer, identity })
                         .build(),
                 ),
-                _ => bail!("Failed to get information for signing the image"),
+                _ => {
+                    bail!("Failed to get information for signing the image");
+                }
             };
 
         let retry_count = if opts.retry_push { opts.retry_count } else { 0 };

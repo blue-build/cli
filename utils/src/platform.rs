@@ -189,7 +189,9 @@ impl FromStr for Platform {
             "linux/ppc64le" => Self::LinuxPpc64le,
             "linux/riscv64" => Self::LinuxRiscv64,
             "linux/s390x" => Self::LinuxS390x,
-            platform => bail!("Platform {platform} unsupported"),
+            platform => {
+                bail!("Platform {platform} unsupported");
+            }
         })
     }
 }

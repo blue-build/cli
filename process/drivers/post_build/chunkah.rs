@@ -156,7 +156,9 @@ impl PostBuildRunner for ChunkahRunner {
         let dest_ref = match opts.output_image.clone() {
             ImageRef::Remote(image_ref) => OciRef::LocalStorage(image_ref.into_owned()),
             ImageRef::LocalTar(path) => OciRef::OciArchive(path.into_owned()),
-            ImageRef::Other(other) => bail!("Unknown image ref type: {other}"),
+            ImageRef::Other(other) => {
+                bail!("Unknown image ref type: {other}");
+            }
         };
 
         Driver.copy_oci(

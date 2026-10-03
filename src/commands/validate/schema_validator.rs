@@ -338,7 +338,9 @@ async fn cache_retrieve(uri: &Uri<String>) -> miette::Result<Value> {
                 format!("{SCHEMA_BASE_URL}{path}")
             }
             "https" => uri.to_string(),
-            scheme => miette::bail!("Unknown scheme {scheme}"),
+            scheme => {
+                miette::bail!("Unknown scheme {scheme}");
+            }
         };
         let client = reqwest::Client::new();
 
