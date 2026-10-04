@@ -250,7 +250,7 @@ impl GenerateIsoCommand {
                 recipe,
                 skip_validation: _,
             } => {
-                let recipe = Recipe::parse(recipe)?;
+                let recipe = Recipe::builder().path(recipe).build()?;
 
                 args.extend([
                     format!(
