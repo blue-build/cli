@@ -286,7 +286,6 @@ macro_rules! cmd_out {
             {
                 let mut _c = ::comlexr::cmd!($($cmd)*);
                 ::log::trace!("{_c:#?}");
-                dbg!(&_c);
                 _c.stderr(::std::process::Stdio::inherit());
                 _c
             }

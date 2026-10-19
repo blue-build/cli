@@ -8,7 +8,7 @@
 //!
 #![doc = include_str!("../LGPL_2.1.txt")]
 
-mod build_scripts;
+pub mod build_scripts;
 pub mod layer;
 pub mod path;
 pub mod reference;

@@ -13,9 +13,9 @@ use oci_client::Reference;
 
 use crate::{
     drivers::{
-        BuildDriver, BuildDriverType, Driver, ImageStorageDriver, OciCopy, PodmanDriver, PostBuild,
-        PostBuildRunner,
+        BuildDriver, Driver, ImageStorageDriver, OciCopy, PodmanDriver, PostBuild, PostBuildRunner,
         opts::{CopyOciOpts, InspectImageOpts, PostBuildOpts, PullOpts},
+        types::BuildDriverType,
     },
     logging::CommandLogging,
     signal_handler::{ContainerRuntime, ContainerSignalId, add_cid, remove_cid},

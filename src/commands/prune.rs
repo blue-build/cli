@@ -1,10 +1,13 @@
-use blue_build_process_management::drivers::{BuildDriver, Driver, DriverArgs, opts::PruneOpts};
+use blue_build_process_management::drivers::{Driver, opts::PruneOpts};
 use bon::Builder;
 use clap::Args;
 use colored::Colorize;
 use miette::bail;
 
 use super::BlueBuildCommand;
+
+#[cfg(not(feature = "next-builder"))]
+use blue_build_process_management::drivers::{BuildDriver, DriverArgs};
 
 #[derive(Debug, Args, Builder)]
 pub struct PruneCommand {
@@ -23,6 +26,7 @@ pub struct PruneCommand {
     #[arg(long)]
     volumes: bool,
 
+    #[cfg(not(feature = "next-builder"))]
     #[clap(flatten)]
     #[builder(default)]
     drivers: DriverArgs,
@@ -30,7 +34,11 @@ pub struct PruneCommand {
 
 impl BlueBuildCommand for PruneCommand {
     fn try_run(&mut self) -> miette::Result<()> {
+        #[cfg(not(feature = "next-builder"))]
         Driver::init(self.drivers);
+
+        #[cfg(feature = "next-builder")]
+        Driver::init();
 
         if !self.force {
             eprintln!(

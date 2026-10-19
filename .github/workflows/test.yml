@@ -98,6 +98,19 @@ jobs:
           earth bootstrap
           earth --ci -P ./integration-tests+all
 
+  next-gen-build:
+    uses: ./.github/workflows/run-test.yml
+    secrets:
+      TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
+    with:
+      repo: ${{ inputs.repo }}
+      ref: ${{ inputs.ref }}
+      fork_pr: ${{ inputs.fork_pr }}
+      pr_event_number: ${{ inputs.pr_event_number }}
+      install_cosign: ${{ ! inputs.fork_pr }}
+      install_docker: true
+      run: test-next-gen-build
+
   docker-build:
     uses: ./.github/workflows/run-test.yml
     secrets:
