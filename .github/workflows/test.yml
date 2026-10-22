@@ -23,8 +23,6 @@ env:
 
 permissions:
   contents: read # read repo contents
-  packages: write # write test package to ghcr
-  id-token: write # docker auth
 
 jobs:
   test:
@@ -99,7 +97,10 @@ jobs:
           earth --ci -P ./integration-tests+all
 
   docker-build:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -112,7 +113,10 @@ jobs:
       run: test-docker-build
 
   recipe-v2:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -124,7 +128,10 @@ jobs:
       run: test-recipe-v2-build
 
   empty-files-build:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -136,7 +143,10 @@ jobs:
       run: test-empty-files-build
 
   env-expand-build:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -148,7 +158,10 @@ jobs:
       run: test-env-expansion-build
 
   bluefin-build:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -160,7 +173,10 @@ jobs:
       run: test-bluefin-build
 
   chunkah-build:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -172,7 +188,10 @@ jobs:
       run: test-chunkah-build
 
   build-chunked-oci-build:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -184,7 +203,10 @@ jobs:
       run: test-build-chunked-oci-build
 
   rechunk-build:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -196,7 +218,10 @@ jobs:
       run: test-rechunk-build
 
   arm64-build:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -208,7 +233,10 @@ jobs:
       run: test-arm64-build
 
   docker-build-external-login:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -222,7 +250,10 @@ jobs:
       run: test-docker-build-external-login
 
   podman-build:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -234,7 +265,10 @@ jobs:
       run: test-podman-build
 
   buildah-build:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -246,7 +280,10 @@ jobs:
       run: test-buildah-build
 
   multi-platform-docker:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -260,7 +297,10 @@ jobs:
       run: test-multiplatform-docker
 
   multi-platform-podman:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -273,7 +313,10 @@ jobs:
       run: test-multiplatform-podman
 
   multi-platform-buildah:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -286,7 +329,10 @@ jobs:
       run: test-multiplatform-buildah
 
   multi-platform-chunkah:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -299,7 +345,10 @@ jobs:
       run: test-multiplatform-chunkah
 
   multi-platform-build-chunked-oci:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -312,7 +361,10 @@ jobs:
       run: test-multiplatform-build-chunked-oci
 
   multi-platform-rechunk:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -325,7 +377,10 @@ jobs:
       run: test-multiplatform-rechunk
 
   iso-from-image:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -336,7 +391,10 @@ jobs:
       run: test-generate-iso-image
 
   iso-from-image-web-ui:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -347,7 +405,10 @@ jobs:
       run: test-generate-iso-web-ui
 
   iso-from-recipe:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -358,7 +419,10 @@ jobs:
       run: test-generate-iso-image
 
   container-podman-build:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -370,7 +434,10 @@ jobs:
       run: test-container-podman-build
 
   container-podman-chunkah:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -382,7 +449,10 @@ jobs:
       run: test-container-podman-chunkah
 
   container-podman-build-chunked-oci:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:
@@ -394,7 +464,10 @@ jobs:
       run: test-container-podman-build-chunked-oci
 
   container-podman-rechunk:
-    uses: ./.github/workflows/run-test.yml
+    uses: $/.github/workflows/run-test.yml
+    permissions:
+      contents: read
+      packages: write
     secrets:
       TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
     with:

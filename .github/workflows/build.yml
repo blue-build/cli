@@ -27,6 +27,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     permissions:
       packages: write # write pacakges to ghcr
+      contents: read
 
     steps:
       - uses: EarthBuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
@@ -36,6 +37,8 @@ jobs:
 
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
         if: ${{ ! inputs.fork_pr }}
+        with:
+          just-version: 1.58.0
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: ${{ ! inputs.fork_pr }}
@@ -65,6 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       packages: write # write pacakges to ghcr
+      contents: read
 
     steps:
       - uses: EarthBuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
@@ -74,6 +78,8 @@ jobs:
 
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
         if: ${{ ! inputs.fork_pr }}
+        with:
+          just-version: 1.58.0
 
       # Setup repo and add caching
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -103,6 +109,7 @@ jobs:
   build-images:
     permissions:
       packages: write # push images to ghcr
+      contents: read
     timeout-minutes: 60
     runs-on: ubuntu-latest
     outputs:
@@ -125,6 +132,8 @@ jobs:
         uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
 
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          just-version: 1.58.0
 
       # Setup repo and add caching
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -178,7 +187,7 @@ jobs:
     strategy:
       matrix:
         include: ${{ fromJson(needs.build-images.outputs.digests) }}
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
     with:
       image: ${{ matrix.image_ref }}
       digest: ${{ matrix.image_digest }}
