@@ -285,7 +285,7 @@ modify-installer:
 
 cosign:
     # renovate: datasource=github-releases depName=sigstore/cosign
-    FROM ghcr.io/sigstore/cosign/cosign:v3.1.3
+    FROM ghcr.io/sigstore/cosign/cosign:v3.1.4
     SAVE ARTIFACT /ko-app/cosign
 
 digest:
