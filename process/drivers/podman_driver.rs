@@ -3,42 +3,53 @@ use std::{
     ops::Not,
     path::Path,
     process::{Command, ExitStatus, Stdio},
-    time::Duration,
 };
 
 use blue_build_utils::{
-    constants::USER,
-    container::{ContainerId, ImageRef, MountId},
-    credentials::Credentials,
-    get_env_var,
-    platform::Platform,
-    secret::SecretArgs,
-    semver::Version,
-    string_vec, sudo_cmd, tempdir,
+    constants::USER, container::ContainerId, credentials::Credentials, get_env_var,
+    semver::Version, sudo_cmd, tempdir,
 };
 use colored::Colorize;
 use comlexr::{cmd, pipe};
-use log::{debug, error, info, trace, warn};
-use miette::{Context, IntoDiagnostic, Result, bail};
+use log::{debug, error, trace};
+use miette::{IntoDiagnostic, Result, bail};
 use oci_client::Reference;
-use rayon::prelude::*;
 use serde::Deserialize;
 
 use super::{
-    BuildChunkedOciDriver, BuildDriver, ContainerMountDriver, DriverVersion, ImageStorageDriver,
-    PostBuildDriver, RechunkDriver, RunDriver,
-    opts::{
-        BuildOpts, BuildTagPushOpts, ContainerOpts, CreateContainerOpts, InspectImageOpts,
-        ManifestCreateOpts, ManifestPushOpts, PostBuildDriverOpts, PostBuildOpts, PruneOpts,
-        PullOpts, PushOpts, RemoveContainerOpts, RemoveImageOpts, RunOpts, RunOptsEnv,
-        RunOptsVolume, TagOpts, UntagOpts, VolumeOpts,
-    },
-    rpm_ostree_runner::RpmOstreeRunner,
+    DriverVersion, ImageStorageDriver, RunDriver,
+    opts::{CreateContainerOpts, RemoveContainerOpts, RunOpts, RunOptsEnv, RunOptsVolume},
 };
 use crate::{
+    drivers::opts::{InspectImageOpts, PruneOpts, RemoveImageOpts},
     logging::CommandLogging,
     signal_handler::{ContainerRuntime, ContainerSignalId, DetachedContainer, add_cid, remove_cid},
 };
+
+#[cfg(not(feature = "next-builder"))]
+use crate::drivers::{
+    BuildChunkedOciDriver, BuildDriver, ContainerMountDriver, PostBuildDriver, RechunkDriver,
+    opts::{
+        BuildOpts, BuildTagPushOpts, ContainerOpts, ManifestCreateOpts, ManifestPushOpts,
+        PostBuildDriverOpts, PostBuildOpts, PullOpts, PushOpts, TagOpts, UntagOpts, VolumeOpts,
+    },
+    rpm_ostree_runner::RpmOstreeRunner,
+};
+#[cfg(not(feature = "next-builder"))]
+use blue_build_utils::{
+    container::{ImageRef, MountId},
+    platform::Platform,
+    secret::SecretArgs,
+    string_vec,
+};
+#[cfg(not(feature = "next-builder"))]
+use log::{info, warn};
+#[cfg(not(feature = "next-builder"))]
+use miette::WrapErr;
+#[cfg(not(feature = "next-builder"))]
+use rayon::prelude::*;
+#[cfg(not(feature = "next-builder"))]
+use std::time::Duration;
 
 const SUDO_PROMPT: &str = "Password for %u required to run 'podman' as privileged";
 
@@ -92,6 +103,7 @@ impl PodmanDriver {
         Ok(())
     }
 
+    #[cfg(not(feature = "next-builder"))]
     pub(crate) fn get_podman_info(fmt: &str) -> Result<String> {
         let output = cmd!("podman", "info", format!("--format={fmt}"))
             .output()
@@ -102,6 +114,24 @@ impl PodmanDriver {
         let mut stdout = output.stdout;
         while stdout.pop_if(|byte| byte.is_ascii_whitespace()).is_some() {}
         String::from_utf8(stdout).into_diagnostic()
+    }
+
+    /// Runs the login logic for the driver.
+    ///
+    /// # Errors
+    /// Will error if login fails.
+    #[cfg(feature = "next-builder")]
+    pub fn login(server: &str) -> Result<()> {
+        login(server)
+    }
+
+    /// Runs prune commands for the driver.
+    ///
+    /// # Errors
+    /// Will error if the driver fails to prune.
+    #[cfg(feature = "next-builder")]
+    pub fn prune(opts: PruneOpts) -> Result<()> {
+        prune(opts)
     }
 
     /// Push a manifest list to a remote registry, applying workarounds for the following bug:
@@ -119,6 +149,7 @@ impl PodmanDriver {
     ///
     /// # Errors
     /// Returns an error if any of the container operations fails.
+    #[cfg(not(feature = "next-builder"))]
     pub(crate) fn manifest_push_with_layer_annotation_bug_workaround(
         opts: ManifestPushOpts,
         podman_in_podman_container: Option<&DetachedContainer>,
@@ -188,6 +219,7 @@ impl DriverVersion for PodmanDriver {
     }
 }
 
+#[cfg(not(feature = "next-builder"))]
 impl BuildDriver for PodmanDriver {
     fn build(opts: BuildOpts) -> Result<()> {
         trace!("PodmanDriver::build({opts:#?})");
@@ -388,59 +420,11 @@ impl BuildDriver for PodmanDriver {
     }
 
     fn login(server: &str) -> Result<()> {
-        trace!("PodmanDriver::login()");
-
-        if let Some(Credentials::Basic { username, password }) = Credentials::get(server) {
-            let output = pipe!(
-                stdin = password.value();
-                {
-                    let c = cmd!(
-                        "podman",
-                        "login",
-                        "-u",
-                        &username,
-                        "--password-stdin",
-                        server,
-                    );
-                    trace!("{c:?}");
-                    c
-                }
-            )
-            .output()
-            .into_diagnostic()?;
-
-            if !output.status.success() {
-                let err_out = String::from_utf8_lossy(&output.stderr);
-                bail!("Failed to login for podman:\n{}", err_out.trim());
-            }
-            debug!("Logged into {server}");
-        }
-        Ok(())
+        login(server)
     }
 
     fn prune(opts: PruneOpts) -> Result<()> {
-        trace!("PodmanDriver::prune({opts:?})");
-
-        let status = {
-            let c = cmd!(
-                "podman",
-                "system",
-                "prune",
-                "--force",
-                if opts.all => "--all",
-                if opts.volumes => "--volumes",
-            );
-            trace!("{c:?}");
-            c
-        }
-        .message_status("podman system prune", "Pruning Podman System")
-        .into_diagnostic()?;
-
-        if !status.success() {
-            bail!("Failed to prune podman");
-        }
-
-        Ok(())
+        prune(opts)
     }
 
     fn manifest_create(opts: ManifestCreateOpts) -> Result<()> {
@@ -512,6 +496,7 @@ impl BuildDriver for PodmanDriver {
     }
 }
 
+#[cfg(not(feature = "next-builder"))]
 impl PostBuildDriver for PodmanDriver {
     #[expect(clippy::too_many_lines)]
     fn build_tag_push_with_post_build(
@@ -672,6 +657,7 @@ impl PostBuildDriver for PodmanDriver {
     }
 }
 
+#[cfg(not(feature = "next-builder"))]
 impl BuildChunkedOciDriver for PodmanDriver {
     fn manifest_create_with_runner(
         runner: &RpmOstreeRunner,
@@ -797,6 +783,7 @@ impl BuildChunkedOciDriver for PodmanDriver {
     }
 }
 
+#[cfg(not(feature = "next-builder"))]
 impl ContainerMountDriver for PodmanDriver {
     fn mount_container(opts: ContainerOpts) -> Result<MountId> {
         let output = {
@@ -868,6 +855,7 @@ impl ContainerMountDriver for PodmanDriver {
     }
 }
 
+#[cfg(not(feature = "next-builder"))]
 impl RechunkDriver for PodmanDriver {}
 
 impl RunDriver for PodmanDriver {
@@ -1105,4 +1093,60 @@ fn podman_run(opts: RunOpts, cid_file: &Path, detach: bool) -> Command {
     trace!("{command:?}");
 
     command
+}
+
+fn login(server: &str) -> Result<()> {
+    trace!("PodmanDriver::login()");
+
+    if let Some(Credentials::Basic { username, password }) = Credentials::get(server) {
+        let output = pipe!(
+            stdin = password.value();
+            {
+                let c = cmd!(
+                    "podman",
+                    "login",
+                    "-u",
+                    &username,
+                    "--password-stdin",
+                    server,
+                );
+                trace!("{c:?}");
+                c
+            }
+        )
+        .output()
+        .into_diagnostic()?;
+
+        if !output.status.success() {
+            let err_out = String::from_utf8_lossy(&output.stderr);
+            bail!("Failed to login for podman:\n{}", err_out.trim());
+        }
+        debug!("Logged into {server}");
+    }
+    Ok(())
+}
+
+fn prune(opts: PruneOpts) -> Result<()> {
+    trace!("PodmanDriver::prune({opts:?})");
+
+    let status = {
+        let c = cmd!(
+            "podman",
+            "system",
+            "prune",
+            "--force",
+            if opts.all => "--all",
+            if opts.volumes => "--volumes",
+        );
+        trace!("{c:?}");
+        c
+    }
+    .message_status("podman system prune", "Pruning Podman System")
+    .into_diagnostic()?;
+
+    if !status.success() {
+        bail!("Failed to prune podman");
+    }
+
+    Ok(())
 }

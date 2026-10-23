@@ -1,20 +1,28 @@
 use std::path::PathBuf;
 
 use blue_build_process_management::drivers::{
-    BootDriver, BuildDriver, CiDriver, Driver, DriverArgs, ImageStorageDriver, PodmanDriver,
-    opts::{BuildOpts, GenerateImageNameOpts, RemoveImageOpts, SwitchOpts},
-    types::{BuildDriverType, RunDriverType},
+    BootDriver, CiDriver, Driver, ImageStorageDriver, PodmanDriver,
+    opts::{GenerateImageNameOpts, RemoveImageOpts, SwitchOpts},
 };
 use blue_build_recipe::{Recipe, RecipeGetters};
-use blue_build_utils::{constants::BB_SKIP_VALIDATION, container::ImageRef, tempdir, tempdir_in};
+use blue_build_utils::constants::BB_SKIP_VALIDATION;
 use bon::Builder;
 use clap::Args;
 use log::trace;
 use miette::{Result, bail};
 
-use crate::commands::generate::GenerateCommand;
-
 use super::BlueBuildCommand;
+
+#[cfg(not(feature = "next-builder"))]
+use super::generate::GenerateCommand;
+#[cfg(not(feature = "next-builder"))]
+use blue_build_process_management::drivers::{
+    BuildDriver, DriverArgs,
+    opts::BuildOpts,
+    types::{BuildDriverType, RunDriverType},
+};
+#[cfg(not(feature = "next-builder"))]
+use blue_build_utils::{container::ImageRef, tempdir, tempdir_in};
 
 #[derive(Default, Clone, Debug, Builder, Args)]
 pub struct SwitchCommand {
@@ -40,6 +48,7 @@ pub struct SwitchCommand {
 
     #[clap(flatten)]
     #[builder(default)]
+    #[cfg(not(feature = "next-builder"))]
     drivers: DriverArgs,
 }
 
@@ -47,6 +56,7 @@ impl BlueBuildCommand for SwitchCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("SwitchCommand::try_run()");
 
+        #[cfg(not(feature = "next-builder"))]
         Driver::init(
             DriverArgs::builder()
                 .build_driver(BuildDriverType::Podman)
@@ -55,6 +65,9 @@ impl BlueBuildCommand for SwitchCommand {
                 .maybe_signing_driver(self.drivers.signing_driver)
                 .build(),
         );
+
+        #[cfg(feature = "next-builder")]
+        Driver::init();
 
         let status = Driver::status()?;
 
@@ -68,20 +81,24 @@ impl BlueBuildCommand for SwitchCommand {
                 .name(recipe.get_name().trim())
                 .build(),
         )?;
+        #[cfg(not(feature = "next-builder"))]
         let tempdir = if let Some(ref dir) = self.tempdir {
             tempdir_in(dir)?
         } else {
             tempdir()?
         };
+        #[cfg(not(feature = "next-builder"))]
         let containerfile = tempdir
             .path()
             .join(blue_build_utils::generate_containerfile_path(&self.recipe)?);
 
+        #[cfg(not(feature = "next-builder"))]
         GenerateCommand::builder()
             .output(&containerfile)
             .recipe(&self.recipe)
             .build()
             .try_run()?;
+        #[cfg(not(feature = "next-builder"))]
         Driver::build(
             BuildOpts::builder()
                 .image(&ImageRef::from(&image_name))

@@ -80,16 +80,6 @@ pub struct PullOpts<'scope> {
 
 #[derive(Debug, Clone, Copy, Builder)]
 #[builder(derive(Debug, Clone))]
-pub struct PruneOpts {
-    #[builder(default)]
-    pub all: bool,
-
-    #[builder(default)]
-    pub volumes: bool,
-}
-
-#[derive(Debug, Clone, Copy, Builder)]
-#[builder(derive(Debug, Clone))]
 pub struct ManifestCreateOpts<'scope> {
     /// The final image name.
     pub final_image: &'scope Reference,

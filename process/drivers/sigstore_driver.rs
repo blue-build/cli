@@ -262,7 +262,6 @@ mod test {
 
     use crate::drivers::{
         SigningDriver,
-        cosign_driver::CosignDriver,
         opts::{CheckKeyPairOpts, GenerateKeyPairOpts},
     };
 
@@ -300,6 +299,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(not(feature = "next-builder"))]
     fn compatibility() {
         let tempdir = tempdir().unwrap();
 
@@ -317,7 +317,9 @@ mod test {
             fs::read_to_string(tempdir.path().join(COSIGN_PUB_PATH)).unwrap()
         );
 
-        CosignDriver::check_signing_files(CheckKeyPairOpts::builder().dir(tempdir.path()).build())
-            .unwrap();
+        crate::drivers::cosign_driver::CosignDriver::check_signing_files(
+            CheckKeyPairOpts::builder().dir(tempdir.path()).build(),
+        )
+        .unwrap();
     }
 }

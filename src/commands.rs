@@ -11,6 +11,7 @@ use crate::shadow;
 pub mod bug_report;
 pub mod build;
 pub mod completions;
+#[cfg(not(feature = "next-builder"))]
 pub mod generate;
 pub mod generate_iso;
 pub mod init;
@@ -74,6 +75,7 @@ pub enum CommandArgs {
 
     /// Generate a Containerfile from a recipe
     #[clap(visible_alias = "template")]
+    #[cfg(not(feature = "next-builder"))]
     Generate(generate::GenerateCommand),
 
     /// Generate an ISO for an image or recipe.

@@ -8,7 +8,7 @@ use std::{
 };
 
 use blue_build_process_management::drivers::{
-    CiDriver, Driver, DriverArgs, GitlabDriver, SigningDriver, opts::GenerateKeyPairOpts,
+    CiDriver, Driver, GitlabDriver, SigningDriver, opts::GenerateKeyPairOpts,
 };
 use blue_build_template::{GitlabCiTemplate, InitReadmeTemplate, Template};
 use blue_build_utils::constants::{COSIGN_PUB_PATH, RECIPE_FILE, RECIPE_PATH, TEMPLATE_REPO_URL};
@@ -21,6 +21,9 @@ use requestty::{Answer, Answers, OnEsc, questions};
 use semver::Version;
 
 use crate::commands::BlueBuildCommand;
+
+#[cfg(not(feature = "next-builder"))]
+use blue_build_process_management::drivers::DriverArgs;
 
 #[derive(Debug, Default, Clone, Copy, ValueEnum)]
 pub enum CiProvider {
@@ -133,6 +136,7 @@ pub struct NewInitCommon {
 
     #[clap(flatten)]
     #[builder(default)]
+    #[cfg(not(feature = "next-builder"))]
     drivers: DriverArgs,
 }
 
@@ -167,7 +171,11 @@ pub struct InitCommand {
 
 impl BlueBuildCommand for InitCommand {
     fn try_run(&mut self) -> Result<()> {
+        #[cfg(not(feature = "next-builder"))]
         Driver::init(self.common.drivers);
+
+        #[cfg(feature = "next-builder")]
+        Driver::init();
 
         let base_dir = self
             .dir

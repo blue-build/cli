@@ -1,0 +1,48 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe.json
+base:
+  image:
+    registry: ghcr.io
+    repository: blue-build/base-images
+    tag: 44
+  public-key: https://github.com/blue-build/base-images/raw/refs/heads/main/cosign.pub
+metadata:
+  name: cli/test-next-gen
+  description: Test recipe for the BlueBuild Next Gen Builder
+  labels:
+    org.bluebuild.cli.test: "true"
+  tags:
+    - v2
+spec:
+  platforms:
+    - linux/amd64
+    - linux/arm64
+  tool-versions:
+    bluebuild: main
+modules:
+  - type: files
+    files:
+      - source: system
+        destination: /
+  - type: dnf
+    repos:
+      copr:
+        - atim/starship
+    install:
+      packages:
+        - micro
+        - starship
+    remove:
+      packages:
+        - firefox
+        - firefox-langpacks
+  - type: default-flatpaks
+    configurations:
+      - notify: true
+        scope: system
+        install:
+          - org.mozilla.firefox
+          - org.gnome.Loupe
+      - scope: user
+  - type: signing
+version: 2
