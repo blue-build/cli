@@ -8,7 +8,7 @@ use std::{
 use blue_build_utils::{
     constants::{CONFIG_PATH, RECIPE_PATH},
     container::Tag,
-    platform::Platform,
+    platform::{Platform, PlatformList},
     secret::Secret,
 };
 use cached::cached;
@@ -55,8 +55,8 @@ trait RecipeSetters: RecipeGetters {
     }
 
     fn set_modules(&mut self, modules: Vec<Module>);
-
     fn set_stages(&mut self, stages: Vec<Stage>);
+    fn set_platforms(&mut self, platforms: PlatformList);
 }
 
 pub trait RecipeGetters {
@@ -66,7 +66,7 @@ pub trait RecipeGetters {
     fn get_stages(&self) -> &[Stage];
     fn get_labels(&self) -> HashMap<&str, &str>;
     fn get_alt_tags(&self) -> Option<&[Tag]>;
-    fn get_platforms(&self) -> &[Platform];
+    fn get_platforms(&self) -> PlatformList;
     fn get_base_image(&self) -> Cow<'_, str>;
     fn get_bluebuild_version(&self) -> Option<String>;
     fn get_cosign_version(&self) -> Option<String>;
@@ -173,14 +173,19 @@ pub enum Recipe {
     V2(Box<RecipeV2>),
 }
 
+#[bon::bon]
 impl Recipe {
     /// Parse a recipe file
     ///
     /// # Errors
     /// Errors when a yaml file cannot be deserialized,
     /// or a linked module yaml file does not exist.
-    pub fn parse<P: AsRef<Path>>(path: P) -> Result<Self> {
-        #[cached(key = "PathBuf", convert = r"{ path.into() }")]
+    #[builder]
+    pub fn new<P>(path: P, platforms: Option<&[Platform]>) -> Result<Self>
+    where
+        P: AsRef<Path>,
+    {
+        #[cached(key = "(PathBuf)", convert = r"{ path.into() }")]
         fn inner(path: &Path) -> Result<Recipe> {
             trace!("Recipe::parse({})", path.display());
 
@@ -204,9 +209,19 @@ impl Recipe {
                 .into_diagnostic()
                 .wrap_err_with(|| format!("Failed to parse recipe file {}", file_path.display()))?;
             recipe.process_from_files()?;
+
             Ok(recipe)
         }
-        inner(path.as_ref())
+
+        let mut recipe = inner(path.as_ref())?;
+
+        if let Some(platforms) = platforms
+            && !platforms.is_empty()
+        {
+            recipe.set_platforms(platforms.into());
+        }
+
+        Ok(recipe)
     }
 
     #[must_use]
@@ -275,76 +290,6 @@ impl Serialize for Recipe {
     }
 }
 
-macro_rules! impl_recipe {
-    ($self:ident, $func:ident($($args:expr),*)) => {
-        match $self {
-            Self::V1(recipe) => recipe.$func($($args,)*),
-            #[cfg(feature = "recipe-v2")]
-            Self::V2(recipe) => recipe.$func($($args,)*),
-        }
-    };
-}
-
-impl RecipeGetters for Recipe {
-    fn get_name(&self) -> &str {
-        impl_recipe!(self, get_name())
-    }
-
-    fn get_description(&self) -> Option<&str> {
-        impl_recipe!(self, get_description())
-    }
-
-    fn get_modules(&self) -> &[Module] {
-        impl_recipe!(self, get_modules())
-    }
-
-    fn get_stages(&self) -> &[Stage] {
-        impl_recipe!(self, get_stages())
-    }
-
-    fn get_labels(&self) -> HashMap<&str, &str> {
-        impl_recipe!(self, get_labels())
-    }
-
-    fn base_image_ref(&self) -> Result<Reference> {
-        impl_recipe!(self, base_image_ref())
-    }
-
-    fn get_alt_tags(&self) -> Option<&[Tag]> {
-        impl_recipe!(self, get_alt_tags())
-    }
-
-    fn get_platforms(&self) -> &[Platform] {
-        impl_recipe!(self, get_platforms())
-    }
-
-    fn get_base_image(&self) -> Cow<'_, str> {
-        impl_recipe!(self, get_base_image())
-    }
-
-    fn get_bluebuild_version(&self) -> Option<String> {
-        impl_recipe!(self, get_bluebuild_version())
-    }
-
-    fn get_cosign_version(&self) -> Option<String> {
-        impl_recipe!(self, get_cosign_version())
-    }
-
-    fn get_nushell_version(&self) -> Option<String> {
-        impl_recipe!(self, get_nushell_version())
-    }
-}
-
-impl RecipeSetters for Recipe {
-    fn set_modules(&mut self, modules: Vec<Module>) {
-        impl_recipe!(self, set_modules(modules));
-    }
-
-    fn set_stages(&mut self, stages: Vec<Stage>) {
-        impl_recipe!(self, set_stages(stages));
-    }
-}
-
 impl Default for Recipe {
     fn default() -> Self {
         #[cfg(feature = "recipe-v2")]
@@ -357,6 +302,57 @@ impl Default for Recipe {
         }
     }
 }
+
+macro_rules! impl_recipe {
+    ($self:ident, $func:ident($($args:expr),*)) => {
+        match $self {
+            Self::V1(recipe) => recipe.$func($($args,)*),
+            #[cfg(feature = "recipe-v2")]
+            Self::V2(recipe) => recipe.$func($($args,)*),
+        }
+    };
+}
+
+macro_rules! getters {
+    ($($fun:ident -> $out:ty),*$(,)?) => {
+        impl RecipeGetters for Recipe {
+            $(fn $fun(&self) -> $out {
+                impl_recipe!(self, $fun())
+            })*
+        }
+    };
+}
+
+macro_rules! setters {
+    ($($fun:ident($out:ty)),* $(,)*) => {
+        impl RecipeSetters for Recipe {
+            $(fn $fun(&mut self, value: $out) {
+                impl_recipe!(self, $fun(value))
+            })*
+        }
+    };
+}
+
+getters!(
+    get_name -> &str,
+    get_description -> Option<&str>,
+    get_modules -> &[Module],
+    get_stages -> &[Stage],
+    get_labels -> HashMap<&str, &str>,
+    base_image_ref -> Result<Reference>,
+    get_alt_tags -> Option<&[Tag]>,
+    get_platforms -> PlatformList,
+    get_base_image -> Cow<'_, str>,
+    get_bluebuild_version -> Option<String>,
+    get_cosign_version -> Option<String>,
+    get_nushell_version -> Option<String>,
+);
+
+setters!(
+    set_modules(Vec<Module>),
+    set_stages(Vec<Stage>),
+    set_platforms(PlatformList),
+);
 
 pub(crate) fn base_recipe_path() -> PathBuf {
     #[cfg(not(test))]
@@ -391,7 +387,7 @@ mod test {
     #[cfg_attr(feature = "recipe-v2", case::recipe_v2("recipes/recipe-v2.yml"))]
     fn parse_recipe(#[case] recipe_path: &str) {
         // serialize
-        let recipe = Recipe::parse(recipe_path).unwrap();
+        let recipe = Recipe::builder().path(recipe_path).build().unwrap();
 
         // deserialize
         serde_yaml::to_string(&recipe).unwrap();

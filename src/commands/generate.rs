@@ -5,8 +5,9 @@ use std::{
 };
 
 use crate::{BuildScripts, DriverTemplate, commands::validate::ValidateCommand};
-use blue_build_process_management::drivers::{
-    CiDriver, Driver, DriverArgs, InspectDriver, opts::GetMetadataOpts,
+use blue_build_process_management::{
+    ASYNC_RUNTIME,
+    drivers::{CiDriver, Driver, DriverArgs, InspectDriver, opts::GetMetadataOpts},
 };
 use blue_build_recipe::{Recipe, RecipeGetters};
 use blue_build_template::{ContainerFileTemplate, Template};
@@ -123,7 +124,7 @@ impl GenerateCommand {
         };
 
         debug!("Deserializing recipe");
-        let recipe = Recipe::parse(&recipe_path)?;
+        let recipe = Recipe::builder().path(&recipe_path).build()?;
         trace!("recipe_de: {recipe:#?}");
 
         if self.display_full_recipe {
@@ -139,8 +140,9 @@ impl GenerateCommand {
         info!("Templating for recipe at {}", recipe_path.display());
 
         let base_image = recipe.base_image_ref()?;
-        let base_digest =
-            &Driver::get_metadata(GetMetadataOpts::builder().image(&base_image).build())?;
+        let base_digest = &ASYNC_RUNTIME.block_on(Driver::get_metadata(
+            GetMetadataOpts::builder().image(&base_image).build(),
+        ))?;
         let base_digest = base_digest.digest();
         let build_features = &[
             #[cfg(feature = "bootc")]
@@ -217,8 +219,9 @@ pub fn generate_default_labels(recipe: &Recipe) -> Result<BTreeMap<String, Strin
         let build_id = Driver::get_build_id().to_string();
         let source = Driver::get_repo_url()?;
         let base_name = recipe.base_image_ref()?;
-        let image_metada =
-            Driver::get_metadata(GetMetadataOpts::builder().image(&base_name).build())?;
+        let image_metada = ASYNC_RUNTIME.block_on(Driver::get_metadata(
+            GetMetadataOpts::builder().image(&base_name).build(),
+        ))?;
         let base_digest = image_metada.digest().to_string();
         let current_timestamp = current_timestamp();
 

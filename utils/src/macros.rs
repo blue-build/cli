@@ -191,3 +191,110 @@ macro_rules! sudo_cmd {
         }
     };
 }
+
+#[macro_export]
+macro_rules! cmd_out {
+    (parse = String; err_msg = $err:expr; $($cmd:tt)*) => {
+        $crate::cmd_out!(
+            @start
+            $err;
+            |output| {
+                $crate::cmd_out!(
+                    @check
+                    output;
+                    $err;
+                    ::std::string::String::from_utf8(output.stdout)
+                        .into_diagnostic()
+                        .wrap_err("When reading to string")
+                        .wrap_err_with(|| $err)
+                )
+            };
+            $($cmd)*
+        )
+    };
+    (parse = $out_typ:ty; err_msg = $err:expr; $($cmd:tt)*) => {
+        $crate::cmd_out!(
+            @start
+            $err;
+            |output| {
+                $crate::cmd_out!(
+                    @check
+                    output;
+                    $err;
+                    ::std::string::String::from_utf8(output.stdout)
+                        .into_diagnostic()
+                        .wrap_err("When reading to string")
+                        .wrap_err_with(|| $err)
+                        .and_then(|output| {
+                            output.parse::<$out_typ>()
+                                .into_diagnostic()
+                                .wrap_err("When parsing")
+                                .wrap_err_with(|| $err)
+                        })
+                )
+            };
+            $($cmd)*
+        )
+    };
+    (from_json = $out_typ:ty; err_msg = $err:expr; $($cmd:tt)*) => {
+        $crate::cmd_out!(
+            @start
+            $err;
+            |output| {
+                $crate::cmd_out!(
+                    @check
+                    output;
+                    $err;
+                    ::serde_json::from_slice::<$out_typ>(&output.stdout)
+                        .into_diagnostic()
+                        .wrap_err("When deserializing")
+                        .wrap_err_with(|| $err)
+                )
+            };
+            $($cmd)*
+        )
+    };
+    (err_msg = $err:expr; $($cmd:tt)*) => {
+        $crate::cmd_out!(
+            @start
+            $err;
+            |output| {
+                $crate::cmd_out!(
+                    @check
+                    output;
+                    $err;
+                    Ok(())
+                )
+            };
+            $($cmd)*
+        )
+    };
+    (@check $output:ident; $err:expr; $map:expr) => {
+        if !$output.status.success() {
+            Err(::miette::miette!(
+                "{}\n{}",
+                $err,
+                ::std::string::String::from_utf8_lossy(&$output.stderr)
+            ))
+        } else {
+            $map
+        }
+    };
+    (@start $err:expr; $and_then:expr; $($cmd:tt)*) => {
+        {
+            use ::miette::{Context, IntoDiagnostic};
+            {
+                let mut _c = ::comlexr::cmd!($($cmd)*);
+                ::log::trace!("{_c:#?}");
+                dbg!(&_c);
+                _c.stderr(::std::process::Stdio::inherit());
+                _c
+            }
+                .output()
+                .into_diagnostic()
+                .wrap_err("When calling the command")
+                .wrap_err_with(|| $err)
+                .and_then($and_then)
+        }
+    }
+}

@@ -7,6 +7,9 @@ result*
 .secret
 
 cosign.key
+
+# Used for testing purposes
+!next/tests/repo/cosign.key
 !test-files/keys/cosign.key
 
 # Local testing for bluebuild recipe files

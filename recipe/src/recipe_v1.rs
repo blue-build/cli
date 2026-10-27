@@ -1,7 +1,10 @@
 use std::{borrow::Cow, collections::HashMap};
 
 use blue_build_utils::{
-    constants::COSIGN_IMAGE_VERSION, container::Tag, env_str::EnvString, platform::Platform,
+    constants::COSIGN_IMAGE_VERSION,
+    container::Tag,
+    env_str::EnvString,
+    platform::{Platform, PlatformList},
 };
 use bon::Builder;
 use miette::{Context, IntoDiagnostic, Result};
@@ -60,8 +63,9 @@ pub struct RecipeV1 {
     pub nushell_version: Option<MaybeVersion>,
 
     /// The platforms to build for the image.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub platforms: Option<Vec<Platform>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[builder(default)]
+    pub platforms: Vec<Platform>,
 
     /// The version of cosign to install.
     #[serde(skip_serializing_if = "Option::is_none", rename = "cosign-version")]
@@ -130,8 +134,8 @@ impl RecipeGetters for RecipeV1 {
         self.alt_tags.as_deref()
     }
 
-    fn get_platforms(&self) -> &[Platform] {
-        self.platforms.as_deref().unwrap_or(&[])
+    fn get_platforms(&self) -> PlatformList {
+        PlatformList::from(&self.platforms)
     }
 
     fn get_bluebuild_version(&self) -> Option<String> {
@@ -170,6 +174,10 @@ impl RecipeSetters for RecipeV1 {
         } else {
             self.stages_ext = Some(StagesExt::builder().stages(stages).build());
         }
+    }
+
+    fn set_platforms(&mut self, platforms: PlatformList) {
+        self.platforms = platforms.into();
     }
 }
 
