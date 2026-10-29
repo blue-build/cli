@@ -24,6 +24,7 @@ pub const IMAGE_VERSION_LABEL: &str = "org.opencontainers.image.version";
 pub const BB_CACHE_LAYERS: &str = "BB_CACHE_LAYERS";
 pub const BB_BOOT_DRIVER: &str = "BB_BOOT_DRIVER";
 pub const BB_BUILD_ARCHIVE: &str = "BB_BUILD_ARCHIVE";
+pub const BB_BUILD_CHUNK: &str = "BB_BUILD_CHUNK";
 pub const BB_BUILD_CHUNKAH: &str = "BB_BUILD_CHUNKAH";
 pub const BB_BUILD_CHUNKAH_VERSION: &str = "BB_BUILD_CHUNKAH_VERSION";
 pub const BB_BUILD_CHUNKED_OCI: &str = "BB_BUILD_CHUNKED_OCI";

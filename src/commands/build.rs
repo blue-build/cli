@@ -144,12 +144,7 @@ pub struct BuildCommand {
     /// Uses Chunkah <https://github.com/coreos/chunkah> to rechunk the image,
     /// allowing for smaller images and smaller updates.
     #[cfg(feature = "next-builder")]
-    #[arg(
-        long,
-        alias = "chunkah",
-        alias = "rechunk",
-        alias = "build-chunked-oci"
-    )]
+    #[arg(long, alias = "chunkah", env = blue_build_utils::constants::BB_BUILD_CHUNK)]
     #[builder(default)]
     chunk: bool,
 
