@@ -19,11 +19,14 @@ use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_client::Reference;
 
 use blue_build_process_management::{
-    drivers::{Driver, DriverArgs, RunDriver, opts::RunOpts},
+    drivers::{Driver, RunDriver, opts::RunOpts},
     run_volumes,
 };
 
 use super::{BlueBuildCommand, build::BuildCommand};
+
+#[cfg(not(feature = "next-builder"))]
+use blue_build_process_management::drivers::DriverArgs;
 
 #[derive(Clone, Debug, Builder, Args)]
 pub struct GenerateIsoCommand {
@@ -95,6 +98,7 @@ pub struct GenerateIsoCommand {
 
     #[clap(flatten)]
     #[builder(default)]
+    #[cfg(not(feature = "next-builder"))]
     drivers: DriverArgs,
 }
 
@@ -146,7 +150,11 @@ impl std::fmt::Display for GenIsoVariant {
 
 impl BlueBuildCommand for GenerateIsoCommand {
     fn try_run(&mut self) -> Result<()> {
+        #[cfg(not(feature = "next-builder"))]
         Driver::init(self.drivers);
+
+        #[cfg(feature = "next-builder")]
+        Driver::init();
 
         let image_out_dir = if let Some(ref dir) = self.tempdir {
             tempdir_in(dir)?

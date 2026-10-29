@@ -1,50 +1,71 @@
 use std::{
     num::NonZeroU32,
-    ops::Not,
     path::{Path, PathBuf},
 };
 
 use blue_build_process_management::{
     ASYNC_RUNTIME,
     drivers::{
-        BuildChunkedOciDriver, BuildDriver, CiDriver, Driver, DriverArgs, InspectDriver,
-        PostBuildDriver, RechunkDriver, SigningDriver,
+        Driver, SigningDriver,
+        opts::{CheckKeyPairOpts, CompressionType},
+    },
+};
+use blue_build_recipe::Recipe;
+use blue_build_utils::{
+    constants::{
+        BB_BUILD_ARCHIVE, BB_BUILD_CHUNKAH_VERSION, BB_BUILD_MAX_LAYERS, BB_BUILD_NO_SIGN,
+        BB_BUILD_PLATFORM, BB_BUILD_PUSH, BB_BUILD_REMOVE_BASE_IMAGE, BB_BUILD_RETRY_COUNT,
+        BB_BUILD_RETRY_PUSH, BB_BUILD_SQUASH, BB_CACHE_LAYERS, BB_REGISTRY_NAMESPACE,
+        BB_SKIP_VALIDATION, BB_TEMPDIR, RECIPE_FILE, RECIPE_PATH,
+    },
+    credentials::{Credentials, CredentialsArgs},
+    platform::Platform,
+};
+use bon::Builder;
+use clap::Args;
+use log::trace;
+use miette::Result;
+
+use super::BlueBuildCommand;
+
+#[cfg(not(feature = "next-builder"))]
+use super::generate::{GenerateCommand, generate_default_labels};
+#[cfg(not(feature = "next-builder"))]
+use blue_build_process_management::{
+    drivers::{
+        BuildChunkedOciDriver, BuildDriver, CiDriver, DriverArgs, InspectDriver, PostBuildDriver,
+        RechunkDriver,
         opts::{
-            BuildChunkedOciOpts, BuildRechunkTagPushOpts, BuildTagPushOpts, CheckKeyPairOpts,
-            CompressionType, GenerateImageNameOpts, GenerateTagsOpts, GetMetadataOpts,
-            PostBuildDriverOpts, RechunkOpts, SignVerifyOpts,
+            BuildChunkedOciOpts, BuildRechunkTagPushOpts, BuildTagPushOpts, GenerateImageNameOpts,
+            GenerateTagsOpts, GetMetadataOpts, PostBuildDriverOpts, RechunkOpts, SignVerifyOpts,
         },
         post_build::Chunkah,
         types::{BuildDriverType, RunDriverType},
     },
     logging::color_str,
 };
-use blue_build_recipe::{Recipe, RecipeGetters};
+#[cfg(not(feature = "next-builder"))]
+use blue_build_recipe::RecipeGetters;
+#[cfg(not(feature = "next-builder"))]
 use blue_build_utils::{
     colors::gen_random_ansi_color,
     constants::{
-        ARCHIVE_SUFFIX, BB_BUILD_ARCHIVE, BB_BUILD_CHUNKAH, BB_BUILD_CHUNKAH_VERSION,
-        BB_BUILD_CHUNKED_OCI, BB_BUILD_CHUNKED_OCI_MAX_LAYERS, BB_BUILD_MAX_LAYERS,
-        BB_BUILD_NO_SIGN, BB_BUILD_PLATFORM, BB_BUILD_PUSH, BB_BUILD_RECHUNK,
-        BB_BUILD_RECHUNK_CLEAR_PLAN, BB_BUILD_REMOVE_BASE_IMAGE, BB_BUILD_RETRY_COUNT,
-        BB_BUILD_RETRY_PUSH, BB_BUILD_SQUASH, BB_CACHE_LAYERS, BB_REGISTRY_NAMESPACE,
-        BB_SKIP_VALIDATION, BB_TEMPDIR, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH,
+        ARCHIVE_SUFFIX, BB_BUILD_CHUNKAH, BB_BUILD_CHUNKED_OCI, BB_BUILD_CHUNKED_OCI_MAX_LAYERS,
+        BB_BUILD_RECHUNK, BB_BUILD_RECHUNK_CLEAR_PLAN, CONFIG_PATH,
     },
     container::{ImageRef, Tag},
-    credentials::{Credentials, CredentialsArgs},
-    platform::Platform,
     tempdir, tempdir_in,
 };
-use bon::Builder;
-use clap::Args;
-use log::{debug, info, trace, warn};
-use miette::{IntoDiagnostic, Result};
+#[cfg(not(feature = "next-builder"))]
+use log::{debug, info, warn};
+#[cfg(not(feature = "next-builder"))]
+use miette::IntoDiagnostic;
+#[cfg(not(feature = "next-builder"))]
 use oci_client::Reference;
+#[cfg(not(feature = "next-builder"))]
 use rayon::prelude::*;
-
-use crate::commands::generate::{GenerateCommand, generate_default_labels};
-
-use super::BlueBuildCommand;
+#[cfg(not(feature = "next-builder"))]
+use std::ops::Not;
 
 #[expect(clippy::struct_excessive_bools)]
 #[derive(Debug, Args, Builder)]
@@ -120,15 +141,25 @@ pub struct BuildCommand {
     #[builder(default)]
     squash: bool,
 
+    /// Uses Chunkah <https://github.com/coreos/chunkah> to rechunk the image,
+    /// allowing for smaller images and smaller updates.
+    #[cfg(feature = "next-builder")]
+    #[arg(long, alias = "chunkah", env = blue_build_utils::constants::BB_BUILD_CHUNK)]
+    #[builder(default)]
+    chunk: bool,
+
     /// Uses Chunkah (https://github.com/coreos/chunkah) to rechunk the image,
     /// allowing for smaller images and smaller updates.
+    #[cfg(not(feature = "next-builder"))]
     #[arg(long, group = "any_rechunker", env = BB_BUILD_CHUNKAH)]
     #[builder(default)]
     chunkah: bool,
 
     /// Chunkah tag or digest that should be used to rechunk the image.
     /// Defaults to "latest" tag.
-    #[arg(long, requires = "chunkah", env = BB_BUILD_CHUNKAH_VERSION)]
+    #[arg(long, env = BB_BUILD_CHUNKAH_VERSION)]
+    #[cfg_attr(feature = "next-builder", arg(requires = "chunk"))]
+    #[cfg_attr(not(feature = "next-builder"), arg(requires = "chunkah"))]
     chunkah_version: Option<String>,
 
     /// Uses `rpm-ostree compose build-chunked-oci` to rechunk the image,
@@ -136,6 +167,7 @@ pub struct BuildCommand {
     ///
     /// WARN: This will increase the build-time
     /// and take up more space during build-time.
+    #[cfg(not(feature = "next-builder"))]
     #[arg(long, group = "any_rechunker", env = BB_BUILD_CHUNKED_OCI)]
     #[builder(default)]
     build_chunked_oci: bool,
@@ -144,15 +176,20 @@ pub struct BuildCommand {
     #[arg(
         long,
         env = BB_BUILD_MAX_LAYERS,
-        requires = "any_rechunker",
-        conflicts_with = "rechunk"
+    )]
+    #[cfg_attr(feature = "next-builder", arg(requires = "chunk"))]
+    #[cfg_attr(
+        not(feature = "next-builder"),
+        arg(requires = "any_rechunker", conflicts_with = "rechunk")
     )]
     max_layers: Option<NonZeroU32>,
 
     /// Removes the base image from local storage and prunes unused podman containers
     /// and volumes after the image is built, but before running a rechunker.
     /// This frees up additional disk space.
-    #[arg(long, env = BB_BUILD_REMOVE_BASE_IMAGE, requires = "any_rechunker")]
+    #[arg(long, env = BB_BUILD_REMOVE_BASE_IMAGE)]
+    #[cfg_attr(feature = "next-builder", arg(requires = "chunk"))]
+    #[cfg_attr(not(feature = "next-builder"), arg(requires = "any_rechunker"))]
     #[builder(default)]
     remove_base_image: bool,
 
@@ -165,6 +202,7 @@ pub struct BuildCommand {
     /// and take up more space during build-time.
     ///
     /// NOTE: This must be run as root!
+    #[cfg(not(feature = "next-builder"))]
     #[arg(long, group = "any_rechunker", group = "archive_rechunk", env = BB_BUILD_RECHUNK)]
     #[builder(default)]
     rechunk: bool,
@@ -172,6 +210,7 @@ pub struct BuildCommand {
     /// Use a fresh rechunk plan, regardless of previous ref.
     ///
     /// NOTE: Only works with `--build-chunked-oci` or `--rechunk`.
+    #[cfg(not(feature = "next-builder"))]
     #[arg(long, env = BB_BUILD_RECHUNK_CLEAR_PLAN)]
     #[builder(default)]
     rechunk_clear_plan: bool,
@@ -199,6 +238,7 @@ pub struct BuildCommand {
 
     #[clap(flatten)]
     #[builder(default)]
+    #[cfg(not(feature = "next-builder"))]
     drivers: DriverArgs,
 }
 
@@ -207,6 +247,7 @@ impl BlueBuildCommand for BuildCommand {
     fn try_run(&mut self) -> Result<()> {
         trace!("BuildCommand::try_run()");
 
+        #[cfg(not(feature = "next-builder"))]
         Driver::init(if self.chunkah || self.build_chunked_oci || self.rechunk {
             DriverArgs::builder()
                 .build_driver(BuildDriverType::Podman)
@@ -218,9 +259,13 @@ impl BlueBuildCommand for BuildCommand {
             self.drivers
         });
 
+        #[cfg(feature = "next-builder")]
+        Driver::init();
+
         Credentials::init(self.credentials.clone());
 
         // Read old environment variable name for backwards compatibility
+        #[cfg(not(feature = "next-builder"))]
         if self.build_chunked_oci
             && self.max_layers.is_none()
             && let Ok(max_layers) = std::env::var(BB_BUILD_CHUNKED_OCI_MAX_LAYERS)
@@ -233,11 +278,13 @@ impl BlueBuildCommand for BuildCommand {
             Driver::check_signing_files(CheckKeyPairOpts::builder().dir(Path::new(".")).build())?;
         }
 
+        #[cfg(not(feature = "next-builder"))]
         let tempdir = if let Some(ref dir) = self.tempdir {
             tempdir_in(dir)?
         } else {
             tempdir()?
         };
+        #[cfg(not(feature = "next-builder"))]
         let recipe_paths = self.recipe.clone().map_or_else(|| {
                 let legacy_path = Path::new(CONFIG_PATH);
                 let recipe_path = Path::new(RECIPE_PATH);
@@ -253,6 +300,7 @@ impl BlueBuildCommand for BuildCommand {
 
                 recipes.into_iter().filter(|recipe| same.insert(recipe.clone())).collect()
             });
+        #[cfg(not(feature = "next-builder"))]
         recipe_paths.par_iter().try_for_each(|recipe| {
             GenerateCommand::builder()
                 .output(
@@ -270,11 +318,68 @@ impl BlueBuildCommand for BuildCommand {
                 .try_run()
         })?;
 
-        self.start(&recipe_paths, tempdir.path())
+        #[cfg(not(feature = "next-builder"))]
+        {
+            self.start(&recipe_paths, tempdir.path())
+        }
+        #[cfg(feature = "next-builder")]
+        {
+            self.start()
+        }
     }
 }
 
 impl BuildCommand {
+    #[cfg(feature = "next-builder")]
+    fn start(&self) -> Result<()> {
+        use blue_build_next_builder::{Manifest, build_scripts};
+        use miette::IntoDiagnostic;
+
+        let current_dir = &std::env::current_dir().into_diagnostic()?;
+        let build_scripts = ASYNC_RUNTIME.block_on(build_scripts::build_scripts_layer())?;
+        let manifests = self
+            .recipe
+            .clone()
+            .map_or_else(
+                || vec![Path::new(RECIPE_PATH).join(RECIPE_FILE)],
+                |recipes| {
+                    let mut same = std::collections::HashSet::new();
+
+                    recipes
+                        .into_iter()
+                        .filter(|recipe| same.insert(recipe.clone()))
+                        .collect()
+                },
+            )
+            .into_iter()
+            .map(|recipe| {
+                Recipe::builder()
+                    .path(recipe)
+                    .platforms(&self.platform)
+                    .build()
+            })
+            .collect::<Result<Vec<_>>>()?
+            .iter()
+            .flat_map(|recipe| {
+                ASYNC_RUNTIME.block_on(
+                    Manifest::builder()
+                        .recipe(recipe)
+                        .squash(self.squash)
+                        .context_dir(current_dir)
+                        .build_scripts_layer(&build_scripts)
+                        .build(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        for manifest in manifests {
+            ASYNC_RUNTIME.block_on(manifest.build())?;
+        }
+
+        Ok(())
+    }
+
+    #[cfg(not(feature = "next-builder"))]
     fn start(&self, recipe_paths: &[PathBuf], temp_dir: &Path) -> Result<()> {
         trace!(
             "BuildCommand::start({recipe_paths:?}, {})",
@@ -308,6 +413,7 @@ impl BuildCommand {
     }
 
     #[expect(clippy::too_many_lines)]
+    #[cfg(not(feature = "next-builder"))]
     fn build(&self, recipe_path: &Path, containerfile: &Path) -> Result<Vec<String>> {
         trace!(
             "BuildCommand::build({}, {})",
@@ -477,6 +583,7 @@ impl BuildCommand {
         Ok(images)
     }
 
+    #[cfg(not(feature = "next-builder"))]
     fn rechunk(
         &self,
         containerfile: &Path,

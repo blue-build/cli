@@ -5,8 +5,11 @@ use blue_build_utils::{
 use clap::ValueEnum;
 use log::trace;
 
+use crate::drivers::DetermineDriver;
+
+#[cfg(not(feature = "next-builder"))]
 use crate::drivers::{
-    DetermineDriver, DriverVersion, buildah_driver::BuildahDriver, docker_driver::DockerDriver,
+    DriverVersion, buildah_driver::BuildahDriver, docker_driver::DockerDriver,
     podman_driver::PodmanDriver,
 };
 
@@ -25,6 +28,7 @@ impl DetermineDriver<InspectDriverType> for Option<InspectDriverType> {
     }
 }
 
+#[cfg(not(feature = "next-builder"))]
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum BuildDriverType {
     Buildah,
@@ -32,6 +36,7 @@ pub enum BuildDriverType {
     Docker,
 }
 
+#[cfg(not(feature = "next-builder"))]
 impl DetermineDriver<BuildDriverType> for Option<BuildDriverType> {
     fn determine_driver(&mut self) -> BuildDriverType {
         *self.get_or_insert(
@@ -89,6 +94,7 @@ impl DetermineDriver<SigningDriverType> for Option<SigningDriverType> {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum RunDriverType {
     Podman,
+    #[cfg(not(feature = "next-builder"))]
     Docker,
 }
 
@@ -96,6 +102,7 @@ impl From<RunDriverType> for String {
     fn from(value: RunDriverType) -> Self {
         match value {
             RunDriverType::Podman => "podman".to_string(),
+            #[cfg(not(feature = "next-builder"))]
             RunDriverType::Docker => "docker".to_string(),
         }
     }
@@ -105,25 +112,37 @@ impl DetermineDriver<RunDriverType> for Option<RunDriverType> {
     fn determine_driver(&mut self) -> RunDriverType {
         trace!("RunDriver::determine_driver()");
 
-        *self.get_or_insert(
-            match (
-                blue_build_utils::check_command_exists("docker"),
-                blue_build_utils::check_command_exists("podman"),
-            ) {
-                (Ok(_docker), _) if DockerDriver::is_supported_version() => RunDriverType::Docker,
-                (_, Ok(_podman)) if PodmanDriver::is_supported_version() => RunDriverType::Podman,
-                _ => panic!(
-                    "{}{}{}{}",
-                    "Could not determine strategy, ",
-                    format_args!("need either docker version {}, ", DockerDriver::VERSION_REQ),
-                    format_args!("podman version {}, ", PodmanDriver::VERSION_REQ),
-                    format_args!(
-                        "or buildah version {} to continue",
-                        BuildahDriver::VERSION_REQ
+        #[cfg(feature = "next-builder")]
+        {
+            *self.get_or_insert(RunDriverType::Podman)
+        }
+
+        #[cfg(not(feature = "next-builder"))]
+        {
+            *self.get_or_insert(
+                match (
+                    blue_build_utils::check_command_exists("docker"),
+                    blue_build_utils::check_command_exists("podman"),
+                ) {
+                    (Ok(_docker), _) if DockerDriver::is_supported_version() => {
+                        RunDriverType::Docker
+                    }
+                    (_, Ok(_podman)) if PodmanDriver::is_supported_version() => {
+                        RunDriverType::Podman
+                    }
+                    _ => panic!(
+                        "{}{}{}{}",
+                        "Could not determine strategy, ",
+                        format_args!("need either docker version {}, ", DockerDriver::VERSION_REQ),
+                        format_args!("podman version {}, ", PodmanDriver::VERSION_REQ),
+                        format_args!(
+                            "or buildah version {} to continue",
+                            BuildahDriver::VERSION_REQ
+                        ),
                     ),
-                ),
-            },
-        )
+                },
+            )
+        }
     }
 }
 
@@ -155,6 +174,7 @@ impl DetermineDriver<CiDriverType> for Option<CiDriverType> {
 pub enum BootDriverType {
     #[cfg(feature = "bootc")]
     Bootc,
+    #[cfg(not(feature = "next-builder"))]
     RpmOstree,
     None,
 }
@@ -163,16 +183,23 @@ impl DetermineDriver<BootDriverType> for Option<BootDriverType> {
     fn determine_driver(&mut self) -> BootDriverType {
         trace!("BootDriverType::determine_driver()");
 
-        *self.get_or_insert(
-            match (
-                blue_build_utils::check_command_exists("bootc"),
-                blue_build_utils::check_command_exists("rpm-ostree"),
-            ) {
-                #[cfg(feature = "bootc")]
-                (Ok(_bootc), _) => BootDriverType::Bootc,
-                (_, Ok(_rpm_ostree)) => BootDriverType::RpmOstree,
-                _ => BootDriverType::None,
-            },
-        )
+        #[cfg(not(feature = "next-builder"))]
+        {
+            *self.get_or_insert(
+                match (
+                    blue_build_utils::check_command_exists("bootc"),
+                    blue_build_utils::check_command_exists("rpm-ostree"),
+                ) {
+                    #[cfg(feature = "bootc")]
+                    (Ok(_bootc), _) => BootDriverType::Bootc,
+                    (_, Ok(_rpm_ostree)) => BootDriverType::RpmOstree,
+                    _ => BootDriverType::None,
+                },
+            )
+        }
+        #[cfg(feature = "next-builder")]
+        {
+            *self.get_or_insert(BootDriverType::Bootc)
+        }
     }
 }

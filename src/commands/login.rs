@@ -1,6 +1,6 @@
 use std::io::{self, Read};
 
-use blue_build_process_management::drivers::{BuildDriver, Driver, DriverArgs, SigningDriver};
+use blue_build_process_management::drivers::{Driver, SigningDriver};
 use blue_build_utils::{
     credentials::{Credentials, CredentialsArgs},
     secret::SecretValue,
@@ -10,6 +10,9 @@ use miette::{IntoDiagnostic, Result, bail};
 use requestty::questions;
 
 use super::BlueBuildCommand;
+
+#[cfg(not(feature = "next-builder"))]
+use blue_build_process_management::drivers::{BuildDriver, DriverArgs};
 
 #[derive(Debug, Clone, Args)]
 pub struct LoginCommand {
@@ -33,12 +36,17 @@ pub struct LoginCommand {
     username: Option<String>,
 
     #[clap(flatten)]
+    #[cfg(not(feature = "next-builder"))]
     drivers: DriverArgs,
 }
 
 impl BlueBuildCommand for LoginCommand {
     fn try_run(&mut self) -> miette::Result<()> {
+        #[cfg(not(feature = "next-builder"))]
         Driver::init(self.drivers);
+
+        #[cfg(feature = "next-builder")]
+        Driver::init();
 
         Credentials::init(
             CredentialsArgs::builder()

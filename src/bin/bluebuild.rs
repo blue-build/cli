@@ -48,6 +48,7 @@ fn main() {
 
     signal_handler::init(|| match args.command {
         CommandArgs::Build(mut command) => command.run(),
+        #[cfg(not(feature = "next-builder"))]
         CommandArgs::Generate(mut command) => command.run(),
         CommandArgs::Switch(mut command) => command.run(),
         CommandArgs::Login(mut command) => command.run(),

@@ -52,3 +52,4 @@ workspace = true
 
 [features]
 bootc = []
+next-builder = []

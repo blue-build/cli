@@ -303,7 +303,7 @@ version:
     RUN apt-get update && apt-get install -y jq
 
     WORKDIR /app
-    COPY --keep-ts --dir src/ template/ recipe/ utils/ process/ /app
+    COPY --keep-ts --dir src/ next/ template/ recipe/ utils/ process/ /app
     COPY --keep-ts Cargo.* /app
 
     RUN /bin/bash -c 'set -eo pipefail; cargo metadata --no-deps --format-version 1 \

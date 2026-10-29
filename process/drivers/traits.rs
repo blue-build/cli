@@ -1,7 +1,5 @@
 use std::{
     borrow::Borrow,
-    fmt::Debug,
-    ops::Not,
     path::PathBuf,
     process::{ExitStatus, Output},
     time::Duration,
@@ -9,41 +7,58 @@ use std::{
 
 use blue_build_utils::{
     constants::COSIGN_PUB_PATH,
-    container::{ContainerId, ImageRef, MountId, OciRef, Tag},
-    platform::Platform,
+    container::{ContainerId, ImageRef, Tag},
     retry,
     semver::Version,
-    string_vec, tempdir, tempdir_in,
 };
-use comlexr::cmd;
-use log::{debug, info, trace, warn};
+use log::{debug, trace};
 use miette::{Context, IntoDiagnostic, Result, bail};
 use oci_client::Reference;
-use rayon::prelude::*;
 use semver::VersionReq;
 
 use super::{
     Driver,
     opts::{
-        BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts,
-        CheckKeyPairOpts, ContainerOpts, CopyOciOpts, CreateContainerOpts, GenerateImageNameOpts,
-        GenerateKeyPairOpts, GenerateTagsOpts, GetMetadataOpts, InspectImageOpts,
-        PostBuildDriverOpts, PostBuildOpts, PruneOpts, PullOpts, PushOpts, RechunkOpts,
-        RemoveContainerOpts, RemoveImageOpts, RunOpts, SignOpts, SignVerifyOpts, SwitchOpts,
-        TagOpts, UntagOpts, VerifyOpts, VerifyType, VolumeOpts,
+        CheckKeyPairOpts, CreateContainerOpts, GenerateImageNameOpts, GenerateKeyPairOpts,
+        GenerateTagsOpts, GetMetadataOpts, RemoveContainerOpts, RunOpts, SignOpts, SignVerifyOpts,
+        SwitchOpts, VerifyOpts, VerifyType,
     },
-    opts::{ManifestCreateOpts, ManifestPushOpts},
-    rpm_ostree_runner::RpmOstreeRunner,
     types::CiDriverType,
-    types::{
-        BootDriverType, BuildDriverType, ImageMetadata, InspectDriverType, RunDriverType,
-        SigningDriverType,
-    },
+    types::{BootDriverType, ImageMetadata, InspectDriverType, RunDriverType, SigningDriverType},
 };
 use crate::{
-    ASYNC_RUNTIME, drivers::opts::PrivateKey, logging::CommandLogging,
+    ASYNC_RUNTIME,
+    drivers::opts::{InspectImageOpts, PrivateKey, RemoveImageOpts},
     signal_handler::DetachedContainer,
 };
+
+#[cfg(not(feature = "next-builder"))]
+use crate::{
+    drivers::{
+        opts::{
+            BuildChunkedOciOpts, BuildOpts, BuildRechunkTagPushOpts, BuildTagPushOpts,
+            ContainerOpts, CopyOciOpts, ManifestCreateOpts, ManifestPushOpts, PostBuildDriverOpts,
+            PostBuildOpts, PruneOpts, PullOpts, PushOpts, RechunkOpts, TagOpts, UntagOpts,
+            VolumeOpts,
+        },
+        rpm_ostree_runner::RpmOstreeRunner,
+    },
+    logging::CommandLogging,
+};
+#[cfg(not(feature = "next-builder"))]
+use blue_build_utils::{
+    container::{MountId, OciRef},
+    platform::Platform,
+    string_vec, tempdir, tempdir_in,
+};
+#[cfg(not(feature = "next-builder"))]
+use comlexr::cmd;
+#[cfg(not(feature = "next-builder"))]
+use log::{info, warn};
+#[cfg(not(feature = "next-builder"))]
+use rayon::prelude::*;
+#[cfg(not(feature = "next-builder"))]
+use std::{fmt::Debug, ops::Not};
 
 trait PrivateDriver {}
 
@@ -57,26 +72,30 @@ macro_rules! impl_private_driver {
 
 impl_private_driver!(
     super::Driver,
-    super::docker_driver::DockerDriver,
     super::podman_driver::PodmanDriver,
-    super::buildah_driver::BuildahDriver,
     super::github_driver::GithubDriver,
     super::gitlab_driver::GitlabDriver,
     super::local_driver::LocalDriver,
-    super::cosign_driver::CosignDriver,
-    super::skopeo_driver::SkopeoDriver,
     super::sigstore_driver::SigstoreDriver,
-    super::rpm_ostree_driver::RpmOstreeDriver,
-    super::rpm_ostree_driver::Status,
-    super::rpm_ostree_runner::RpmOstreeContainer,
-    super::rpm_ostree_runner::RpmOstreeRunner,
     super::oci_client_driver::OciClientDriver,
-    Option<BuildDriverType>,
     Option<RunDriverType>,
     Option<InspectDriverType>,
     Option<SigningDriverType>,
     Option<CiDriverType>,
     Option<BootDriverType>,
+);
+
+#[cfg(not(feature = "next-builder"))]
+impl_private_driver!(
+    super::docker_driver::DockerDriver,
+    super::buildah_driver::BuildahDriver,
+    super::skopeo_driver::SkopeoDriver,
+    super::cosign_driver::CosignDriver,
+    super::rpm_ostree_driver::RpmOstreeDriver,
+    super::rpm_ostree_driver::Status,
+    super::rpm_ostree_runner::RpmOstreeContainer,
+    super::rpm_ostree_runner::RpmOstreeRunner,
+    Option<super::types::BuildDriverType>,
 );
 
 #[cfg(feature = "bootc")]
@@ -112,6 +131,7 @@ pub trait DriverVersion: PrivateDriver {
 }
 
 /// Allows agnostic building, tagging, pushing, and login.
+#[cfg(not(feature = "next-builder"))]
 pub trait BuildDriver: ImageStorageDriver {
     /// Runs the build logic for the driver.
     ///
@@ -257,6 +277,7 @@ pub trait BuildDriver: ImageStorageDriver {
 
 /// Trait for a postprocessing step (such as rechunking) that can be applied to
 /// images after they're built.
+#[cfg(not(feature = "next-builder"))]
 pub trait PostBuild: Debug {
     /// Check driver requirements for post-build steps.
     ///
@@ -272,6 +293,7 @@ pub trait PostBuild: Debug {
 }
 
 /// Auxiliary trait that actually runs the postprocessing step.
+#[cfg(not(feature = "next-builder"))]
 pub trait PostBuildRunner {
     /// Run postprocessing on image. Implementors should write the output image
     /// to the image reference given by `opts.output_image`.
@@ -282,6 +304,7 @@ pub trait PostBuildRunner {
 }
 
 /// A build driver that can run post-build steps.
+#[cfg(not(feature = "next-builder"))]
 pub trait PostBuildDriver: BuildDriver {
     /// Runs the logic for building, tagging, and pushing an image, with post-
     /// build processing applied after building but before tagging and pushing.
@@ -362,6 +385,7 @@ pub trait ImageStorageDriver: PrivateDriver {
     fn list_images(privileged: bool) -> Result<Vec<Reference>>;
 }
 
+#[cfg(not(feature = "next-builder"))]
 pub trait BuildChunkedOciDriver: BuildDriver + ImageStorageDriver {
     /// Create a manifest containing all the built images.
     /// Runs within the same context as rpm-ostree.
@@ -644,6 +668,7 @@ pub trait BuildChunkedOciDriver: BuildDriver + ImageStorageDriver {
 }
 
 #[expect(private_bounds)]
+#[cfg(not(feature = "next-builder"))]
 pub(super) trait ContainerMountDriver: PrivateDriver {
     /// Mounts the container
     ///
@@ -665,6 +690,7 @@ pub(super) trait ContainerMountDriver: PrivateDriver {
 }
 
 #[expect(private_bounds)]
+#[cfg(not(feature = "next-builder"))]
 pub trait OciCopy: PrivateDriver {
     /// Copy an OCI image.
     ///
@@ -674,6 +700,7 @@ pub trait OciCopy: PrivateDriver {
 }
 
 #[expect(private_bounds)]
+#[cfg(not(feature = "next-builder"))]
 pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
     // renovate: datasource=github-releases depName=hhd-dev/rechunk
     const RECHUNK_IMAGE: &str = "ghcr.io/hhd-dev/rechunk:v1.0.1";
