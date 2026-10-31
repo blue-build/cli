@@ -107,7 +107,7 @@ pub const SUDO_ASKPASS: &str = "SUDO_ASKPASS";
 // Misc
 pub const BLUE_BUILD: &str = "bluebuild";
 pub const BUILD_SCRIPTS_IMAGE_REF: &str = "ghcr.io/blue-build/cli/build-scripts";
-pub const BLUE_BUILD_DEFAULT_IMAGE: &str = "ghcr.io/blue-build/base-images/fedora-base:latest@sha256:716aad1947dc397bd9019e26b84f1d02472c249be5e6190588c61561d3d1f3cd";
+pub const BLUE_BUILD_DEFAULT_IMAGE: &str = "ghcr.io/blue-build/base-images/fedora-base:latest@sha256:50b48a4817dce0dea4b17e6e35723ed6e07b2a2ea6487db3eceedcaedcfd3f93";
 pub const BLUE_BUILD_IMAGE_REF: &str = "ghcr.io/blue-build/cli";
 pub const BLUE_BUILD_MODULE_IMAGE_REF: &str = "ghcr.io/blue-build/modules";
 pub const BLUE_BUILD_SCRIPTS_DIR_IGNORE: &str = "/.bluebuild-scripts_*";
