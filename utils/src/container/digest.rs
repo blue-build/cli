@@ -3,8 +3,9 @@ use std::{ops::Deref, str::FromStr};
 use lazy_regex::regex_is_match;
 use miette::bail;
 use oci_client::Reference;
+use serde::Serialize;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 pub struct Digest(String);
 
 impl Digest {

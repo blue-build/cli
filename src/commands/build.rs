@@ -1,4 +1,6 @@
 use std::{
+    collections::BTreeMap,
+    fs,
     num::NonZeroU32,
     ops::Not,
     path::{Path, PathBuf},
@@ -23,8 +25,8 @@ use blue_build_utils::{
     colors::gen_random_ansi_color,
     constants::{
         ARCHIVE_SUFFIX, BB_BUILD_ARCHIVE, BB_BUILD_CHUNKAH, BB_BUILD_CHUNKAH_VERSION,
-        BB_BUILD_CHUNKED_OCI, BB_BUILD_CHUNKED_OCI_MAX_LAYERS, BB_BUILD_MAX_LAYERS,
-        BB_BUILD_NO_SIGN, BB_BUILD_PLATFORM, BB_BUILD_PUSH, BB_BUILD_RECHUNK,
+        BB_BUILD_CHUNKED_OCI, BB_BUILD_CHUNKED_OCI_MAX_LAYERS, BB_BUILD_DIGESTFILE,
+        BB_BUILD_MAX_LAYERS, BB_BUILD_NO_SIGN, BB_BUILD_PLATFORM, BB_BUILD_PUSH, BB_BUILD_RECHUNK,
         BB_BUILD_RECHUNK_CLEAR_PLAN, BB_BUILD_REMOVE_BASE_IMAGE, BB_BUILD_RETRY_COUNT,
         BB_BUILD_RETRY_PUSH, BB_BUILD_SQUASH, BB_CACHE_LAYERS, BB_REGISTRY_NAMESPACE,
         BB_SKIP_VALIDATION, BB_TEMPDIR, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH,
@@ -192,6 +194,14 @@ pub struct BuildCommand {
     #[builder(default)]
     skip_validation: bool,
 
+    /// Print a json file containing a map of
+    /// images pushed and their digest.
+    ///
+    /// Example file format:
+    /// {"ghcr.io/blue-build/base-images/fedora-kinoite:latest": "sha256:abcdef..."}
+    #[arg(long, env = BB_BUILD_DIGESTFILE)]
+    digestfile: Option<PathBuf>,
+
     #[clap(flatten)]
     #[builder(default)]
     credentials: CredentialsArgs,
@@ -280,20 +290,44 @@ impl BuildCommand {
             temp_dir.display()
         );
 
-        let images = recipe_paths
+        let results: Vec<(Vec<String>, Option<Digest>)> = recipe_paths
             .par_iter()
-            .try_fold(Vec::new, |mut images, recipe_path| -> Result<Vec<String>> {
-                images.extend(self.build(
+            .map(|recipe_path| -> Result<(Vec<String>, Option<Digest>)> {
+                self.build(
                     recipe_path,
                     &temp_dir.join(blue_build_utils::generate_containerfile_path(recipe_path)?),
-                )?);
-                Ok(images)
+                )
             })
-            .try_reduce(Vec::new, |mut init, image_names| {
-                let color = gen_random_ansi_color();
-                init.extend(image_names.iter().map(|image| color_str(image, color)));
-                Ok(init)
-            })?;
+            .collect::<Result<_>>()?;
+
+        if let Some(digestfile) = &self.digestfile
+            && self.push
+        {
+            let digests = results
+                .iter()
+                .filter_map(|(images, digest)| {
+                    let digest = digest.as_ref()?;
+                    let image = images.first()?;
+
+                    Some((image, digest))
+                })
+                .collect::<BTreeMap<_, _>>();
+            fs::write(
+                digestfile,
+                &serde_json::to_string(&digests).into_diagnostic()?,
+            )
+            .into_diagnostic()?;
+        }
+
+        let images =
+            results
+                .iter()
+                .map(|(images, _)| images)
+                .fold(Vec::new(), |mut init, image_names| {
+                    let color = gen_random_ansi_color();
+                    init.extend(image_names.iter().map(|image| color_str(image, color)));
+                    init
+                });
 
         info!(
             "Finished building:\n{}",
@@ -307,7 +341,11 @@ impl BuildCommand {
     }
 
     #[expect(clippy::too_many_lines)]
-    fn build(&self, recipe_path: &Path, containerfile: &Path) -> Result<Vec<String>> {
+    fn build(
+        &self,
+        recipe_path: &Path,
+        containerfile: &Path,
+    ) -> Result<(Vec<String>, Option<Digest>)> {
         trace!(
             "BuildCommand::build({}, {})",
             recipe_path.display(),
@@ -451,6 +489,7 @@ impl BuildCommand {
 
         if self.push && !self.no_sign {
             let digest_image = digest
+                .as_ref()
                 .ok_or_else(|| miette!("Digest is required when signing"))?
                 .reference_digest(image);
 
@@ -463,7 +502,7 @@ impl BuildCommand {
             )?;
         }
 
-        Ok(images)
+        Ok((images, digest))
     }
 
     fn rechunk(
