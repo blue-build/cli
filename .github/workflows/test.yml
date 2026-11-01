@@ -205,6 +205,7 @@ jobs:
       fork_pr: ${{ inputs.fork_pr }}
       pr_event_number: ${{ inputs.pr_event_number }}
       install_cosign: ${{ ! inputs.fork_pr }}
+      runs_on: ubuntu-24.04-arm
       run: test-arm64-build
 
   docker-build-external-login:

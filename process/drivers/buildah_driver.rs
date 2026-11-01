@@ -351,6 +351,7 @@ impl BuildDriver for BuildahDriver {
                 "buildah",
                 "manifest",
                 "push",
+                format!("--digestfile={}", digestfile.display()),
                 "--all",
                 if let Some(compression_fmt) = opts.compression_type => format!(
                     "--compression-format={compression_fmt}"

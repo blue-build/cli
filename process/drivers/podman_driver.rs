@@ -38,6 +38,7 @@ use super::{
 };
 use crate::{
     logging::CommandLogging,
+    run_volumes,
     signal_handler::{ContainerRuntime, ContainerSignalId, DetachedContainer, add_cid, remove_cid},
 };
 
@@ -124,13 +125,13 @@ impl PodmanDriver {
         opts: ManifestPushOpts,
         podman_in_podman_container: Option<&DetachedContainer>,
         podman_storage_dir: &str,
+        tmp_dir: &Path,
     ) -> Result<Digest> {
         let Some(container) = podman_in_podman_container else {
             return Self::manifest_push(opts).and_then(|_| Self::manifest_push(opts));
         };
 
-        let digestfile = tempdir()?;
-        let digestfile = digestfile.path().join("digest");
+        let digestfile = tmp_dir.join("digest");
 
         for i in 0..2 {
             let status = {
@@ -597,19 +598,12 @@ impl PostBuildDriver for PodmanDriver {
 
         let podman_storage_dir = Self::get_podman_info("{{.Store.GraphRoot}}")?;
         let runtime_container_dir = Self::get_podman_info("{{.Store.RunRoot}}")?;
+        let tmp_dir = tempdir()?;
         // This is to ensure a recent podman version is used when applying workarounds for the
         // following podman bug that prevents layer annotations from being pushed:
         // https://github.com/containers/podman/issues/27796
         let podman_in_podman_container = if *Self::version()? < semver::Version::new(5, 0, 0) {
-            let podman_storage_mount = RunOptsVolume::builder()
-                .path_or_vol_name(&podman_storage_dir)
-                .container_path(&podman_storage_dir)
-                .build();
-            let runtime_container_mount = RunOptsVolume::builder()
-                .path_or_vol_name(&runtime_container_dir)
-                .container_path("/run/containers")
-                .build();
-
+            let tmp_dir = &tmp_dir.path().display().to_string();
             let container = Self::run_detached(
                 RunOpts::builder()
                     .image("quay.io/podman/stable:latest@sha256:f345d8d4fddea244d3a1ced27bcec82d14cc9e32cb5ead7f5882b0baf59dc8b0")
@@ -617,7 +611,11 @@ impl PostBuildDriver for PodmanDriver {
                     .privileged(true)
                     .rootless(true)
                     .remove(true)
-                    .volumes(&[podman_storage_mount, runtime_container_mount])
+                    .volumes(&run_volumes![
+                        &podman_storage_dir => &podman_storage_dir,
+                        &runtime_container_dir => "/run/containers",
+                        tmp_dir => tmp_dir,
+                    ])
                     .args(&[
                         "/bin/sh".to_owned(),
                         "-c".to_owned(),
@@ -674,6 +672,7 @@ impl PostBuildDriver for PodmanDriver {
                                         .build(),
                                     podman_in_podman_container.as_ref(),
                                     &podman_storage_dir,
+                                    tmp_dir.path(),
                                 )
                             })?;
 
@@ -752,8 +751,7 @@ impl BuildChunkedOciDriver for PodmanDriver {
         let (cmd, args) = runner.command_args("podman", &["manifest"]);
         let image = &opts.final_image.to_string();
 
-        let digestfile = tempdir()?;
-        let digestfile = digestfile.path().join("digest");
+        let digestfile = runner.tmp_dir().join("digest");
 
         let status = {
             let c = cmd!(

@@ -2,7 +2,7 @@ use std::{
     ffi::{OsStr, OsString},
     fs,
     os::unix::ffi::OsStrExt,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -10,23 +10,25 @@ use blue_build_utils::{container::Digest, tempdir};
 use comlexr::cmd;
 use log::trace;
 use miette::{IntoDiagnostic, Result, bail};
+use tempfile::TempDir;
 
-use crate::{logging::CommandLogging, signal_handler::DetachedContainer};
+use crate::{logging::CommandLogging, run_volumes, signal_handler::DetachedContainer};
 
 use super::{
     Driver, OciCopy, PodmanDriver, RunDriver,
-    opts::{CopyOciOpts, RunOpts, RunOptsVolume},
+    opts::{CopyOciOpts, RunOpts},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum RpmOstreeRunner {
-    System,
+    System(TempDir),
     Container(Arc<RpmOstreeContainer>),
 }
 
 #[derive(Debug)]
 pub struct RpmOstreeContainer {
     inner: DetachedContainer,
+    tmp_dir: TempDir,
 }
 
 impl RpmOstreeRunner {
@@ -38,7 +40,7 @@ impl RpmOstreeRunner {
     /// Returns an error if the container fails to start.
     pub fn start() -> Result<Self> {
         let runner = if which::which("rpm-ostree").is_ok() {
-            Self::System
+            Self::System(tempdir()?)
         } else {
             Self::Container(Arc::new(RpmOstreeContainer::start()?))
         };
@@ -69,12 +71,20 @@ impl RpmOstreeRunner {
     pub fn authfile(&self) -> Option<PathBuf> {
         matches!(self, Self::Container(_)).then(|| PathBuf::from("/run/containers/auth.json"))
     }
+
+    #[must_use]
+    pub fn tmp_dir(&self) -> &Path {
+        match self {
+            Self::System(tmp_dir) => tmp_dir.path(),
+            Self::Container(container) => container.tmp_dir.path(),
+        }
+    }
 }
 
 impl OciCopy for RpmOstreeRunner {
     fn copy_oci(&self, opts: super::opts::CopyOciOpts) -> Result<Digest> {
         match self {
-            Self::System => Driver.copy_oci(opts),
+            Self::System(_) => Driver.copy_oci(opts),
             Self::Container(container) => container.copy_oci(opts),
         }
     }
@@ -85,35 +95,33 @@ impl RpmOstreeContainer {
 
     fn start() -> Result<Self> {
         let podman_storage_dir = PodmanDriver::get_podman_info("{{.Store.GraphRoot}}")?;
-        let podman_storage_mount = RunOptsVolume::builder()
-            .path_or_vol_name(&podman_storage_dir)
-            .container_path(&podman_storage_dir)
-            .build();
         let runtime_container_dir = PodmanDriver::get_podman_info("{{.Store.RunRoot}}")?;
-        let runtime_container_mount = RunOptsVolume::builder()
-            .path_or_vol_name(&runtime_container_dir)
-            .container_path("/run/containers")
-            .build();
+        let tmp_dir = tempdir()?;
+        let tmp_dir_path = tmp_dir.path().display().to_string();
 
-        let container = PodmanDriver::run_detached(
+        let inner = PodmanDriver::run_detached(
             RunOpts::builder()
                 .pull(true)
                 .privileged(true)
                 .rootless(true)
                 .remove(true)
-                .volumes(&[podman_storage_mount, runtime_container_mount])
+                .volumes(&run_volumes![
+                    &podman_storage_dir => &podman_storage_dir,
+                    &runtime_container_dir => "/run/containers",
+                    &tmp_dir_path => &tmp_dir_path,
+                ])
                 .image(Self::IMAGE_REF)
-                .args(&[
-                    "--storage".to_owned(),
-                    podman_storage_dir.clone(),
-                    "/bin/sh".to_owned(),
-                    "-c".to_owned(),
-                    "while true; do sleep 86400; done".to_owned(),
+                .args(&bon::vec![
+                    "--storage",
+                    &podman_storage_dir,
+                    "/bin/sh",
+                    "-c",
+                    "while true; do sleep 86400; done",
                 ])
                 .build(),
         )?;
 
-        Ok(Self { inner: container })
+        Ok(Self { inner, tmp_dir })
     }
 
     /// Produce the arguments to run the given command inside the container.
@@ -140,8 +148,7 @@ impl OciCopy for RpmOstreeContainer {
         let use_sudo = opts.privileged && !blue_build_utils::running_as_root();
         let (cmd, args) = self.command_args("skopeo", &["copy"]);
 
-        let digestfile = tempdir()?;
-        let digestfile = digestfile.path().join("digest");
+        let digestfile = self.tmp_dir.path().join("digest");
 
         let status = {
             let c = cmd!(

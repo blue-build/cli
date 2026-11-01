@@ -10,6 +10,10 @@ on:
       run:
         required: true
         type: string
+      runs_on:
+        required: false
+        type: string
+        default: ubuntu-latest
       pr_event_number:
         type: string
       fork_pr:
@@ -45,7 +49,7 @@ jobs:
   run-test:
     name: ${{ inputs.run }}
     timeout-minutes: 60
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     permissions:
       contents: read # read repo contents
       packages: write # write test package to ghcr
