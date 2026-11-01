@@ -15,7 +15,7 @@ if ! command_exists bash \
     elif command_exists dnf4; then
         dnf4 -y install bash curl coreutils jq grep
     elif command_exists zypper; then
-        zypper --non-interactive install --auto-agree-with-licenses bash curl coreutils jq grep find
+        zypper --non-interactive install --auto-agree-with-licenses bash curl coreutils jq grep find awk
     elif command_exists pacman; then
         pacman --sync --noconfirm --refresh --sysupgrade bash curl coreutils jq grep
     elif command_exists apt-get; then
