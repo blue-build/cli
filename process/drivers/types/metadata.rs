@@ -1,6 +1,6 @@
-use std::iter::once;
+use std::iter::once_with;
 
-use blue_build_utils::{constants::IMAGE_VERSION_LABEL, semver::Version};
+use blue_build_utils::{constants::IMAGE_VERSION_LABEL, container::Digest, semver::Version};
 use bon::Builder;
 use miette::{Context, Result, miette};
 use oci_client::{config::Config, manifest::OciManifest};
@@ -14,13 +14,13 @@ pub struct ImageConfig {
 #[derive(Debug, Clone, Builder)]
 pub struct ImageMetadata {
     manifest: OciManifest,
-    digest: String,
+    digest: Digest,
     configs: Vec<(String, ImageConfig)>,
 }
 
 impl ImageMetadata {
     #[must_use]
-    pub fn digest(&self) -> &str {
+    pub const fn digest(&self) -> &Digest {
         &self.digest
     }
 
@@ -29,17 +29,20 @@ impl ImageMetadata {
         &self.manifest
     }
 
-    #[must_use]
-    pub fn all_digests(&self) -> Vec<String> {
-        let iter = once(self.digest.clone());
+    /// Gets all the digests from from the metadata.
+    ///
+    /// # Errors
+    /// Will error if one of the digests are invalid.
+    pub fn all_digests(&self) -> Result<Vec<Digest>> {
+        let iter = once_with(|| Ok(self.digest.clone()));
         if let OciManifest::ImageIndex(index) = &self.manifest {
             iter.chain(
                 index
                     .manifests
                     .iter()
-                    .flat_map(|manifest| vec![manifest.digest.clone()]),
+                    .map(|manifest| manifest.digest.parse::<Digest>()),
             )
-            .collect::<Vec<_>>()
+            .collect()
         } else {
             iter.collect()
         }

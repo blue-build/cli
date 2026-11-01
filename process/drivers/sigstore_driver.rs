@@ -116,7 +116,7 @@ impl SigningDriver for SigstoreDriver {
             key,
         }: SignOpts,
     ) -> Result<()> {
-        trace!("SigstoreDriver::sign({image}, {metadata:?})");
+        trace!("SigstoreDriver::sign({image})");
 
         let Some(key) = key else {
             bail!("Private key is required to sign");
@@ -149,7 +149,7 @@ impl SigningDriver for SigstoreDriver {
         };
         debug!("Credentials retrieved");
 
-        let digests = metadata.all_digests();
+        let digests = metadata.all_digests()?;
         trace!("Found digests: {digests:#?}");
 
         let signature_layers = digests
@@ -158,7 +158,7 @@ impl SigningDriver for SigstoreDriver {
                 let image_ref = OciReference::with_digest(
                     image.registry().to_string(),
                     image.repository().to_string(),
-                    digest,
+                    digest.to_string(),
                 );
                 let (cosign_sig_image, cosign_digest) = ASYNC_RUNTIME
                     .block_on(client.triangulate(&image_ref, &auth))

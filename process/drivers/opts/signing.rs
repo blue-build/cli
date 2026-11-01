@@ -5,9 +5,8 @@ use std::{
 
 use blue_build_utils::{
     constants::{BB_PRIVATE_KEY, COSIGN_PRIV_PATH, COSIGN_PRIVATE_KEY, COSIGN_PUB_PATH},
-    get_env_var,
-    platform::Platform,
-    string,
+    container::DigestReference,
+    get_env_var, string,
 };
 use bon::Builder;
 use miette::{IntoDiagnostic, Result, bail};
@@ -128,7 +127,7 @@ pub struct CheckKeyPairOpts<'scope> {
 #[derive(Debug, Clone, Copy, Builder)]
 #[builder(derive(Debug, Clone))]
 pub struct SignOpts<'scope> {
-    pub image: &'scope Reference,
+    pub image: &'scope DigestReference,
     pub metadata: &'scope ImageMetadata,
     pub key: Option<&'scope PrivateKey>,
 }
@@ -152,7 +151,7 @@ pub struct VerifyOpts<'scope> {
 #[derive(Debug, Clone, Copy, Builder)]
 #[builder(derive(Debug, Clone))]
 pub struct SignVerifyOpts<'scope> {
-    pub image: &'scope Reference,
+    pub image: &'scope DigestReference,
     pub dir: Option<&'scope Path>,
 
     /// Enable retry logic for pushing.
@@ -164,5 +163,4 @@ pub struct SignVerifyOpts<'scope> {
     /// Defaults to 1.
     #[builder(default = 1)]
     pub retry_count: u8,
-    pub platforms: &'scope [Platform],
 }

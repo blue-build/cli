@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, path::Path};
 
 use blue_build_utils::{
-    container::{ContainerId, Tag},
+    container::{ContainerId, Digest, Tag},
     platform::Platform,
     secret::Secret,
 };
@@ -21,7 +21,7 @@ pub struct RechunkOpts<'scope> {
     pub version: &'scope str,
     pub name: &'scope str,
     pub description: Option<&'scope str>,
-    pub base_digest: &'scope str,
+    pub base_digest: &'scope Digest,
     pub base_image: &'scope Reference,
     pub repo: &'scope str,
 

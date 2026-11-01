@@ -13,6 +13,7 @@ pub struct BuildRechunkTagPushOpts<'scope> {
     pub rechunk_opts: BuildChunkedOciOpts,
 
     /// Base image to remove after building.
+    #[builder(into)]
     pub remove_base_image: Option<&'scope Reference>,
 }
 

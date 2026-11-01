@@ -1,5 +1,6 @@
 use std::{
-    fs::File,
+    collections::BTreeSet,
+    fs::{self, File},
     ops::Not,
     path::Path,
     process::{Command, ExitStatus, Stdio},
@@ -8,7 +9,7 @@ use std::{
 
 use blue_build_utils::{
     constants::USER,
-    container::{ContainerId, ImageRef, MountId},
+    container::{ContainerId, Digest, ImageRef, MountId},
     credentials::Credentials,
     get_env_var,
     platform::Platform,
@@ -123,10 +124,13 @@ impl PodmanDriver {
         opts: ManifestPushOpts,
         podman_in_podman_container: Option<&DetachedContainer>,
         podman_storage_dir: &str,
-    ) -> Result<()> {
+    ) -> Result<Digest> {
         let Some(container) = podman_in_podman_container else {
-            return Self::manifest_push(opts).and_then(|()| Self::manifest_push(opts));
+            return Self::manifest_push(opts).and_then(|_| Self::manifest_push(opts));
         };
+
+        let digestfile = tempdir()?;
+        let digestfile = digestfile.path().join("digest");
 
         for i in 0..2 {
             let status = {
@@ -138,6 +142,7 @@ impl PodmanDriver {
                     format!("--root={podman_storage_dir}"),
                     "manifest",
                     "push",
+                    format!("--digestfile={}", digestfile.display()),
                     "--authfile=/run/containers/auth.json",
                     if let Some(compression_fmt) = opts.compression_type => format!(
                         "--compression-format={compression_fmt}"
@@ -159,7 +164,7 @@ impl PodmanDriver {
             }
         }
 
-        Ok(())
+        fs::read_to_string(digestfile).into_diagnostic()?.parse()
     }
 }
 
@@ -314,16 +319,20 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
-    fn push(opts: PushOpts) -> Result<()> {
+    fn push(opts: PushOpts) -> Result<Digest> {
         trace!("PodmanDriver::push({opts:#?})");
 
         let image_str = opts.image.to_string();
+
+        let digestfile = tempdir()?;
+        let digestfile = digestfile.path().join("digest");
 
         let command = sudo_cmd!(
             prompt = SUDO_PROMPT,
             sudo_check = opts.privileged,
             "podman",
             "push",
+            format!("--digestfile={}", digestfile.display()),
             format!(
                 "--compression-format={}",
                 opts.compression_type.unwrap_or_default()
@@ -341,7 +350,8 @@ impl BuildDriver for PodmanDriver {
         } else {
             bail!("Failed to push image {}", image_str.bold().red());
         }
-        Ok(())
+
+        fs::read_to_string(digestfile).into_diagnostic()?.parse()
     }
 
     fn pull(opts: PullOpts) -> Result<ContainerId> {
@@ -485,13 +495,18 @@ impl BuildDriver for PodmanDriver {
         Ok(())
     }
 
-    fn manifest_push(opts: ManifestPushOpts) -> Result<()> {
+    fn manifest_push(opts: ManifestPushOpts) -> Result<Digest> {
         let image = &opts.final_image.to_string();
+
+        let digestfile = tempdir()?;
+        let digestfile = digestfile.path().join("digest");
+
         let status = {
             let c = cmd!(
                 "podman",
                 "manifest",
                 "push",
+                format!("--digestfile={}", digestfile.display()),
                 if let Some(compression_fmt) = opts.compression_type => format!(
                     "--compression-format={compression_fmt}"
                 ),
@@ -508,7 +523,7 @@ impl BuildDriver for PodmanDriver {
             bail!("Failed to create manifest for {}", opts.final_image);
         }
 
-        Ok(())
+        fs::read_to_string(digestfile).into_diagnostic()?.parse()
     }
 }
 
@@ -517,7 +532,7 @@ impl PostBuildDriver for PodmanDriver {
     fn build_tag_push_with_post_build(
         opts: BuildTagPushOpts,
         pb_opts: PostBuildDriverOpts,
-    ) -> Result<Vec<String>> {
+    ) -> Result<(Vec<String>, Option<Digest>)> {
         trace!("PostBuildDriver::build_tag_push_with_post_build({opts:#?}, {pb_opts:#?})");
 
         assert!(
@@ -615,6 +630,8 @@ impl PostBuildDriver for PodmanDriver {
             None
         };
 
+        let mut digests: BTreeSet<Digest> = BTreeSet::new();
+
         let image_list: Vec<String> = match &opts.image {
             ImageRef::Remote(image) if !opts.tags.is_empty() => {
                 debug!("Tagging all images");
@@ -646,18 +663,21 @@ impl PostBuildDriver for PodmanDriver {
                         let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
 
                         // Push images with retries
-                        blue_build_utils::retry(retry_count, Duration::from_secs(5), || {
-                            debug!("Pushing image {tagged_image}");
+                        let digest =
+                            blue_build_utils::retry(retry_count, Duration::from_secs(5), || {
+                                debug!("Pushing image {tagged_image}");
 
-                            Self::manifest_push_with_layer_annotation_bug_workaround(
-                                ManifestPushOpts::builder()
-                                    .final_image(&tagged_image)
-                                    .compression_type(opts.compression)
-                                    .build(),
-                                podman_in_podman_container.as_ref(),
-                                &podman_storage_dir,
-                            )
-                        })?;
+                                Self::manifest_push_with_layer_annotation_bug_workaround(
+                                    ManifestPushOpts::builder()
+                                        .final_image(&tagged_image)
+                                        .compression_type(opts.compression)
+                                        .build(),
+                                    podman_in_podman_container.as_ref(),
+                                    &podman_storage_dir,
+                                )
+                            })?;
+
+                        digests.insert(digest);
                     }
                 }
 
@@ -668,7 +688,11 @@ impl PostBuildDriver for PodmanDriver {
             }
         };
 
-        Ok(image_list)
+        if digests.len() > 1 {
+            bail!("Did not expect more than one digest:\n{digests:#?}");
+        }
+
+        Ok((image_list, digests.into_iter().next()))
     }
 }
 
@@ -720,15 +744,23 @@ impl BuildChunkedOciDriver for PodmanDriver {
         Ok(())
     }
 
-    fn manifest_push_with_runner(runner: &RpmOstreeRunner, opts: ManifestPushOpts) -> Result<()> {
+    fn manifest_push_with_runner(
+        runner: &RpmOstreeRunner,
+        opts: ManifestPushOpts,
+    ) -> Result<Digest> {
         trace!("PodmanDriver::manifest_push_with_runner({runner:#?}, {opts:#?})");
         let (cmd, args) = runner.command_args("podman", &["manifest"]);
         let image = &opts.final_image.to_string();
+
+        let digestfile = tempdir()?;
+        let digestfile = digestfile.path().join("digest");
+
         let status = {
             let c = cmd!(
                 cmd,
                 for args,
                 "push",
+                format!("--digestfile={}", digestfile.display()),
                 if let Some(authfile) = runner.authfile() => ["--authfile", authfile],
                 if let Some(compression_fmt) = opts.compression_type => format!(
                     "--compression-format={compression_fmt}"
@@ -746,7 +778,7 @@ impl BuildChunkedOciDriver for PodmanDriver {
             bail!("Failed to create manifest for {}", opts.final_image);
         }
 
-        Ok(())
+        fs::read_to_string(digestfile).into_diagnostic()?.parse()
     }
 
     fn pull_with_runner(runner: &RpmOstreeRunner, opts: PullOpts) -> Result<ContainerId> {

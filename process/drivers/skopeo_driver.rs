@@ -1,9 +1,11 @@
+use std::fs;
+
 use log::trace;
 use miette::{IntoDiagnostic, Result, bail};
 
 use super::opts::CopyOciOpts;
 use crate::logging::CommandLogging;
-use blue_build_utils::{running_as_root, sudo_cmd};
+use blue_build_utils::{container::Digest, running_as_root, sudo_cmd, tempdir};
 
 const SUDO_PROMPT: &str = "Password for %u required to run `skopeo copy` as privileged";
 
@@ -11,9 +13,13 @@ const SUDO_PROMPT: &str = "Password for %u required to run `skopeo copy` as priv
 pub struct SkopeoDriver;
 
 impl super::OciCopy for SkopeoDriver {
-    fn copy_oci(&self, opts: CopyOciOpts) -> Result<()> {
+    fn copy_oci(&self, opts: CopyOciOpts) -> Result<Digest> {
         trace!("SkopeoDriver::copy_oci({opts:?})");
         let unshare = opts.podman_unshare && !opts.privileged && !running_as_root();
+
+        let digestfile = tempdir()?;
+        let digestfile = digestfile.path().join("digest");
+
         let status = {
             let c = sudo_cmd!(
                 prompt = SUDO_PROMPT,
@@ -21,6 +27,7 @@ impl super::OciCopy for SkopeoDriver {
                 if unshare { "podman" } else { "skopeo" },
                 if unshare => ["unshare", "skopeo"],
                 "copy",
+                format!("--digestfile={}", digestfile.display()),
                 "--all",
                 if opts.retry_count != 0 => format!("--retry-times={}", opts.retry_count),
                 "--",
@@ -40,6 +47,6 @@ impl super::OciCopy for SkopeoDriver {
             bail!("Failed to copy {} to {}", opts.src_ref, opts.dest_ref);
         }
 
-        Ok(())
+        fs::read_to_string(&digestfile).into_diagnostic()?.parse()
     }
 }

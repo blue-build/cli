@@ -19,7 +19,7 @@ use blue_build_utils::{
     constants::{
         BB_BOOT_DRIVER, BB_BUILD_DRIVER, BB_INSPECT_DRIVER, BB_RUN_DRIVER, BB_SIGNING_DRIVER,
     },
-    container::{ContainerId, ImageRef, MountId, Tag},
+    container::{ContainerId, Digest, ImageRef, MountId, Tag},
     semver::Version,
 };
 use bon::{Builder, bon};
@@ -371,7 +371,7 @@ impl BuildDriver for Driver {
         impl_build_driver!(untag(opts))
     }
 
-    fn push(opts: PushOpts) -> Result<()> {
+    fn push(opts: PushOpts) -> Result<Digest> {
         impl_build_driver!(push(opts))
     }
 
@@ -391,11 +391,11 @@ impl BuildDriver for Driver {
         impl_build_driver!(manifest_create(opts))
     }
 
-    fn manifest_push(opts: ManifestPushOpts) -> Result<()> {
+    fn manifest_push(opts: ManifestPushOpts) -> Result<Digest> {
         impl_build_driver!(manifest_push(opts))
     }
 
-    fn build_tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
+    fn build_tag_push(opts: BuildTagPushOpts) -> Result<(Vec<String>, Option<Digest>)> {
         impl_build_driver!(build_tag_push(opts))
     }
 }
@@ -404,7 +404,7 @@ impl PostBuildDriver for Driver {
     fn build_tag_push_with_post_build(
         opts: BuildTagPushOpts,
         pb_opts: PostBuildDriverOpts,
-    ) -> Result<Vec<String>> {
+    ) -> Result<(Vec<String>, Option<Digest>)> {
         PodmanDriver::build_tag_push_with_post_build(opts, pb_opts)
     }
 }
@@ -532,7 +532,10 @@ impl BuildChunkedOciDriver for Driver {
         PodmanDriver::manifest_create_with_runner(runner, opts)
     }
 
-    fn manifest_push_with_runner(runner: &RpmOstreeRunner, opts: ManifestPushOpts) -> Result<()> {
+    fn manifest_push_with_runner(
+        runner: &RpmOstreeRunner,
+        opts: ManifestPushOpts,
+    ) -> Result<Digest> {
         PodmanDriver::manifest_push_with_runner(runner, opts)
     }
 
@@ -553,7 +556,9 @@ impl BuildChunkedOciDriver for Driver {
         PodmanDriver::build_chunked_oci(runner, unchunked_image, final_image, opts)
     }
 
-    fn build_rechunk_tag_push(opts: BuildRechunkTagPushOpts) -> Result<Vec<String>> {
+    fn build_rechunk_tag_push(
+        opts: BuildRechunkTagPushOpts,
+    ) -> Result<(Vec<String>, Option<Digest>)> {
         PodmanDriver::build_rechunk_tag_push(opts)
     }
 }
@@ -573,13 +578,13 @@ impl ContainerMountDriver for Driver {
 }
 
 impl OciCopy for Driver {
-    fn copy_oci(&self, opts: CopyOciOpts) -> Result<()> {
+    fn copy_oci(&self, opts: CopyOciOpts) -> Result<Digest> {
         SkopeoDriver.copy_oci(opts)
     }
 }
 
 impl RechunkDriver for Driver {
-    fn rechunk(opts: RechunkOpts) -> Result<Vec<String>> {
+    fn rechunk(opts: RechunkOpts) -> Result<(Vec<String>, Option<Digest>)> {
         PodmanDriver::rechunk(opts)
     }
 }

@@ -1,10 +1,12 @@
 use std::{
     ffi::{OsStr, OsString},
+    fs,
     os::unix::ffi::OsStrExt,
     path::PathBuf,
     sync::Arc,
 };
 
+use blue_build_utils::{container::Digest, tempdir};
 use comlexr::cmd;
 use log::trace;
 use miette::{IntoDiagnostic, Result, bail};
@@ -70,7 +72,7 @@ impl RpmOstreeRunner {
 }
 
 impl OciCopy for RpmOstreeRunner {
-    fn copy_oci(&self, opts: super::opts::CopyOciOpts) -> Result<()> {
+    fn copy_oci(&self, opts: super::opts::CopyOciOpts) -> Result<Digest> {
         match self {
             Self::System => Driver.copy_oci(opts),
             Self::Container(container) => container.copy_oci(opts),
@@ -133,10 +135,14 @@ impl RpmOstreeContainer {
 }
 
 impl OciCopy for RpmOstreeContainer {
-    fn copy_oci(&self, opts: CopyOciOpts) -> Result<()> {
+    fn copy_oci(&self, opts: CopyOciOpts) -> Result<Digest> {
         trace!("RpmOstreeContainer::copy_oci({opts:?})");
         let use_sudo = opts.privileged && !blue_build_utils::running_as_root();
         let (cmd, args) = self.command_args("skopeo", &["copy"]);
+
+        let digestfile = tempdir()?;
+        let digestfile = digestfile.path().join("digest");
+
         let status = {
             let c = cmd!(
                 if use_sudo {
@@ -155,6 +161,7 @@ impl OciCopy for RpmOstreeContainer {
                 ],
                 if use_sudo => cmd,
                 for args,
+                format!("--digestfile={}", digestfile.display()),
                 "--all",
                 if opts.retry_count != 0 => format!("--retry-times={}", opts.retry_count),
                 opts.src_ref.to_os_string(),
@@ -173,6 +180,6 @@ impl OciCopy for RpmOstreeContainer {
             bail!("Failed to copy {} to {}", opts.src_ref, opts.dest_ref);
         }
 
-        Ok(())
+        fs::read_to_string(digestfile).into_diagnostic()?.parse()
     }
 }

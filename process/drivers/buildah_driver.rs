@@ -1,7 +1,13 @@
-use std::{fs::File, process::Stdio};
+use std::{
+    fs::{self, File},
+    process::Stdio,
+};
 
 use blue_build_utils::{
-    container::ContainerId, credentials::Credentials, secret::SecretArgs, semver::Version,
+    container::{ContainerId, Digest},
+    credentials::Credentials,
+    secret::SecretArgs,
+    semver::Version,
     sudo_cmd, tempdir,
 };
 use colored::Colorize;
@@ -175,16 +181,20 @@ impl BuildDriver for BuildahDriver {
         Ok(())
     }
 
-    fn push(opts: PushOpts) -> Result<()> {
+    fn push(opts: PushOpts) -> Result<Digest> {
         trace!("BuildahDriver::push({opts:#?})");
 
         let image_str = opts.image.to_string();
+
+        let digestfile = tempdir()?;
+        let digestfile = digestfile.path().join("digest");
 
         let command = sudo_cmd!(
             prompt = SUDO_PROMPT,
             sudo_check = opts.privileged,
             "buildah",
             "push",
+            format!("--digestfile={}", digestfile.display()),
             format!(
                 "--compression-format={}",
                 opts.compression_type.unwrap_or_default()
@@ -202,7 +212,8 @@ impl BuildDriver for BuildahDriver {
         } else {
             bail!("Failed to push image {}", image_str.bold().red());
         }
-        Ok(())
+
+        fs::read_to_string(digestfile).into_diagnostic()?.parse()
     }
 
     fn pull(opts: PullOpts) -> Result<ContainerId> {
@@ -329,8 +340,12 @@ impl BuildDriver for BuildahDriver {
         Ok(())
     }
 
-    fn manifest_push(opts: ManifestPushOpts) -> Result<()> {
+    fn manifest_push(opts: ManifestPushOpts) -> Result<Digest> {
         let image = &opts.final_image.to_string();
+
+        let digestfile = tempdir()?;
+        let digestfile = digestfile.path().join("digest");
+
         let status = {
             let c = cmd!(
                 "buildah",
@@ -353,7 +368,7 @@ impl BuildDriver for BuildahDriver {
             bail!("Failed to create manifest for {}", opts.final_image);
         }
 
-        Ok(())
+        fs::read_to_string(digestfile).into_diagnostic()?.parse()
     }
 }
 

@@ -29,7 +29,7 @@ use blue_build_utils::{
         BB_BUILD_RETRY_PUSH, BB_BUILD_SQUASH, BB_CACHE_LAYERS, BB_REGISTRY_NAMESPACE,
         BB_SKIP_VALIDATION, BB_TEMPDIR, CONFIG_PATH, RECIPE_FILE, RECIPE_PATH,
     },
-    container::{ImageRef, Tag},
+    container::{Digest, ImageRef, Tag},
     credentials::{Credentials, CredentialsArgs},
     platform::Platform,
     tempdir, tempdir_in,
@@ -37,7 +37,7 @@ use blue_build_utils::{
 use bon::Builder;
 use clap::Args;
 use log::{debug, info, trace, warn};
-use miette::{IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result, miette};
 use oci_client::Reference;
 use rayon::prelude::*;
 
@@ -375,7 +375,7 @@ impl BuildCommand {
             Driver::get_metadata(GetMetadataOpts::builder().image(&base_image).build())?
                 .digest()
                 .to_owned();
-        let base_image_with_digest = base_image.clone_with_digest(base_digest);
+        let base_image_with_digest = base_digest.reference_digest(&base_image);
 
         let build_tag_opts = BuildTagPushOpts::builder()
             .image(&image_ref)
@@ -399,7 +399,7 @@ impl BuildCommand {
             build_tag_opts.build()
         };
 
-        let images = if self.chunkah {
+        let (images, digest) = if self.chunkah {
             let (chunkah_tag, chunkah_digest) =
                 self.chunkah_version
                     .as_deref()
@@ -430,14 +430,7 @@ impl BuildCommand {
                     .build(),
             )?
         } else if self.build_chunked_oci {
-            let base_image = recipe.base_image_ref()?;
-            let base_digest =
-                Driver::get_metadata(GetMetadataOpts::builder().image(&base_image).build())?
-                    .digest()
-                    .to_owned();
-            let remove_base_image = self
-                .remove_base_image
-                .then_some(base_image.clone_with_digest(base_digest));
+            let remove_base_image = self.remove_base_image.then_some(&base_image_with_digest);
 
             let rechunk_opts = BuildChunkedOciOpts::builder()
                 .maybe_max_layers(self.max_layers)
@@ -447,7 +440,7 @@ impl BuildCommand {
                 BuildRechunkTagPushOpts::builder()
                     .build_tag_push_opts(opts)
                     .rechunk_opts(rechunk_opts)
-                    .maybe_remove_base_image(remove_base_image.as_ref())
+                    .maybe_remove_base_image(remove_base_image)
                     .build(),
             )?
         } else if self.rechunk {
@@ -457,12 +450,15 @@ impl BuildCommand {
         };
 
         if self.push && !self.no_sign {
+            let digest_image = digest
+                .ok_or_else(|| miette!("Digest is required when signing"))?
+                .reference_digest(image);
+
             Driver::sign_and_verify(
                 SignVerifyOpts::builder()
-                    .image(image)
+                    .image(&digest_image)
                     .retry_push(self.retry_push)
                     .retry_count(self.retry_count)
-                    .platforms(platforms)
                     .build(),
             )?;
         }
@@ -478,7 +474,7 @@ impl BuildCommand {
         image_name: &Reference,
         cache_image: Option<&Reference>,
         platforms: &[Platform],
-    ) -> Result<Vec<String>, miette::Error> {
+    ) -> Result<(Vec<String>, Option<Digest>)> {
         trace!(
             "BuildCommand::rechunk({}, {recipe:?}, {tags:?}, {image_name}, {cache_image:?}, {platforms:?})",
             containerfile.display()

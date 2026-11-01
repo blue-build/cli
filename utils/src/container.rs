@@ -14,6 +14,10 @@ use serde_yaml::Value;
 
 use crate::{env_str::EnvString, platform::Platform};
 
+mod digest;
+
+pub use digest::*;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContainerId(pub String);
 

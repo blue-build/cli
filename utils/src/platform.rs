@@ -8,7 +8,7 @@ use miette::bail;
 use oci_client::Reference;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Platform {
     #[value(name = "linux/amd64")]
     LinuxAmd64,

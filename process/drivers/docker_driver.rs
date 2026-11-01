@@ -1,5 +1,5 @@
 use std::{
-    fs::File,
+    fs::{self, File},
     ops::Not,
     path::Path,
     process::{Command, ExitStatus, Stdio},
@@ -7,7 +7,7 @@ use std::{
 
 use blue_build_utils::{
     constants::{BLUE_BUILD, DOCKER_HOST, GITHUB_ACTIONS},
-    container::{ContainerId, ImageRef},
+    container::{ContainerId, Digest, ImageRef},
     credentials::Credentials,
     get_env_var,
     secret::SecretArgs,
@@ -18,9 +18,10 @@ use cached::once;
 use colored::Colorize;
 use comlexr::{cmd, pipe};
 use log::{debug, info, trace, warn};
-use miette::{Context, IntoDiagnostic, Result, bail};
+use miette::{Context, IntoDiagnostic, Result, bail, miette};
 use oci_client::Reference;
 use serde::Deserialize;
+use serde_json::Value;
 use tempfile::TempDir;
 
 use crate::{
@@ -307,7 +308,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn push(opts: PushOpts) -> Result<()> {
+    fn push(opts: PushOpts) -> Result<Digest> {
         trace!("DockerDriver::push({opts:#?})");
 
         let image_str = opts.image.to_string();
@@ -325,7 +326,16 @@ impl BuildDriver for DockerDriver {
         } else {
             bail!("Failed to push image {}", image_str.bold().red());
         }
-        Ok(())
+
+        let inspection =
+            Self::inspect_image(InspectImageOpts::builder().image(&image_str).build())?
+                .ok_or_else(|| miette!("Must have output"))?;
+        let inspection: Value = serde_json::from_slice(&inspection).into_diagnostic()?;
+
+        inspection[0]["Id"]
+            .as_str()
+            .ok_or_else(|| miette!("Digest must exist"))?
+            .parse()
     }
 
     fn pull(opts: PullOpts) -> Result<ContainerId> {
@@ -484,7 +494,7 @@ impl BuildDriver for DockerDriver {
         Ok(())
     }
 
-    fn manifest_push(opts: ManifestPushOpts) -> Result<()> {
+    fn manifest_push(opts: ManifestPushOpts) -> Result<Digest> {
         let status = {
             let c = cmd!("docker", "manifest", "push", opts.final_image.to_string());
             trace!("{c:?}");
@@ -497,10 +507,21 @@ impl BuildDriver for DockerDriver {
             bail!("Failed to create manifest for {}", opts.final_image);
         }
 
-        Ok(())
+        let inspection = Self::inspect_image(
+            InspectImageOpts::builder()
+                .image(&opts.final_image.to_string())
+                .build(),
+        )?
+        .ok_or_else(|| miette!("Must have output"))?;
+        let inspection: Value = serde_json::from_slice(&inspection).into_diagnostic()?;
+
+        inspection[0]["Id"]
+            .as_str()
+            .ok_or_else(|| miette!("Digest must exist"))?
+            .parse()
     }
 
-    fn build_tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
+    fn build_tag_push(opts: BuildTagPushOpts) -> Result<(Vec<String>, Option<Digest>)> {
         trace!("DockerDriver::build_tag_push({opts:#?})");
 
         let temp_dir = tempdir().wrap_err("Failed to create temporary directory for secrets")?;
@@ -515,7 +536,10 @@ impl BuildDriver for DockerDriver {
 
         let first_image = final_images.first().unwrap();
 
-        let status = build_tag_push_cmd(opts, first_image, &temp_dir)?
+        let metadata_file = tempdir()?;
+        let metadata_file = metadata_file.path().join("metadata.json");
+
+        let status = build_tag_push_cmd(opts, first_image, &temp_dir, &metadata_file)?
             .build_status(first_image, "Building Image")
             .into_diagnostic()?;
 
@@ -528,7 +552,21 @@ impl BuildDriver for DockerDriver {
         } else {
             bail!("Failed to build image {}", first_image);
         }
-        Ok(final_images)
+
+        let digest = if opts.push {
+            let inspection: Value =
+                serde_json::from_slice(&fs::read(&metadata_file).into_diagnostic()?)
+                    .into_diagnostic()?;
+            Some(
+                inspection["containerimage.digest"]
+                    .as_str()
+                    .ok_or_else(|| miette!("Digest must exist"))?
+                    .parse()?,
+            )
+        } else {
+            None
+        };
+        Ok((final_images, digest))
     }
 }
 
@@ -536,6 +574,7 @@ fn build_tag_push_cmd(
     opts: BuildTagPushOpts<'_>,
     first_image: &str,
     temp_dir: &TempDir,
+    metadata_file: &Path,
 ) -> Result<Command> {
     let c = cmd!(
         "docker",
@@ -543,6 +582,7 @@ fn build_tag_push_cmd(
         format!("--builder={BLUE_BUILD}"),
         "build",
         ".",
+        format!("--metadata-file={}", metadata_file.display()),
         for opts.secrets.args(temp_dir)?,
         if opts.secrets.ssh() => "--ssh",
         match &opts.image {

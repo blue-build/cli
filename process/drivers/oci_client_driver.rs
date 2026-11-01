@@ -111,7 +111,7 @@ impl InspectDriver for OciClientDriver {
 
             Ok(ImageMetadata::builder()
                 .manifest(manifest)
-                .digest(digest)
+                .digest(digest.parse()?)
                 .configs(configs)
                 .build())
         }

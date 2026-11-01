@@ -3,6 +3,7 @@ use std::{borrow::Cow, collections::BTreeMap, fs, path::Path, process};
 use blue_build_recipe::{Recipe, RecipeGetters};
 use blue_build_utils::{
     constants::{CONFIG_PATH, CONTAINER_FILE, CONTAINERFILES_PATH, COSIGN_PUB_PATH, FILES_PATH},
+    container::Digest,
     secret::SecretMounts,
 };
 use bon::Builder;
@@ -30,7 +31,7 @@ pub struct ContainerFileTemplate<'a> {
     os_version: u64,
     registry: &'a str,
     build_scripts_dir: &'a Path,
-    base_digest: &'a str,
+    base_digest: &'a Digest,
 
     #[builder(default)]
     build_features: &'a [String],

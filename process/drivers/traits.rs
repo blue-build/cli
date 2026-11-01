@@ -1,5 +1,6 @@
 use std::{
     borrow::Borrow,
+    collections::BTreeSet,
     fmt::Debug,
     ops::Not,
     path::PathBuf,
@@ -9,7 +10,7 @@ use std::{
 
 use blue_build_utils::{
     constants::COSIGN_PUB_PATH,
-    container::{ContainerId, ImageRef, MountId, OciRef, Tag},
+    container::{ContainerId, Digest, ImageRef, MountId, OciRef, Tag},
     platform::Platform,
     retry,
     semver::Version,
@@ -134,7 +135,7 @@ pub trait BuildDriver: ImageStorageDriver {
     ///
     /// # Errors
     /// Will error if the push fails.
-    fn push(opts: PushOpts) -> Result<()>;
+    fn push(opts: PushOpts) -> Result<Digest>;
 
     /// Runs the pull logic for the driver
     ///
@@ -164,13 +165,13 @@ pub trait BuildDriver: ImageStorageDriver {
     ///
     /// # Errors
     /// Will error if the driver fails to push a manifest.
-    fn manifest_push(opts: ManifestPushOpts) -> Result<()>;
+    fn manifest_push(opts: ManifestPushOpts) -> Result<Digest>;
 
     /// Runs the logic for building, tagging, and pushing an image.
     ///
     /// # Errors
     /// Will error if building, tagging, or pushing fails.
-    fn build_tag_push(opts: BuildTagPushOpts) -> Result<Vec<String>> {
+    fn build_tag_push(opts: BuildTagPushOpts) -> Result<(Vec<String>, Option<Digest>)> {
         trace!("BuildDriver::build_tag_push({opts:#?})");
 
         assert!(
@@ -198,6 +199,8 @@ pub trait BuildDriver: ImageStorageDriver {
                     .build(),
             )
         })?;
+
+        let mut digests: BTreeSet<Digest> = BTreeSet::new();
 
         let image_list: Vec<String> = match &opts.image {
             ImageRef::Remote(image) if !opts.tags.is_empty() => {
@@ -230,16 +233,19 @@ pub trait BuildDriver: ImageStorageDriver {
                         let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
 
                         // Push images with retries
-                        blue_build_utils::retry(retry_count, Duration::from_secs(5), || {
-                            debug!("Pushing image {tagged_image}");
+                        let digest =
+                            blue_build_utils::retry(retry_count, Duration::from_secs(5), || {
+                                debug!("Pushing image {tagged_image}");
 
-                            Self::manifest_push(
-                                ManifestPushOpts::builder()
-                                    .final_image(&tagged_image)
-                                    .compression_type(opts.compression)
-                                    .build(),
-                            )
-                        })?;
+                                Self::manifest_push(
+                                    ManifestPushOpts::builder()
+                                        .final_image(&tagged_image)
+                                        .compression_type(opts.compression)
+                                        .build(),
+                                )
+                            })?;
+
+                        digests.insert(digest);
                     }
                 }
 
@@ -250,7 +256,11 @@ pub trait BuildDriver: ImageStorageDriver {
             }
         };
 
-        Ok(image_list)
+        if digests.len() > 1 {
+            bail!("Did not expect more than one digest:\n{digests:#?}");
+        }
+
+        Ok((image_list, digests.into_iter().next()))
     }
 }
 
@@ -291,7 +301,7 @@ pub trait PostBuildDriver: BuildDriver {
     fn build_tag_push_with_post_build(
         opts: BuildTagPushOpts,
         pb_opts: PostBuildDriverOpts,
-    ) -> Result<Vec<String>>;
+    ) -> Result<(Vec<String>, Option<Digest>)>;
 }
 
 /// Allows agnostic inspection of images.
@@ -377,7 +387,10 @@ pub trait BuildChunkedOciDriver: BuildDriver + ImageStorageDriver {
     ///
     /// # Errors
     /// Will error if the driver fails to push a manifest.
-    fn manifest_push_with_runner(runner: &RpmOstreeRunner, opts: ManifestPushOpts) -> Result<()>;
+    fn manifest_push_with_runner(
+        runner: &RpmOstreeRunner,
+        opts: ManifestPushOpts,
+    ) -> Result<Digest>;
 
     /// Pull an image from a remote registry.
     /// Runs within the same context as rpm-ostree.
@@ -469,7 +482,9 @@ pub trait BuildChunkedOciDriver: BuildDriver + ImageStorageDriver {
     /// # Errors
     /// Will error if building, rechunking, tagging, or pushing fails.
     #[expect(clippy::too_many_lines)]
-    fn build_rechunk_tag_push(opts: BuildRechunkTagPushOpts) -> Result<Vec<String>> {
+    fn build_rechunk_tag_push(
+        opts: BuildRechunkTagPushOpts,
+    ) -> Result<(Vec<String>, Option<Digest>)> {
         trace!("BuildChunkedOciDriver::build_rechunk_tag_push({opts:#?})");
 
         let BuildRechunkTagPushOpts {
@@ -568,6 +583,8 @@ pub trait BuildChunkedOciDriver: BuildDriver + ImageStorageDriver {
             }
         }
 
+        let mut digests: BTreeSet<Digest> = BTreeSet::new();
+
         let image_list: Vec<String> = match &btp_opts.image {
             ImageRef::Remote(image) if !btp_opts.tags.is_empty() => {
                 debug!("Tagging all images");
@@ -604,21 +621,14 @@ pub trait BuildChunkedOciDriver: BuildDriver + ImageStorageDriver {
                         };
 
                         // Push images with retries
-                        blue_build_utils::retry(retry_count, Duration::from_secs(5), || {
-                            debug!("Pushing image {tagged_image}");
+                        let digest =
+                            blue_build_utils::retry(retry_count, Duration::from_secs(5), || {
+                                debug!("Pushing image {tagged_image}");
 
-                            // We push twice due to a (very strange) bug in podman where layer
-                            // annotations aren't pushed unless the layer already exists in the
-                            // remote registry. See:
-                            // https://github.com/containers/podman/issues/27796
-                            Self::manifest_push_with_runner(
-                                &runner,
-                                ManifestPushOpts::builder()
-                                    .final_image(&tagged_image)
-                                    .compression_type(btp_opts.compression)
-                                    .build(),
-                            )
-                            .and_then(|()| {
+                                // We push twice due to a (very strange) bug in podman where layer
+                                // annotations aren't pushed unless the layer already exists in the
+                                // remote registry. See:
+                                // https://github.com/containers/podman/issues/27796
                                 Self::manifest_push_with_runner(
                                     &runner,
                                     ManifestPushOpts::builder()
@@ -626,8 +636,18 @@ pub trait BuildChunkedOciDriver: BuildDriver + ImageStorageDriver {
                                         .compression_type(btp_opts.compression)
                                         .build(),
                                 )
-                            })
-                        })?;
+                                .and_then(|_| {
+                                    Self::manifest_push_with_runner(
+                                        &runner,
+                                        ManifestPushOpts::builder()
+                                            .final_image(&tagged_image)
+                                            .compression_type(btp_opts.compression)
+                                            .build(),
+                                    )
+                                })
+                            })?;
+
+                        digests.insert(digest);
                     }
                 }
 
@@ -638,7 +658,11 @@ pub trait BuildChunkedOciDriver: BuildDriver + ImageStorageDriver {
             }
         };
 
-        Ok(image_list)
+        if digests.len() > 1 {
+            bail!("Did not expect more than one digest:\n{digests:#?}");
+        }
+
+        Ok((image_list, digests.into_iter().next()))
     }
 }
 
@@ -669,7 +693,7 @@ pub trait OciCopy: PrivateDriver {
     ///
     /// # Errors
     /// Will error if copying the image fails.
-    fn copy_oci(&self, opts: CopyOciOpts) -> Result<()>;
+    fn copy_oci(&self, opts: CopyOciOpts) -> Result<Digest>;
 }
 
 #[expect(private_bounds)]
@@ -681,7 +705,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
     ///
     /// # Errors
     /// Will error if the rechunk process fails.
-    fn rechunk(opts: RechunkOpts) -> Result<Vec<String>> {
+    fn rechunk(opts: RechunkOpts) -> Result<(Vec<String>, Option<Digest>)> {
         assert!(
             opts.platform.is_empty().not(),
             "Must have at least one platform defined!"
@@ -754,6 +778,7 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
         })?;
 
         let mut image_list = Vec::with_capacity(opts.tags.len());
+        let mut digests: BTreeSet<Digest> = BTreeSet::new();
 
         if opts.push {
             let oci_dir = OciRef::from_oci_directory(temp_dir.path().join(ostree_cache_id))?;
@@ -765,22 +790,28 @@ pub trait RechunkDriver: RunDriver + BuildDriver + ContainerMountDriver {
                     tag.to_string(),
                 );
 
-                blue_build_utils::retry(opts.retry_count, Duration::from_secs(5), || {
-                    debug!("Pushing image {tagged_image}");
+                let digest =
+                    blue_build_utils::retry(opts.retry_count, Duration::from_secs(5), || {
+                        debug!("Pushing image {tagged_image}");
 
-                    Driver.copy_oci(
-                        CopyOciOpts::builder()
-                            .src_ref(&oci_dir)
-                            .dest_ref(&OciRef::from_remote_ref(&tagged_image))
-                            .privileged(true)
-                            .build(),
-                    )
-                })?;
+                        Driver.copy_oci(
+                            CopyOciOpts::builder()
+                                .src_ref(&oci_dir)
+                                .dest_ref(&OciRef::from_remote_ref(&tagged_image))
+                                .privileged(true)
+                                .build(),
+                        )
+                    })?;
+                digests.insert(digest);
                 image_list.push(tagged_image.into());
             }
         }
 
-        Ok(image_list)
+        if digests.len() > 1 {
+            bail!("Did not expect more than one digest:\n{digests:#?}");
+        }
+
+        Ok((image_list, digests.into_iter().next()))
     }
 
     /// Step 1 of the rechunk process that prunes excess files.
@@ -983,30 +1014,29 @@ pub trait SigningDriver: PrivateDriver {
     ///
     /// # Errors
     /// Will error if the image fails to be signed.
-    fn sign_and_verify(opts: SignVerifyOpts) -> Result<()> {
+    fn sign_and_verify(
+        opts @ SignVerifyOpts {
+            image,
+            dir,
+            retry_push,
+            retry_count,
+        }: SignVerifyOpts,
+    ) -> Result<()> {
         trace!("sign_and_verify({opts:?})");
 
-        let path = opts
-            .dir
+        let path = dir
             .as_ref()
             .map_or_else(|| PathBuf::from("."), |d| d.to_path_buf());
         let cosign_file_path = path.join(COSIGN_PUB_PATH);
 
         let metadata = Driver::get_metadata(
             GetMetadataOpts::builder()
-                .image(opts.image)
+                .image(image)
                 .no_cache(true)
                 .build(),
         )?;
         debug!("Recieved metadata");
         trace!("{metadata:#?}");
-
-        let image_digest = Reference::with_digest(
-            opts.image.resolve_registry().into(),
-            opts.image.repository().into(),
-            metadata.digest().into(),
-        );
-        trace!("{image_digest}");
 
         let issuer = Driver::oidc_provider();
         let identity = Driver::keyless_cert_identity();
@@ -1017,23 +1047,20 @@ pub trait SigningDriver: PrivateDriver {
                 // Cosign public/private key pair
                 (_, Ok(priv_key), _, _) => (
                     SignOpts::builder()
-                        .image(&image_digest)
+                        .image(image)
                         .key(priv_key)
                         .metadata(&metadata)
                         .build(),
                     VerifyOpts::builder()
-                        .image(&image_digest)
+                        .image(image)
                         .verify_type(VerifyType::File(&cosign_file_path))
                         .build(),
                 ),
                 // Gitlab keyless
                 (CiDriverType::Github | CiDriverType::Gitlab, _, Ok(issuer), Ok(identity)) => (
-                    SignOpts::builder()
-                        .metadata(&metadata)
-                        .image(&image_digest)
-                        .build(),
+                    SignOpts::builder().metadata(&metadata).image(image).build(),
                     VerifyOpts::builder()
-                        .image(&image_digest)
+                        .image(image)
                         .verify_type(VerifyType::Keyless { issuer, identity })
                         .build(),
                 ),
@@ -1042,7 +1069,7 @@ pub trait SigningDriver: PrivateDriver {
                 }
             };
 
-        let retry_count = if opts.retry_push { opts.retry_count } else { 0 };
+        let retry_count = if retry_push { retry_count } else { 0 };
 
         retry(retry_count, Duration::from_secs(5), || {
             Self::sign(sign_opts)?;

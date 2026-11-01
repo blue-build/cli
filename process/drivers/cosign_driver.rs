@@ -161,11 +161,10 @@ impl SigningDriver for CosignDriver {
     fn sign(
         SignOpts {
             image,
-            metadata,
+            metadata: _,
             key,
         }: SignOpts,
     ) -> Result<()> {
-        let image = image.clone_with_digest(metadata.digest().into());
         let status = {
             let c = cmd!(
                 env {
