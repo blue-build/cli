@@ -43,7 +43,7 @@ jobs:
       - name: Run build
         id: build
         run: |
-          earth --ci --push -P +prebuild
+          just image-prebuild-publish
 
   amd64-prebuild:
     timeout-minutes: 60
@@ -73,7 +73,7 @@ jobs:
       - name: Run build
         id: build
         run: |
-          earth --ci --push -P +prebuild
+          just image-prebuild-publish
 
   build-images:
     permissions:
@@ -122,13 +122,9 @@ jobs:
           LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
           CARGO_PACKAGE_VERSION="v$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "blue-build") .version')"
           LATEST=$(test "$CARGO_PACKAGE_VERSION" = "$LATEST_TAG" && echo true || echo false)
-          earth --secret COSIGN_PRIVATE_KEY \
-            --secret GH_ACTOR --secret GH_TOKEN \
-            --push --ci -P +build-images-all \
-            --TAGGED="true" --LATEST="$LATEST"
-          earth \
-            --artifact +sign-all/digest-list ./digest-list \
-            --TAGGED="true" --LATEST="$LATEST"
+          echo "LATEST=$LATEST" >>.arg
+          echo "TAGGED=true" >>.arg
+          just image-sign-publish
 
       - name: Install regctl
         uses: regclient/actions/regctl-installer@78eb729dbdb4ef6480e85ff697b4410e22112583 # main # zizmor: ignore[stale-action-refs] regctl does not publish tags
@@ -148,7 +144,7 @@ jobs:
     strategy:
       matrix:
         include: ${{ fromJson(needs.build-images.outputs.digests) }}
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
     with:
       image: ${{ matrix.image_ref }}
       digest: ${{ matrix.image_digest }}

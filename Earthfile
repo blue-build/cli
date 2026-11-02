@@ -12,6 +12,7 @@ ARG --global FEDORA_VERSION="44"
 ARG --global IMAGE="ghcr.io/$LOWER_GIT_PROJECT_NAME"
 ARG --global TAGGED="false"
 ARG --global LATEST="false"
+ARG --global RELEASE="false"
 
 all:
     WAIT
@@ -90,7 +91,6 @@ EACH_FEAT:
 install:
     FROM +common
     ARG --required BUILD_TARGET
-    ARG RELEASE
 
     IF [ "$RELEASE" = "true" ]
         DO rust+CROSS --target="$BUILD_TARGET" --output="$BUILD_TARGET/release/[^\./]+"
@@ -103,7 +103,6 @@ install:
 install-all-features:
     FROM +common
     ARG --required BUILD_TARGET
-    ARG RELEASE
 
     IF [ "$RELEASE" = "true" ]
         DO rust+CROSS --args="build --all-features --release" --target="$BUILD_TARGET" --output="$BUILD_TARGET/release/[^\./]+"
@@ -198,7 +197,6 @@ blue-build-cli-prebuild:
 
 blue-build-cli:
     FROM docker.io/library/alpine:latest@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
-    ARG RELEASE
     ARG TARGETARCH
 
     IF [ "$RELEASE" = "true" ]
@@ -242,7 +240,6 @@ blue-build-cli-distrobox-prebuild:
     SAVE IMAGE --push "$IMAGE:$EARTH_GIT_HASH-distrobox-prebuild-$TARGETARCH"
 
 blue-build-cli-distrobox:
-    ARG RELEASE
     ARG TARGETARCH
 
     IF [ "$RELEASE" = "true" ]
