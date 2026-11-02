@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.39] - 2026-11-02
+
+### Bug Fixes
+
+- Fix tag publishing
+
 ## [0.9.38] - 2026-11-02
 
 ### Bug Fixes
@@ -29,6 +35,7 @@ All notable changes to this project will be documented in this file.
 - Setup build system to work with forks (#868)
 - Migrate to Renovate for automated dependency updates (#870)
 - Bump cosign to 3.1.4 (#906)
+- Release
 
 ## [0.9.37] - 2026-08-13
 
