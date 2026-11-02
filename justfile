@@ -2,6 +2,7 @@ export RUST_BACKTRACE := "1"
 export BB_CACHE_LAYERS := "true"
 export TEST_SECRET := "test123"
 export BB_SKIP_VALIDATION := "true"
+export BB_BUILD_DIGESTFILE := `echo "$(mktemp -d)/digest"`
 
 set dotenv-load := true
 set positional-arguments := true
@@ -183,11 +184,14 @@ generate-test-secret:
   mkdir -p integration-tests/test-repo/secrets
   echo "321tset" > integration-tests/test-repo/secrets/test-secret
 
+_output_digests:
+  cat "$BB_BUILD_DIGESTFILE"
+
 # Run all integration tests
 integration-tests: generate-test-secret test-docker-build test-empty-files-build test-arm64-build test-podman-build test-buildah-build test-generate-iso-image test-generate-iso-recipe test-multiplatform
 
 # Run docker driver integration test
-test-docker-build: generate-test-secret install-debug-all-features
+test-docker-build: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     --retry-push \
@@ -198,7 +202,7 @@ test-docker-build: generate-test-secret install-debug-all-features
     -vv \
     recipes/recipe.yml recipes/recipe-gts.yml
 
-test-recipe-v2-build: generate-test-secret install-debug-all-features
+test-recipe-v2-build: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     --retry-push \
@@ -218,7 +222,7 @@ test-empty-files-build: generate-test-secret install-debug-all-features
     {{ should_not_sign }} \
     -vv
 
-test-env-expansion-build: generate-test-secret install-debug-all-features
+test-env-expansion-build: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && DESC_EXT="Test description" \
   VERSION="43" \
@@ -231,7 +235,7 @@ test-env-expansion-build: generate-test-secret install-debug-all-features
     -vv \
     recipes/recipe-env-expansion.yml
 
-test-bluefin-build: generate-test-secret install-debug-all-features
+test-bluefin-build: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     --retry-push \
@@ -242,7 +246,7 @@ test-bluefin-build: generate-test-secret install-debug-all-features
     -vv \
     recipes/recipe-bluefin.yml
 
-test-chunkah-build: generate-test-secret install-debug-all-features
+test-chunkah-build: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     {{ should_push }} \
@@ -251,7 +255,7 @@ test-chunkah-build: generate-test-secret install-debug-all-features
     --chunkah \
     recipes/recipe-chunkah.yml
 
-test-build-chunked-oci-build: generate-test-secret install-debug-all-features
+test-build-chunked-oci-build: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     {{ should_push }} \
@@ -260,7 +264,7 @@ test-build-chunked-oci-build: generate-test-secret install-debug-all-features
     --build-chunked-oci \
     recipes/recipe-build-chunked-oci.yml
 
-test-rechunk-build: generate-test-secret install-debug-all-features
+test-rechunk-build: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     {{ should_push }} \
@@ -269,7 +273,7 @@ test-rechunk-build: generate-test-secret install-debug-all-features
     --rechunk \
     recipes/recipe-rechunk.yml
 
-test-fresh-rechunk-build: generate-test-secret install-debug-all-features
+test-fresh-rechunk-build: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     {{ should_push }} \
@@ -280,7 +284,7 @@ test-fresh-rechunk-build: generate-test-secret install-debug-all-features
     recipes/recipe-rechunk.yml
 
 # Run arm integration test
-test-arm64-build: generate-test-secret install-debug-all-features
+test-arm64-build: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     --retry-push \
@@ -291,7 +295,7 @@ test-arm64-build: generate-test-secret install-debug-all-features
     recipes/recipe-arm64.yml
 
 # Run docker driver external login integration test
-test-docker-build-external-login: generate-test-secret install-debug-all-features
+test-docker-build-external-login: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     --retry-push \
@@ -302,7 +306,7 @@ test-docker-build-external-login: generate-test-secret install-debug-all-feature
     recipes/recipe-docker-external.yml
 
 # Run podman driver integration test
-test-podman-build: generate-test-secret install-debug-all-features
+test-podman-build: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     --retry-push \
@@ -314,7 +318,7 @@ test-podman-build: generate-test-secret install-debug-all-features
     recipes/recipe-podman.yml
 
 # Run buildah driver integration test
-test-buildah-build: generate-test-secret install-debug-all-features
+test-buildah-build: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     --retry-push \
@@ -328,7 +332,7 @@ test-buildah-build: generate-test-secret install-debug-all-features
 # Run the multi-platform builds
 test-multiplatform: test-multiplatform-docker test-multiplatform-podman test-multiplatform-buildah test-multiplatform-chunkah test-multiplatform-build-chunked-oci test-multiplatform-rechunk
 
-test-multiplatform-docker: generate-test-secret install-debug-all-features
+test-multiplatform-docker: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     --retry-push \
@@ -339,7 +343,7 @@ test-multiplatform-docker: generate-test-secret install-debug-all-features
     -vv \
     recipes/recipe-multiplatform-docker.yml
 
-test-multiplatform-podman: generate-test-secret install-debug-all-features
+test-multiplatform-podman: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     --retry-push \
@@ -350,7 +354,7 @@ test-multiplatform-podman: generate-test-secret install-debug-all-features
     -vv \
     recipes/recipe-multiplatform-podman.yml
 
-test-multiplatform-buildah: generate-test-secret install-debug-all-features
+test-multiplatform-buildah: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     --retry-push \
@@ -361,7 +365,7 @@ test-multiplatform-buildah: generate-test-secret install-debug-all-features
     -vv \
     recipes/recipe-multiplatform-buildah.yml
 
-test-multiplatform-chunkah: generate-test-secret install-debug-all-features
+test-multiplatform-chunkah: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     --retry-push \
@@ -373,7 +377,7 @@ test-multiplatform-chunkah: generate-test-secret install-debug-all-features
     -vv \
     recipes/recipe-multiplatform-chunkah.yml
 
-test-multiplatform-build-chunked-oci: generate-test-secret install-debug-all-features
+test-multiplatform-build-chunked-oci: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     --retry-push \
@@ -385,7 +389,7 @@ test-multiplatform-build-chunked-oci: generate-test-secret install-debug-all-fea
     -vv \
     recipes/recipe-multiplatform-build-chunked-oci.yml
 
-test-multiplatform-rechunk: generate-test-secret install-debug-all-features
+test-multiplatform-rechunk: generate-test-secret install-debug-all-features && _output_digests
   cd integration-tests/test-repo \
   && {{ cargo_bin }} build \
     --retry-push \
