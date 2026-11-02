@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.38] - 2026-11-02
+
+### Bug Fixes
+
+- Fix clippy error
+- Install cosign for tests if not fork PR
+- Lower the project_path to support projects with uppercase letters
+- Lower the project_path in Earthfile
+- Update installer image to v1.5.0 (#898)
+- Fix clippy error with bail!
+- Make sure to pass registry and registry namespace to generate command
+- Install awk for suse images
+- Fix buildah and chunking digestfiles
+
+### Features
+
+- Set preinstall bin mtimes for reproducibility (#900)
+- Add ability to print file containing digests of images pushed (#908)
+
+### Miscellaneous Tasks
+
+- Migrate to EarthBuild v0.8.18 (#852)
+- Fix messed up dependabot version updates
+- Bump cosign to 3.1.3 (#869)
+- Setup build system to work with forks (#868)
+- Migrate to Renovate for automated dependency updates (#870)
+- Bump cosign to 3.1.4 (#906)
+
 ## [0.9.37] - 2026-08-13
 
 ### Bug Fixes
@@ -20,6 +48,7 @@ All notable changes to this project will be documented in this file.
 - Faster free-disk-space action; update empty-files-repo (#811)
 - Fix new clippy lints
 - Update CODEOWNERS file (#848)
+- Release
 
 ## [0.9.36] - 2026-07-06
 

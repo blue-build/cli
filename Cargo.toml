@@ -7,7 +7,7 @@ edition = "2024"
 repository = "https://github.com/blue-build/cli"
 license = "Apache-2.0"
 categories = ["command-line-utilities"]
-version = "0.9.37"
+version = "0.9.38"
 
 [workspace.dependencies]
 bon = "=3.9.3"
@@ -73,10 +73,10 @@ pre-release-replacements = [
 ]
 
 [dependencies]
-blue-build-recipe = { version = "=0.9.37", path = "./recipe" }
-blue-build-template = { version = "=0.9.37", path = "./template" }
-blue-build-utils = { version = "=0.9.37", path = "./utils" }
-blue-build-process-management = { version = "=0.9.37", path = "./process" }
+blue-build-recipe = { version = "=0.9.38", path = "./recipe" }
+blue-build-template = { version = "=0.9.38", path = "./template" }
+blue-build-utils = { version = "=0.9.38", path = "./utils" }
+blue-build-process-management = { version = "=0.9.38", path = "./process" }
 clap-verbosity-flag = "=3.0.4"
 clap_complete = "=4.6.9"
 clap_complete_nushell = "=4.6.2"
