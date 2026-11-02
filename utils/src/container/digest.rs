@@ -3,7 +3,7 @@ use std::{ops::Deref, str::FromStr};
 use lazy_regex::regex_is_match;
 use miette::bail;
 use oci_client::Reference;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 pub struct Digest(String);
@@ -25,6 +25,17 @@ impl FromStr for Digest {
             bail!("The string '{s}' is not a valid digest");
         }
         Ok(Self(digest))
+    }
+}
+
+impl<'de> Deserialize<'de> for Digest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer)?
+            .parse::<Self>()
+            .map_err(serde::de::Error::custom)
     }
 }
 
