@@ -2,11 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.40] - 2026-11-02
+
+### Bug Fixes
+
+- Install just for tag workflows
+
 ## [0.9.39] - 2026-11-02
 
 ### Bug Fixes
 
 - Fix tag publishing
+
+### Miscellaneous Tasks
+
+- Release
 
 ## [0.9.38] - 2026-11-02
 

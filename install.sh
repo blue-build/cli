@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION=v0.9.39
+VERSION=v0.9.40
 PROJECT="blue-build/cli"
 
 # Container runtime
