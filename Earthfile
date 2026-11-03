@@ -326,14 +326,17 @@ digest-list:
             SET suffix="-$s"
         END
 
-        IF [ "$TAGGED" = "true" ]
+        IF grep -qE 'rc|alpha|beta' /version && [ "$TAGGED" = "true" ]
+            DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:v${version}${suffix}"
+        ELSE IF [ "$TAGGED" = "true" ]
             DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:v${version}${suffix}"
             IF [ "$LATEST" = "true" ]
                 DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:latest${suffix}"
                 DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:v${major_version}.${minor_version}${suffix}"
                 DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:v${major_version}${suffix}"
             END
-        ELSE
+        END
+        IF ! [ "$TAGGED" = "true" ]
             DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:$(echo "${EARTH_GIT_BRANCH}" | sed 's|/|_|g')${suffix}"
         END
         DO +PRINT_IMAGE_DIGEST --IMAGE="${IMAGE}:${EARTH_GIT_HASH}${suffix}"
@@ -391,12 +394,15 @@ SAVE_IMAGE:
     ARG IMAGE="$IMAGE"
 
     COPY --platform=native +version/version /
-    LET version="$(cat /version)"
-    LET major_version="$(echo "$version" | cut -d'.' -f1)"
-    LET minor_version="$(echo "$version" | cut -d'.' -f2)"
     DO --pass-args +LABELS
+    LET version="$(cat /version)"
 
-    IF [ "$TAGGED" = "true" ]
+    IF grep -qE 'rc|alpha|beta' /version && [ "$TAGGED" = "true" ]
+        SAVE IMAGE --push "${IMAGE}:v${version}${SUFFIX}"
+    ELSE IF [ "$TAGGED" = "true" ]
+        LET major_version="$(echo "$version" | cut -d'.' -f1)"
+        LET minor_version="$(echo "$version" | cut -d'.' -f2)"
+
         SAVE IMAGE --push "${IMAGE}:v${version}${SUFFIX}"
 
         IF [ "$LATEST" = "true" ]
@@ -404,10 +410,13 @@ SAVE_IMAGE:
             SAVE IMAGE --push "${IMAGE}:v${major_version}.${minor_version}${SUFFIX}"
             SAVE IMAGE --push "${IMAGE}:v${major_version}${SUFFIX}"
         END
-    ELSE
+    END
+
+    IF ! [ "$TAGGED" = "true" ]
         ARG IMAGE_TAG="$(echo "${EARTH_GIT_BRANCH}" | sed 's|/|_|g')"
         SAVE IMAGE --push "${IMAGE}:${IMAGE_TAG}${SUFFIX}"
     END
+
     SAVE IMAGE --push "${IMAGE}:${EARTH_GIT_HASH}${SUFFIX}"
 
 LABELS:
