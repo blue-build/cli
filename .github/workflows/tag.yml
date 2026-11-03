@@ -63,6 +63,6 @@ jobs:
       repo: ${{ github.repository }}
       ref: ${{ github.ref }}
       is_tag: true
-      is_latest: ${{ needs.latest-detection.outputs.latest }}
+      is_latest: ${{ needs.latest-detection.outputs.latest == 'true' }}
     secrets:
       SIGNING_SECRET: ${{ secrets.SIGNING_SECRET }}
