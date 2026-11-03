@@ -2,11 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.41-rc.4] - 2026-11-03
+
+### Bug Fixes
+
+- Fix my stupid typos
+
 ## [0.9.41-rc.3] - 2026-11-03
 
 ### Bug Fixes
 
 - Set is_latest by doing a conditional
+
+### Miscellaneous Tasks
+
+- Release
 
 ## [0.9.41-rc.2] - 2026-11-03
 
