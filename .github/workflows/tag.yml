@@ -31,7 +31,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - uses: dtolnay/rust-toolchain@5d458579430fc14a04a08a1e7d3694f545e91ce6 # stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
 
       - name: Run build
         env:
