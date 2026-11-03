@@ -14,7 +14,7 @@ on:
 
 jobs:
   build:
-    uses: ./.github/workflows/build.yml
+    uses: $/.github/workflows/build.yml
     permissions:
       contents: read # read repo contents
       packages: write # write package to ghcr
@@ -26,7 +26,7 @@ jobs:
     secrets:
       SIGNING_SECRET: ${{ secrets.SIGNING_SECRET }}
   test:
-    uses: ./.github/workflows/test.yml
+    uses: $/.github/workflows/test.yml
     permissions:
       contents: read # read repo contents
       packages: write # write package to ghcr

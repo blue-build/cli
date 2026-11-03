@@ -114,6 +114,27 @@ image-sign-publish: && image-digest
     --SIGN="true" \
     --RELEASE="true"
 
+tagged-image-signed-publish: && image-digest
+  earth \
+    --secret COSIGN_PRIVATE_KEY \
+    --secret GH_ACTOR \
+    --secret GH_TOKEN \
+    --push --ci -P +build-images-all \
+    --SIGN="true" \
+    --RELEASE="true" \
+    --TAGGED="true"
+
+latest-tagged-image-signed-publish: && image-digest
+  earth \
+    --secret COSIGN_PRIVATE_KEY \
+    --secret GH_ACTOR \
+    --secret GH_TOKEN \
+    --push --ci -P +build-images-all \
+    --SIGN="true" \
+    --RELEASE="true" \
+    --TAGGED="true" \
+    --LATEST="true"
+
 image-digest:
   earth +local-digest-list
 
@@ -134,13 +155,15 @@ release *args:
   #!/usr/bin/env bash
   set -euxo pipefail
 
+  rel_typ="$1"
+
   earth --ci +run-checks
 
   # --workspace: updating all crates in the workspace
   # --no-tag: do not push tag for each new version
   # --no-confirm: don't look for user input, just run the command
   # --execute: not a dry run
-  cargo release $1 -v \
+  cargo release "$rel_typ" -v \
     --workspace \
     --no-tag \
     --no-confirm \
@@ -150,7 +173,12 @@ release *args:
   echo "Pushing tag: v${VERSION}"
   git tag -m "v${VERSION}" "v${VERSION}"
   git push origin "v${VERSION}"
-  gh release create --generate-notes --latest "v${VERSION}"
+
+  if [ "$rel_typ" = "rc" ] || [ "$rel_typ" = "beta" ] || [ "$rel_typ" = "alpha" ]; then
+    gh release create --generate-notes --prerelease "v${VERSION}"
+  else
+    gh release create --generate-notes --latest "v${VERSION}"
+  fi
 
 should_push := if env('GITHUB_ACTIONS', '') != '' {
   if env('GH_TOKEN', '') != '' {

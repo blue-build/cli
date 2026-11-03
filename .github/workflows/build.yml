@@ -10,6 +10,12 @@ on:
       fork_pr:
         default: false
         type: boolean
+      is_tag:
+        default: false
+        type: boolean
+      is_latest:
+        default: false
+        type: boolean
     secrets:
       SIGNING_SECRET:
         required: true
@@ -144,7 +150,7 @@ jobs:
           password: ${{ github.token }}
 
       - name: Run build
-        if: ${{ ! inputs.fork_pr }}
+        if: ${{ ! inputs.fork_pr && ! inputs.is_tag }}
         env:
           GH_ACTOR: ${{ github.actor }}
           GH_TOKEN: ${{ github.token }}
@@ -156,10 +162,32 @@ jobs:
             just image-publish
           fi
 
-      - name: Run build
-        if: ${{ inputs.fork_pr }}
+      - name: Run fork build
+        if: ${{ inputs.fork_pr && ! inputs.is_tag }}
         run: |
           just image-build
+
+      - name: Run tagged build
+        if: ${{ ! inputs.fork_pr && inputs.is_tag && ! inputs.is_latest }}
+        env:
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ github.token }}
+          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+        run: |
+          just tagged-image-sign-publish
+
+      - name: Run latest tagged build
+        if: ${{ ! inputs.fork_pr && inputs.is_tag && inputs.is_latest }}
+        env:
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ github.token }}
+          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+        run: |
+          just latest-tagged-image-sign-publish
+
+      - name: Install regctl
+        if: ${{ ! inputs.fork_pr }}
+        uses: regclient/actions/regctl-installer@78eb729dbdb4ef6480e85ff697b4410e22112583 # main # zizmor: ignore[stale-action-refs] regctl does not publish tags
 
       - name: Store image digest info
         if: ${{ ! inputs.fork_pr }}
@@ -178,7 +206,7 @@ jobs:
     strategy:
       matrix:
         include: ${{ fromJson(needs.build-images.outputs.digests) }}
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
     with:
       image: ${{ matrix.image_ref }}
       digest: ${{ matrix.image_digest }}

@@ -1,4 +1,4 @@
-name: Earth tag +build
+name: Tag Build
 
 permissions: {}
 
@@ -6,97 +6,25 @@ on:
   push:
     tags:
       - "v*.*.*"
+      - "v*.*.*-rc.*"
+      - "v*.*.*-beta.*"
+      - "v*.*.*-alpha.*"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   FORCE_COLOR: 1
+  CLICOLOR_FORCE: 1
+  RUST_LOG_STYLE: always
 
 jobs:
-  arm64-prebuild:
-    timeout-minutes: 60
-    runs-on: ubuntu-24.04-arm
-    permissions:
-      packages: write # write pacakges to ghcr
-
-    steps:
-      - uses: EarthBuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
-        with:
-          use-cache: false
-
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        if: github.token != null
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
-      - name: Run build
-        id: build
-        run: |
-          just image-prebuild-publish
-
-  amd64-prebuild:
-    timeout-minutes: 60
+  latest-detection:
     runs-on: ubuntu-latest
     permissions:
-      packages: write # write pacakges to ghcr
-
+      contents: read
     steps:
-      - uses: EarthBuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
-        with:
-          use-cache: false
-
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        if: github.token != null
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
-      - name: Run build
-        id: build
-        run: |
-          just image-prebuild-publish
-
-  build-images:
-    permissions:
-      packages: write # write pacakges to ghcr
-    timeout-minutes: 60
-    runs-on: ubuntu-latest
-    outputs:
-      digests: ${{ steps.image_manifest_metadata.outputs.digests }}
-    needs:
-      - arm64-prebuild
-      - amd64-prebuild
-
-    steps:
-      - name: Maximize build space
-        uses: hastd/free-disk-space@68572aeaadb7f76bd408246328e95926323402b5 # v0.1.2
-        with:
-          skip-if-available: "64G"
-
-      # Setup repo and add caching
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -105,57 +33,34 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@5d458579430fc14a04a08a1e7d3694f545e91ce6 # stable
 
-      - uses: EarthBuild/actions-setup@f4d20223e70dbb43b5fc08c4d857ab9cf0dbf3ae # v2.2.0
-        with:
-          use-cache: false
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
-
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Run build
         env:
           GH_ACTOR: ${{ github.actor }}
           GH_TOKEN: ${{ github.token }}
           COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
         run: |
-          LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
           CARGO_PACKAGE_VERSION="v$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "blue-build") .version')"
-          LATEST=$(test "$CARGO_PACKAGE_VERSION" = "$LATEST_TAG" && echo true || echo false)
-          echo "LATEST=$LATEST" >>.arg
-          echo "TAGGED=true" >>.arg
-          just image-sign-publish
 
-      - name: Install regctl
-        uses: regclient/actions/regctl-installer@78eb729dbdb4ef6480e85ff697b4410e22112583 # main # zizmor: ignore[stale-action-refs] regctl does not publish tags
-
-      - name: Store image digest info
-        id: image_manifest_metadata
-        run: |
-          digest_list_json=$(jq -Rc '[ inputs | split(",") | {"image_ref":.[0],"image_digest":.[1]} ]' ./digest-list)
-          echo "digests=$digest_list_json" >> $GITHUB_OUTPUT
-
-  provenance:
-    needs: [build-images]
+          if grep -qE 'rc|beta|alpha' <<<"$CARGO_PACKAGE_VERSION"; then
+            LATEST="false"
+          else
+            LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+            LATEST=$(test "$CARGO_PACKAGE_VERSION" = "$LATEST_TAG" && echo true || echo false)
+          fi
+          echo "is_latest=$LATEST" >> $GITHUB_OUTPUT
+  build:
+    uses: $/.github/workflows/build.yml
+    needs:
+      - latest-detection
     permissions:
-      actions: read # for detecting the Github Actions environment.
-      id-token: write # for creating OIDC tokens for signing.
-      packages: write # for uploading attestations.
-    strategy:
-      matrix:
-        include: ${{ fromJson(needs.build-images.outputs.digests) }}
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
+      contents: read # read repo contents
+      packages: write # write package to ghcr
+      id-token: write # docker auth
+      actions: read # Provenance
     with:
-      image: ${{ matrix.image_ref }}
-      digest: ${{ matrix.image_digest }}
-      registry-username: ${{ github.actor }}
+      repo: ${{ github.repository }}
+      ref: ${{ github.ref }}
+      is_tag: true
+      is_latest: ${{ needs.latest-detection.outputs.is_latest }}
     secrets:
-      registry-password: ${{ secrets.GITHUB_TOKEN }}
+      SIGNING_SECRET: ${{ secrets.SIGNING_SECRET }}
