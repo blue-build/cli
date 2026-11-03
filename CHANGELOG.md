@@ -8,6 +8,10 @@ All notable changes to this project will be documented in this file.
 
 - Pass args into +local-digest-list to get correct digests
 
+### Miscellaneous Tasks
+
+- Release
+
 ## [0.9.41-rc.5] - 2026-11-03
 
 ### Bug Fixes
