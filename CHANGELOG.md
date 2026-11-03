@@ -2,11 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.41-rc.2] - 2026-11-03
+
+### Bug Fixes
+
+- Attempt to ensure that LATEST is always set
+
 ## [0.9.41-rc.1] - 2026-11-03
 
 ### Bug Fixes
 
 - Consolidate image build logic for tags (#910)
+
+### Miscellaneous Tasks
+
+- Release
 
 ## [0.9.40] - 2026-11-02
 
