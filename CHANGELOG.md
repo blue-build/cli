@@ -2,11 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.41-rc.6] - 2026-11-03
+
+### Bug Fixes
+
+- Pass args into +local-digest-list to get correct digests
+
 ## [0.9.41-rc.5] - 2026-11-03
 
 ### Bug Fixes
 
 - Adjust SAVE_IMAGE and digest-list to account for pre-releases
+
+### Miscellaneous Tasks
+
+- Release
 
 ## [0.9.41-rc.4] - 2026-11-03
 
