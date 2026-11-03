@@ -2,11 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.41-rc.3] - 2026-11-03
+
+### Bug Fixes
+
+- Set is_latest by doing a conditional
+
 ## [0.9.41-rc.2] - 2026-11-03
 
 ### Bug Fixes
 
 - Attempt to ensure that LATEST is always set
+
+### Miscellaneous Tasks
+
+- Release
 
 ## [0.9.41-rc.1] - 2026-11-03
 
