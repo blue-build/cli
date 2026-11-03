@@ -40,14 +40,16 @@ jobs:
           COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
         run: |
           CARGO_PACKAGE_VERSION="v$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "blue-build") .version')"
+          LATEST="false"
 
-          if grep -qE 'rc|beta|alpha' <<<"$CARGO_PACKAGE_VERSION"; then
-            LATEST="false"
-          else
+          if ! grep -qE 'rc|beta|alpha' <<<"$CARGO_PACKAGE_VERSION"; then
             LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
-            LATEST=$(test "$CARGO_PACKAGE_VERSION" = "$LATEST_TAG" && echo true || echo false)
+
+            if [ "$CARGO_PACKAGE_VERSION" = "$LATEST_TAG" ]; then
+              LATEST="true"
+            fi
           fi
-          echo "is_latest=$LATEST" >> $GITHUB_OUTPUT
+          echo "latest=$LATEST" >> $GITHUB_OUTPUT
   build:
     uses: $/.github/workflows/build.yml
     needs:
@@ -61,6 +63,6 @@ jobs:
       repo: ${{ github.repository }}
       ref: ${{ github.ref }}
       is_tag: true
-      is_latest: ${{ needs.latest-detection.outputs.is_latest }}
+      is_latest: ${{ needs.latest-detection.outputs.latest }}
     secrets:
       SIGNING_SECRET: ${{ secrets.SIGNING_SECRET }}
