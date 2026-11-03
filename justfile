@@ -114,7 +114,7 @@ image-sign-publish: && image-digest
     --SIGN="true" \
     --RELEASE="true"
 
-tagged-image-sign-publish: && image-digest
+tagged-image-sign-publish: && (image-digest "--TAGGED=true")
   earth \
     --secret COSIGN_PRIVATE_KEY \
     --secret GH_ACTOR \
@@ -124,7 +124,7 @@ tagged-image-sign-publish: && image-digest
     --RELEASE="true" \
     --TAGGED="true"
 
-latest-tagged-image-sign-publish: && image-digest
+latest-tagged-image-sign-publish: && (image-digest "--TAGGED=true" "--LATEST=true")
   earth \
     --secret COSIGN_PRIVATE_KEY \
     --secret GH_ACTOR \
@@ -135,8 +135,8 @@ latest-tagged-image-sign-publish: && image-digest
     --TAGGED="true" \
     --LATEST="true"
 
-image-digest:
-  earth +local-digest-list
+image-digest *args:
+  earth +local-digest-list {{ args }}
 
 # Expand the macros of a module for debugging
 expand *args:
