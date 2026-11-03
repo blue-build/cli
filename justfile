@@ -114,7 +114,7 @@ image-sign-publish: && image-digest
     --SIGN="true" \
     --RELEASE="true"
 
-tagged-image-signed-publish: && image-digest
+tagged-image-sign-publish: && image-digest
   earth \
     --secret COSIGN_PRIVATE_KEY \
     --secret GH_ACTOR \
@@ -124,7 +124,7 @@ tagged-image-signed-publish: && image-digest
     --RELEASE="true" \
     --TAGGED="true"
 
-latest-tagged-image-signed-publish: && image-digest
+latest-tagged-image-sign-publish: && image-digest
   earth \
     --secret COSIGN_PRIVATE_KEY \
     --secret GH_ACTOR \
