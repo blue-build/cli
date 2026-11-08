@@ -8,6 +8,10 @@ All notable changes to this project will be documented in this file.
 
 - Add output to job and use fromJSON to parse bool
 
+### Miscellaneous Tasks
+
+- Release
+
 ### Testing
 
 - Fail latest tag for release test
