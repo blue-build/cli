@@ -24,6 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      latest: ${{ steps.check-latest.outputs.latest }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -34,6 +36,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@5d458579430fc14a04a08a1e7d3694f545e91ce6 # stable
 
       - name: Run build
+        id: check-latest
         env:
           GH_ACTOR: ${{ github.actor }}
           GH_TOKEN: ${{ github.token }}
@@ -63,6 +66,6 @@ jobs:
       repo: ${{ github.repository }}
       ref: ${{ github.ref }}
       is_tag: true
-      is_latest: ${{ needs.latest-detection.outputs.latest == 'true' }}
+      is_latest: ${{ fromJSON(needs.latest-detection.outputs.latest) }}
     secrets:
       SIGNING_SECRET: ${{ secrets.SIGNING_SECRET }}
