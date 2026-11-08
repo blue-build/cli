@@ -39,6 +39,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
         run: |
+          set -x
           CARGO_PACKAGE_VERSION="v$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == "blue-build") .version')"
           LATEST="false"
 
@@ -50,6 +51,7 @@ jobs:
             fi
           fi
           echo "latest=$LATEST" >> $GITHUB_OUTPUT
+          set +x
   build:
     uses: $/.github/workflows/build.yml
     needs:
@@ -63,6 +65,6 @@ jobs:
       repo: ${{ github.repository }}
       ref: ${{ github.ref }}
       is_tag: true
-      is_latest: ${{ needs.latest-detection.outputs.latest == 'true' }}
+      is_latest: ${{ fromJSON(needs.latest-detection.outputs.latest) }}
     secrets:
       SIGNING_SECRET: ${{ secrets.SIGNING_SECRET }}

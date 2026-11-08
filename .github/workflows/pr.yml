@@ -10,29 +10,59 @@ on:
   pull_request:
 
 jobs:
-  build:
-    uses: $/.github/workflows/build.yml
-    permissions:
-      contents: read # read repo contents
-      packages: write # write package to ghcr
-      id-token: write # docker auth
-      actions: read # Provenance
+  test-latest:
+    runs-on: ubuntu-latest
+    outputs:
+      latest: ${{ steps.test.outputs.latest }}
+    steps:
+      - run: echo "latest=true" >> $GITHUB_OUTPUT
+        id: test
+
+  test-not-latest:
+    runs-on: ubuntu-latest
+    outputs:
+      latest: ${{ steps.test.outputs.latest }}
+    steps:
+      - run: echo "latest=false" >> $GITHUB_OUTPUT
+        id: test
+
+  test-check-latest:
+    uses: $/.github/workflows/is-latest-test.yml
+    needs:
+      - test-latest
     with:
-      repo: ${{ github.event.pull_request.head.repo.full_name }}
-      ref: ${{ github.event.pull_request.head.ref }}
-      fork_pr: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
-    secrets:
-      SIGNING_SECRET: ${{ secrets.SIGNING_SECRET }}
-  test:
-    uses: $/.github/workflows/test.yml
-    permissions:
-      contents: read # read repo contents
-      packages: write # write package to ghcr
-      id-token: write # docker auth
+      is_latest: ${{ fromJSON(needs.test-latest.outputs.latest) }}
+
+  test-check-not-latest:
+    uses: $/.github/workflows/is-not-latest-test.yml
+    needs:
+      - test-not-latest
     with:
-      repo: ${{ github.event.pull_request.head.repo.full_name }}
-      ref: ${{ github.event.pull_request.head.ref }}
-      pr_event_number: ${{ github.event.number }}
-      fork_pr: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
-    secrets:
-      TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}
+      is_latest: ${{ fromJSON(needs.test-not-latest.outputs.latest) }}
+
+  # build:
+  #   uses: $/.github/workflows/build.yml
+  #   permissions:
+  #     contents: read # read repo contents
+  #     packages: write # write package to ghcr
+  #     id-token: write # docker auth
+  #     actions: read # Provenance
+  #   with:
+  #     repo: ${{ github.event.pull_request.head.repo.full_name }}
+  #     ref: ${{ github.event.pull_request.head.ref }}
+  #     fork_pr: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+  #   secrets:
+  #     SIGNING_SECRET: ${{ secrets.SIGNING_SECRET }}
+  # test:
+  #   uses: $/.github/workflows/test.yml
+  #   permissions:
+  #     contents: read # read repo contents
+  #     packages: write # write package to ghcr
+  #     id-token: write # docker auth
+  #   with:
+  #     repo: ${{ github.event.pull_request.head.repo.full_name }}
+  #     ref: ${{ github.event.pull_request.head.ref }}
+  #     pr_event_number: ${{ github.event.number }}
+  #     fork_pr: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+  #   secrets:
+  #     TEST_SIGNING_SECRET: ${{ secrets.TEST_SIGNING_SECRET }}

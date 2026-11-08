@@ -1,0 +1,19 @@
+on:
+  workflow_call:
+    inputs:
+      is_latest:
+        default: false
+        type: boolean
+jobs:
+  test-check-not-latest:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "TIME TO TEST"
+      - name: Pass
+        if: ${{ ! inputs.is_latest }}
+        run: exit 0
+
+      - name: FAIL
+        if: ${{ inputs.is_latest }}
+        run: exit 1
+
