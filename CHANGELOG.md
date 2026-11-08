@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.42-rc.1] - 2026-11-08
+
+### Bug Fixes
+
+- Add output to job and use fromJSON to parse bool
+
+### Testing
+
+- Fail latest tag for release test
+
+## [0.9.41] - 2026-11-03
+
+### Miscellaneous Tasks
+
+- Release
+
 ## [0.9.41-rc.6] - 2026-11-03
 
 ### Bug Fixes
