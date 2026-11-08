@@ -183,9 +183,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
         run: |
-          echo "HARD FAILURE DURING RELEASE TEST!!!! REVERT AFTER TEST"
-          exit 1
-          # just latest-tagged-image-sign-publish
+          just latest-tagged-image-sign-publish
 
       - name: Install regctl
         if: ${{ ! inputs.fork_pr }}
