@@ -1,0 +1,19 @@
+accepted = [
+    "Apache-2.0",
+    "MIT",
+    "Unicode-3.0",
+    "ISC",
+    "BSD-3-Clause",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
+    "0BSD",
+    "MIT-0",
+    "Zlib",
+]
+workarounds = [
+    "ring",
+    "chrono",
+    "rustls",
+]
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
