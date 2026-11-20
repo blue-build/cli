@@ -1,0 +1,6 @@
+[book]
+authors = ["Gerald Pinder"]
+language = "en"
+multilingual = false
+src = "src"
+title = "BlueBuild"
