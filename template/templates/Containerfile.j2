@@ -43,16 +43,14 @@ RUN --mount=type=bind,from=stage-bins,src=/bins,dst=/tmp/bins \
 {%- endif %}
 
 {%- if let Some(version) = recipe.get_nushell_version() %}
-RUN --mount=type=bind,from={{ blue_build_utils::constants::NUSHELL_IMAGE }}:{{ version }},src=/nu,dst=/tmp/nu \
-  mkdir -p /usr/libexec/bluebuild/nu \
-  && cp -r /tmp/nu/* /usr/libexec/bluebuild/nu/
+COPY --from={{ self::nushell_image(version) }} {{ self::NUSHELL_FILES }} /usr/libexec/bluebuild/nu/
 {%- endif %}
 
 RUN \
   {{ scripts_mount("/scripts/") }} \
   /scripts/pre_build.sh
 
-{{ modules::modules_run(recipe.get_processed_modules(), main_stage) }}
+{{ modules::modules_run(recipe.get_processed_modules(), main_stage, "stage-nushell") }}
 
 RUN \
   {{ scripts_mount("/scripts/") }} \

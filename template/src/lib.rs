@@ -1,8 +1,11 @@
 use std::{borrow::Cow, collections::BTreeMap, fs, path::Path, process};
 
-use blue_build_recipe::{Recipe, RecipeGetters};
+use blue_build_recipe::{Recipe, RecipeGetters, StageRequiredFields};
 use blue_build_utils::{
-    constants::{CONFIG_PATH, CONTAINER_FILE, CONTAINERFILES_PATH, COSIGN_PUB_PATH, FILES_PATH},
+    constants::{
+        CONFIG_PATH, CONTAINER_FILE, CONTAINERFILES_PATH, COSIGN_PUB_PATH, FILES_PATH,
+        NUSHELL_IMAGE,
+    },
     container::Digest,
     secret::SecretMounts,
 };
@@ -101,6 +104,24 @@ pub struct GitlabCiTemplate<'a> {
 fn has_cosign_file() -> bool {
     trace!("has_cosign_file()");
     std::env::current_dir().is_ok_and(|p| p.join(COSIGN_PUB_PATH).exists())
+}
+
+const NUSHELL_FILES: &str = "/usr/bin/nu /usr/bin/nu_plugin_* /usr/bin/LICENSE /usr/bin/README.txt";
+
+fn nushell_image(version: &str) -> String {
+    let version = match version {
+        "default" => "latest",
+        version => version,
+    };
+    format!("{NUSHELL_IMAGE}:{version}-alpine")
+}
+
+fn nushell_stage_name(stage: &StageRequiredFields) -> String {
+    if stage.platform.is_some() {
+        format!("stage-nushell-{}", stage.name)
+    } else {
+        "stage-nushell".to_owned()
+    }
 }
 
 #[must_use]

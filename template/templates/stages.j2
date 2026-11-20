@@ -37,6 +37,11 @@ COPY --from={{ blue_build_utils::constants::BLUE_BUILD_IMAGE_REF }}:{{ version }
   {%- endif %}
 {%- endif %}
 
+{%- if recipe.get_nushell_version().is_none() %}
+FROM scratch AS stage-nushell
+COPY --from={{ self::nushell_image("default") }} {{ self::NUSHELL_FILES }} /nu/
+{%- endif %}
+
 # Keys for pre-verified images
 # Used to copy the keys into the final image
 # and perform an ostree commit.
@@ -51,6 +56,15 @@ COPY cosign.pub /keys/{{ recipe.get_name()|replace('/', "_") }}.pub
 {%- include "modules/akmods/akmods.j2" %}
 
 {%- for stage in recipe.get_processed_stages() %}
+  {%- let nushell_stage = self::nushell_stage_name(stage) %}
+  {%- if recipe.get_nushell_version().is_none() %}
+    {%- if let Some(platform) = stage.platform %}
+FROM --platform={{ platform }} {{ self::nushell_image("default") }} AS {{ nushell_stage }}-source
+FROM scratch AS {{ nushell_stage }}
+COPY --from={{ nushell_stage }}-source {{ self::NUSHELL_FILES }} /nu/
+    {%- endif %}
+  {%- endif %}
+
 # {{ stage.name|capitalize }} stage
 FROM \
   {%- if let Some(platform) = stage.platform %}
@@ -67,7 +81,7 @@ ARG RUST_LOG_STYLE=always
 
   {%- if stage.from != "scratch" %}
     {%- if let Some(version) = recipe.get_nushell_version() %}
-COPY --from={{ blue_build_utils::constants::NUSHELL_IMAGE }}:{{ version }} /nu/* /usr/libexec/bluebuild/nu/
+COPY --from={{ self::nushell_image(version) }} {{ self::NUSHELL_FILES }} /usr/libexec/bluebuild/nu/
     {%- endif %}
 # Add compatibility for modules
 RUN {{ scripts_mount("/tmp/scripts/") }} \
@@ -87,5 +101,5 @@ SHELL ["bash", "-c"]
     {%- endif %}
   {%- endif %}
 
-{{ modules::modules_run(stage.get_processed_modules(), stage.name) }}
+{{ modules::modules_run(stage.get_processed_modules(), stage.name, nushell_stage) }}
 {%- endfor %}

@@ -1,4 +1,4 @@
-{% macro modules_run(modules, stage_name) %}
+{% macro modules_run(modules, stage_name, nushell_stage) %}
 # Module RUNs
   {%- for module in modules %}
     {#- Builtin modules #}
@@ -31,7 +31,7 @@ RUN \
 
       {#- Nushell bin mount #}
       {%- if recipe.get_nushell_version().is_none() %}
-  --mount=type=bind,from={{ blue_build_utils::constants::NUSHELL_IMAGE }}:default,src=/nu,dst=/usr/libexec/bluebuild/nu \
+  --mount=type=bind,from={{ nushell_stage }},src=/nu,dst=/usr/libexec/bluebuild/nu \
       {%- endif %}
 
       {#- Akmods mount #}
