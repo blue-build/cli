@@ -213,7 +213,9 @@ generate-test-secret:
   echo "321tset" > integration-tests/test-repo/secrets/test-secret
 
 _output_digests:
-  cat "$BB_BUILD_DIGESTFILE"
+  [ "{{ should_push }}" = "true" ] \
+    && cat "$BB_BUILD_DIGESTFILE" \
+    || echo "No digest file"
 
 # Run all integration tests
 integration-tests: generate-test-secret test-docker-build test-empty-files-build test-arm64-build test-podman-build test-buildah-build test-generate-iso-image test-generate-iso-recipe test-multiplatform
