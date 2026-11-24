@@ -545,7 +545,7 @@ impl PostBuildDriver for PodmanDriver {
 
         let build_opts_base = BuildOpts::builder()
             .containerfile(opts.containerfile.as_ref())
-            .squash(true)
+            .squash(opts.squash)
             .secrets(opts.secrets)
             .privileged(opts.privileged);
 

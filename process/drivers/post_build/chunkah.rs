@@ -7,7 +7,7 @@ use blue_build_utils::{
 };
 use bon::Builder;
 use comlexr::cmd;
-use log::trace;
+use log::{LevelFilter, trace};
 use miette::{IntoDiagnostic, Result, bail};
 use oci_client::Reference;
 
@@ -122,6 +122,15 @@ impl PostBuildRunner for ChunkahRunner {
                 "--",
                 &self.chunkah_image_id,
                 "build",
+                match log::max_level() {
+                    // No `-q` arg exists
+                    LevelFilter::Off
+                    | LevelFilter::Error
+                    | LevelFilter::Warn
+                    | LevelFilter::Info => [],
+                    LevelFilter::Debug => ["-v"],
+                    LevelFilter::Trace => ["-vv"],
+                },
                 "--compressed",
                 "--config",
                 config_path,
