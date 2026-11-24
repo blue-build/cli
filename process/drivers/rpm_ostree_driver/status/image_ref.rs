@@ -409,22 +409,13 @@ impl std::fmt::Display for StorageSpecifier {
         write!(
             f,
             "{driver}{root}{run_root}{options}",
-            driver = self
-                .driver
-                .as_ref()
-                .map(|d| format!("{d}@"))
-                .unwrap_or_default(),
+            driver = self.driver.as_ref().map_or_default(|d| format!("{d}@")),
             root = self.root.display(),
             run_root = self
                 .run_root
                 .as_ref()
-                .map(|r| format!("+{}", r.display()))
-                .unwrap_or_default(),
-            options = self
-                .options
-                .as_ref()
-                .map(|o| format!(":{o}"))
-                .unwrap_or_default(),
+                .map_or_default(|r| format!("+{}", r.display())),
+            options = self.options.as_ref().map_or_default(|o| format!(":{o}")),
         )
     }
 }
