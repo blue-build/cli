@@ -75,7 +75,7 @@ nix profile install https://flakehub.com/f/blue-build/cli/*.tar.gz#bluebuild
 
 #### NixOS
 
-If you are using a dedicated flake to manage your dependencies, you can add BlueBuild as a flake input throught the [fh](https://github.com/DeterminateSystems/fh) cli (that can be installed through nixpkgs) and add `bluebuild` to it.
+If you are using a dedicated flake to manage your dependencies, you can add BlueBuild as a flake input through the [fh](https://github.com/DeterminateSystems/fh) cli (that can be installed through nixpkgs) and add `bluebuild` to it.
 ```nix
 {pkgs,inputs,...}: {
     ...
