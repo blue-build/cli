@@ -485,7 +485,6 @@ dependencies = [
  "colored",
  "comlexr",
  "fuzzy-matcher",
- "git2 0.21.0",
  "indexmap 2.14.0",
  "jsonschema",
  "log",
@@ -1949,18 +1948,6 @@ dependencies = [
  "libgit2-sys",
  "log",
  "url",
-]
-
-[[package]]
-name = "git2"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddddbf932745a6be37109b6112d3ee09696106f848449069d3a57bba937ab82e"
-dependencies = [
- "bitflags 2.13.1",
- "libc",
- "libgit2-sys",
- "log",
 ]
 
 [[package]]
@@ -5051,7 +5038,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1dd39b4b2077bd36e60ca28c31d494046e747759cb9b507a7d177bb64787c39e"
 dependencies = [
  "const_format",
- "git2 0.20.4",
+ "git2",
  "is_debug",
  "jiff",
 ]
