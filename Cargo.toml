@@ -37,7 +37,7 @@ shadow-rs = { version = "=2.0.0", default-features = false }
 structstruck = "=0.5.1"
 syntect = { version = "=5.3.0", default-features = false, features = ["default-fancy"] }
 tempfile = "=3.27.0"
-tokio = { version = "=1.53.1", default-features = false }
+tokio = { version = "=1.53.3", default-features = false }
 uuid = { version = "=1.25.0", features = ["v4"] }
 which = "=8.0.5"
 zeroize = { version = "=1.9.0", features = ["aarch64", "derive", "std", "serde"] }

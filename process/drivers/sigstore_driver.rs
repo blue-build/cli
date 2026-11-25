@@ -57,7 +57,10 @@ impl SigningDriver for SigstoreDriver {
             .private_key_to_encrypted_pem(b"")
             .into_diagnostic()
             .context("Failed to create encrypted private key")?;
-        let pub_key = keypair.public_key_to_pem().into_diagnostic()?;
+        let pub_key = keypair
+            .public_key_to_pem()
+            .into_diagnostic()?
+            .replace("\r\n", "\n");
 
         fs::write(priv_key_path, priv_key)
             .into_diagnostic()
@@ -97,7 +100,8 @@ impl SigningDriver for SigstoreDriver {
         let gen_pub = keypair
             .public_key_to_pem()
             .into_diagnostic()
-            .context("Failed to generate public key from private key")?;
+            .context("Failed to generate public key from private key")?
+            .replace("\r\n", "\n");
         debug!("Generated public key from private key");
         trace!("{gen_pub}");
 
@@ -215,25 +219,12 @@ impl SigningDriver for SigstoreDriver {
             PublicKeyVerifier::new(pub_key.as_bytes(), &signing_scheme).into_diagnostic()?;
         let verification_constraints: VerificationConstraintVec = vec![Box::new(verifier)];
 
-        debug!("Triangulating image");
         let auth = Auth::Anonymous;
-        let (cosign_signature_image, source_image_digest) =
-            retry(2, Duration::from_secs(5), || {
-                ASYNC_RUNTIME
-                    .block_on(client.triangulate(&image_digest, &auth))
-                    .into_diagnostic()
-                    .with_context(|| format!("Failed to triangulate image {image_digest}"))
-            })?;
-        trace!("{cosign_signature_image}, {source_image_digest}");
-
         let trusted_layers = retry(2, Duration::from_secs(5), || {
             ASYNC_RUNTIME
-                .block_on(client.trusted_signature_layers(
-                    &auth,
-                    &source_image_digest,
-                    &cosign_signature_image,
-                ))
+                .block_on(client.trusted_signature_layers(&auth, &image_digest))
                 .into_diagnostic()
+                .with_context(|| format!("Failed to triangulate image {image_digest}"))
         })?;
 
         sigstore::cosign::verify_constraints(&trusted_layers, verification_constraints.iter())
