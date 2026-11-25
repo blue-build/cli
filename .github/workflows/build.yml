@@ -113,6 +113,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       digests: ${{ steps.image_manifest_metadata.outputs.digests }}
+      digest_list: ${{ steps.image_manifest_metadata.outputs.digest_list }}
     needs:
       - arm64-prebuild
       - amd64-prebuild
@@ -185,18 +186,47 @@ jobs:
         run: |
           just latest-tagged-image-sign-publish
 
-      - name: Install regctl
-        if: ${{ ! inputs.fork_pr }}
-        uses: regclient/actions/regctl-installer@78eb729dbdb4ef6480e85ff697b4410e22112583 # main # zizmor: ignore[stale-action-refs] regctl does not publish tags
-
       - name: Store image digest info
         if: ${{ ! inputs.fork_pr }}
         id: image_manifest_metadata
+        shell: bash
         run: |
           digest_list_json=$(jq -Rc '[ inputs | split(",") | {"image_ref":.[0],"image_digest":.[1]} ]' ./digest-list)
-          echo "digests=$digest_list_json" >> $GITHUB_OUTPUT
+          echo "digests=${digest_list_json}" >>"${GITHUB_OUTPUT}"
+          digest_list_csv=$(awk -F, '{ print $2 }' ./digest-list | paste -s -d, -)
+          echo "digest_list=${digest_list_csv}" >>"${GITHUB_OUTPUT}"
 
+  # Generate SLSA v1 level 3 build provenance attestation
   provenance:
+    if: ${{ ! inputs.fork_pr }}
+    needs: [build-images]
+    permissions:
+      actions: read # to detect the Github Actions environment
+      contents: read
+      id-token: write # to create OIDC tokens for signing
+    uses: slsa-framework/actions/.github/workflows/attest_actions.yml@v0.2.2 # zizmor: ignore[unpinned-uses]
+    with:
+      build-from-source: false
+      # renovate: datasource=github-releases depName=slsa-framework/attester
+      version: v0.1.2
+      watch-jobs: build-images
+      collect-artifacts: false
+      subjects: ${{ needs.build-images.outputs.digest_list }}
+      artifact-name: slsa-provenance
+
+  push-attestation:
+    if: ${{ ! inputs.fork_pr }}
+    needs: [build-images, provenance]
+    permissions:
+      packages: write # to push attestation to GHCR
+    uses: $/.github/workflows/push-provenance.yml
+    with:
+      artifact-name: slsa-provenance
+      digests: ${{ needs.build-images.outputs.digests }}
+
+  # Generate SLSA v0.2 provenance attestation. This is only needed for
+  # backwards compatibility and can be removed later.
+  old-provenance:
     if: ${{ ! inputs.fork_pr }}
     needs: [build-images]
     permissions:
@@ -206,7 +236,7 @@ jobs:
     strategy:
       matrix:
         include: ${{ fromJson(needs.build-images.outputs.digests) }}
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0 # zizmor: ignore[unpinned-uses]
     with:
       image: ${{ matrix.image_ref }}
       digest: ${{ matrix.image_digest }}
